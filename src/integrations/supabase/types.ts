@@ -7678,6 +7678,7 @@ export type Database = {
           attempt_count: number | null
           cancel_reason: string | null
           cancelled_at: string | null
+          channel_type: string
           created_at: string
           created_by: string | null
           current_instance_index: number | null
@@ -7701,6 +7702,7 @@ export type Database = {
           original_scheduled_at: string
           scheduled_at: string
           sent_at: string | null
+          sms_phone: string | null
           status: string
           template_id: string | null
           updated_at: string
@@ -7710,6 +7712,7 @@ export type Database = {
           attempt_count?: number | null
           cancel_reason?: string | null
           cancelled_at?: string | null
+          channel_type?: string
           created_at?: string
           created_by?: string | null
           current_instance_index?: number | null
@@ -7733,6 +7736,7 @@ export type Database = {
           original_scheduled_at: string
           scheduled_at: string
           sent_at?: string | null
+          sms_phone?: string | null
           status?: string
           template_id?: string | null
           updated_at?: string
@@ -7742,6 +7746,7 @@ export type Database = {
           attempt_count?: number | null
           cancel_reason?: string | null
           cancelled_at?: string | null
+          channel_type?: string
           created_at?: string
           created_by?: string | null
           current_instance_index?: number | null
@@ -7765,6 +7770,7 @@ export type Database = {
           original_scheduled_at?: string
           scheduled_at?: string
           sent_at?: string | null
+          sms_phone?: string | null
           status?: string
           template_id?: string | null
           updated_at?: string
@@ -8644,6 +8650,7 @@ export type Database = {
       }
       non_purchase_message_templates: {
         Row: {
+          channel_type: string
           created_at: string
           delay_minutes: number
           fallback_bot_enabled: boolean | null
@@ -8665,6 +8672,7 @@ export type Database = {
           whatsapp_instance_id: string | null
         }
         Insert: {
+          channel_type?: string
           created_at?: string
           delay_minutes?: number
           fallback_bot_enabled?: boolean | null
@@ -8686,6 +8694,7 @@ export type Database = {
           whatsapp_instance_id?: string | null
         }
         Update: {
+          channel_type?: string
           created_at?: string
           delay_minutes?: number
           fallback_bot_enabled?: boolean | null

@@ -38,6 +38,8 @@ interface ScheduledMessage {
   media_type: string | null;
   media_url: string | null;
   media_filename: string | null;
+  channel_type: string | null; // 'whatsapp' or 'sms'
+  sms_phone: string | null;
 }
 
 interface Lead {
@@ -253,6 +255,129 @@ async function sendTextMessage(instanceName: string, phone: string, message: str
   return { success: true };
 }
 
+// Send message via SMS using FacilitaMóvel
+async function sendViaSms(
+  msg: ScheduledMessage, 
+  lead: Lead, 
+  normalizedPhone: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Get SMS provider config for the organization
+    const { data: config, error: configError } = await supabase
+      .from('sms_provider_config')
+      .select('api_user, api_password, is_active')
+      .eq('organization_id', msg.organization_id)
+      .eq('provider', 'facilitamovel')
+      .single();
+
+    if (configError || !config || !config.is_active || !config.api_user || !config.api_password) {
+      console.error(`SMS provider not configured for org ${msg.organization_id}`);
+      return { success: false, error: 'Provedor de SMS não configurado' };
+    }
+
+    // Check SMS credits balance
+    const { data: balance } = await supabase
+      .from('sms_credits_balance')
+      .select('current_credits')
+      .eq('organization_id', msg.organization_id)
+      .single();
+
+    if (!balance || balance.current_credits < 1) {
+      console.error(`No SMS credits for org ${msg.organization_id}`);
+      return { success: false, error: 'Créditos de SMS insuficientes' };
+    }
+
+    // Format phone for SMS (remove +55 if present, keep just DDD+number)
+    let formattedPhone = normalizedPhone.replace(/\D/g, '');
+    if (formattedPhone.startsWith('55') && formattedPhone.length > 11) {
+      formattedPhone = formattedPhone.substring(2);
+    }
+
+    // Generate external key
+    const extKey = `sched-${msg.id}`;
+
+    // Encode message for URL
+    const encodedMessage = encodeURIComponent(msg.final_message);
+
+    // Call FacilitaMóvel API
+    const facilitaUrl = `https://www.facilitamovel.com.br/api/simpleSend.ft?user=${encodeURIComponent(config.api_user)}&password=${encodeURIComponent(config.api_password)}&destinatario=${formattedPhone}&msg=${encodedMessage}&externalkey=${extKey}`;
+
+    console.log(`Sending SMS to ${formattedPhone} via FacilitaMóvel`);
+
+    const response = await fetch(facilitaUrl);
+    const responseText = await response.text();
+    console.log('FacilitaMóvel response:', responseText);
+
+    // Parse response (format: "6 - Mensagem enviada;123456" or error codes)
+    const [statusPart, smsId] = responseText.split(';');
+    const statusCode = parseInt(statusPart.split(' ')[0] || statusPart);
+
+    let errorMessage: string | null = null;
+
+    switch (statusCode) {
+      case 5: // Mensagem Agendada
+      case 6: // Mensagem enviada
+        // Success - deduct credits
+        await supabase.rpc('deduct_sms_credits', {
+          p_organization_id: msg.organization_id,
+          p_credits_to_deduct: 1,
+        });
+
+        // Log usage
+        await supabase.from('sms_usage').insert({
+          organization_id: msg.organization_id,
+          lead_id: msg.lead_id,
+          phone: formattedPhone,
+          message: msg.final_message,
+          facilita_sms_id: smsId?.trim() || null,
+          external_key: extKey,
+          status: 'sent',
+          status_code: statusCode,
+          credits_used: 1,
+        });
+
+        console.log(`SMS sent successfully to ${formattedPhone}, smsId: ${smsId}`);
+        return { success: true };
+
+      case 1:
+        errorMessage = 'Login inválido na plataforma FacilitaMóvel';
+        break;
+      case 2:
+        errorMessage = 'Usuário sem créditos na FacilitaMóvel';
+        break;
+      case 3:
+        errorMessage = 'Número de celular inválido';
+        break;
+      case 4:
+        errorMessage = 'Mensagem inválida';
+        break;
+      default:
+        errorMessage = `Erro FacilitaMóvel: ${responseText}`;
+    }
+
+    // Log failed attempt
+    await supabase.from('sms_usage').insert({
+      organization_id: msg.organization_id,
+      lead_id: msg.lead_id,
+      phone: formattedPhone,
+      message: msg.final_message,
+      external_key: extKey,
+      status: 'failed',
+      status_code: statusCode,
+      credits_used: 0,
+      error_message: errorMessage,
+    });
+
+    console.error(`SMS failed: ${errorMessage}`);
+    return { success: false, error: errorMessage };
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown SMS error';
+    console.error(`Error sending SMS: ${errorMsg}`);
+    return { success: false, error: errorMsg };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -361,8 +486,17 @@ serve(async (req) => {
           continue;
         }
 
-        // Use the fallback system to send
-        const sendResult = await sendWithFallback(msg, lead, normalizedPhone);
+        // Check channel type and send accordingly
+        const channelType = msg.channel_type || 'whatsapp';
+        let sendResult: { success: boolean; error?: string; usedInstanceId?: string };
+        
+        if (channelType === 'sms') {
+          // Send via SMS
+          sendResult = await sendViaSms(msg, lead, normalizedPhone);
+        } else {
+          // Use the fallback system to send via WhatsApp
+          sendResult = await sendWithFallback(msg, lead, normalizedPhone);
+        }
 
         if (sendResult.success) {
           await supabase

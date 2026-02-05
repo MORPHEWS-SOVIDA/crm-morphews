@@ -19,6 +19,7 @@ interface ScheduleMessagesParams {
  * Hook to schedule automated messages when a non-purchase reason is selected.
  * Fetches templates for the reason and creates scheduled messages.
  * Also cancels any previously pending messages for the same lead.
+  * Now supports both WhatsApp and SMS channels.
  */
 export function useScheduleMessages() {
   const { tenantId } = useTenant();
@@ -147,24 +148,30 @@ export function useScheduleMessages() {
           .replace(/\{\{produto\}\}/gi, params.productName || '')
           .replace(/\{\{marca_do_produto\}\}/gi, params.productBrand || '');
 
+        // Determine channel type (default to whatsapp for backwards compatibility)
+        const channelType = (template as any).channel_type || 'whatsapp';
+
         scheduledMessages.push({
           organization_id: tenantId,
           lead_id: params.leadId,
           template_id: template.id,
-          whatsapp_instance_id: template.whatsapp_instance_id,
+          whatsapp_instance_id: channelType === 'whatsapp' ? template.whatsapp_instance_id : null,
           fallback_instance_ids: template.fallback_instance_ids || null,
           scheduled_at: scheduledAt.toISOString(),
           original_scheduled_at: scheduledAt.toISOString(),
           final_message: finalMessage,
           status: 'pending',
           created_by: user?.id || null,
-          media_type: template.media_type || null,
-          media_url: template.media_url || null,
-          media_filename: template.media_filename || null,
+          media_type: channelType === 'whatsapp' ? (template.media_type || null) : null,
+          media_url: channelType === 'whatsapp' ? (template.media_url || null) : null,
+          media_filename: channelType === 'whatsapp' ? (template.media_filename || null) : null,
           // Bot fallback fields
-          fallback_bot_enabled: template.fallback_bot_enabled ?? false,
-          fallback_bot_id: template.fallback_bot_id || null,
-          fallback_timeout_minutes: template.fallback_timeout_minutes ?? 30,
+          fallback_bot_enabled: channelType === 'whatsapp' ? (template.fallback_bot_enabled ?? false) : false,
+          fallback_bot_id: channelType === 'whatsapp' ? (template.fallback_bot_id || null) : null,
+          fallback_timeout_minutes: channelType === 'whatsapp' ? (template.fallback_timeout_minutes ?? 30) : 30,
+          // Channel and SMS fields
+          channel_type: channelType,
+          sms_phone: channelType === 'sms' ? params.leadWhatsapp : null,
         });
       }
 

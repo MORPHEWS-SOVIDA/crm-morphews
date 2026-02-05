@@ -25,6 +25,8 @@ export interface NonPurchaseMessageTemplate {
   fallback_bot_enabled: boolean;
   fallback_bot_id: string | null;
   fallback_timeout_minutes: number;
+  // Channel type
+  channel_type: 'whatsapp' | 'sms';
 }
 
 export interface MessageTemplateFormData {
@@ -44,6 +46,8 @@ export interface MessageTemplateFormData {
   fallback_bot_enabled?: boolean;
   fallback_bot_id?: string | null;
   fallback_timeout_minutes?: number;
+  // Channel type
+  channel_type?: 'whatsapp' | 'sms';
 }
 
 export function useNonPurchaseMessageTemplates(reasonId?: string) {
