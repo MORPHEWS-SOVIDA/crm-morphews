@@ -370,8 +370,8 @@ export default function WhatsAppChat() {
       if (!selectedConversation) return;
       if (!silent) setIsLoading(true);
 
-      // Buscar mensagens (sempre filtrar por instance_id para NÃO misturar instâncias)
-      const effectiveInstanceId = activeInstanceId ?? selectedConversation.instance_id;
+      // Buscar mensagens - usar instance_id da conversa (não depender de activeInstanceId que pode não estar setado ainda)
+      const effectiveInstanceId = selectedConversation.instance_id;
 
       const { data, error } = await supabase
         .from('whatsapp_messages')
