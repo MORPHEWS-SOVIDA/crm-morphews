@@ -243,30 +243,51 @@ async function sendEvolutionMessage(params: {
   });
 
   if (response.ok && result?.key?.id) {
-    return { success: true, providerMessageId: result.key.id, raw: result };
+    return { success: true, providerMessageId: result.key.id, raw: result, errorCode: null };
   }
 
   // Parse error message for better user feedback
   let errorMsg = result?.message || result?.error || `HTTP ${response.status}`;
   const responseMessage = result?.response?.message;
+  let errorCode = "UNKNOWN_ERROR";
+  
+  // Check for "exists: false" pattern in response (number not on WhatsApp)
+  const responseArray = result?.response;
+  const existsCheck = Array.isArray(responseArray) && responseArray.some((r: any) => r?.exists === false);
   
   // Check for common error patterns
-  if (response.status === 400 || errorMsg === "Bad Request") {
+  if (response.status === 400 || errorMsg === "Bad Request" || existsCheck) {
     // Check if it's a "not on WhatsApp" error
-    if (responseMessage?.includes?.("not on whatsapp") || 
+    if (existsCheck ||
+        responseMessage?.includes?.("not on whatsapp") || 
         responseMessage?.includes?.("não está no WhatsApp") ||
         responseMessage?.includes?.("The number") ||
         errorMsg.includes?.("not registered")) {
-      errorMsg = "Este número não está registrado no WhatsApp. Verifique se o número está correto.";
+      errorMsg = "Número não encontrado no WhatsApp. Verifique se o número está correto e possui WhatsApp ativo.";
+      errorCode = "NUMBER_NOT_ON_WHATSAPP";
     } else if (responseMessage?.includes?.("blocked") || errorMsg.includes?.("blocked")) {
-      errorMsg = "Este número pode ter bloqueado a instância do WhatsApp.";
+      errorMsg = "Este número pode ter bloqueado sua instância do WhatsApp.";
+      errorCode = "NUMBER_BLOCKED";
+    } else if (responseMessage?.includes?.("invalid") || errorMsg.includes?.("invalid number")) {
+      errorMsg = "Formato de número inválido. Verifique o DDD e número.";
+      errorCode = "INVALID_NUMBER_FORMAT";
     } else {
       // Generic bad request - likely invalid number
       errorMsg = `Falha ao enviar: número pode não estar no WhatsApp ou formato inválido (${number})`;
+      errorCode = "BAD_REQUEST";
     }
+  } else if (response.status === 401 || response.status === 403) {
+    errorMsg = "Instância sem autorização. Reconecte o WhatsApp.";
+    errorCode = "INSTANCE_UNAUTHORIZED";
+  } else if (response.status === 404) {
+    errorMsg = "Instância não encontrada ou desconectada. Verifique a conexão.";
+    errorCode = "INSTANCE_NOT_FOUND";
+  } else if (response.status >= 500) {
+    errorMsg = "Servidor WhatsApp temporariamente indisponível. Tente novamente.";
+    errorCode = "SERVER_ERROR";
   }
   
-  return { success: false, providerMessageId: null, error: errorMsg };
+  return { success: false, providerMessageId: null, error: errorMsg, errorCode };
 }
 
 // ============================================================================
@@ -571,23 +592,30 @@ Deno.serve(async (req) => {
       error: sendResult.error,
     });
 
-    // Save message to database
+    // Save message to database (include error_details if failed)
+    const messageInsert: Record<string, any> = {
+      conversation_id: conversationId,
+      instance_id: instanceId,
+      content: finalType === "text" ? text : (mediaCaption ?? text ?? ""),
+      direction: "outbound",
+      message_type: finalType,
+      media_url: finalMediaUrlForDb || finalMediaUrl,
+      media_caption: mediaCaption ?? null,
+      provider: isEvolution ? "evolution" : "wasenderapi",
+      provider_message_id: sendResult.providerMessageId,
+      status: sendResult.success ? "sent" : "failed",
+      is_from_bot: false,
+      sent_by_user_id: senderUserId || null, // Quem enviou (multi-atendimento)
+    };
+    
+    // Add error details for failed messages
+    if (!sendResult.success && sendResult.error) {
+      messageInsert.error_details = sendResult.error;
+    }
+
     const { data: savedMessage, error: saveError } = await supabaseAdmin
       .from("whatsapp_messages")
-      .insert({
-        conversation_id: conversationId,
-        instance_id: instanceId,
-        content: finalType === "text" ? text : (mediaCaption ?? text ?? ""),
-        direction: "outbound",
-        message_type: finalType,
-        media_url: finalMediaUrlForDb || finalMediaUrl,
-        media_caption: mediaCaption ?? null,
-        provider: isEvolution ? "evolution" : "wasenderapi",
-        provider_message_id: sendResult.providerMessageId,
-        status: sendResult.success ? "sent" : "failed",
-        is_from_bot: false,
-        sent_by_user_id: senderUserId || null, // Quem enviou (multi-atendimento)
-      })
+      .insert(messageInsert)
       .select()
       .single();
 

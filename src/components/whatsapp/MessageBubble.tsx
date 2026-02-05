@@ -54,6 +54,26 @@ export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
       case 'read':
         return <CheckCheck className="h-3 w-3 text-blue-400" />;
       case 'failed':
+        // Parse error to show user-friendly message
+        const errorDetails = message.error_details || '';
+        let errorTitle = 'Falha no envio';
+        let errorDescription = errorDetails || 'Erro desconhecido. Tente novamente.';
+        
+        // Identify error type for better UX
+        if (errorDetails.includes('não encontrado no WhatsApp') || errorDetails.includes('não está no WhatsApp')) {
+          errorTitle = '❌ Número sem WhatsApp';
+        } else if (errorDetails.includes('bloqueado') || errorDetails.includes('blocked')) {
+          errorTitle = '🚫 Número bloqueou você';
+        } else if (errorDetails.includes('inválido') || errorDetails.includes('formato')) {
+          errorTitle = '⚠️ Número inválido';
+        } else if (errorDetails.includes('indisponível') || errorDetails.includes('temporariamente')) {
+          errorTitle = '⏳ Servidor indisponível';
+        } else if (errorDetails.includes('Reconecte') || errorDetails.includes('autorização')) {
+          errorTitle = '🔌 Instância desconectada';
+        } else if (errorDetails.includes('outro vendedor') || errorDetails.includes('atendida')) {
+          errorTitle = '👥 Conversa atribuída a outro';
+        }
+        
         return (
           <TooltipProvider>
             <Tooltip>
@@ -61,9 +81,9 @@ export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
                 <AlertTriangle className="h-3 w-3 text-red-500 cursor-help" />
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs">
-                <p className="text-xs font-medium text-red-600">Falha no envio</p>
-                <p className="text-xs text-muted-foreground">
-                  {message.error_details || 'Erro desconhecido. Tente novamente.'}
+                <p className="text-xs font-medium text-red-600">{errorTitle}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {errorDescription}
                 </p>
               </TooltipContent>
             </Tooltip>
