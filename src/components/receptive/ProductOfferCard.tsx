@@ -576,6 +576,17 @@ export function ProductOfferCard({
           <>
             <Separator />
             <div className="space-y-4">
+              {/* Commission info for manipulados - always uses seller default */}
+              <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
+                <Coins className="w-4 h-4 text-blue-600" />
+                <span className="text-sm text-blue-700 dark:text-blue-300">
+                  Comissão padrão: <strong>{defaultCommission}%</strong>
+                  {manipuladoPrice > 0 && (
+                    <> = R$ {((manipuladoPrice * defaultCommission) / 100 / 100).toFixed(2)}</>
+                  )}
+                </span>
+              </div>
+              
               <div className="space-y-2">
                 <Label>Número da Requisição *</Label>
                 <Input
