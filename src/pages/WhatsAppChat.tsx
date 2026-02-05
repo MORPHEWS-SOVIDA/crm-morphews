@@ -563,7 +563,19 @@ export default function WhatsAppChat() {
   }, []);
 
   const refreshMessages = async () => {
+    if (!selectedConversation) return;
+
     setIsRefreshing(true);
+
+    try {
+      // Backfill missing inbound messages from provider (fixes occasional webhook drops)
+      await supabase.functions.invoke('whatsapp-sync-messages', {
+        body: { conversationId: selectedConversation.id, limit: 120 },
+      });
+    } catch (e) {
+      console.warn('[WhatsAppChat] Sync failed, falling back to local refresh:', e);
+    }
+
     await fetchMessages();
     setIsRefreshing(false);
     toast.success('Mensagens atualizadas');
