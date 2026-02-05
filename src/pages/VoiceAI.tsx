@@ -1,8 +1,9 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Phone, Bot, BarChart3, AlertCircle } from "lucide-react";
+import { Phone, Bot, BarChart3, AlertCircle, Zap, BookOpen } from "lucide-react";
 import { VoiceAIAgentConfig } from "@/components/voice-ai/VoiceAIAgentConfig";
 import { VoiceAITestPanel } from "@/components/voice-ai/VoiceAITestPanel";
 import { VoiceAIDashboard } from "@/components/voice-ai/VoiceAIDashboard";
+import { AutomationsConfig } from "@/components/voice-ai/AutomationsConfig";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOrgHasFeature } from "@/hooks/usePlanFeatures";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -52,6 +53,10 @@ export default function VoiceAI() {
             <Bot className="h-4 w-4" />
             Agentes
           </TabsTrigger>
+          <TabsTrigger value="automations" className="flex items-center gap-2">
+            <Zap className="h-4 w-4" />
+            Automações
+          </TabsTrigger>
           <TabsTrigger value="test" className="flex items-center gap-2">
             <Phone className="h-4 w-4" />
             Testar
@@ -64,6 +69,10 @@ export default function VoiceAI() {
 
         <TabsContent value="agents">
           <VoiceAIAgentConfig />
+        </TabsContent>
+
+        <TabsContent value="automations">
+          <AutomationsConfig />
         </TabsContent>
 
         <TabsContent value="test">
