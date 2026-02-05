@@ -346,7 +346,7 @@ const App = () => (
                 
                 {/* SMS Center */}
                 <Route
-                  path="/sms"
+                  path="/settings/sms"
                   element={
                     <ProtectedRoute>
                       <SmsCenter />
