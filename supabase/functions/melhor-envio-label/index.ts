@@ -292,8 +292,12 @@ async function createLabel(
     console.warn('[Melhor Envio] Generate failed, label might not be ready yet');
   }
 
-  // Step 4: Get print URL and download PDF to our storage
-  const printPayload = { orders: [orderId] };
+  // Step 4: Get PUBLIC print URL from Melhor Envio
+  // Using mode: "public" makes the URL accessible without login
+  const printPayload = { 
+    mode: "public",  // CRITICAL: public mode allows download without login
+    orders: [orderId] 
+  };
 
   const printResponse = await fetch(`${baseUrl}/me/shipment/print`, {
     method: 'POST',
@@ -318,54 +322,15 @@ async function createLabel(
       const melhorEnvioPdfUrl = printData.url;
       
       if (melhorEnvioPdfUrl) {
-        console.log('[Melhor Envio] Downloading PDF from Melhor Envio to save in storage...');
+        // The public URL from Melhor Envio is an HTML page that renders the PDF
+        // It's accessible without login when mode: "public" is used
+        labelPdfUrl = melhorEnvioPdfUrl;
+        storagePdfUrl = melhorEnvioPdfUrl; // Use the public URL directly
         
-        // Download the PDF from Melhor Envio
-        const pdfResponse = await fetch(melhorEnvioPdfUrl, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
-          },
-        });
-        
-        if (pdfResponse.ok) {
-          const pdfBuffer = await pdfResponse.arrayBuffer();
-          const pdfBytes = new Uint8Array(pdfBuffer);
-          
-          // Save PDF to Supabase Storage
-          const fileName = `melhor-envio/${organization_id}/${orderId}.pdf`;
-          
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('shipping-labels')
-            .upload(fileName, pdfBytes, {
-              contentType: 'application/pdf',
-              upsert: true,
-            });
-          
-          if (uploadError) {
-            console.warn('[Melhor Envio] Failed to upload PDF to storage:', uploadError.message);
-            // Fall back to original URL
-            labelPdfUrl = melhorEnvioPdfUrl;
-          } else {
-            console.log('[Melhor Envio] PDF uploaded to storage:', uploadData.path);
-            
-            // Get public URL from storage
-            const { data: publicUrlData } = supabase.storage
-              .from('shipping-labels')
-              .getPublicUrl(fileName);
-            
-            storagePdfUrl = publicUrlData?.publicUrl;
-            labelPdfUrl = storagePdfUrl || melhorEnvioPdfUrl;
-            
-            console.log('[Melhor Envio] Storage public URL:', storagePdfUrl);
-          }
-        } else {
-          console.warn('[Melhor Envio] Failed to download PDF from Melhor Envio URL');
-          labelPdfUrl = melhorEnvioPdfUrl;
-        }
+        console.log('[Melhor Envio] Public print URL:', melhorEnvioPdfUrl);
       }
     } catch (err) {
-      console.warn('[Melhor Envio] Could not parse print response or save PDF:', err);
+      console.warn('[Melhor Envio] Could not parse print response:', err);
     }
   }
 
