@@ -1,4 +1,5 @@
 import { useState } from "react";
+ import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,9 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Bot, Plus, Save, Phone, Settings2 } from "lucide-react";
+ import { Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import { toast } from "@/hooks/use-toast";
+ import { VoiceLibrary } from './VoiceLibrary';
+ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface VoiceAIAgent {
   id: string;
@@ -41,6 +45,12 @@ export function VoiceAIAgentConfig() {
     system_prompt: "",
     is_active: true,
   });
+   const [showVoiceLibrary, setShowVoiceLibrary] = useState(false);
+ 
+   const handleSelectVoice = useCallback((voiceId: string, voiceName: string) => {
+     setFormData(prev => ({ ...prev, voice_id: voiceId, voice_name: voiceName }));
+     setShowVoiceLibrary(false);
+   }, []);
 
   const { data: agents, isLoading } = useQuery({
     queryKey: ["voice-ai-agents", tenantId],
@@ -301,6 +311,24 @@ export function VoiceAIAgentConfig() {
                   />
                 </div>
               </div>
+
+             {/* Voice Library */}
+             <Collapsible open={showVoiceLibrary} onOpenChange={setShowVoiceLibrary}>
+               <CollapsibleTrigger asChild>
+                 <Button variant="outline" type="button" className="w-full">
+                   <Volume2 className="h-4 w-4 mr-2" />
+                   {formData.voice_id 
+                     ? `Voz selecionada: ${formData.voice_name || formData.voice_id.substring(0, 12)}...`
+                     : 'Escolher da Biblioteca de Vozes'}
+                 </Button>
+               </CollapsibleTrigger>
+               <CollapsibleContent className="mt-3">
+                 <VoiceLibrary 
+                   selectedVoiceId={formData.voice_id}
+                   onSelectVoice={handleSelectVoice}
+                 />
+               </CollapsibleContent>
+             </Collapsible>
 
               <div className="space-y-2">
                 <Label htmlFor="welcome_message">Mensagem de Boas-vindas</Label>
