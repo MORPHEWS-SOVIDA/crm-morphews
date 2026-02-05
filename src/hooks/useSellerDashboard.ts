@@ -89,17 +89,26 @@ export interface SaleSummary {
 interface SellerDashboardOptions {
   treatmentDays?: number;
   commissionMonth?: Date;
+  pendingSalesStart?: Date;
+  pendingSalesEnd?: Date;
 }
 
 export function useSellerDashboard(options: SellerDashboardOptions = {}) {
-  const { treatmentDays = 5, commissionMonth = new Date() } = options;
+  const { 
+    treatmentDays = 5, 
+    commissionMonth = new Date(),
+    pendingSalesStart,
+    pendingSalesEnd,
+  } = options;
   const { user } = useAuth();
   const { tenantId } = useTenant();
   
   const monthKey = format(commissionMonth, 'yyyy-MM');
+  const pendingStartKey = pendingSalesStart ? format(pendingSalesStart, 'yyyy-MM-dd') : 'default';
+  const pendingEndKey = pendingSalesEnd ? format(pendingSalesEnd, 'yyyy-MM-dd') : 'default';
   
   return useQuery({
-    queryKey: ['seller-dashboard', tenantId, user?.id, treatmentDays, monthKey],
+    queryKey: ['seller-dashboard', tenantId, user?.id, treatmentDays, monthKey, pendingStartKey, pendingEndKey],
     queryFn: async (): Promise<SellerDashboardData> => {
       if (!tenantId || !user?.id) {
         throw new Error('Missing tenant or user');
@@ -109,6 +118,10 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
       const treatmentEndDate = addDays(startOfDay(now), treatmentDays);
       const monthStart = startOfMonth(commissionMonth);
       const monthEnd = endOfMonth(commissionMonth);
+      
+      // Use provided dates for pending sales or default to current month
+      const pendingStart = pendingSalesStart || monthStart;
+      const pendingEnd = pendingSalesEnd || monthEnd;
 
       // 1. Get leads where user is responsible
       const { data: responsibleLeads } = await supabase
@@ -251,6 +264,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
 
       // 5. Pending sales by status (my sales as seller)
       // Include all non-final statuses to show pending work
+      // Filter by the provided date range (pendingStart/pendingEnd)
       const { data: salesData } = await supabase
         .from('sales')
         .select(`
@@ -270,6 +284,8 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         .eq('organization_id', tenantId)
         .eq('seller_user_id', user.id)
         .in('status', ['draft', 'pending_expedition', 'payment_confirmed', 'dispatched', 'returned', 'cancelled'])
+        .gte('created_at', pendingStart.toISOString())
+        .lte('created_at', pendingEnd.toISOString())
         .order('created_at', { ascending: false });
 
       const mapSale = (sale: any): SaleSummary => ({
