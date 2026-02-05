@@ -432,6 +432,21 @@ export default function WhatsAppChat() {
     fetchMessages();
 
     if (selectedConversation) {
+      // Auto-sync on conversation open (background) - catches webhook drops
+      (async () => {
+        try {
+          const result = await supabase.functions.invoke('whatsapp-sync-messages', {
+            body: { conversationId: selectedConversation.id, limit: 80 },
+          });
+          if (result.data?.synced > 0) {
+            console.log(`[WhatsAppChat] Auto-synced ${result.data.synced} missing messages`);
+            fetchMessages({ silent: true, resetUnread: false });
+          }
+        } catch (e) {
+          console.warn('[WhatsAppChat] Auto-sync failed:', e);
+        }
+      })();
+
       // Realtime for messages - escuta todos os eventos
       const channel = supabase
         .channel(`messages-realtime-${selectedConversation.id}`)
