@@ -17936,6 +17936,188 @@ export type Database = {
           },
         ]
       }
+      voice_minutes_balance: {
+        Row: {
+          created_at: string
+          id: string
+          last_purchase_at: string | null
+          minutes_purchased: number
+          minutes_remaining: number
+          minutes_used: number
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_purchase_at?: string | null
+          minutes_purchased?: number
+          minutes_remaining?: number
+          minutes_used?: number
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_purchase_at?: string | null
+          minutes_purchased?: number
+          minutes_remaining?: number
+          minutes_used?: number
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_minutes_balance_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_minutes_packages: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          minutes: number
+          name: string
+          price_cents: number
+          price_per_minute_cents: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          minutes: number
+          name: string
+          price_cents: number
+          price_per_minute_cents?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          minutes?: number
+          name?: string
+          price_cents?: number
+          price_per_minute_cents?: number | null
+        }
+        Relationships: []
+      }
+      voice_minutes_purchases: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          minutes_purchased: number
+          organization_id: string
+          package_id: string | null
+          payment_method: string | null
+          payment_status: string
+          price_cents: number
+          purchased_at: string
+          purchased_by: string | null
+          stripe_payment_intent_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          minutes_purchased: number
+          organization_id: string
+          package_id?: string | null
+          payment_method?: string | null
+          payment_status?: string
+          price_cents: number
+          purchased_at?: string
+          purchased_by?: string | null
+          stripe_payment_intent_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          minutes_purchased?: number
+          organization_id?: string
+          package_id?: string | null
+          payment_method?: string | null
+          payment_status?: string
+          price_cents?: number
+          purchased_at?: string
+          purchased_by?: string | null
+          stripe_payment_intent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_minutes_purchases_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_minutes_purchases_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "voice_minutes_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_minutes_usage: {
+        Row: {
+          balance_after: number
+          balance_before: number
+          call_log_id: string | null
+          id: string
+          minutes_used: number
+          organization_id: string
+          recorded_at: string
+        }
+        Insert: {
+          balance_after: number
+          balance_before: number
+          call_log_id?: string | null
+          id?: string
+          minutes_used?: number
+          organization_id: string
+          recorded_at?: string
+        }
+        Update: {
+          balance_after?: number
+          balance_before?: number
+          call_log_id?: string | null
+          id?: string
+          minutes_used?: number
+          organization_id?: string
+          recorded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_minutes_usage_call_log_id_fkey"
+            columns: ["call_log_id"]
+            isOneToOne: false
+            referencedRelation: "voice_call_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_minutes_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voice_number_allocations: {
         Row: {
           allocated_at: string
@@ -20353,6 +20535,10 @@ export type Database = {
         Args: { amount: number; org_id: string }
         Returns: undefined
       }
+      add_voice_minutes: {
+        Args: { p_minutes: number; p_organization_id: string }
+        Returns: number
+      }
       approve_partner_application: {
         Args: { p_application_id: string; p_reviewer_id: string }
         Returns: Json
@@ -20418,6 +20604,14 @@ export type Database = {
       deduct_stock_for_delivered_sale: {
         Args: { _sale_id: string }
         Returns: undefined
+      }
+      deduct_voice_minutes: {
+        Args: {
+          p_call_log_id: string
+          p_minutes: number
+          p_organization_id: string
+        }
+        Returns: boolean
       }
       enqueue_onboarding_emails: {
         Args: {

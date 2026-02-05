@@ -51,13 +51,29 @@ serve(async (req) => {
     if (["completed", "busy", "failed", "no-answer", "canceled"].includes(callStatus)) {
       updateData.ended_at = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
       
-      // Calculate energy consumption for completed calls
+      // Deduct minutes for completed calls
       if (callStatus === "completed" && callDuration) {
         const durationSeconds = parseInt(callDuration, 10);
         const minutes = Math.ceil(durationSeconds / 60);
-        // 50⚡ base + 500⚡/min (as per voice-ai-system-v1 memory)
-        const energyConsumed = 50 + (minutes * 500);
-        updateData.energy_consumed = energyConsumed;
+        updateData.duration_minutes = minutes;
+
+        // Get the call log to find org_id
+        const { data: callLog } = await supabase
+          .from("voice_call_logs")
+          .select("id, organization_id")
+          .eq("twilio_call_sid", callSid)
+          .maybeSingle();
+
+        if (callLog) {
+          // Deduct minutes from organization balance
+          const { data: deducted } = await supabase.rpc("deduct_voice_minutes", {
+            p_organization_id: callLog.organization_id,
+            p_call_log_id: callLog.id,
+            p_minutes: minutes,
+          });
+
+          console.log(`Deducted ${minutes} minutes for org ${callLog.organization_id}: ${deducted}`);
+        }
       }
     }
 
