@@ -66,6 +66,7 @@ const TAB_TO_PATH: Record<string, string> = {
   "whatsapp": "/super-admin/whatsapp/creditos",
   "providers": "/super-admin/whatsapp/provedores",
   "admin-whatsapp": "/super-admin/whatsapp/admin-instance",
+  "sms": "/super-admin/sms",
   "energy": "/super-admin/ia/energia-ia",
   "ai-costs": "/super-admin/ia/custos-modelos",
   "secretary-messages": "/super-admin/ia/secretaria",
@@ -132,6 +133,16 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
       { id: "whatsapp", label: "Créditos", icon: MessageSquare, description: "Instâncias grátis", path: "/super-admin/whatsapp/creditos" },
       { id: "providers", label: "Provedores", icon: Globe, description: "WaSender API", path: "/super-admin/whatsapp/provedores" },
       { id: "admin-whatsapp", label: "Admin Instance", icon: Smartphone, description: "Instância master", path: "/super-admin/whatsapp/admin-instance" },
+    ],
+  },
+  {
+    id: "sms",
+    label: "SMS",
+    icon: Smartphone,
+    color: "text-cyan-500",
+    gradient: "from-cyan-500 to-blue-500",
+    items: [
+      { id: "sms", label: "Gestão SMS", icon: MessageSquare, description: "Vendas e saldos", path: "/super-admin/sms" },
     ],
   },
   {

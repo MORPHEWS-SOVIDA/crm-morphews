@@ -162,6 +162,7 @@ const TemplatesLPPage = lazy(() => import("./pages/super-admin/TemplatesLPPage")
 const CreditosWhatsAppPage = lazy(() => import("./pages/super-admin/CreditosWhatsAppPage"));
 const ProvedoresWhatsAppPage = lazy(() => import("./pages/super-admin/ProvedoresWhatsAppPage"));
 const AdminInstancePage = lazy(() => import("./pages/super-admin/AdminInstancePage"));
+const SmsPage = lazy(() => import("./pages/super-admin/SmsPage"));
 const EnergiaIAPage = lazy(() => import("./pages/super-admin/EnergiaIAPage"));
 const CustosModelosPage = lazy(() => import("./pages/super-admin/CustosModelosPage"));
 const SecretariaPage = lazy(() => import("./pages/super-admin/SecretariaPage"));
@@ -562,6 +563,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requireAdmin>
                       <AdminInstancePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/sms"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <SmsPage />
                     </ProtectedRoute>
                   }
                 />
