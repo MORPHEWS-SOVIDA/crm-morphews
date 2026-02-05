@@ -52,6 +52,9 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
+  Download,
+  Truck as TruckIcon,
+  Copy,
 } from 'lucide-react';
 import { format, isToday, isTomorrow, parseISO, isAfter, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -703,6 +706,79 @@ function DeliveryCard({
               <Upload className="w-3.5 h-3.5 mr-1.5" />
               {isUploadingProof ? 'Enviando...' : 'Anexar comprovante de pagamento'}
             </Button>
+          </div>
+        )}
+
+        {/* Carrier Tracking & Label Section */}
+        {sale.delivery_type === 'carrier' && (
+          <div className="space-y-2 pt-2 border-t">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+              <TruckIcon className="w-4 h-4" />
+              <span>Envio por Transportadora</span>
+            </div>
+            
+            {/* Tracking Code */}
+            {sale.tracking_code ? (
+              <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+                <span className="text-sm font-medium">Rastreio:</span>
+                <code className="text-sm bg-background px-2 py-0.5 rounded font-mono">
+                  {sale.tracking_code}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2"
+                  onClick={() => {
+                    navigator.clipboard.writeText(sale.tracking_code || '');
+                    toast.success('Código copiado!');
+                  }}
+                >
+                  <Copy className="w-3 h-3" />
+                </Button>
+                <a
+                  href={`https://www.linkcorreios.com.br/?id=${sale.tracking_code}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-auto"
+                >
+                  <Button variant="outline" size="sm" className="h-6 text-xs">
+                    <ExternalLink className="w-3 h-3 mr-1" />
+                    Rastrear
+                  </Button>
+                </a>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">
+                Código de rastreio ainda não disponível
+              </p>
+            )}
+            
+            {/* Melhor Envio Label Download */}
+            {(sale as any).melhor_envio_labels?.length > 0 && (
+              <div className="space-y-1">
+                {(sale as any).melhor_envio_labels.map((label: any) => (
+                  <Button
+                    key={label.id}
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => {
+                      if (label.label_pdf_url) {
+                        window.open(label.label_pdf_url, '_blank');
+                      } else if (label.melhor_envio_order_id) {
+                        window.open(`https://app.melhorenvio.com.br/shipments/${label.melhor_envio_order_id}`, '_blank');
+                      }
+                    }}
+                  >
+                    <Download className="w-3.5 h-3.5 mr-1.5" />
+                    Baixar Etiqueta
+                    {label.tracking_code && label.tracking_code !== sale.tracking_code && (
+                      <span className="ml-1 text-muted-foreground">({label.tracking_code})</span>
+                    )}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
