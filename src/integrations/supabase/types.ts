@@ -18077,6 +18077,7 @@ export type Database = {
           updated_at: string
           voice_bot_id: string | null
           webhook_url: string | null
+          webhooks_configured: boolean | null
         }
         Insert: {
           allocated_at?: string | null
@@ -18098,6 +18099,7 @@ export type Database = {
           updated_at?: string
           voice_bot_id?: string | null
           webhook_url?: string | null
+          webhooks_configured?: boolean | null
         }
         Update: {
           allocated_at?: string | null
@@ -18119,6 +18121,7 @@ export type Database = {
           updated_at?: string
           voice_bot_id?: string | null
           webhook_url?: string | null
+          webhooks_configured?: boolean | null
         }
         Relationships: [
           {

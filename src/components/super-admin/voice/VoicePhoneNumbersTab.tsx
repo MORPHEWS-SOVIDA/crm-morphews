@@ -15,6 +15,7 @@ import {
   Phone, Plus, RefreshCw, Settings, Building2, 
   Loader2, Check, X, AlertCircle, MapPin, DollarSign
 } from "lucide-react";
+import { Webhook } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -24,6 +25,7 @@ interface PhoneNumber {
   id: string;
   phone_number: string;
   phone_number_sid: string | null;
+  webhooks_configured: boolean | null;
   friendly_name: string | null;
   country_code: string;
   region: string | null;
@@ -186,6 +188,33 @@ export function VoicePhoneNumbersTab() {
       setIsSyncing(false);
     }
   };
+
+  // Configure webhooks mutation
+  const configureWebhooksMutation = useMutation({
+    mutationFn: async (number: PhoneNumber) => {
+      if (!number.phone_number_sid) {
+        throw new Error("Número não possui SID do Twilio");
+      }
+
+      const { data, error } = await supabase.functions.invoke("twilio-configure-webhooks", {
+        body: {
+          phone_number_id: number.id,
+          phone_number_sid: number.phone_number_sid,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Falha ao configurar webhooks");
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["voice-phone-numbers"] });
+      toast.success(`Webhooks configurados para ${data.phone_number}!`);
+    },
+    onError: (error: any) => {
+      toast.error("Erro ao configurar webhooks: " + error.message);
+    },
+  });
 
   // Process request mutation
   const processRequestMutation = useMutation({
@@ -490,9 +519,10 @@ export function VoicePhoneNumbersTab() {
                     <TableHead>Número</TableHead>
                     <TableHead>Região</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Webhooks</TableHead>
                     <TableHead>Alocado Para</TableHead>
                     <TableHead>Custo/Mês</TableHead>
-                    <TableHead>Adicionado</TableHead>
+                    <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -517,16 +547,41 @@ export function VoicePhoneNumbersTab() {
                       </TableCell>
                       <TableCell>{getStatusBadge(number.status)}</TableCell>
                       <TableCell>
+                        {number.webhooks_configured ? (
+                          <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+                            <Check className="w-3 h-3" />
+                            OK
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-muted-foreground">
+                            Pendente
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         {number.organizations?.name || '-'}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <DollarSign className="w-3 h-3 text-muted-foreground" />
-                          <span>{formatCurrency(number.monthly_cost_cents / 100)}</span>
-                        </div>
+                        {formatCurrency(number.monthly_cost_cents / 100)}
                       </TableCell>
                       <TableCell>
-                        {format(new Date(number.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                        {number.phone_number_sid && !number.webhooks_configured && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => configureWebhooksMutation.mutate(number)}
+                            disabled={configureWebhooksMutation.isPending}
+                          >
+                            {configureWebhooksMutation.isPending ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <>
+                                <Webhook className="w-3 h-3 mr-1" />
+                                Webhook
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
