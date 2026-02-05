@@ -10,9 +10,10 @@ interface TeamConversationListProps {
   conversations: TeamConversation[];
   isLoading: boolean;
   onSelect: (conversation: TeamConversation) => void;
+  selectedId?: string;
 }
 
-export function TeamConversationList({ conversations, isLoading, onSelect }: TeamConversationListProps) {
+export function TeamConversationList({ conversations, isLoading, onSelect, selectedId }: TeamConversationListProps) {
   if (isLoading) {
     return (
       <div className="p-4 space-y-3">
@@ -50,6 +51,7 @@ export function TeamConversationList({ conversations, isLoading, onSelect }: Tea
           key={conv.id}
           conversation={conv}
           onClick={() => onSelect(conv)}
+          isSelected={selectedId === conv.id}
         />
       ))}
     </div>
@@ -59,9 +61,10 @@ export function TeamConversationList({ conversations, isLoading, onSelect }: Tea
 interface ConversationItemProps {
   conversation: TeamConversation;
   onClick: () => void;
+  isSelected?: boolean;
 }
 
-function ConversationItem({ conversation, onClick }: ConversationItemProps) {
+function ConversationItem({ conversation, onClick, isSelected }: ConversationItemProps) {
   const hasUnread = (conversation.unread_count || 0) > 0;
   const hasMentions = (conversation.unread_mentions || 0) > 0;
 
@@ -110,7 +113,8 @@ function ConversationItem({ conversation, onClick }: ConversationItemProps) {
       onClick={onClick}
       className={cn(
         "w-full flex items-start gap-3 p-3 hover:bg-muted/50 transition-colors text-left",
-        hasUnread && "bg-primary/5"
+        hasUnread && "bg-primary/5",
+        isSelected && "bg-muted"
       )}
     >
       {/* Avatar */}

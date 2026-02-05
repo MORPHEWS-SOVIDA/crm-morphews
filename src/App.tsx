@@ -135,6 +135,9 @@ const Demands = lazy(() => import("./pages/Demands"));
 const DemandsSettings = lazy(() => import("./pages/DemandsSettings"));
 const SmsCenter = lazy(() => import("./pages/SmsCenter"));
 
+// Team Communication
+const ConectaTime = lazy(() => import("./pages/ConectaTime"));
+
 // Fiscal
 const FiscalInvoices = lazy(() => import("./pages/FiscalInvoices"));
 const FiscalInvoiceDetail = lazy(() => import("./pages/FiscalInvoiceDetail"));
@@ -1051,6 +1054,15 @@ const App = () => (
                   }
                 />
                 
+                {/* Team Communication */}
+                <Route
+                  path="/conecta-time"
+                  element={
+                    <ProtectedRoute>
+                      <ConectaTime />
+                    </ProtectedRoute>
+                  }
+                />
                 {/* Fiscal Invoices */}
                 <Route
                   path="/notas-fiscais"
