@@ -20,6 +20,9 @@ export interface SubscriptionPlan {
   atomicpay_monthly_url?: string | null;
   atomicpay_annual_url?: string | null;
   annual_price_cents?: number | null;
+  // Trial configuration
+  trial_days?: number | null;
+  trial_requires_card?: boolean | null;
 }
 
 // Full plan data including Stripe IDs (for authenticated users with access)
@@ -70,7 +73,7 @@ export function useSubscriptionPlanById(planId: string | null) {
       // Include payment provider fields for AtomicPay redirect support
       const { data, error } = await supabase
         .from("subscription_plans")
-        .select("id, name, price_cents, max_users, max_leads, extra_user_price_cents, included_whatsapp_instances, extra_instance_price_cents, extra_energy_price_cents, monthly_energy, is_active, payment_provider, atomicpay_monthly_url, atomicpay_annual_url, annual_price_cents")
+        .select("id, name, price_cents, max_users, max_leads, extra_user_price_cents, included_whatsapp_instances, extra_instance_price_cents, extra_energy_price_cents, monthly_energy, is_active, payment_provider, atomicpay_monthly_url, atomicpay_annual_url, annual_price_cents, trial_days, trial_requires_card")
         .eq("id", planId)
         .maybeSingle();
 

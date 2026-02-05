@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Loader2, ArrowRight, Bot, Sparkles, Shield, MessageCircle, Mic, Image } from "lucide-react";
+import { Check, Loader2, ArrowRight, Bot, Sparkles, Shield, MessageCircle, Mic, Image, Gift, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -169,17 +169,40 @@ export default function DirectCheckout() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-12 md:py-20">
         <div className="max-w-2xl mx-auto">
+          {/* Trial Banner */}
+          {plan.trial_days && plan.trial_days > 0 && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-xl">
+              <div className="flex items-center justify-center gap-3 text-center">
+                <Gift className="h-6 w-6 text-green-600" />
+                <div>
+                  <p className="font-semibold text-green-700 dark:text-green-400">
+                    🎉 Teste Grátis por {plan.trial_days} dias!
+                  </p>
+                  <p className="text-sm text-green-600/80 dark:text-green-400/80">
+                    {plan.trial_requires_card === false 
+                      ? "Sem necessidade de cartão de crédito"
+                      : "Você não será cobrado hoje"
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Heading */}
           <div className="text-center mb-10">
             <Badge className="mb-4 px-4 py-2 bg-primary/10 text-primary border-primary/20">
               <Sparkles className="h-3 w-3 mr-2" />
-              Oferta Exclusiva
+              {plan.trial_days && plan.trial_days > 0 ? "Período de Teste" : "Oferta Exclusiva"}
             </Badge>
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
               Plano {plan.name}
             </h1>
             <p className="text-muted-foreground text-lg">
-              Comece agora e transforme seu atendimento comercial
+              {plan.trial_days && plan.trial_days > 0 
+                ? `Experimente por ${plan.trial_days} dias sem compromisso`
+                : "Comece agora e transforme seu atendimento comercial"
+              }
             </p>
           </div>
 
@@ -258,10 +281,16 @@ export default function DirectCheckout() {
               </div>
 
               {/* Trust badges */}
-              <div className="flex items-center justify-center gap-6 pt-4 border-t text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center justify-center gap-4 pt-4 border-t text-sm text-muted-foreground">
+                {plan.trial_days && plan.trial_days > 0 && plan.trial_requires_card === false && (
+                  <div className="flex items-center gap-1 text-green-600">
+                    <CreditCard className="h-4 w-4" />
+                    Sem cartão agora
+                  </div>
+                )}
                 <div className="flex items-center gap-1">
                   <Shield className="h-4 w-4 text-green-500" />
-                  Pagamento seguro
+                  {plan.trial_days && plan.trial_days > 0 ? "Sem cobrança hoje" : "Pagamento seguro"}
                 </div>
                 <div className="flex items-center gap-1">
                   <Check className="h-4 w-4 text-green-500" />
@@ -270,13 +299,30 @@ export default function DirectCheckout() {
               </div>
             </CardContent>
 
-            <CardFooter className="relative">
+            <CardFooter className="relative flex flex-col gap-3">
+              {/* Trial info */}
+              {plan.trial_days && plan.trial_days > 0 && (
+                <div className="w-full text-center p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium">
+                    💰 Após {plan.trial_days} dias: {formatPrice(plan.price_cents)}/mês
+                  </p>
+                  {plan.trial_requires_card === false && (
+                    <p className="text-xs text-muted-foreground">
+                      Você decide se quer continuar depois do teste
+                    </p>
+                  )}
+                </div>
+              )}
+              
               <Button 
                 onClick={handleSelectPlan} 
                 className="w-full h-14 text-lg gap-2"
                 size="lg"
               >
-                Quero Este Plano <ArrowRight className="h-5 w-5" />
+                {plan.trial_days && plan.trial_days > 0 
+                  ? <>Começar Teste Grátis <ArrowRight className="h-5 w-5" /></>
+                  : <>Quero Este Plano <ArrowRight className="h-5 w-5" /></>
+                }
               </Button>
             </CardFooter>
           </Card>
@@ -295,11 +341,17 @@ export default function DirectCheckout() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              Vamos começar!
+              {plan.trial_days && plan.trial_days > 0 ? (
+                <><Gift className="h-5 w-5 text-green-600" /> Teste Grátis</>
+              ) : (
+                <><Sparkles className="h-5 w-5 text-primary" /> Vamos começar!</>
+              )}
             </DialogTitle>
             <DialogDescription>
-              Preencha seus dados para contratar o plano <strong>{plan.name}</strong>
+              {plan.trial_days && plan.trial_days > 0 
+                ? <>Preencha seus dados para iniciar seu período de <strong>{plan.trial_days} dias grátis</strong> no plano <strong>{plan.name}</strong></>
+                : <>Preencha seus dados para contratar o plano <strong>{plan.name}</strong></>
+              }
             </DialogDescription>
           </DialogHeader>
           
@@ -337,6 +389,18 @@ export default function DirectCheckout() {
             </div>
           </div>
 
+          {/* Trial info in modal */}
+          {plan.trial_days && plan.trial_days > 0 && plan.trial_requires_card === false && (
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-sm text-center">
+              <p className="text-green-700 dark:text-green-400 font-medium">
+                ✓ Nenhum cartão será solicitado agora
+              </p>
+              <p className="text-green-600 dark:text-green-500 text-xs">
+                Você terá {plan.trial_days} dias para testar antes de decidir
+              </p>
+            </div>
+          )}
+
           <Button 
             onClick={handleLeadSubmit} 
             className="w-full gap-2" 
@@ -349,7 +413,12 @@ export default function DirectCheckout() {
               </>
             ) : (
               <>
-                {plan.price_cents === 0 ? "Criar Minha Conta Grátis" : "Ir para Pagamento"}
+                {plan.trial_days && plan.trial_days > 0 
+                  ? "Começar Meu Teste Grátis"
+                  : plan.price_cents === 0 
+                    ? "Criar Minha Conta Grátis" 
+                    : "Ir para Pagamento"
+                }
                 <ArrowRight className="h-4 w-4" />
               </>
             )}
