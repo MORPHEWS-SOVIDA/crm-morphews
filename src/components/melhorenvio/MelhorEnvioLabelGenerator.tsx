@@ -140,15 +140,33 @@ export function MelhorEnvioLabelGenerator({ sale, onSuccess, onCancel }: MelhorE
     onSuccess();
   };
 
-  const isValid = 
-    formData.recipient_name &&
-    formData.recipient_street &&
-    formData.recipient_number &&
-    formData.recipient_neighborhood &&
-    formData.recipient_city &&
-    formData.recipient_state &&
-    formData.recipient_cep &&
-    formData.service_id > 0;
+  const missingFields = useMemo(() => {
+    const missing: string[] = [];
+
+    const requiredTextFields = [
+      { key: 'recipient_name', label: 'Nome' },
+      { key: 'recipient_street', label: 'Logradouro' },
+      { key: 'recipient_number', label: 'Número' },
+      { key: 'recipient_neighborhood', label: 'Bairro' },
+      { key: 'recipient_city', label: 'Cidade' },
+      { key: 'recipient_state', label: 'UF' },
+      { key: 'recipient_cep', label: 'CEP' },
+    ] as const;
+
+    for (const f of requiredTextFields) {
+      const v = String((formData as any)[f.key] ?? '').trim();
+      if (!v) missing.push(f.label);
+    }
+
+    const serviceId = Number(formData.service_id);
+    if (!Number.isFinite(serviceId) || serviceId <= 0) {
+      missing.push('Serviço');
+    }
+
+    return missing;
+  }, [formData]);
+
+  const isValid = missingFields.length === 0;
 
   return (
     <div className="space-y-4">
@@ -357,32 +375,40 @@ export function MelhorEnvioLabelGenerator({ sale, onSuccess, onCancel }: MelhorE
       )}
 
       {/* Actions */}
-      <div className="flex gap-3 pt-2">
-        <Button
-          variant="outline"
-          onClick={onCancel}
-          className="flex-1"
-          disabled={generateLabel.isPending}
-        >
-          Cancelar
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={!isValid || generateLabel.isPending}
-          className="flex-1"
-        >
-          {generateLabel.isPending ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Gerando...
-            </>
-          ) : (
-            <>
-              <Tag className="w-4 h-4 mr-2" />
-              Gerar Etiqueta
-            </>
-          )}
-        </Button>
+      <div className="space-y-2 pt-2">
+        {missingFields.length > 0 && (
+          <p className="text-xs text-destructive">
+            Preencha para continuar: {missingFields.join(', ')}.
+          </p>
+        )}
+
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            className="flex-1"
+            disabled={generateLabel.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!isValid || generateLabel.isPending}
+            className="flex-1"
+          >
+            {generateLabel.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <Tag className="w-4 h-4 mr-2" />
+                Gerar Etiqueta
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
