@@ -763,9 +763,16 @@ function DeliveryCard({
                     size="sm"
                     className="w-full text-xs"
                     onClick={() => {
-                      if (label.label_pdf_url) {
+                      // Priority 1: Our storage URL (no login required)
+                      if (label.storage_pdf_url) {
+                        window.open(label.storage_pdf_url, '_blank');
+                      } 
+                      // Priority 2: Direct URL from Melhor Envio (may require login)
+                      else if (label.label_pdf_url) {
                         window.open(label.label_pdf_url, '_blank');
-                      } else if (label.melhor_envio_order_id) {
+                      } 
+                      // Fallback: Open Melhor Envio panel
+                      else if (label.melhor_envio_order_id) {
                         window.open(`https://app.melhorenvio.com.br/shipments/${label.melhor_envio_order_id}`, '_blank');
                       }
                     }}

@@ -13,14 +13,23 @@ export function useMelhorEnvioLabelDownload() {
     orderId: string, 
     trackingCode: string | null, 
     organizationId: string,
-    directUrl?: string | null
+    directUrl?: string | null,
+    storagePdfUrl?: string | null
   ): Promise<boolean> => {
-    if (!orderId && !directUrl) {
+    if (!orderId && !directUrl && !storagePdfUrl) {
       toast.error('ID do pedido não encontrado');
       return false;
     }
 
-    // If we have a direct URL, open it (no need for edge function)
+    // Priority 1: Use our storage URL (doesn't require Melhor Envio login)
+    if (storagePdfUrl) {
+      window.open(storagePdfUrl, '_blank');
+      toast.success('Abrindo etiqueta...');
+      return true;
+    }
+
+    // Priority 2: If we have a direct URL from Melhor Envio, try it
+    // Note: This may require login on their site
     if (directUrl) {
       window.open(directUrl, '_blank');
       toast.success('Abrindo etiqueta...');

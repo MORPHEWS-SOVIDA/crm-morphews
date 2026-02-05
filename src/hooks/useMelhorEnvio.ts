@@ -56,6 +56,7 @@ export interface MelhorEnvioLabel {
   length_cm: number | null;
   declared_value_cents: number | null;
   label_pdf_url: string | null;
+  storage_pdf_url: string | null;
   status: string;
   error_message: string | null;
   created_at: string;
