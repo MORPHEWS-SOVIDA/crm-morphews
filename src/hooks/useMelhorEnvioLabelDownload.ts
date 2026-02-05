@@ -12,11 +12,19 @@ export function useMelhorEnvioLabelDownload() {
   const downloadLabel = async (
     orderId: string, 
     trackingCode: string | null, 
-    organizationId: string
+    organizationId: string,
+    directUrl?: string | null
   ): Promise<boolean> => {
-    if (!orderId) {
+    if (!orderId && !directUrl) {
       toast.error('ID do pedido não encontrado');
       return false;
+    }
+
+    // If we have a direct URL, open it (no need for edge function)
+    if (directUrl) {
+      window.open(directUrl, '_blank');
+      toast.success('Abrindo etiqueta...');
+      return true;
     }
 
     if (!organizationId) {
@@ -59,7 +67,10 @@ export function useMelhorEnvioLabelDownload() {
       return true;
     } catch (err) {
       console.error('[MelhorEnvio] PDF download error:', err);
-      toast.error('Erro ao baixar etiqueta. Tente novamente.');
+      // Fallback: open Melhor Envio panel for manual download
+      const panelUrl = `https://melhorenvio.com.br/painel/pedidos/${orderId}`;
+      toast.error('Erro na conexão. Abrindo painel do Melhor Envio...');
+      window.open(panelUrl, '_blank');
       return false;
     } finally {
       setDownloading(null);

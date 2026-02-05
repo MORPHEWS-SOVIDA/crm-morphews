@@ -124,10 +124,17 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
     }
   };
 
-  // Handler to download/print PDF via edge function (avoids CORS/login issues)
-  const handleDownloadPdf = async (orderId: string, trackingCode: string) => {
-    if (!orderId) {
+  // Handler to download/print PDF - tries direct URL first, then edge function
+  const handleDownloadPdf = async (orderId: string, trackingCode: string, directUrl?: string | null) => {
+    if (!orderId && !directUrl) {
       toast.error('ID do pedido não encontrado');
+      return;
+    }
+
+    // If we have a direct URL, open it in new tab (no need for edge function)
+    if (directUrl) {
+      window.open(directUrl, '_blank');
+      toast.success('Abrindo etiqueta...');
       return;
     }
 
@@ -165,7 +172,10 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
       toast.success('Download iniciado!');
     } catch (err) {
       console.error('[MelhorEnvio] PDF download error:', err);
-      toast.error('Erro ao baixar etiqueta. Tente novamente.');
+      // Fallback: open Melhor Envio panel for manual download
+      const panelUrl = `https://melhorenvio.com.br/painel/pedidos/${orderId}`;
+      toast.error('Erro na conexão. Abrindo painel do Melhor Envio...');
+      window.open(panelUrl, '_blank');
     } finally {
       setDownloading(false);
     }
@@ -329,7 +339,8 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
                   className="flex-1 gap-2"
                   onClick={() => handleDownloadPdf(
                     label.melhor_envio_order_id!,
-                    hasRealTrackingCode ? label.tracking_code : label.melhor_envio_order_id?.slice(0, 8) || 'etiqueta'
+                    hasRealTrackingCode ? label.tracking_code : label.melhor_envio_order_id?.slice(0, 8) || 'etiqueta',
+                    label.label_pdf_url
                   )}
                   disabled={downloading}
                 >
@@ -349,7 +360,8 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
                         className="h-9 w-9"
                         onClick={() => handleDownloadPdf(
                           label.melhor_envio_order_id!,
-                          hasRealTrackingCode ? label.tracking_code : label.melhor_envio_order_id?.slice(0, 8) || 'etiqueta'
+                          hasRealTrackingCode ? label.tracking_code : label.melhor_envio_order_id?.slice(0, 8) || 'etiqueta',
+                          label.label_pdf_url
                         )}
                         disabled={downloading}
                       >
