@@ -39,6 +39,7 @@ import { LandingTemplatesTab } from "@/components/super-admin/LandingTemplatesTa
 import { ImplementersTab } from "@/components/super-admin/ImplementersTab";
 import { CommunicationLogsTab } from "@/components/super-admin/CommunicationLogsTab";
 import { VoiceAITab } from "@/components/super-admin/VoiceAITab";
+import { SmsDashboardTab } from "@/components/super-admin/SmsDashboardTab";
 import { SuperAdminNavigation, SUPER_ADMIN_CATEGORIES } from "@/components/super-admin/SuperAdminNavigation";
 import { cn } from "@/lib/utils";
 
@@ -1028,6 +1029,7 @@ export default function SuperAdmin({ defaultTab = "organizations" }: SuperAdminP
             {activeTab === "whatsapp" && <WhatsAppCreditsTab />}
             {activeTab === "providers" && <WhatsAppProvidersTab />}
             {activeTab === "admin-whatsapp" && <AdminWhatsAppInstanceTab />}
+            {activeTab === "sms" && <SmsDashboardTab />}
             {activeTab === "energy" && <EnergyManagementTab />}
             {activeTab === "ai-costs" && <AIModelCostsTab />}
             {activeTab === "secretary-messages" && <SecretaryMessagesManager />}
