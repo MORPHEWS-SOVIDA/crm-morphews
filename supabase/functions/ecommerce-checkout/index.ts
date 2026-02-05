@@ -401,12 +401,19 @@ serve(async (req) => {
     // 6. Create sale in ecommerce_pending status (won't appear in ERP until payment confirmed)
     // This status is used for e-commerce orders awaiting payment
     // Once paid, status changes to payment_confirmed and appears in /vendas
+    
+    // CRITICAL: E-commerce orders with shipping must always be 'carrier' delivery type
+    // Only use 'pickup' when there's no shipping cost AND no shipping address
+    const hasShipping = shippingCents > 0 || (body.shipping?.address && body.shipping?.city);
+    const deliveryType = hasShipping ? 'carrier' : 'pickup';
+    
     const salePayload: Record<string, unknown> = {
       organization_id: organizationId,
       lead_id: lead.id,
       created_by: defaultUserId,
       status: 'ecommerce_pending', // NEW: E-commerce pending status (hidden from ERP)
       payment_status: 'pending',
+      delivery_type: deliveryType, // FIXED: Set delivery_type based on shipping
       subtotal_cents: subtotalCents,
       shipping_cost_cents: shippingCents,
       total_cents: totalCents,
@@ -436,9 +443,10 @@ serve(async (req) => {
 
     if (saleError) throw saleError;
 
-    // 6. Create sale items
+    // 6. Create sale items - with error logging
+    console.log(`[Checkout] Creating ${productItems.length} sale items for sale ${sale.id}`);
     for (const item of productItems) {
-      await supabase
+      const { error: itemError } = await supabase
         .from('sale_items')
         .insert({
           sale_id: sale.id,
@@ -447,6 +455,12 @@ serve(async (req) => {
           unit_price_cents: item.price_cents,
           total_cents: item.price_cents * item.quantity,
         });
+      
+      if (itemError) {
+        console.error(`[Checkout] Failed to create sale item for product ${item.product_id}:`, itemError);
+      } else {
+        console.log(`[Checkout] Created sale item: product=${item.product_id}, qty=${item.quantity}, price=${item.price_cents}`);
+      }
     }
 
     // 7. ALWAYS store affiliate attribution when affiliate_code is present
