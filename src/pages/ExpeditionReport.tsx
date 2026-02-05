@@ -598,25 +598,74 @@ export default function ExpeditionReport() {
         )}
       </div>
 
+      {/* Print Styles - Larger fonts, multi-page support */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 8mm;
+          }
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .expedition-report {
+            font-size: 11pt !important;
+          }
+          .expedition-report table {
+            font-size: 10pt !important;
+          }
+          .expedition-report th,
+          .expedition-report td {
+            font-size: 10pt !important;
+            padding: 4px 6px !important;
+          }
+          .expedition-report .text-\\[7px\\],
+          .expedition-report .text-\\[8px\\],
+          .expedition-report .text-\\[9px\\],
+          .expedition-report .text-\\[10px\\] {
+            font-size: 9pt !important;
+          }
+          .motoboy-section {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .motoboy-section-header {
+            page-break-after: avoid;
+            break-after: avoid;
+          }
+          /* Each motoboy starts on new page if there are multiple */
+          .motoboy-section:not(:first-child) {
+            page-break-before: always;
+            break-before: page;
+          }
+          .carrier-section,
+          .pickup-section {
+            page-break-before: always;
+            break-before: page;
+          }
+        }
+      `}</style>
+
       {/* Printable Report */}
       {showReport && sales && sales.length > 0 && (
         <div ref={printRef} className="expedition-report bg-white text-black p-4 print:p-2 max-w-[1100px] mx-auto print:max-w-none">
           {/* Header */}
           <div className="text-center border-b-2 border-black pb-2 mb-4">
-            <h1 className="text-xl font-bold">RESUMO DA ENTREGA DE ROMANEIOS</h1>
-            <p className="text-sm">
+            <h1 className="text-xl print:text-2xl font-bold">RESUMO DA ENTREGA DE ROMANEIOS</h1>
+            <p className="text-sm print:text-base">
               Período: {format(new Date(reportFilters.startDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })} a{' '}
               {format(new Date(reportFilters.endDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
               {' '}({reportFilters.dateTypeFilter === 'delivery' ? 'Data de Entrega' : 'Data de Criação'})
               {reportFilters.shiftFilter !== 'all' && ` | Turno: ${getShiftLabel(reportFilters.shiftFilter)}`}
             </p>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs print:text-sm text-gray-600">
               Gerado em: {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
             </p>
           </div>
 
           {/* Summary Stats */}
-          <div className="flex gap-4 mb-4 text-sm border-b border-gray-300 pb-2">
+          <div className="flex flex-wrap gap-4 mb-4 text-sm print:text-base border-b border-gray-300 pb-2">
             <span><strong>Total de Romaneios:</strong> {sales.length}</span>
             <span><strong>Pagos:</strong> {paidCount}</span>
             <span><strong>A Receber:</strong> {unpaidCount}</span>
@@ -626,7 +675,7 @@ export default function ExpeditionReport() {
           {/* Motoboy Deliveries */}
           {Object.keys(groupedByMotoboy).length > 0 && (deliveryTypeFilter === 'all' || deliveryTypeFilter === 'motoboy') && (
             <div className="mb-6">
-              <h2 className="font-bold text-lg bg-gray-200 p-2 mb-2 flex items-center gap-2">
+              <h2 className="font-bold text-lg print:text-xl bg-gray-200 p-2 mb-2 flex items-center gap-2">
                 <Truck className="w-5 h-5" />
                 ENTREGAS MOTOBOY
               </h2>
@@ -639,46 +688,46 @@ export default function ExpeditionReport() {
                 const motoboyTotal = motoboysSales.reduce((sum, s) => sum + s.total_cents, 0);
                 
                 return (
-                  <div key={motoboyId} className="mb-4">
-                    <h3 className="font-semibold bg-gray-100 p-1 mb-1 text-sm flex justify-between">
+                  <div key={motoboyId} className="mb-4 motoboy-section">
+                    <h3 className="font-semibold bg-gray-100 p-2 mb-2 text-sm print:text-base flex justify-between motoboy-section-header">
                       <span>🏍️ {motoboyName} ({motoboysSales.length} entregas)</span>
                       <span>Total: {formatCurrency(motoboyTotal)}</span>
                     </h3>
-                    <table className="w-full text-xs border-collapse">
+                    <table className="w-full text-xs print:text-sm border-collapse">
                       <thead>
                         <tr className="bg-gray-50">
-                          <th className="border border-gray-400 p-1 text-left text-[8px]" style={{ width: '30px' }}>ROM.</th>
-                          <th className="border border-gray-400 p-1 text-left text-[8px]" style={{ width: '45px' }}>DATA<br/>TURNO</th>
-                          <th className="border border-gray-400 p-1 text-left text-[8px]" style={{ width: '70px' }}>CLIENTE<br/>BAIRRO/CIDADE</th>
-                          <th className="border border-gray-400 p-1 text-left text-[8px]" style={{ width: '75px' }}>PRODUTOS<br/>☐ CONFERIDO</th>
-                          <th className="border border-gray-400 p-1 text-center text-[8px]" style={{ width: '30px' }}>PAGO?</th>
-                          <th className="border border-gray-400 p-1 text-right text-[8px]" style={{ width: '45px' }}>VALOR</th>
-                          <th className="border border-gray-400 p-1 text-center text-[8px]" style={{ width: '50px' }}>STATUS</th>
-                          <th className="border border-gray-400 p-1 text-center text-[8px]" style={{ width: '30px' }}>RUB.<br/>BOY</th>
-                          <th className="border border-gray-400 p-1 text-center text-[8px]" style={{ width: '25px' }}>OBS:</th>
-                          <th className="border border-gray-400 p-1 text-center text-[8px] bg-yellow-50" style={{ width: '55px' }}>ENTREGUE?<br/>ou VOLTOU?</th>
-                          <th className="border border-gray-400 p-1 text-center text-[8px] bg-yellow-50" style={{ width: '70px' }}>FORMA PGTO<br/>VALOR + DESC</th>
-                          <th className="border border-gray-400 p-1 text-center text-[8px] bg-yellow-50" style={{ width: '60px' }}>ASSINATURA<br/>RECEBEDOR</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-left text-[10px] print:text-xs">ROM.</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-left text-[10px] print:text-xs">DATA<br/>TURNO</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-left text-[10px] print:text-xs">CLIENTE<br/>BAIRRO/CIDADE</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-left text-[10px] print:text-xs">PRODUTOS<br/>☐ CONFERIDO</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-center text-[10px] print:text-xs">PAGO?</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-right text-[10px] print:text-xs">VALOR</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-center text-[10px] print:text-xs">STATUS</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-center text-[10px] print:text-xs">RUB.<br/>BOY</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-center text-[10px] print:text-xs">OBS:</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-center text-[10px] print:text-xs bg-yellow-50">ENTREGUE?<br/>ou VOLTOU?</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-center text-[10px] print:text-xs bg-yellow-50">FORMA PGTO<br/>VALOR + DESC</th>
+                          <th className="border border-gray-400 p-1 print:p-2 text-center text-[10px] print:text-xs bg-yellow-50">ASSINATURA<br/>RECEBEDOR</th>
                         </tr>
                       </thead>
                       <tbody>
                         {motoboysSales.map((sale) => (
                           <tr key={sale.id}>
-                            <td className="border border-gray-400 p-1 font-semibold text-center text-[9px]">{sale.romaneio_number}</td>
-                            <td className="border border-gray-400 p-1 text-center">
-                              <span className="block font-medium text-[9px]">{formatDeliveryDate(sale.scheduled_delivery_date)}</span>
-                              <span className="block text-[8px] text-gray-600">{getShiftLabel(sale.scheduled_delivery_shift)}</span>
+                            <td className="border border-gray-400 p-1 print:p-2 font-semibold text-center text-[10px] print:text-xs">{sale.romaneio_number}</td>
+                            <td className="border border-gray-400 p-1 print:p-2 text-center">
+                              <span className="block font-medium text-[10px] print:text-xs">{formatDeliveryDate(sale.scheduled_delivery_date)}</span>
+                              <span className="block text-[9px] print:text-xs text-gray-600">{getShiftLabel(sale.scheduled_delivery_shift)}</span>
                             </td>
-                            <td className="border border-gray-400 p-1">
-                              <span className="font-medium block text-[9px] leading-tight">{sale.lead?.name}</span>
+                            <td className="border border-gray-400 p-1 print:p-2">
+                              <span className="font-medium block text-[10px] print:text-xs leading-tight">{sale.lead?.name}</span>
                               {sale.lead?.neighborhood && (
-                                <span className="text-gray-600 block text-[8px]">{sale.lead.neighborhood}</span>
+                                <span className="text-gray-600 block text-[9px] print:text-xs">{sale.lead.neighborhood}</span>
                               )}
                               {sale.lead?.city && (
-                                <span className="text-gray-600 block text-[8px]">{sale.lead.city}</span>
+                                <span className="text-gray-600 block text-[9px] print:text-xs">{sale.lead.city}</span>
                               )}
                             </td>
-                            <td className="border border-gray-400 p-1 text-[8px]">
+                            <td className="border border-gray-400 p-1 print:p-2 text-[9px] print:text-xs">
                               {getProductsList(sale.items).map((product, idx) => (
                                 <div key={idx} className="flex items-center gap-1">
                                   <span>☐</span>
@@ -686,17 +735,17 @@ export default function ExpeditionReport() {
                                 </div>
                               ))}
                             </td>
-                            <td className="border border-gray-400 p-1 text-center font-bold text-[9px]">
+                            <td className="border border-gray-400 p-1 print:p-2 text-center font-bold text-[10px] print:text-xs">
                               {sale.payment_confirmed_at ? '✓' : 'SIM'}
                             </td>
-                            <td className="border border-gray-400 p-1 text-right text-[9px]">{formatCurrency(sale.total_cents)}</td>
-                            <td className="border border-gray-400 p-1 text-center text-[7px]">{getStatusLabel(sale.status)}</td>
-                            <td className="border border-gray-400 p-1"></td>
-                            <td className="border border-gray-400 p-1"></td>
+                            <td className="border border-gray-400 p-1 print:p-2 text-right text-[10px] print:text-xs">{formatCurrency(sale.total_cents)}</td>
+                            <td className="border border-gray-400 p-1 print:p-2 text-center text-[9px] print:text-xs">{getStatusLabel(sale.status)}</td>
+                            <td className="border border-gray-400 p-1 print:p-2"></td>
+                            <td className="border border-gray-400 p-1 print:p-2"></td>
                             {/* Colunas para preenchimento manual no retorno */}
-                            <td className="border border-gray-400 p-1 bg-yellow-50 min-h-[30px]"></td>
-                            <td className="border border-gray-400 p-1 bg-yellow-50 min-h-[30px]"></td>
-                            <td className="border border-gray-400 p-1 bg-yellow-50 min-h-[30px]"></td>
+                            <td className="border border-gray-400 p-1 print:p-2 bg-yellow-50 min-h-[40px] print:min-h-[50px]"></td>
+                            <td className="border border-gray-400 p-1 print:p-2 bg-yellow-50 min-h-[40px] print:min-h-[50px]"></td>
+                            <td className="border border-gray-400 p-1 print:p-2 bg-yellow-50 min-h-[40px] print:min-h-[50px]"></td>
                           </tr>
                         ))}
                       </tbody>
@@ -709,36 +758,36 @@ export default function ExpeditionReport() {
 
           {/* Carrier Deliveries */}
           {carrierSales.length > 0 && (deliveryTypeFilter === 'all' || deliveryTypeFilter === 'carrier') && (
-            <div className="mb-6">
-              <h2 className="font-bold text-lg bg-blue-100 p-2 mb-2 flex items-center gap-2">
+            <div className="mb-6 carrier-section">
+              <h2 className="font-bold text-lg print:text-xl bg-blue-100 p-2 mb-2 flex items-center gap-2">
                 <Package className="w-5 h-5" />
                 ENTREGAS TRANSPORTADORA
               </h2>
-              <table className="w-full text-xs border-collapse">
+              <table className="w-full text-xs print:text-sm border-collapse">
                 <thead>
                   <tr className="bg-blue-50">
-                    <th className="border border-gray-400 p-1 text-left w-12">ROM.</th>
-                    <th className="border border-gray-400 p-1 text-left w-28">CLIENTE<br/>CIDADE</th>
-                    <th className="border border-gray-400 p-1 text-left w-28">PRODUTOS<br/>CONFERIDO</th>
-                    <th className="border border-gray-400 p-1 text-left w-20">TRANSP.</th>
-                    <th className="border border-gray-400 p-1 text-left w-24">RASTREIO</th>
-                    <th className="border border-gray-400 p-1 text-left w-16">STATUS RASTREIO</th>
-                    <th className="border border-gray-400 p-1 text-center w-12">PAGO?</th>
-                    <th className="border border-gray-400 p-1 text-right w-16">VALOR</th>
-                    <th className="border border-gray-400 p-1 text-center w-16">STATUS VENDA</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-left">ROM.</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-left">CLIENTE<br/>CIDADE</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-left">PRODUTOS<br/>CONFERIDO</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-left">TRANSP.</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-left">RASTREIO</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-left">STATUS RASTREIO</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-center">PAGO?</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-right">VALOR</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-center">STATUS VENDA</th>
                   </tr>
                 </thead>
                 <tbody>
                   {carrierSales.map((sale) => (
                     <tr key={sale.id}>
-                      <td className="border border-gray-400 p-1 font-semibold text-center">{sale.romaneio_number}</td>
-                      <td className="border border-gray-400 p-1">
-                        <span className="font-medium block text-[10px] leading-tight">{sale.lead?.name}</span>
+                      <td className="border border-gray-400 p-1 print:p-2 font-semibold text-center">{sale.romaneio_number}</td>
+                      <td className="border border-gray-400 p-1 print:p-2">
+                        <span className="font-medium block text-[11px] print:text-xs leading-tight">{sale.lead?.name}</span>
                         {sale.lead?.city && (
-                          <span className="text-gray-600 block text-[9px]">{sale.lead.city}</span>
+                          <span className="text-gray-600 block text-[10px] print:text-xs">{sale.lead.city}</span>
                         )}
                       </td>
-                      <td className="border border-gray-400 p-1 text-[9px]">
+                      <td className="border border-gray-400 p-1 print:p-2 text-[10px] print:text-xs">
                         {getProductsList(sale.items).map((product, idx) => (
                           <div key={idx} className="flex items-center gap-1">
                             <span>☐</span>
@@ -746,29 +795,29 @@ export default function ExpeditionReport() {
                           </div>
                         ))}
                       </td>
-                      <td className="border border-gray-400 p-1 text-[9px]">
+                      <td className="border border-gray-400 p-1 print:p-2 text-[10px] print:text-xs">
                         {sale.shipping_carrier_id && carriers?.[sale.shipping_carrier_id] 
                           ? carriers[sale.shipping_carrier_id] 
                           : '-'}
                       </td>
-                      <td className="border border-gray-400 p-1 text-[9px] font-mono">
+                      <td className="border border-gray-400 p-1 print:p-2 text-[10px] print:text-xs font-mono">
                         {sale.tracking_code || '-'}
                       </td>
-                      <td className="border border-gray-400 p-1 text-[9px]">
+                      <td className="border border-gray-400 p-1 print:p-2 text-[10px] print:text-xs">
                         {sale.carrier_tracking_status || 'Pendente'}
                       </td>
-                      <td className="border border-gray-400 p-1 text-center font-bold text-[10px]">
+                      <td className="border border-gray-400 p-1 print:p-2 text-center font-bold text-[11px] print:text-xs">
                         {sale.payment_confirmed_at ? '✓' : 'SIM'}
                       </td>
-                      <td className="border border-gray-400 p-1 text-right text-[10px]">{formatCurrency(sale.total_cents)}</td>
-                      <td className="border border-gray-400 p-1 text-center text-[8px]">{getStatusLabel(sale.status)}</td>
+                      <td className="border border-gray-400 p-1 print:p-2 text-right text-[11px] print:text-xs">{formatCurrency(sale.total_cents)}</td>
+                      <td className="border border-gray-400 p-1 print:p-2 text-center text-[10px] print:text-xs">{getStatusLabel(sale.status)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               
               {/* Conferência */}
-              <div className="mt-2 text-xs">
+              <div className="mt-2 text-sm print:text-base">
                 <p className="mb-2">Conferência Expedição: _______________________________________________</p>
               </div>
             </div>
@@ -776,30 +825,30 @@ export default function ExpeditionReport() {
 
           {/* Pickup Sales */}
           {pickupSales.length > 0 && (deliveryTypeFilter === 'all' || deliveryTypeFilter === 'pickup') && (
-            <div className="mb-6">
-              <h2 className="font-bold text-lg bg-green-100 p-2 mb-2 flex items-center gap-2">
+            <div className="mb-6 pickup-section">
+              <h2 className="font-bold text-lg print:text-xl bg-green-100 p-2 mb-2 flex items-center gap-2">
                 <Store className="w-5 h-5" />
                 RETIRADAS NO BALCÃO
               </h2>
-              <table className="w-full text-xs border-collapse">
+              <table className="w-full text-xs print:text-sm border-collapse">
                 <thead>
                   <tr className="bg-green-50">
-                    <th className="border border-gray-400 p-1 text-left w-12">ROM.</th>
-                    <th className="border border-gray-400 p-1 text-left w-28">CLIENTE</th>
-                    <th className="border border-gray-400 p-1 text-left w-28">PRODUTOS<br/>CONFERIDO</th>
-                    <th className="border border-gray-400 p-1 text-center w-12">PAGO?</th>
-                    <th className="border border-gray-400 p-1 text-right w-16">VALOR</th>
-                    <th className="border border-gray-400 p-1 text-center w-16">STATUS</th>
-                    <th className="border border-gray-400 p-1 text-center w-14">RETIRADO</th>
-                    <th className="border border-gray-400 p-1 text-left w-16">RUB.<br/>RETIRADA</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-left">ROM.</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-left">CLIENTE</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-left">PRODUTOS<br/>CONFERIDO</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-center">PAGO?</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-right">VALOR</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-center">STATUS</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-center">RETIRADO</th>
+                    <th className="border border-gray-400 p-1 print:p-2 text-left">RUB.<br/>RETIRADA</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pickupSales.map((sale) => (
                     <tr key={sale.id}>
-                      <td className="border border-gray-400 p-1 font-semibold text-center">{sale.romaneio_number}</td>
-                      <td className="border border-gray-400 p-1 font-medium text-[10px]">{sale.lead?.name}</td>
-                      <td className="border border-gray-400 p-1 text-[9px]">
+                      <td className="border border-gray-400 p-1 print:p-2 font-semibold text-center">{sale.romaneio_number}</td>
+                      <td className="border border-gray-400 p-1 print:p-2 font-medium text-[11px] print:text-xs">{sale.lead?.name}</td>
+                      <td className="border border-gray-400 p-1 print:p-2 text-[10px] print:text-xs">
                         {getProductsList(sale.items).map((product, idx) => (
                           <div key={idx} className="flex items-center gap-1">
                             <span>☐</span>
@@ -807,10 +856,10 @@ export default function ExpeditionReport() {
                           </div>
                         ))}
                       </td>
-                      <td className="border border-gray-400 p-1 text-center font-bold text-[10px]">
+                      <td className="border border-gray-400 p-1 print:p-2 text-center font-bold text-[11px] print:text-xs">
                         {sale.payment_confirmed_at ? '✓' : 'SIM'}
                       </td>
-                      <td className="border border-gray-400 p-1 text-right text-[10px]">{formatCurrency(sale.total_cents)}</td>
+                      <td className="border border-gray-400 p-1 print:p-2 text-right text-[11px] print:text-xs">{formatCurrency(sale.total_cents)}</td>
                       <td className="border border-gray-400 p-1 text-center text-[8px]">{getStatusLabel(sale.status)}</td>
                       <td className="border border-gray-400 p-1 text-center">☐</td>
                       <td className="border border-gray-400 p-1"></td>
