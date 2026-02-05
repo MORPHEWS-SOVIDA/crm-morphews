@@ -144,7 +144,8 @@ export function useUpdateCarrierTracking() {
 
         if (statusConfig?.message_template && statusConfig?.whatsapp_instance_id) {
           // Get lead info
-          const { data: lead } = await supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: lead }: any = await (supabase as any)
             .from('leads')
             .select('name, lead_products(name)')
             .eq('id', sale.lead_id)
