@@ -446,6 +446,8 @@ serve(async (req) => {
     const body: LabelRequest = await req.json();
     const { action, organization_id } = body;
 
+    console.log('[Melhor Envio] Request received:', { action, organization_id, order_id: body.order_id });
+
     if (!organization_id) {
       throw new Error('organization_id é obrigatório');
     }
@@ -455,10 +457,21 @@ serve(async (req) => {
       .from('melhor_envio_config')
       .select('*')
       .eq('organization_id', organization_id)
-      .single();
+      .maybeSingle();
 
-    if (configError || !config) {
-      throw new Error('Configuração do Melhor Envio não encontrada');
+    console.log('[Melhor Envio] Config query result:', { 
+      found: !!config, 
+      error: configError?.message,
+      is_active: config?.is_active,
+      ambiente: config?.ambiente 
+    });
+
+    if (configError) {
+      throw new Error(`Erro ao buscar configuração: ${configError.message}`);
+    }
+    
+    if (!config) {
+      throw new Error(`Configuração do Melhor Envio não encontrada para organização ${organization_id}`);
     }
 
     if (!config.is_active) {
@@ -557,24 +570,54 @@ serve(async (req) => {
 
       console.log('[Melhor Envio] Downloading PDF for order:', orderId);
 
-      // Request PDF from Melhor Envio print endpoint
+      // Request PDF from Melhor Envio print endpoint with retry logic
       const printPayload = { orders: [orderId] };
       
-      const printResponse = await fetch(`${baseUrl}/me/shipment/print`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/pdf', // Request PDF directly!
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
-        },
-        body: JSON.stringify(printPayload),
-      });
+      let printResponse: Response | null = null;
+      let lastError: Error | null = null;
+      
+      // Retry up to 3 times with increasing delays to handle transient DNS issues
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`[Melhor Envio] PDF download attempt ${attempt}/3 to ${baseUrl}/me/shipment/print`);
+          
+          printResponse = await fetch(`${baseUrl}/me/shipment/print`, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/pdf',
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+            },
+            body: JSON.stringify(printPayload),
+          });
+          
+          // Success - break out of retry loop
+          console.log(`[Melhor Envio] PDF download attempt ${attempt} succeeded with status ${printResponse.status}`);
+          break;
+        } catch (fetchError) {
+          console.error(`[Melhor Envio] PDF fetch attempt ${attempt} failed:`, fetchError);
+          lastError = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
+          
+          // Wait before retry (500ms, 1000ms, 1500ms)
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, attempt * 500));
+          }
+        }
+      }
+      
+      // If all retries failed
+      if (!printResponse) {
+        const errorMsg = lastError?.message || 'Erro desconhecido';
+        if (errorMsg.includes('dns error') || errorMsg.includes('failed to lookup')) {
+          throw new Error('Não foi possível conectar com a API do Melhor Envio após 3 tentativas. Por favor, tente novamente em alguns minutos ou entre em contato com o suporte.');
+        }
+        throw new Error(`Erro de conexão ao baixar etiqueta: ${errorMsg}`);
+      }
 
       console.log('[Melhor Envio] Print PDF response status:', printResponse.status);
 
       if (!printResponse.ok) {
-        // If PDF request fails, try to get JSON URL
         const errorText = await printResponse.text();
         console.error('[Melhor Envio] PDF download failed:', errorText);
         throw new Error('Não foi possível baixar o PDF da etiqueta. Verifique se a etiqueta foi gerada corretamente.');
