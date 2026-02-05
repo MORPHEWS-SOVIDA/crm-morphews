@@ -17777,6 +17777,63 @@ export type Database = {
           },
         ]
       }
+      voice_ai_agent_tools: {
+        Row: {
+          agent_id: string
+          config: Json | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          organization_id: string
+          tool_type: string
+          trigger_keywords: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          config?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          organization_id: string
+          tool_type: string
+          trigger_keywords?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          config?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          organization_id?: string
+          tool_type?: string
+          trigger_keywords?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_ai_agent_tools_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "voice_ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_agent_tools_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voice_ai_agents: {
         Row: {
           created_at: string
@@ -17847,6 +17904,133 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "voice_ai_agents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_ai_automation_logs: {
+        Row: {
+          automation_id: string
+          call_id: string | null
+          created_at: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          input_data: Json | null
+          organization_id: string
+          output_data: Json | null
+          status: string
+        }
+        Insert: {
+          automation_id: string
+          call_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          input_data?: Json | null
+          organization_id: string
+          output_data?: Json | null
+          status: string
+        }
+        Update: {
+          automation_id?: string
+          call_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          input_data?: Json | null
+          organization_id?: string
+          output_data?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_ai_automation_logs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "voice_ai_automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_automation_logs_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "voice_ai_call_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_automation_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_ai_automations: {
+        Row: {
+          action_config: Json | null
+          action_type: string
+          agent_id: string | null
+          conditions: Json | null
+          created_at: string | null
+          description: string | null
+          executions_count: number | null
+          id: string
+          is_active: boolean | null
+          last_executed_at: string | null
+          name: string
+          organization_id: string
+          trigger_event: string
+          updated_at: string | null
+        }
+        Insert: {
+          action_config?: Json | null
+          action_type: string
+          agent_id?: string | null
+          conditions?: Json | null
+          created_at?: string | null
+          description?: string | null
+          executions_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_executed_at?: string | null
+          name: string
+          organization_id: string
+          trigger_event: string
+          updated_at?: string | null
+        }
+        Update: {
+          action_config?: Json | null
+          action_type?: string
+          agent_id?: string | null
+          conditions?: Json | null
+          created_at?: string | null
+          description?: string | null
+          executions_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_executed_at?: string | null
+          name?: string
+          organization_id?: string
+          trigger_event?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_ai_automations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "voice_ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_automations_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -18258,6 +18442,78 @@ export type Database = {
           },
           {
             foreignKeyName: "voice_ai_campaigns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_ai_knowledge_base: {
+        Row: {
+          agent_id: string
+          content: string | null
+          content_type: string
+          created_at: string | null
+          file_name: string | null
+          file_size_bytes: number | null
+          file_url: string | null
+          id: string
+          is_active: boolean | null
+          organization_id: string
+          processed_content: string | null
+          processing_status: string | null
+          qa_answer: string | null
+          qa_question: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          content?: string | null
+          content_type: string
+          created_at?: string | null
+          file_name?: string | null
+          file_size_bytes?: number | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id: string
+          processed_content?: string | null
+          processing_status?: string | null
+          qa_answer?: string | null
+          qa_question?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          content?: string | null
+          content_type?: string
+          created_at?: string | null
+          file_name?: string | null
+          file_size_bytes?: number | null
+          file_url?: string | null
+          id?: string
+          is_active?: boolean | null
+          organization_id?: string
+          processed_content?: string | null
+          processing_status?: string | null
+          qa_answer?: string | null
+          qa_question?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_ai_knowledge_base_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "voice_ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_ai_knowledge_base_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"

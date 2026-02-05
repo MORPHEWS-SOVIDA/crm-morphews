@@ -1,20 +1,23 @@
 import { useState } from "react";
  import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Bot, Plus, Save, Phone, Settings2 } from "lucide-react";
+import { Loader2, Bot, Plus, Save, Phone, Settings2, Wrench, BookOpen } from "lucide-react";
  import { Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import { toast } from "@/hooks/use-toast";
  import { VoiceLibrary } from './VoiceLibrary';
  import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { AgentToolsConfig } from './AgentToolsConfig';
+import { KnowledgeBaseConfig } from './KnowledgeBaseConfig';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface VoiceAIAgent {
   id: string;
@@ -46,6 +49,8 @@ export function VoiceAIAgentConfig() {
     is_active: true,
   });
    const [showVoiceLibrary, setShowVoiceLibrary] = useState(false);
+  const [configMode, setConfigMode] = useState<'edit' | 'tools' | 'knowledge' | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<VoiceAIAgent | null>(null);
  
    const handleSelectVoice = useCallback((voiceId: string, voiceName: string) => {
      setFormData(prev => ({ ...prev, voice_id: voiceId, voice_name: voiceName }));
@@ -138,6 +143,7 @@ export function VoiceAIAgentConfig() {
 
   const startEditing = (agent: VoiceAIAgent) => {
     setEditingAgent(agent);
+    setConfigMode('edit');
     setFormData({
       name: agent.name || "",
       elevenlabs_agent_id: agent.elevenlabs_agent_id || "",
@@ -148,6 +154,28 @@ export function VoiceAIAgentConfig() {
       is_active: agent.is_active,
     });
     setIsCreating(false);
+  };
+
+  const openToolsConfig = (agent: VoiceAIAgent) => {
+    setSelectedAgent(agent);
+    setConfigMode('tools');
+    setEditingAgent(null);
+    setIsCreating(false);
+  };
+
+  const openKnowledgeConfig = (agent: VoiceAIAgent) => {
+    setSelectedAgent(agent);
+    setConfigMode('knowledge');
+    setEditingAgent(null);
+    setIsCreating(false);
+  };
+
+  const closeConfig = () => {
+    setConfigMode(null);
+    setSelectedAgent(null);
+    setEditingAgent(null);
+    setIsCreating(false);
+    resetForm();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -167,10 +195,38 @@ export function VoiceAIAgentConfig() {
     );
   }
 
+  // Tools Config View
+  if (configMode === 'tools' && selectedAgent) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={closeConfig}>
+            ← Voltar
+          </Button>
+        </div>
+        <AgentToolsConfig agentId={selectedAgent.id} agentName={selectedAgent.name} />
+      </div>
+    );
+  }
+
+  // Knowledge Base Config View
+  if (configMode === 'knowledge' && selectedAgent) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={closeConfig}>
+            ← Voltar
+          </Button>
+        </div>
+        <KnowledgeBaseConfig agentId={selectedAgent.id} agentName={selectedAgent.name} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Agent List */}
-      {!isCreating && !editingAgent && (
+      {!isCreating && !editingAgent && !configMode && (
         <>
           <div className="flex items-center justify-between">
             <div>
@@ -224,7 +280,7 @@ export function VoiceAIAgentConfig() {
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -232,6 +288,22 @@ export function VoiceAIAgentConfig() {
                       >
                         <Settings2 className="h-4 w-4 mr-1" />
                         Configurar
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => openToolsConfig(agent)}
+                      >
+                        <Wrench className="h-4 w-4 mr-1" />
+                        Tools
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => openKnowledgeConfig(agent)}
+                      >
+                        <BookOpen className="h-4 w-4 mr-1" />
+                        Conhecimento
                       </Button>
                     </div>
                   </CardContent>
@@ -368,6 +440,7 @@ export function VoiceAIAgentConfig() {
                   onClick={() => {
                     setIsCreating(false);
                     setEditingAgent(null);
+                    setConfigMode(null);
                     resetForm();
                   }}
                 >

@@ -1,5 +1,5 @@
 # Memory: features/ai/voice-ai-agents-v1
-Updated: now
+Updated: 2026-02-05
 
 ## Voice AI com ElevenLabs - Implementação Completa
 
@@ -11,6 +11,10 @@ Sistema de ligações por voz com IA usando ElevenLabs Conversational AI.
 - `voice_ai_calls` - Logs de chamadas (inbound/outbound) com energy_consumed
 - `voice_ai_agents` - Configuração de agentes por organização (inclui elevenlabs_agent_id)
 - `voice_ai_campaigns` - Campanhas de ligações outbound
+- `voice_ai_agent_tools` - Tools/ações que o agente pode executar durante chamada
+- `voice_ai_knowledge_base` - Base de conhecimento para treinar agente
+- `voice_ai_automations` - Workflows pós-ligação
+- `voice_ai_automation_logs` - Log de execuções das automações
 
 **Edge Functions:**
 - `elevenlabs-conversation-token` - Token WebRTC para conversação
@@ -62,3 +66,33 @@ Sistema de ligações por voz com IA usando ElevenLabs Conversational AI.
 2. Campanhas de recuperação de carrinho via voz
 3. Webhooks para chamadas inbound (número de telefone próprio)
 4. Dashboard de métricas de conversão por voz
+
+### Tools na Chamada (Implementado)
+
+Tipos de tools disponíveis:
+- `transfer_human` - Transferir para humano com número configurável
+- `book_appointment` - Agendar reunião (Cal.com, Calendly, Google Calendar)
+- `dtmf` - Enviar teclas DTMF para navegação em URA
+- `api_call` - Chamada API em tempo real
+- `send_sms` - Enviar SMS com template
+- `update_crm` - Atualizar dados no CRM
+- `webhook` - Disparar webhook customizado
+
+### Base de Conhecimento (Implementado)
+
+Tipos de conteúdo:
+- `text` - Texto livre (políticas, processos)
+- `pdf` - Upload de documentos PDF
+- `url` - URL de página web
+- `qa_pair` - Pares de pergunta/resposta
+
+### Automações Pós-Ligação (Implementado)
+
+**Gatilhos:**
+- call_ended, appointment_booked, transfer_requested
+- sentiment_negative, sentiment_positive
+- outcome_sale, outcome_no_answer
+
+**Ações:**
+- webhook, update_lead, send_notification
+- create_task, send_email, send_sms, add_tag
