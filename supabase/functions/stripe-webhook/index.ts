@@ -309,6 +309,54 @@ serve(async (req) => {
           break;
         }
 
+        // ============================================
+        // VOICE AI MINUTES PURCHASE
+        // ============================================
+        if (session.metadata?.type === "voice_minutes") {
+          const packageId = session.metadata.package_id;
+          const minutes = parseInt(session.metadata.minutes || "0", 10);
+          const priceCents = parseInt(session.metadata.price_cents || "0", 10);
+          const organizationId = session.metadata.organization_id;
+          const userId = session.metadata.user_id;
+
+          console.log("Voice AI minutes purchase completed:", { 
+            packageId, 
+            minutes, 
+            priceCents, 
+            organizationId 
+          });
+
+          if (organizationId && minutes > 0) {
+            try {
+              // Create purchase record
+              await supabaseAdmin.from("voice_minutes_purchases").insert({
+                organization_id: organizationId,
+                package_id: packageId,
+                minutes_amount: minutes,
+                price_cents: priceCents,
+                payment_method: "stripe",
+                payment_reference: session.payment_intent as string || session.id,
+                purchased_by: userId,
+              });
+
+              // Add minutes via RPC
+              const { error: rpcError } = await supabaseAdmin.rpc("add_voice_minutes", {
+                p_organization_id: organizationId,
+                p_minutes: minutes,
+              });
+
+              if (rpcError) {
+                console.error("Error adding voice minutes:", rpcError);
+              } else {
+                console.log(`Successfully added ${minutes} voice minutes to org ${organizationId}`);
+              }
+            } catch (voiceError) {
+              console.error("Error processing voice minutes:", voiceError);
+            }
+          }
+          break;
+        }
+
         // Check if this is an e-commerce checkout (has sale_id)
         if (session.metadata?.sale_id) {
           const saleId = session.metadata.sale_id;

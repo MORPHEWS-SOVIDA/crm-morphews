@@ -1,22 +1,45 @@
- import { useState } from 'react';
- import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
- import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
- import { Badge } from '@/components/ui/badge';
- import { Button } from '@/components/ui/button';
- import { 
-   Phone, PhoneIncoming, PhoneOutgoing, Clock, 
-   TrendingUp, Calendar, Users, Zap, Loader2,
-   Play, Pause, RefreshCw
- } from 'lucide-react';
- import { useVoiceMinutesBalance, useVoiceAICallStats, useVoiceAICallLogs } from '@/hooks/useVoiceAI';
- import { VoiceAICallHistory } from './VoiceAICallHistory';
- import { VoiceAICampaignsList } from './VoiceAICampaignsList';
- 
- export function VoiceAIDashboard() {
-   const [statsPeriod, setStatsPeriod] = useState<'today' | 'week' | 'month'>('today');
-   
-   const { data: balance, isLoading: balanceLoading } = useVoiceMinutesBalance();
-   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useVoiceAICallStats(statsPeriod);
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { 
+  Phone, PhoneIncoming, PhoneOutgoing, Clock, 
+  TrendingUp, Calendar, Users, Zap, Loader2,
+  Play, Pause, RefreshCw
+} from 'lucide-react';
+import { useVoiceMinutesBalance, useVoiceAICallStats, useVoiceAICallLogs } from '@/hooks/useVoiceAI';
+import { VoiceAICallHistory } from './VoiceAICallHistory';
+import { VoiceAICampaignsList } from './VoiceAICampaignsList';
+import { VoiceMinutesPurchaseDialog } from './VoiceMinutesPurchaseDialog';
+import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+export function VoiceAIDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [statsPeriod, setStatsPeriod] = useState<'today' | 'week' | 'month'>('today');
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false);
+  
+  const { data: balance, isLoading: balanceLoading, refetch: refetchBalance } = useVoiceMinutesBalance();
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useVoiceAICallStats(statsPeriod);
+
+  // Handle success/cancel from Stripe checkout
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const canceled = searchParams.get('canceled');
+
+    if (success === 'true') {
+      toast.success('Compra realizada com sucesso! Seus minutos foram creditados.');
+      refetchBalance();
+      searchParams.delete('success');
+      setSearchParams(searchParams, { replace: true });
+    }
+
+    if (canceled === 'true') {
+      toast.info('Compra cancelada');
+      searchParams.delete('canceled');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, refetchBalance]);
  
    const formatMinutes = (minutes: number) => {
      const hours = Math.floor(minutes / 60);
@@ -62,9 +85,9 @@
                  <Zap className="h-3 w-3" />
                  R$ 2,00/min
                </Badge>
-               <Button variant="default" size="sm">
-                 Comprar Minutos
-               </Button>
+                <Button variant="default" size="sm" onClick={() => setShowPurchaseDialog(true)}>
+                  Comprar Minutos
+                </Button>
              </div>
            </div>
          </CardContent>
@@ -270,8 +293,13 @@
                <VoiceAICallHistory />
              </CardContent>
            </Card>
-         </TabsContent>
-       </Tabs>
-     </div>
-   );
- }
+          </TabsContent>
+        </Tabs>
+
+        <VoiceMinutesPurchaseDialog 
+          open={showPurchaseDialog} 
+          onOpenChange={setShowPurchaseDialog} 
+        />
+      </div>
+    );
+  }
