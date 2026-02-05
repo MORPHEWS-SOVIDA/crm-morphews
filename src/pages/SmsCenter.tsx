@@ -24,6 +24,7 @@ import { useSmsBalance, useSendSms, useSmsProviderConfig } from '@/hooks/useSmsC
 import { useTenant } from '@/hooks/useTenant';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 const MAX_SMS_CHARS = 160;
 
@@ -74,6 +75,7 @@ export default function SmsCenter() {
 }
 
 function SmsBalanceCard() {
+  const navigate = useNavigate();
   const { data: balance, isLoading } = useSmsBalance();
   const { data: config } = useSmsProviderConfig();
 
@@ -103,6 +105,15 @@ function SmsBalanceCard() {
         ) : (
           <Badge variant="destructive">Inativo</Badge>
         )}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => navigate('/settings', { state: { tab: 'sms' } })}
+          className="ml-2"
+        >
+          <CreditCard className="h-4 w-4 mr-1" />
+          Recarregar
+        </Button>
       </CardContent>
     </Card>
   );

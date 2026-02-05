@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,7 @@ const SETTINGS_TABS = [
 type TabId = typeof SETTINGS_TABS[number]['id'];
 
 export default function Settings() {
+  const location = useLocation();
   const { profile, updatePassword, user, isAdmin } = useAuth();
   const { data: isOrgAdmin, isLoading: loadingPermissions } = useOrgAdmin();
   const { data: permissions, isLoading: loadingMyPermissions } = useMyPermissions();
@@ -64,7 +66,9 @@ export default function Settings() {
   const createSource = useCreateLeadSource();
   const deleteSource = useDeleteLeadSource();
 
-  const [activeTab, setActiveTab] = useState<TabId>('funil');
+  // Get initial tab from location state
+  const initialTab = (location.state as any)?.tab as TabId | undefined;
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab || 'funil');
   const [newSource, setNewSource] = useState('');
   
   // Password change state
