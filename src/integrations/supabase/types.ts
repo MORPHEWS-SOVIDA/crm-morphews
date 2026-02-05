@@ -8487,6 +8487,7 @@ export type Database = {
           service_id: number
           service_name: string | null
           status: string
+          storage_pdf_url: string | null
           tracking_code: string
           updated_at: string
           weight_grams: number | null
@@ -8520,6 +8521,7 @@ export type Database = {
           service_id: number
           service_name?: string | null
           status?: string
+          storage_pdf_url?: string | null
           tracking_code: string
           updated_at?: string
           weight_grams?: number | null
@@ -8553,6 +8555,7 @@ export type Database = {
           service_id?: number
           service_name?: string | null
           status?: string
+          storage_pdf_url?: string | null
           tracking_code?: string
           updated_at?: string
           weight_grams?: number | null

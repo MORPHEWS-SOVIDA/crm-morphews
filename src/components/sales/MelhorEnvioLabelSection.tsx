@@ -124,14 +124,27 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
     }
   };
 
-  // Handler to download/print PDF - tries direct URL first, then edge function
-  const handleDownloadPdf = async (orderId: string, trackingCode: string, directUrl?: string | null) => {
-    if (!orderId && !directUrl) {
+  // Handler to download/print PDF - tries storage URL first, then direct URL, then edge function
+  const handleDownloadPdf = async (
+    orderId: string, 
+    trackingCode: string, 
+    directUrl?: string | null,
+    storagePdfUrl?: string | null
+  ) => {
+    if (!orderId && !directUrl && !storagePdfUrl) {
       toast.error('ID do pedido não encontrado');
       return;
     }
 
-    // If we have a direct URL, open it in new tab (no need for edge function)
+    // Priority 1: Use our storage URL (doesn't require Melhor Envio login)
+    if (storagePdfUrl) {
+      window.open(storagePdfUrl, '_blank');
+      toast.success('Abrindo etiqueta...');
+      return;
+    }
+
+    // Priority 2: If we have a direct URL from Melhor Envio, try it
+    // Note: This may require login on their site - not ideal
     if (directUrl) {
       window.open(directUrl, '_blank');
       toast.success('Abrindo etiqueta...');
@@ -340,7 +353,8 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
                   onClick={() => handleDownloadPdf(
                     label.melhor_envio_order_id!,
                     hasRealTrackingCode ? label.tracking_code : label.melhor_envio_order_id?.slice(0, 8) || 'etiqueta',
-                    label.label_pdf_url
+                    label.label_pdf_url,
+                    (label as any).storage_pdf_url
                   )}
                   disabled={downloading}
                 >
@@ -361,7 +375,8 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
                         onClick={() => handleDownloadPdf(
                           label.melhor_envio_order_id!,
                           hasRealTrackingCode ? label.tracking_code : label.melhor_envio_order_id?.slice(0, 8) || 'etiqueta',
-                          label.label_pdf_url
+                          label.label_pdf_url,
+                          (label as any).storage_pdf_url
                         )}
                         disabled={downloading}
                       >
