@@ -93,6 +93,13 @@ export function MelhorEnvioLabelGenerator({ sale, onSuccess, onCancel }: MelhorE
     }
   }, [sale]);
 
+  // Auto-select first service if none selected and services loaded
+  useEffect(() => {
+    if (services && services.length > 0 && !formData.service_id) {
+      setFormData(prev => ({ ...prev, service_id: services[0].id }));
+    }
+  }, [services, formData.service_id]);
+
   const handleSubmit = async () => {
     const products = sale.items?.map((item: any) => ({
       name: item.product_name || 'Produto',
