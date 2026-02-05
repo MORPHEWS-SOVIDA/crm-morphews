@@ -89,6 +89,43 @@
      enabled: !!tenantId,
    });
  }
+
+ // Start/pause/resume campaign
+ export function useCampaignActions() {
+   const queryClient = useQueryClient();
+ 
+   const processCampaign = useMutation({
+     mutationFn: async ({ campaignId, action }: { campaignId: string; action: 'start' | 'pause' | 'resume' | 'process_batch' }) => {
+       const { data, error } = await supabase.functions.invoke('process-outbound-campaign', {
+         body: { campaignId, action }
+       });
+ 
+       if (error) throw error;
+       return data;
+     },
+     onSuccess: (_, variables) => {
+       queryClient.invalidateQueries({ queryKey: ['voice-ai-campaigns'] });
+       
+       const actionMessages: Record<string, string> = {
+         start: 'Campanha iniciada',
+         pause: 'Campanha pausada',
+         resume: 'Campanha retomada',
+         process_batch: 'Lote processado'
+       };
+       
+       toast({ title: actionMessages[variables.action] || 'Ação executada' });
+     },
+     onError: (error: Error) => {
+       toast({ 
+         title: 'Erro', 
+         description: error.message, 
+         variant: 'destructive' 
+       });
+     }
+   });
+ 
+   return { processCampaign };
+ }
  
  // Fetch call logs with filters
  export function useVoiceAICallLogs(filters?: {
