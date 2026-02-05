@@ -29,6 +29,7 @@ import {
   useUpdateSmsProviderConfig,
   useAddSmsCredits
 } from '@/hooks/useSmsCredits';
+import { useAuth } from '@/hooks/useAuth';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -38,21 +39,26 @@ function formatCurrency(cents: number) {
 
 export function SmsConfigManager() {
   const [activeTab, setActiveTab] = useState('balance');
+  const { profile } = useAuth();
+  const isSuperAdmin = (profile as any)?.is_super_admin === true;
+  
+  // Number of tabs: 3 for tenants, 4 for super admin
+  const tabCols = isSuperAdmin ? 'grid-cols-4' : 'grid-cols-3';
   
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <MessageSquare className="h-6 w-6 text-primary" />
         <div>
-          <h2 className="text-xl font-semibold">Configuração de SMS</h2>
+          <h2 className="text-xl font-semibold">Centro de SMS</h2>
           <p className="text-sm text-muted-foreground">
-            Gerencie seus créditos e configuração do provedor FacilitaMóvel
+            Gerencie seus créditos e envios de SMS
           </p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-4 w-full max-w-xl">
+        <TabsList className={`grid ${tabCols} w-full max-w-xl`}>
           <TabsTrigger value="balance" className="gap-2">
             <CreditCard className="h-4 w-4" />
             Saldo
@@ -61,10 +67,12 @@ export function SmsConfigManager() {
             <MessageSquare className="h-4 w-4" />
             Pacotes
           </TabsTrigger>
-          <TabsTrigger value="config" className="gap-2">
-            <Settings2 className="h-4 w-4" />
-            Configuração
-          </TabsTrigger>
+          {isSuperAdmin && (
+            <TabsTrigger value="config" className="gap-2">
+              <Settings2 className="h-4 w-4" />
+              Configuração
+            </TabsTrigger>
+          )}
           <TabsTrigger value="history" className="gap-2">
             <History className="h-4 w-4" />
             Histórico
@@ -79,9 +87,11 @@ export function SmsConfigManager() {
           <SmsPackagesTab />
         </TabsContent>
 
-        <TabsContent value="config" className="mt-6">
-          <SmsProviderConfigTab />
-        </TabsContent>
+        {isSuperAdmin && (
+          <TabsContent value="config" className="mt-6">
+            <SmsProviderConfigTab />
+          </TabsContent>
+        )}
 
         <TabsContent value="history" className="mt-6">
           <SmsHistoryTab />
