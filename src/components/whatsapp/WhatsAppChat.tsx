@@ -2025,7 +2025,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                       {!selectedVideo && (
                         <Textarea
                           ref={textareaRef}
-                          placeholder="Digite uma mensagem..."
+                          placeholder={isMobile ? "Mensagem..." : "Digite uma mensagem... (Shift+Enter para nova linha)"}
                           value={messageText}
                           onChange={(e) => setMessageText(e.target.value)}
                           onKeyDown={(e) => {
@@ -2038,6 +2038,34 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                               } else {
                                 handleSendMessage();
                               }
+                            } else if (e.key === "Enter" && e.shiftKey) {
+                              // Explicitly handle Shift+Enter to guarantee newline insertion
+                              e.preventDefault();
+                              const textarea = e.currentTarget;
+                              const start = textarea.selectionStart;
+                              const end = textarea.selectionEnd;
+                              const newValue = messageText.substring(0, start) + "\n" + messageText.substring(end);
+                              setMessageText(newValue);
+                              // Restore cursor position after React re-render
+                              requestAnimationFrame(() => {
+                                textarea.selectionStart = textarea.selectionEnd = start + 1;
+                              });
+                            }
+                          }}
+                          onPaste={(e) => {
+                            // Ensure pasted text preserves newlines
+                            const pastedText = e.clipboardData.getData('text/plain');
+                            if (pastedText && pastedText.includes('\n')) {
+                              e.preventDefault();
+                              const textarea = e.currentTarget;
+                              const start = textarea.selectionStart;
+                              const end = textarea.selectionEnd;
+                              const newValue = messageText.substring(0, start) + pastedText + messageText.substring(end);
+                              setMessageText(newValue);
+                              requestAnimationFrame(() => {
+                                const newPos = start + pastedText.length;
+                                textarea.selectionStart = textarea.selectionEnd = newPos;
+                              });
                             }
                           }}
                           className={cn(
