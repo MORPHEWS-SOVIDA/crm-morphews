@@ -7,25 +7,35 @@ import React from 'react';
 export function formatWhatsAppText(text: string): React.ReactNode {
   if (!text) return null;
 
-  // Split text into lines first to handle line-by-line formatting
-  const lines = text.split('\n');
+  // Split by double newlines first to create paragraph blocks with spacing
+  const paragraphs = text.split(/\n{2,}/);
   
   const result: React.ReactNode[] = [];
 
-  lines.forEach((line, lineIndex) => {
-    if (lineIndex > 0) {
-      result.push(<br key={`br-${lineIndex}`} />);
+  paragraphs.forEach((paragraph, paraIndex) => {
+    if (paraIndex > 0) {
+      // Add visual paragraph spacing (margin) for double+ newlines
+      result.push(<div key={`para-spacer-${paraIndex}`} className="h-2" />);
     }
 
-    // Parse inline formatting for each line
-    const formatted = parseInlineFormatting(line, lineIndex);
-    result.push(...formatted);
+    // Within each paragraph, handle single newlines as <br>
+    const lines = paragraph.split('\n');
+    
+    lines.forEach((line, lineIndex) => {
+      if (lineIndex > 0) {
+        result.push(<br key={`br-${paraIndex}-${lineIndex}`} />);
+      }
+
+      // Parse inline formatting for each line
+      const formatted = parseInlineFormatting(line, `${paraIndex}-${lineIndex}`);
+      result.push(...formatted);
+    });
   });
 
   return <>{result}</>;
 }
 
-function parseInlineFormatting(text: string, lineKey: number): React.ReactNode[] {
+function parseInlineFormatting(text: string, lineKey: number | string): React.ReactNode[] {
   const result: React.ReactNode[] = [];
   
   // Combined regex for WhatsApp formatting patterns
