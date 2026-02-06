@@ -12,3 +12,5 @@ export { TypingIndicator } from './TypingIndicator';
 export { UserPresenceIndicator, OnlineUsersList } from './UserPresenceIndicator';
 export { ChannelBrowser } from './ChannelBrowser';
 export { MessageSearch } from './MessageSearch';
+export { TeamChatNotificationProvider } from './TeamChatNotificationProvider';
+export { TeamChatNotificationPopup } from './TeamChatNotificationPopup';
