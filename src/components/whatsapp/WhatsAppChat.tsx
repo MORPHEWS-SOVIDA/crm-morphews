@@ -510,11 +510,14 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       if (!activeConversation) throw new Error("No conversation selected");
       if (!profile?.organization_id) throw new Error("Organização não encontrada");
 
-      console.log("[WhatsApp] Enviando mensagem de texto:", {
+      // Debug: track newlines through pipeline
+      const nlCount = (text.match(/\n/g) || []).length;
+      console.log("[WhatsApp] 📝 Enviando mensagem:", {
+        newlines: nlCount,
+        length: text.length,
+        first50: JSON.stringify(text.substring(0, 50)),
         organization_id: profile.organization_id,
         conversation_id: activeConversation.id,
-        instance_id: activeConversation.instance_id,
-        has_chat_id: !!activeConversation.chat_id,
       });
 
       const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {

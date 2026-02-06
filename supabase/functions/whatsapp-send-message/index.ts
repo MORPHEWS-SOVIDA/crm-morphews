@@ -497,6 +497,10 @@ Deno.serve(async (req) => {
     let finalType: "text" | "image" | "audio" | "document" | "video" = (messageType as any) || "text";
     let text = (content ?? "").toString();
 
+    // Debug: track newlines through the pipeline
+    const newlineCount = (text.match(/\n/g) || []).length;
+    console.log(`[${requestId}] 📝 Content newlines: ${newlineCount}, length: ${text.length}, first50: ${JSON.stringify(text.substring(0, 50))}`);
+
     // Check if sender name prefix is enabled for this organization
     let senderNamePrefix = "";
     if (senderUserId && text) {
