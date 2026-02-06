@@ -96,6 +96,7 @@ export const AVAILABLE_FEATURES = {
   
   // Gerenciamento
   team: { label: "Minha Equipe", group: "Gerenciamento" },
+  team_panel: { label: "Painel da Equipe", group: "Gerenciamento" },
   settings: { label: "Configurações", group: "Gerenciamento" },
   integrations: { label: "Integrações", group: "Gerenciamento" },
   
