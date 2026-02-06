@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock, Star, Instagram, MessageSquareMore, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { WhatsAppMessageInput } from "./WhatsAppMessageInput";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -2021,62 +2021,24 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                         </div>
                       )}
 
-                      {/* Text Input - Larger on mobile */}
+                      {/* Text Input - Rich formatting */}
                       {!selectedVideo && (
-                        <Textarea
-                          ref={textareaRef}
-                          placeholder={isMobile ? "Mensagem..." : "Digite uma mensagem... (Shift+Enter para nova linha)"}
-                          value={messageText}
-                          onChange={(e) => setMessageText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
+                        <div className="flex-1">
+                          <WhatsAppMessageInput
+                            textareaRef={textareaRef}
+                            value={messageText}
+                            onChange={setMessageText}
+                            onSend={() => {
                               if (selectedImage) {
                                 handleSendImage();
-                              } else if (selectedVideo) {
-                                handleSendVideo();
                               } else {
                                 handleSendMessage();
                               }
-                            } else if (e.key === "Enter" && e.shiftKey) {
-                              // Explicitly handle Shift+Enter to guarantee newline insertion
-                              e.preventDefault();
-                              const textarea = e.currentTarget;
-                              const start = textarea.selectionStart;
-                              const end = textarea.selectionEnd;
-                              const newValue = messageText.substring(0, start) + "\n" + messageText.substring(end);
-                              setMessageText(newValue);
-                              // Restore cursor position after React re-render
-                              requestAnimationFrame(() => {
-                                textarea.selectionStart = textarea.selectionEnd = start + 1;
-                              });
-                            }
-                          }}
-                          onPaste={(e) => {
-                            // Ensure pasted text preserves newlines
-                            const pastedText = e.clipboardData.getData('text/plain');
-                            if (pastedText && pastedText.includes('\n')) {
-                              e.preventDefault();
-                              const textarea = e.currentTarget;
-                              const start = textarea.selectionStart;
-                              const end = textarea.selectionEnd;
-                              const newValue = messageText.substring(0, start) + pastedText + messageText.substring(end);
-                              setMessageText(newValue);
-                              requestAnimationFrame(() => {
-                                const newPos = start + pastedText.length;
-                                textarea.selectionStart = textarea.selectionEnd = newPos;
-                              });
-                            }
-                          }}
-                          className={cn(
-                            "flex-1 resize-none rounded-2xl border-2 focus-visible:ring-1",
-                            isMobile
-                              ? "min-h-[48px] max-h-[120px] py-3 px-4 text-base"
-                              : "min-h-[44px] max-h-[144px] py-2.5 px-3"
-                          )}
-                          disabled={sendMessage.isPending || isSendingImage || isSendingVideo}
-                          rows={1}
-                        />
+                            }}
+                            disabled={sendMessage.isPending || isSendingImage || isSendingVideo}
+                            isMobile={isMobile}
+                          />
+                        </div>
                       )}
 
                       {/* Send Button - Always visible on mobile */}
