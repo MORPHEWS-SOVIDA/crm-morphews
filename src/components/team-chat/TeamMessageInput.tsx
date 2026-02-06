@@ -1,9 +1,11 @@
-import { useState, useRef, KeyboardEvent } from 'react';
+import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { Send, Paperclip, Smile, AtSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useSendTeamMessage, TeamMentionData } from '@/hooks/useTeamChat';
+import { useSendTypingIndicator } from '@/hooks/useTeamChatExtended';
 import { MentionPopover } from './MentionPopover';
+import { TypingIndicator } from './TypingIndicator';
 import { cn } from '@/lib/utils';
 
 interface TeamMessageInputProps {
@@ -19,9 +21,29 @@ export function TeamMessageInput({ conversationId }: TeamMessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const sendMessage = useSendTeamMessage();
+  const sendTypingIndicator = useSendTypingIndicator();
+
+  // Enviar indicador de digitação quando usuário está digitando
+  useEffect(() => {
+    if (content.length > 0) {
+      sendTypingIndicator(conversationId, true);
+    }
+    
+    // Limpar indicador após 3s de inatividade
+    const timeout = setTimeout(() => {
+      if (content.length > 0) {
+        sendTypingIndicator(conversationId, false);
+      }
+    }, 3000);
+
+    return () => clearTimeout(timeout);
+  }, [content, conversationId, sendTypingIndicator]);
 
   const handleSend = () => {
     if (!content.trim()) return;
+
+    // Limpar indicador de digitação
+    sendTypingIndicator(conversationId, false);
 
     sendMessage.mutate({
       conversationId,
@@ -104,72 +126,77 @@ export function TeamMessageInput({ conversationId }: TeamMessageInputProps) {
   };
 
   return (
-    <div className="p-3 border-t bg-background">
-      {/* Mention Popover */}
-      <MentionPopover
-        open={showMentionPopover}
-        query={mentionQuery}
-        type={mentionType}
-        onSelect={handleSelectMention}
-        onClose={() => setShowMentionPopover(false)}
-      />
+    <div className="border-t bg-background">
+      {/* Typing indicator */}
+      <TypingIndicator conversationId={conversationId} />
 
-      <div className="flex items-end gap-2">
-        {/* Input area */}
-        <div className="flex-1 relative">
-          <Textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => handleChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Digite sua mensagem... (@pessoa: @lead: @demanda:)"
-            className={cn(
-              "min-h-[40px] max-h-[120px] resize-none pr-10",
-              "text-sm"
-            )}
-            rows={1}
-          />
+      <div className="p-3">
+        {/* Mention Popover */}
+        <MentionPopover
+          open={showMentionPopover}
+          query={mentionQuery}
+          type={mentionType}
+          onSelect={handleSelectMention}
+          onClose={() => setShowMentionPopover(false)}
+        />
 
-          {/* Mention trigger button */}
+        <div className="flex items-end gap-2">
+          {/* Input area */}
+          <div className="flex-1 relative">
+            <Textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => handleChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Digite sua mensagem... (@pessoa: @lead: @demanda:)"
+              className={cn(
+                "min-h-[40px] max-h-[120px] resize-none pr-10",
+                "text-sm"
+              )}
+              rows={1}
+            />
+
+            {/* Mention trigger button */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setShowMentionPopover(true);
+                setMentionType(null);
+                setMentionQuery('');
+              }}
+              className="absolute right-1 bottom-1 h-7 w-7"
+            >
+              <AtSign className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </div>
+
+          {/* Send button */}
           <Button
-            type="button"
-            variant="ghost"
+            onClick={handleSend}
+            disabled={!content.trim() || sendMessage.isPending}
             size="icon"
-            onClick={() => {
-              setShowMentionPopover(true);
-              setMentionType(null);
-              setMentionQuery('');
-            }}
-            className="absolute right-1 bottom-1 h-7 w-7"
+            className="h-10 w-10 shrink-0"
           >
-            <AtSign className="h-4 w-4 text-muted-foreground" />
+            <Send className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Send button */}
-        <Button
-          onClick={handleSend}
-          disabled={!content.trim() || sendMessage.isPending}
-          size="icon"
-          className="h-10 w-10 shrink-0"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
+        {/* Active mentions preview */}
+        {mentions.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {mentions.map((mention, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full"
+              >
+                @{mention.display_name}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
-
-      {/* Active mentions preview */}
-      {mentions.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-2">
-          {mentions.map((mention, i) => (
-            <span
-              key={i}
-              className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-full"
-            >
-              @{mention.display_name}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
