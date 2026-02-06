@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { useTranscribeAudioMessage } from '@/hooks/useTranscribeAudioMessage';
+import { formatWhatsAppText } from '@/utils/whatsappFormatting';
 
 interface Message {
   id: string;
@@ -122,9 +123,9 @@ export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
               </div>
             )}
             {(message.content || message.media_caption) && (
-              <p className="whitespace-pre-wrap break-words text-sm">
-                {message.content || message.media_caption}
-              </p>
+              <div className="whitespace-pre-wrap break-words text-sm">
+                {formatWhatsAppText(message.content || message.media_caption || '')}
+              </div>
             )}
           </div>
         );
@@ -233,9 +234,9 @@ export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
               </div>
             )}
             {(message.content || message.media_caption) && (
-              <p className="whitespace-pre-wrap break-words text-sm">
-                {message.content || message.media_caption}
-              </p>
+              <div className="whitespace-pre-wrap break-words text-sm">
+                {formatWhatsAppText(message.content || message.media_caption || '')}
+              </div>
             )}
           </div>
         );
@@ -275,9 +276,9 @@ export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
       default:
         if (message.content) {
           return (
-            <p className="whitespace-pre-wrap break-words text-sm">
-              {message.content}
-            </p>
+            <div className="whitespace-pre-wrap break-words text-sm">
+              {formatWhatsAppText(message.content)}
+            </div>
           );
         }
         return (
