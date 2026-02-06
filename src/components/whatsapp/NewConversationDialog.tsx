@@ -26,6 +26,8 @@ interface NewConversationDialogProps {
   onOpenChange: (open: boolean) => void;
   phoneNumber?: string;
   message?: string;
+  leadId?: string; // ID do lead para vincular automaticamente à conversa
+  leadName?: string; // Nome do lead para exibição
   onConversationCreated?: (conversationId: string, instanceId: string) => void;
 }
 
@@ -34,6 +36,8 @@ export function NewConversationDialog({
   onOpenChange, 
   phoneNumber = "", 
   message = "",
+  leadId,
+  leadName,
   onConversationCreated 
 }: NewConversationDialogProps) {
   const navigate = useNavigate();
@@ -210,13 +214,14 @@ export function NewConversationDialog({
       // Verificar se já existe conversa com esse número + instância (1 conversa por org + phone + instance)
       const { data: existingConversation } = await supabase
         .from("whatsapp_conversations")
-        .select("id")
+        .select("id, lead_id")
         .eq("organization_id", profile?.organization_id)
         .eq("phone_number", cleanPhone)
         .eq("instance_id", selectedInstanceId)
         .maybeSingle();
 
       let conversationId = existingConversation?.id;
+      let shouldUpdateLead = false;
 
       // Se não existe conversa para essa instância específica, criar nova
       if (!conversationId) {
@@ -234,12 +239,29 @@ export function NewConversationDialog({
             status: 'assigned',
             assigned_user_id: profile?.user_id,
             assigned_at: new Date().toISOString(),
+            // Se veio de um lead, vincular automaticamente
+            lead_id: leadId || null,
+            contact_name: leadName || null,
           })
           .select("id")
           .single();
 
         if (createError) throw createError;
         conversationId = newConversation.id;
+      } else if (leadId && !existingConversation.lead_id) {
+        // Conversa já existe mas não tem lead vinculado - vincular agora
+        shouldUpdateLead = true;
+      }
+
+      // Atualizar lead_id na conversa existente se necessário
+      if (shouldUpdateLead && conversationId && leadId) {
+        await supabase
+          .from("whatsapp_conversations")
+          .update({ 
+            lead_id: leadId,
+            contact_name: leadName || null,
+          })
+          .eq("id", conversationId);
       }
 
       // Se tem mensagem, enviar
@@ -266,11 +288,12 @@ export function NewConversationDialog({
 
       handleClose();
 
-      // Callback ou navegar para o chat
+      // Callback ou navegar para o chat com a conversa específica selecionada
       if (onConversationCreated) {
         onConversationCreated(conversationId!, selectedInstanceId);
       } else {
-        navigate("/whatsapp/chat");
+        // Navegar para o chat com query params para abrir a conversa específica
+        navigate(`/whatsapp/chat?conversation=${conversationId}&instance=${selectedInstanceId}`);
       }
     } catch (error: any) {
       console.error("Error starting conversation:", error);
