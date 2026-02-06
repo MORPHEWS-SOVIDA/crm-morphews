@@ -16496,6 +16496,8 @@ export type Database = {
       team_conversations: {
         Row: {
           avatar_url: string | null
+          channel_slug: string | null
+          channel_topic: string | null
           context_id: string | null
           context_name: string | null
           context_type: string | null
@@ -16505,6 +16507,7 @@ export type Database = {
           description: string | null
           id: string
           is_archived: boolean | null
+          is_public: boolean | null
           last_message_at: string | null
           last_message_preview: string | null
           name: string | null
@@ -16513,6 +16516,8 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          channel_slug?: string | null
+          channel_topic?: string | null
           context_id?: string | null
           context_name?: string | null
           context_type?: string | null
@@ -16522,6 +16527,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_archived?: boolean | null
+          is_public?: boolean | null
           last_message_at?: string | null
           last_message_preview?: string | null
           name?: string | null
@@ -16530,6 +16536,8 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          channel_slug?: string | null
+          channel_topic?: string | null
           context_id?: string | null
           context_name?: string | null
           context_type?: string | null
@@ -16539,6 +16547,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_archived?: boolean | null
+          is_public?: boolean | null
           last_message_at?: string | null
           last_message_preview?: string | null
           name?: string | null
@@ -16548,6 +16557,70 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "team_conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_files: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id: string
+          message_id: string | null
+          organization_id: string
+          thumbnail_url: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id?: string
+          message_id?: string | null
+          organization_id: string
+          thumbnail_url?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          file_url?: string
+          id?: string
+          message_id?: string | null
+          organization_id?: string
+          thumbnail_url?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_files_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "team_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_files_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "team_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_files_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -16622,6 +16695,48 @@ export type Database = {
           },
         ]
       }
+      team_message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "team_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_message_reactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_messages: {
         Row: {
           attachments: Json | null
@@ -16638,6 +16753,9 @@ export type Database = {
           organization_id: string
           reply_to_id: string | null
           sender_id: string
+          thread_id: string | null
+          thread_last_reply_at: string | null
+          thread_reply_count: number | null
         }
         Insert: {
           attachments?: Json | null
@@ -16654,6 +16772,9 @@ export type Database = {
           organization_id: string
           reply_to_id?: string | null
           sender_id: string
+          thread_id?: string | null
+          thread_last_reply_at?: string | null
+          thread_reply_count?: number | null
         }
         Update: {
           attachments?: Json | null
@@ -16670,6 +16791,9 @@ export type Database = {
           organization_id?: string
           reply_to_id?: string | null
           sender_id?: string
+          thread_id?: string | null
+          thread_last_reply_at?: string | null
+          thread_reply_count?: number | null
         }
         Relationships: [
           {
@@ -16691,6 +16815,116 @@ export type Database = {
             columns: ["reply_to_id"]
             isOneToOne: false
             referencedRelation: "team_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "team_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_pinned_messages: {
+        Row: {
+          conversation_id: string
+          id: string
+          message_id: string
+          organization_id: string
+          pinned_at: string
+          pinned_by: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          message_id: string
+          organization_id: string
+          pinned_at?: string
+          pinned_by: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          message_id?: string
+          organization_id?: string
+          pinned_at?: string
+          pinned_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_pinned_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "team_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_pinned_messages_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: true
+            referencedRelation: "team_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_pinned_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_presence: {
+        Row: {
+          created_at: string
+          id: string
+          is_typing_in: string | null
+          last_seen_at: string
+          organization_id: string
+          status: string | null
+          status_message: string | null
+          typing_started_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_typing_in?: string | null
+          last_seen_at?: string
+          organization_id: string
+          status?: string | null
+          status_message?: string | null
+          typing_started_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_typing_in?: string | null
+          last_seen_at?: string
+          organization_id?: string
+          status?: string | null
+          status_message?: string | null
+          typing_started_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_presence_is_typing_in_fkey"
+            columns: ["is_typing_in"]
+            isOneToOne: false
+            referencedRelation: "team_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_presence_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -21811,6 +22045,14 @@ export type Database = {
         Args: { _org_id: string }
         Returns: undefined
       }
+      set_typing_indicator: {
+        Args: {
+          p_conversation_id: string
+          p_is_typing?: boolean
+          p_organization_id: string
+        }
+        Returns: undefined
+      }
       soft_delete_whatsapp_instance: {
         Args: { p_instance_id: string }
         Returns: undefined
@@ -21841,6 +22083,14 @@ export type Database = {
       }
       update_sale_item_cost: {
         Args: { p_cost_cents: number; p_item_id: string }
+        Returns: undefined
+      }
+      update_user_presence: {
+        Args: {
+          p_organization_id: string
+          p_status?: string
+          p_status_message?: string
+        }
         Returns: undefined
       }
       user_belongs_to_org: {

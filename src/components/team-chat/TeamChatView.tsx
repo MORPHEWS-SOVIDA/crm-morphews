@@ -114,7 +114,11 @@ export function TeamChatView({ conversation, onBack, onClose, isFullPage = false
 
       {/* Messages */}
       <ScrollArea ref={scrollRef} className="flex-1">
-        <TeamMessageList messages={messages} isLoading={isLoading} />
+        <TeamMessageList 
+          messages={messages} 
+          isLoading={isLoading} 
+          conversationId={conversation.id}
+        />
       </ScrollArea>
 
       {/* Input */}
