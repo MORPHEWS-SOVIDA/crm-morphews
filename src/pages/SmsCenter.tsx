@@ -145,7 +145,7 @@ function EnvioIndividual() {
       return;
     }
     if (!config?.is_active) {
-      toast.error('Configure o provedor de SMS nas Configurações');
+      toast.error('Serviço de SMS indisponível. Entre em contato com o suporte.');
       return;
     }
     if (!balance || balance.current_credits < 1) {
@@ -322,7 +322,7 @@ function EnvioEmMassa() {
       return;
     }
     if (!config?.is_active) {
-      toast.error('Configure o provedor de SMS nas Configurações');
+      toast.error('Serviço de SMS indisponível. Entre em contato com o suporte.');
       return;
     }
     if (!balance || balance.current_credits < totalSms) {
