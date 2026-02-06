@@ -21806,7 +21806,7 @@ export type Database = {
         }[]
       }
       get_tenant_channels: {
-        Args: { _tenant_id?: string }
+        Args: { _tenant_id: string }
         Returns: {
           channel_id: string
           channel_name: string
