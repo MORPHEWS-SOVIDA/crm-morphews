@@ -23,6 +23,9 @@ export function Layout({ children }: LayoutProps) {
   const orgHasDonnaFeature = orgFeatures?.donna_helper === true; // Default to false for donna
   const canSeeHelper = userCanSeeHelper && orgHasDonnaFeature;
   
+  // Check if org has Conecta Time feature enabled
+  const hasConectaTime = orgFeatures?.conecta_time === true;
+  
   // If user has hide_sidebar preference, show minimal layout
   if (permissions?.hide_sidebar) {
     return (
@@ -33,8 +36,8 @@ export function Layout({ children }: LayoutProps) {
               {children}
             </div>
           </main>
-          <TeamChatFloatingButton />
-          <TeamChatNotificationProvider />
+          {hasConectaTime && <TeamChatFloatingButton />}
+          {hasConectaTime && <TeamChatNotificationProvider />}
           {canSeeHelper && <DonnaHelperButton />}
         </div>
       </TrialExpiredBlocker>
@@ -52,9 +55,9 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </main>
         <MobileNav />
-        {/* Team Chat Floating Button + Notifications */}
-        <TeamChatFloatingButton />
-        <TeamChatNotificationProvider />
+        {/* Team Chat Floating Button + Notifications - only if feature enabled */}
+        {hasConectaTime && <TeamChatFloatingButton />}
+        {hasConectaTime && <TeamChatNotificationProvider />}
         {/* Only show floating Donna on mobile - desktop Donna is in sidebar */}
         {canSeeHelper && <div className="lg:hidden"><DonnaHelperButton /></div>}
       </div>
