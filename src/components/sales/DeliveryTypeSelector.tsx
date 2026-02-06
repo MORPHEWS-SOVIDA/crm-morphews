@@ -485,21 +485,16 @@ export function DeliveryTypeSelector({
         {/* Carrier Options */}
         {value.type === 'carrier' && (
           <div className="space-y-4 border-t pt-4">
-            {/* CPF Required Warning with Inline Input */}
+            {/* CPF notice - non-blocking, just informational */}
             {!leadCpfCnpj && (
-              <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg">
-                <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-1" />
                 <div className="flex-1 space-y-2">
-                  <p className="text-sm font-medium text-red-800 dark:text-red-400">
-                    CPF/CNPJ obrigatório para Transportadora
+                  <p className="text-sm text-amber-800 dark:text-amber-400">
+                    CPF/CNPJ não informado — necessário para gerar etiquetas integradas.
                   </p>
-                  <p className="text-xs text-red-700 dark:text-red-500">
-                    Informe o CPF ou CNPJ do cliente para gerar etiquetas ou enviar via transportadora.
-                  </p>
-                  
-                  {/* Inline CPF Input */}
                   {onUpdateCpf ? (
-                    <div className="flex gap-2 mt-2">
+                    <div className="flex gap-2">
                       <Input
                         value={inlineCpf}
                         onChange={(e) => setInlineCpf(e.target.value)}
@@ -527,7 +522,7 @@ export function DeliveryTypeSelector({
                     <button
                       type="button"
                       onClick={onMissingCpf}
-                      className="text-sm text-red-700 dark:text-red-400 font-medium hover:underline mt-2"
+                      className="text-sm text-amber-700 dark:text-amber-400 font-medium hover:underline"
                     >
                       → Atualizar CPF do cliente agora
                     </button>
@@ -536,204 +531,23 @@ export function DeliveryTypeSelector({
               </div>
             )}
 
-            {/* Cotação Correios - only if integrated carriers exist */}
-            {hasIntegratedOptions && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-yellow-600" />
-                    Cotação Correios (PAC / SEDEX)
-                  </Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={fetchShippingQuotes}
-                    disabled={quotesLoading || !leadCep}
-                  >
-                    {quotesLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
-                    ) : shippingQuotes.length > 0 ? (
-                      <RefreshCw className="w-4 h-4 mr-1.5" />
-                    ) : (
-                      <Truck className="w-4 h-4 mr-1.5" />
-                    )}
-                    {shippingQuotes.length > 0 ? 'Atualizar' : 'Ver Frete'}
-                  </Button>
-                </div>
-
-                {!leadCep && (
-                  <p className="text-sm text-amber-600">
-                    Selecione um endereço com CEP válido para consultar frete
-                  </p>
-                )}
-
-                {quotesError && !proceedWithoutMelhorEnvio && (
-                  <div className="space-y-2">
-                    <p className="text-sm text-destructive">{quotesError}</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setQuotesError(null);
-                        setProceedWithoutMelhorEnvio(true);
-                        onChange({
-                          ...value,
-                          selectedQuoteServiceId: null,
-                          carrierId: null,
-                        });
-                        toast.info('Prosseguindo sem cotação. Defina o frete manualmente abaixo.');
-                      }}
-                      className="text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/50"
-                    >
-                      <Truck className="w-4 h-4 mr-1.5" />
-                      Prosseguir sem cotação
-                    </Button>
-                  </div>
-                )}
-
-                {proceedWithoutMelhorEnvio && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span className="font-medium">Prosseguindo sem cotação integrada</span>
-                    </div>
-                    <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                      Defina o frete manualmente abaixo. O código de rastreio pode ser adicionado na venda depois.
-                    </p>
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="sm"
-                      onClick={() => {
-                        setProceedWithoutMelhorEnvio(false);
-                        setHasAttemptedQuote(false);
-                      }}
-                      className="text-xs text-amber-700 dark:text-amber-400 p-0 h-auto mt-1"
-                    >
-                      ← Tentar cotação novamente
-                    </Button>
-                  </div>
-                )}
-
-                {/* Shipping Quote Cards */}
-                {shippingQuotes.length > 0 && (
-                  <div className="grid gap-2">
-                    {shippingQuotes.map((quote) => {
-                      const isSelected = selectedQuoteServiceId === quote.service_code;
-                      const isPac = quote.service_name.toLowerCase().includes('pac');
-                      return (
-                        <div
-                          key={quote.service_code}
-                          onClick={() => handleSelectQuote(quote)}
-                          className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                            isSelected
-                              ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                              : 'border-muted hover:border-primary/50 hover:bg-muted/50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {isSelected && <Check className="w-4 h-4 text-primary" />}
-                              <Package className={`w-5 h-5 ${isPac ? 'text-blue-600' : 'text-red-600'}`} />
-                              <div>
-                                <span className="font-medium text-sm">{quote.service_name}</span>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="font-bold text-primary">
-                                {formatCurrency(quote.price_cents)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              <span>
-                                {quote.delivery_days} dia{quote.delivery_days !== 1 ? 's' : ''} úteis
-                              </span>
-                            </div>
-                            {quote.picking_cost_cents > 0 && (
-                              <span className="text-xs text-muted-foreground">
-                                (inclui R$ {(quote.picking_cost_cents / 100).toFixed(2)} de manuseio)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Show selected shipping info */}
-                {selectedQuoteServiceId && value.shippingCost > 0 && (
-                  <div className="p-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
-                      <Check className="w-4 h-4" />
-                      <span>Frete selecionado: <strong>{formatCurrency(value.shippingCost)}</strong></span>
-                    </div>
-                  </div>
-                )}
+            {/* === SECTION 1: Custo de Frete (ALWAYS visible, FIRST) === */}
+            {!value.freeShipping && (
+              <div>
+                <Label className="text-base font-semibold">Custo de Frete</Label>
+                <CurrencyInput
+                  value={value.shippingCost}
+                  onChange={(cents) => onChange({ ...value, shippingCost: cents, shippingCostReal: cents })}
+                  className="mt-1"
+                  placeholder="0,00"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedQuoteServiceId 
+                    ? 'Valor da cotação (editável para ajustes)'
+                    : 'Informe o valor do frete a ser cobrado do cliente'}
+                </p>
               </div>
             )}
-
-            {/* Manual Carriers / Outra Transportadora - ALWAYS visible */}
-            <div className="space-y-3">
-              {hasIntegratedOptions && (
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">ou outra transportadora</span>
-                  </div>
-                </div>
-              )}
-
-              {manualCarriers.length > 0 && (
-                <div>
-                  <Label>Transportadora Cadastrada</Label>
-                  <Select 
-                    value={!selectedQuoteServiceId && value.carrierId ? value.carrierId : ''} 
-                    onValueChange={(carrierId) => {
-                      const carrier = manualCarriers.find(c => c.id === carrierId);
-                      setSelectedQuoteServiceId(null);
-                      onChange({
-                        ...value,
-                        carrierId,
-                        shippingCost: carrier?.cost_cents || 0,
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Selecione transportadora" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {manualCarriers.map((carrier) => (
-                        <SelectItem key={carrier.id} value={carrier.id}>
-                          <div className="flex items-center gap-2">
-                            <span>{carrier.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              ({formatCurrency(carrier.cost_cents)} • {carrier.estimated_days}d)
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Info about manual tracking */}
-              {(!hasIntegratedOptions || proceedWithoutMelhorEnvio || !selectedQuoteServiceId) && (
-                <div className="p-2 bg-muted/50 rounded-lg">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Truck className="w-3.5 h-3.5" />
-                    Você poderá adicionar o código de rastreio manualmente na tela da venda
-                  </p>
-                </div>
-              )}
-            </div>
 
             {/* Free shipping checkbox */}
             <div className="flex items-center space-x-3 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
@@ -756,7 +570,7 @@ export function DeliveryTypeSelector({
                   Isentar frete para o cliente
                 </label>
                 <p className="text-xs text-green-600 dark:text-green-400">
-                  O cliente não será cobrado, mas você verá o custo real abaixo
+                  O cliente não será cobrado, mas o custo real é preservado
                 </p>
               </div>
             </div>
@@ -772,28 +586,141 @@ export function DeliveryTypeSelector({
                     {formatCurrency(value.shippingCostReal || 0)}
                   </span>
                 </div>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                  Este valor não será cobrado do cliente, mas é registrado para controle
-                </p>
               </div>
             )}
 
-            {/* Editable shipping cost - Only visible when NOT free shipping */}
-            {!value.freeShipping && (
+            {/* Manual tracking info */}
+            <div className="p-2.5 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5" />
+                O código de rastreio pode ser adicionado depois na tela da venda
+              </p>
+            </div>
+
+            {/* === SECTION 2: Transportadoras cadastradas (if any) === */}
+            {manualCarriers.length > 0 && (
               <div>
-                <Label>Custo de Frete Cobrado</Label>
-                <CurrencyInput
-                  value={value.shippingCost}
-                  onChange={(cents) => onChange({ ...value, shippingCost: cents, shippingCostReal: cents })}
-                  className="mt-1"
-                  placeholder="0,00"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {selectedQuoteServiceId 
-                    ? 'Valor da cotação (editável para ajustes)'
-                    : 'Valor a ser cobrado do cliente pelo frete'}
-                </p>
+                <Label>Transportadora Cadastrada (opcional)</Label>
+                <Select 
+                  value={!selectedQuoteServiceId && value.carrierId ? value.carrierId : ''} 
+                  onValueChange={(carrierId) => {
+                    const carrier = manualCarriers.find(c => c.id === carrierId);
+                    setSelectedQuoteServiceId(null);
+                    onChange({
+                      ...value,
+                      carrierId,
+                      shippingCost: value.freeShipping ? 0 : (carrier?.cost_cents || 0),
+                      shippingCostReal: carrier?.cost_cents || 0,
+                    });
+                  }}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecione transportadora (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manualCarriers.map((carrier) => (
+                      <SelectItem key={carrier.id} value={carrier.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{carrier.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({formatCurrency(carrier.cost_cents)} • {carrier.estimated_days}d)
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            )}
+
+            {/* === SECTION 3: Cotação Correios (OPTIONAL, collapsible) === */}
+            {hasIntegratedOptions && leadCep && (
+              <details className="group border rounded-lg">
+                <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors list-none">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Package className="w-4 h-4 text-yellow-600" />
+                    Cotação Correios (PAC / SEDEX)
+                  </div>
+                  <Badge variant="outline" className="text-xs">Opcional</Badge>
+                </summary>
+                <div className="p-3 pt-0 space-y-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchShippingQuotes}
+                    disabled={quotesLoading}
+                    className="w-full"
+                  >
+                    {quotesLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                    ) : shippingQuotes.length > 0 ? (
+                      <RefreshCw className="w-4 h-4 mr-1.5" />
+                    ) : (
+                      <Truck className="w-4 h-4 mr-1.5" />
+                    )}
+                    {shippingQuotes.length > 0 ? 'Atualizar Cotação' : 'Consultar Frete Correios'}
+                  </Button>
+
+                  {quotesError && (
+                    <p className="text-xs text-destructive">{quotesError}</p>
+                  )}
+
+                  {/* Shipping Quote Cards */}
+                  {shippingQuotes.length > 0 && (
+                    <div className="grid gap-2">
+                      {shippingQuotes.map((quote) => {
+                        const isSelected = selectedQuoteServiceId === quote.service_code;
+                        const isPac = quote.service_name.toLowerCase().includes('pac');
+                        return (
+                          <div
+                            key={quote.service_code}
+                            onClick={() => handleSelectQuote(quote)}
+                            className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                              isSelected
+                                ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                                : 'border-muted hover:border-primary/50 hover:bg-muted/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {isSelected && <Check className="w-4 h-4 text-primary" />}
+                                <Package className={`w-5 h-5 ${isPac ? 'text-blue-600' : 'text-red-600'}`} />
+                                <span className="font-medium text-sm">{quote.service_name}</span>
+                              </div>
+                              <span className="font-bold text-primary">
+                                {formatCurrency(quote.price_cents)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                <span>
+                                  {quote.delivery_days} dia{quote.delivery_days !== 1 ? 's' : ''} úteis
+                                </span>
+                              </div>
+                              {quote.picking_cost_cents > 0 && (
+                                <span>
+                                  (inclui R$ {(quote.picking_cost_cents / 100).toFixed(2)} de manuseio)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Show selected shipping info */}
+                  {selectedQuoteServiceId && value.shippingCost > 0 && (
+                    <div className="p-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                      <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                        <Check className="w-4 h-4" />
+                        <span>Frete selecionado: <strong>{formatCurrency(value.shippingCost)}</strong></span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </details>
             )}
           </div>
         )}
