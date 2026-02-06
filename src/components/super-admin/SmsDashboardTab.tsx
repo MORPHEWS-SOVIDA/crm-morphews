@@ -34,6 +34,10 @@ export function SmsDashboardTab() {
     sms_count: 100,
     price_cents: 1500,
   });
+  
+  // State for adjusting balance
+  const [adjustBalanceOrg, setAdjustBalanceOrg] = useState<{ id: string; name: string; current: number } | null>(null);
+  const [adjustBalanceValue, setAdjustBalanceValue] = useState(0);
 
   // Fetch SMS packages
   const { data: packages = [], isLoading: packagesLoading } = useQuery({
@@ -48,39 +52,41 @@ export function SmsDashboardTab() {
     },
   });
 
-  // Fetch organization balances
+  // Fetch ALL organizations with their SMS balances
   const { data: balances = [], isLoading: balancesLoading } = useQuery({
     queryKey: ["sms-balances-admin"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sms_credits_balance")
-        .select(`
-          id,
-          organization_id,
-          current_credits,
-          total_purchased,
-          total_used
-        `)
-        .order("current_credits", { ascending: false });
-      
-      if (error) throw error;
-      
-      // Fetch org names separately
-      const orgIds = (data || []).map((b: any) => b.organization_id);
-      const { data: orgs } = await supabase
+      // Fetch all organizations
+      const { data: orgs, error: orgsError } = await supabase
         .from("organizations")
         .select("id, name")
-        .in("id", orgIds);
+        .order("name");
       
-      const orgMap = new Map((orgs || []).map((o: any) => [o.id, o.name]));
+      if (orgsError) throw orgsError;
       
-      return (data || []).map((b: any) => ({
-        organization_id: b.organization_id,
-        organization_name: orgMap.get(b.organization_id) || "Desconhecido",
-        current_credits: b.current_credits || 0,
-        total_purchased: b.total_purchased || 0,
-        total_used: b.total_used || 0,
-      }));
+      // Fetch all balances
+      const { data: balanceData, error: balanceError } = await supabase
+        .from("sms_credits_balance")
+        .select("organization_id, current_credits, total_purchased, total_used");
+      
+      if (balanceError) throw balanceError;
+      
+      // Create a map of balances
+      const balanceMap = new Map(
+        (balanceData || []).map((b: any) => [b.organization_id, b])
+      );
+      
+      // Combine orgs with balances (show ALL orgs)
+      return (orgs || []).map((org: any) => {
+        const balance = balanceMap.get(org.id);
+        return {
+          organization_id: org.id,
+          organization_name: org.name,
+          current_credits: balance?.current_credits || 0,
+          total_purchased: balance?.total_purchased || 0,
+          total_used: balance?.total_used || 0,
+        };
+      }).sort((a: any, b: any) => b.current_credits - a.current_credits);
     },
   });
 
@@ -197,6 +203,56 @@ export function SmsDashboardTab() {
     onSuccess: () => {
       toast({ title: "Pacote excluído!" });
       queryClient.invalidateQueries({ queryKey: ["sms-packages-admin"] });
+    },
+  });
+
+  // Mutation for adjusting balance
+  const adjustBalance = useMutation({
+    mutationFn: async ({ orgId, newBalance }: { orgId: string; newBalance: number }) => {
+      // First check if balance record exists
+      const { data: existing } = await supabase
+        .from("sms_credits_balance")
+        .select("id, current_credits, total_purchased")
+        .eq("organization_id", orgId)
+        .single();
+
+      if (existing) {
+        // Update existing balance - calculate the difference to add to total_purchased if increasing
+        const difference = newBalance - existing.current_credits;
+        const newTotalPurchased = difference > 0 
+          ? existing.total_purchased + difference 
+          : existing.total_purchased;
+        
+        const { error } = await supabase
+          .from("sms_credits_balance")
+          .update({ 
+            current_credits: newBalance,
+            total_purchased: newTotalPurchased,
+            updated_at: new Date().toISOString()
+          })
+          .eq("organization_id", orgId);
+        if (error) throw error;
+      } else {
+        // Create new balance record
+        const { error } = await supabase
+          .from("sms_credits_balance")
+          .insert({
+            organization_id: orgId,
+            current_credits: newBalance,
+            total_purchased: newBalance,
+            total_used: 0,
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Saldo atualizado com sucesso!" });
+      queryClient.invalidateQueries({ queryKey: ["sms-balances-admin"] });
+      setAdjustBalanceOrg(null);
+      setAdjustBalanceValue(0);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao ajustar saldo", description: err.message, variant: "destructive" });
     },
   });
 
@@ -335,7 +391,7 @@ export function SmsDashboardTab() {
           <Card>
             <CardHeader>
               <CardTitle>Saldo de Créditos por Organização</CardTitle>
-              <CardDescription>Créditos disponíveis para envio de SMS</CardDescription>
+              <CardDescription>Todas as organizações e seus créditos disponíveis para envio de SMS</CardDescription>
             </CardHeader>
             <CardContent>
               {balancesLoading ? (
@@ -344,7 +400,7 @@ export function SmsDashboardTab() {
                 </div>
               ) : balances.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Nenhuma organização com saldo SMS.
+                  Nenhuma organização cadastrada.
                 </div>
               ) : (
                 <Table>
@@ -354,6 +410,7 @@ export function SmsDashboardTab() {
                       <TableHead className="text-right">Saldo Atual</TableHead>
                       <TableHead className="text-right">Total Comprado</TableHead>
                       <TableHead className="text-right">Total Usado</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -367,6 +424,24 @@ export function SmsDashboardTab() {
                         </TableCell>
                         <TableCell className="text-right">{balance.total_purchased?.toLocaleString()}</TableCell>
                         <TableCell className="text-right">{balance.total_used?.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => {
+                              setAdjustBalanceOrg({
+                                id: balance.organization_id,
+                                name: balance.organization_name,
+                                current: balance.current_credits,
+                              });
+                              setAdjustBalanceValue(balance.current_credits);
+                            }}
+                          >
+                            <Pencil className="h-3 w-3" />
+                            Ajustar
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -374,6 +449,60 @@ export function SmsDashboardTab() {
               )}
             </CardContent>
           </Card>
+
+          {/* Dialog for adjusting balance */}
+          <Dialog open={!!adjustBalanceOrg} onOpenChange={(open) => !open && setAdjustBalanceOrg(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Ajustar Saldo de SMS</DialogTitle>
+                <DialogDescription>
+                  Defina o novo saldo de créditos para {adjustBalanceOrg?.name}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Organização</Label>
+                  <Input value={adjustBalanceOrg?.name || ""} disabled />
+                </div>
+                <div className="space-y-2">
+                  <Label>Saldo Atual</Label>
+                  <Input value={adjustBalanceOrg?.current?.toLocaleString() || "0"} disabled />
+                </div>
+                <div className="space-y-2">
+                  <Label>Novo Saldo (créditos)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={adjustBalanceValue}
+                    onChange={(e) => setAdjustBalanceValue(parseInt(e.target.value) || 0)}
+                    placeholder="Ex: 500"
+                  />
+                </div>
+                {adjustBalanceValue !== adjustBalanceOrg?.current && (
+                  <p className="text-sm text-muted-foreground">
+                    Diferença: {adjustBalanceValue - (adjustBalanceOrg?.current || 0) > 0 ? "+" : ""}
+                    {(adjustBalanceValue - (adjustBalanceOrg?.current || 0)).toLocaleString()} créditos
+                  </p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAdjustBalanceOrg(null)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (adjustBalanceOrg) {
+                      adjustBalance.mutate({ orgId: adjustBalanceOrg.id, newBalance: adjustBalanceValue });
+                    }
+                  }}
+                  disabled={adjustBalance.isPending}
+                >
+                  {adjustBalance.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Pacotes Tab */}
