@@ -12,7 +12,8 @@ export interface UseLeadsOptions {
 }
 
 export function useLeads(options: UseLeadsOptions = {}) {
-  const { limit = 500 } = options;
+  // Default increased to 5000 to handle larger organizations
+  const { limit = 5000 } = options;
   
   return useQuery({
     queryKey: ['leads', { limit }],
