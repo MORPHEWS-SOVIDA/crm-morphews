@@ -2653,6 +2653,7 @@ export default function AddReceptivo() {
                 leadRegionId={selectedAddress?.delivery_region_id || leadData.delivery_region_id || null}
                 leadCpfCnpj={leadData.cpf_cnpj}
                 leadCep={selectedAddress?.cep || leadData.cep || null}
+                hasValidAddress={!!(selectedAddress?.cep && selectedAddress?.street && selectedAddress?.city && selectedAddress?.state)}
                 onUpdateCpf={(cpf) => setLeadData(prev => ({ ...prev, cpf_cnpj: cpf }))}
               />
 

@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Clock, RefreshCw, Check, Package, Save, Gift } from 'lucide-react';
+import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Clock, RefreshCw, Check, Package, Save, Gift, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -36,8 +36,10 @@ interface DeliveryTypeSelectorProps {
   leadRegionId: string | null;
   leadCpfCnpj?: string | null;
   leadCep?: string | null;
+  hasValidAddress?: boolean; // Whether lead has a valid address for carrier delivery
   onMissingCpf?: () => void;
   onUpdateCpf?: (cpf: string) => void;
+  onAddAddress?: () => void; // Callback to open add address dialog
   value: {
     type: DeliveryType;
     regionId: string | null;
@@ -56,8 +58,10 @@ export function DeliveryTypeSelector({
   leadRegionId,
   leadCpfCnpj,
   leadCep,
+  hasValidAddress = true,
   onMissingCpf,
   onUpdateCpf,
+  onAddAddress,
   value,
   onChange,
 }: DeliveryTypeSelectorProps) {
@@ -78,6 +82,20 @@ export function DeliveryTypeSelector({
   const activeRegions = regions.filter(r => r.is_active);
   const selectedRegion = activeRegions.find(r => r.id === (value.regionId || leadRegionId));
   const selectedCarrier = carriers.find(c => c.id === value.carrierId);
+
+  // Auto-switch away from carrier if no valid address
+  useEffect(() => {
+    if (value.type === 'carrier' && !hasValidAddress) {
+      onChange({
+        ...value,
+        type: 'pickup',
+        carrierId: null,
+        shippingCost: 0,
+        shippingCostReal: 0,
+        selectedQuoteServiceId: null,
+      });
+    }
+  }, [hasValidAddress]);
 
   // Check if carrier is integrated (has melhor_envio service linked)
   const isCarrierIntegrated = (carrier: ShippingCarrier | undefined) => {
@@ -260,17 +278,65 @@ export function DeliveryTypeSelector({
               <span>{DELIVERY_TYPES.motoboy}</span>
             </Label>
 
-            <Label
-              htmlFor="delivery-carrier"
-              className={`flex items-center gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
-                value.type === 'carrier' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
-              }`}
-            >
-              <RadioGroupItem value="carrier" id="delivery-carrier" />
-              <Truck className="w-5 h-5" />
-              <span>{DELIVERY_TYPES.carrier}</span>
-            </Label>
+            <div className="relative">
+              <Label
+                htmlFor="delivery-carrier"
+                className={`flex items-center gap-3 p-4 rounded-lg border transition-colors ${
+                  !hasValidAddress 
+                    ? 'opacity-50 cursor-not-allowed bg-muted/30' 
+                    : value.type === 'carrier' 
+                      ? 'border-primary bg-primary/5 cursor-pointer' 
+                      : 'hover:bg-muted/50 cursor-pointer'
+                }`}
+                onClick={(e) => {
+                  if (!hasValidAddress) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }
+                }}
+              >
+                <RadioGroupItem 
+                  value="carrier" 
+                  id="delivery-carrier" 
+                  disabled={!hasValidAddress}
+                />
+                <Truck className="w-5 h-5" />
+                <span>{DELIVERY_TYPES.carrier}</span>
+              </Label>
+              {!hasValidAddress && (
+                <p className="text-xs text-amber-600 dark:text-amber-500 mt-1 ml-1">
+                  Adicione um endereço primeiro
+                </p>
+              )}
+            </div>
           </RadioGroup>
+
+          {/* Alert when carrier is selected but no valid address */}
+          {value.type === 'carrier' && !hasValidAddress && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-400">
+                  Endereço obrigatório para transportadora
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-500">
+                  Adicione um endereço completo para utilizar esta opção de entrega.
+                </p>
+                {onAddAddress && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 text-amber-700 border-amber-300 hover:bg-amber-100"
+                    onClick={onAddAddress}
+                  >
+                    <MapPin className="w-3.5 h-3.5 mr-1" />
+                    Adicionar Endereço
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Motoboy Options */}
