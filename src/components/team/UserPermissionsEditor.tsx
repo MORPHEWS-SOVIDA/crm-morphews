@@ -30,6 +30,7 @@ const GROUP_TO_FEATURES: Record<string, FeatureKey[]> = {
   'Leads': ['leads'],
   'Vendas': ['sales', 'seller_panel'],
   'Financeiro': ['financial'],
+  'Fiscal': ['fiscal_notes'],
   'WhatsApp': ['whatsapp_v1', 'whatsapp_v2'],
   'Módulos': ['ai_bots', 'instagram', 'demands', 'receptive', 'integrations'],
   'Produtos': ['products', 'custom_questions'],
@@ -70,6 +71,8 @@ const PERMISSION_TO_FEATURE: Partial<Record<PermissionKey, FeatureKey>> = {
   // Relatórios
   'sales_report_view': 'sales_report',
   'expedition_report_view': 'expedition_report',
+  // Fiscal
+  'fiscal_invoices_view': 'fiscal_notes',
   // Configurações
   'settings_standard_questions': 'standard_questions',
   // Mensagens
