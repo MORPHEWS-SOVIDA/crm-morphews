@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Tag, Download, Printer, ExternalLink, Package, Copy, RefreshCw, Share2, Loader2 } from 'lucide-react';
+import { Tag, Download, Printer, ExternalLink, Package, Copy, RefreshCw, Share2, Loader2, Truck, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -49,6 +51,8 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
   const [showGenerator, setShowGenerator] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [manualTrackingCode, setManualTrackingCode] = useState('');
+  const [savingManualCode, setSavingManualCode] = useState(false);
   const queryClient = useQueryClient();
 
   // Only show for carrier delivery type
@@ -398,36 +402,182 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
     );
   }
 
-  // No label yet - show generate button
+  // Save manual tracking code to the sale
+  const handleSaveManualTracking = async () => {
+    if (!manualTrackingCode.trim() || !sale?.id) return;
+    
+    setSavingManualCode(true);
+    try {
+      const { error } = await supabase
+        .from('sales')
+        .update({ 
+          tracking_code: manualTrackingCode.trim(),
+        })
+        .eq('id', sale.id);
+
+      if (error) throw error;
+      
+      toast.success('Código de rastreio salvo!');
+      setManualTrackingCode('');
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['melhor-envio-label-sale'] });
+    } catch (err) {
+      console.error('Error saving tracking code:', err);
+      toast.error('Erro ao salvar código de rastreio');
+    } finally {
+      setSavingManualCode(false);
+    }
+  };
+
+  // If sale already has a manual tracking code (not from Melhor Envio)
+  if (!label && sale?.tracking_code) {
+    const code = sale.tracking_code;
+    const hasReal = isRealTrackingCode(code);
+    
+    if (hasReal) {
+      return (
+        <div className="p-4 rounded-lg border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Tag className="w-4 h-4 text-green-600" />
+              <span className="font-medium text-green-700 dark:text-green-400">Código de Rastreio (Manual)</span>
+            </div>
+            <Badge variant="outline" className="text-xs">
+              {sale.shipping_carrier?.name || 'Transportadora'}
+            </Badge>
+          </div>
+          <div className="bg-white dark:bg-background rounded-lg p-3 border border-green-200 dark:border-green-700">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground mb-1">Código de Rastreio</p>
+                <p className="text-xl font-mono font-bold text-green-700 dark:text-green-400 tracking-wider">
+                  {code}
+                </p>
+              </div>
+              <div className="flex gap-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9 text-green-600 hover:bg-green-100"
+                        onClick={() => handleCopyTracking(code)}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Copiar código</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9 text-green-600 hover:bg-green-100"
+                        onClick={() => handleShareTracking(code)}
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Enviar para cliente</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9 text-green-600 hover:bg-green-100"
+                        onClick={() => window.open(getTrackingUrl(code), '_blank')}
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Ver rastreio online</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // No label yet - show options
   return (
     <>
-      <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 space-y-4">
+        <div className="flex items-center gap-2">
           <Package className="w-4 h-4 text-amber-600" />
           <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
-            Etiqueta de Envio
+            Etiqueta / Rastreio de Envio
           </span>
         </div>
 
-        {!isConfigured ? (
-          <p className="text-sm text-muted-foreground mb-3">
-            Configure a integração com o Melhor Envio para gerar etiquetas.
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground mb-3">
-            Gere a etiqueta de envio para esta venda.
-          </p>
+        {/* Option 1: Melhor Envio (if configured) */}
+        {isConfigured && (
+          <div>
+            <Button
+              size="sm"
+              onClick={() => setShowGenerator(true)}
+              disabled={isCancelled}
+              className="w-full"
+            >
+              <Tag className="w-4 h-4 mr-2" />
+              Gerar Etiqueta (Melhor Envio)
+            </Button>
+          </div>
         )}
 
-        <Button
-          size="sm"
-          onClick={() => setShowGenerator(true)}
-          disabled={!isConfigured || isCancelled}
-          className="w-full"
-        >
-          <Tag className="w-4 h-4 mr-2" />
-          Gerar Etiqueta
-        </Button>
+        {/* Separator if both options available */}
+        {isConfigured && (
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-amber-200 dark:border-amber-700" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-amber-50 dark:bg-amber-900/20 px-2 text-amber-500">ou</span>
+            </div>
+          </div>
+        )}
+
+        {/* Option 2: Manual tracking code (always available) */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+            <Truck className="w-4 h-4" />
+            Código de Rastreio Manual
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            Cole o código de rastreio de qualquer transportadora
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={manualTrackingCode}
+              onChange={(e) => setManualTrackingCode(e.target.value.toUpperCase())}
+              placeholder="Ex: AB123456789BR"
+              className="bg-white dark:bg-background"
+              disabled={isCancelled}
+            />
+            <Button
+              size="sm"
+              variant="default"
+              onClick={handleSaveManualTracking}
+              disabled={!manualTrackingCode.trim() || savingManualCode || isCancelled}
+            >
+              {savingManualCode ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-1" />
+              )}
+              Salvar
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Generator Dialog */}
