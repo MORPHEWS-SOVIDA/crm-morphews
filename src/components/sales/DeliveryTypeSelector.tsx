@@ -72,6 +72,8 @@ export function DeliveryTypeSelector({
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [quotesError, setQuotesError] = useState<string | null>(null);
   const [selectedQuoteServiceId, setSelectedQuoteServiceId] = useState<string | null>(null);
+  const [proceedWithoutMelhorEnvio, setProceedWithoutMelhorEnvio] = useState(false);
+  const [hasAttemptedQuote, setHasAttemptedQuote] = useState(false);
 
   const activeRegions = regions.filter(r => r.is_active);
   const selectedRegion = activeRegions.find(r => r.id === (value.regionId || leadRegionId));
@@ -103,6 +105,7 @@ export function DeliveryTypeSelector({
 
     setQuotesLoading(true);
     setQuotesError(null);
+    setHasAttemptedQuote(true);
 
     try {
       const quotes = await getCorreiosQuotes({
@@ -159,6 +162,9 @@ export function DeliveryTypeSelector({
     // Reset shipping quotes when type changes
     setShippingQuotes([]);
     setSelectedQuoteServiceId(null);
+    setProceedWithoutMelhorEnvio(false);
+    setHasAttemptedQuote(false);
+    setQuotesError(null);
     
     onChange({
       ...value,
@@ -495,8 +501,60 @@ export function DeliveryTypeSelector({
                   </p>
                 )}
 
-                {quotesError && (
-                  <p className="text-sm text-red-600">{quotesError}</p>
+            {quotesError && !proceedWithoutMelhorEnvio && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-destructive">{quotesError}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Allow proceeding without Melhor Envio integration
+                        setQuotesError(null);
+                        setProceedWithoutMelhorEnvio(true);
+                        // Set a flag to indicate manual mode
+                        onChange({
+                          ...value,
+                          selectedQuoteServiceId: null,
+                          carrierId: null,
+                          // Keep shippingCost at 0 or user can set it manually
+                        });
+                        toast.info('Prosseguindo sem Melhor Envio. Adicione o código de rastreio manualmente após a venda.');
+                      }}
+                      className="text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/50"
+                    >
+                      <Truck className="w-4 h-4 mr-1.5" />
+                      Prosseguir sem Melhor Envio
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Você poderá adicionar o código de rastreio manualmente depois
+                    </p>
+                  </div>
+                )}
+
+                {/* Show confirmation when proceeding without Melhor Envio */}
+                {proceedWithoutMelhorEnvio && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="font-medium">Prosseguindo sem Melhor Envio</span>
+                    </div>
+                    <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+                      Adicione o código de rastreio manualmente na venda depois. O frete pode ser definido abaixo.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      onClick={() => {
+                        setProceedWithoutMelhorEnvio(false);
+                        setHasAttemptedQuote(false);
+                      }}
+                      className="text-xs text-amber-700 dark:text-amber-400 p-0 h-auto mt-1"
+                    >
+                      ← Tentar cotação novamente
+                    </Button>
+                  </div>
                 )}
 
                 {/* Shipping Quote Cards */}
