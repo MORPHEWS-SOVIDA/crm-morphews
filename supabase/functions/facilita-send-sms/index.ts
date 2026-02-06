@@ -68,17 +68,23 @@ serve(async (req) => {
       });
     }
 
-    // Get provider config
-    const { data: config } = await supabase
-      .from('sms_provider_config')
-      .select('api_user, api_password, is_active')
-      .eq('organization_id', organizationId)
-      .eq('provider', 'facilitamovel')
-      .single();
+    // Get global provider config from platform_settings
+    const { data: platformSettings } = await supabase
+      .from('platform_settings')
+      .select('setting_key, setting_value')
+      .in('setting_key', ['facilita_user', 'facilita_password']);
 
-    if (!config || !config.is_active || !config.api_user || !config.api_password) {
+    const settingsMap: Record<string, string> = {};
+    (platformSettings || []).forEach((s: { setting_key: string; setting_value: string }) => {
+      settingsMap[s.setting_key] = s.setting_value;
+    });
+
+    const apiUser = settingsMap.facilita_user;
+    const apiPassword = settingsMap.facilita_password;
+
+    if (!apiUser || !apiPassword) {
       return new Response(JSON.stringify({ 
-        error: 'Provedor de SMS não configurado',
+        error: 'Provedor de SMS não configurado. Configure as credenciais FacilitaMóvel no Super Admin.',
         code: 'PROVIDER_NOT_CONFIGURED'
       }), {
         status: 400,
@@ -99,7 +105,7 @@ serve(async (req) => {
     const encodedMessage = encodeURIComponent(message);
 
     // Call FacilitaMovel API
-    const facilitaUrl = `https://www.facilitamovel.com.br/api/simpleSend.ft?user=${encodeURIComponent(config.api_user)}&password=${encodeURIComponent(config.api_password)}&destinatario=${formattedPhone}&msg=${encodedMessage}&externalkey=${extKey}`;
+    const facilitaUrl = `https://www.facilitamovel.com.br/api/simpleSend.ft?user=${encodeURIComponent(apiUser)}&password=${encodeURIComponent(apiPassword)}&destinatario=${formattedPhone}&msg=${encodedMessage}&externalkey=${extKey}`;
 
     console.log('Sending SMS via FacilitaMovel to:', formattedPhone);
 

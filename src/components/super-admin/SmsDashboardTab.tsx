@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, Package, TrendingUp, Settings, DollarSign, Loader2, Plus, Pencil, Trash2, Building2 } from "lucide-react";
+import { MessageSquare, Package, TrendingUp, Settings, DollarSign, Loader2, Plus, Pencil, Trash2, Building2, Copy } from "lucide-react";
 
 interface SmsPackage {
   id: string;
@@ -668,25 +668,51 @@ function FacilitaMovelConfig() {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Webhook de Status (DLR)</Label>
-            <Input
-              value={config.webhook_status_url}
-              onChange={(e) => setConfig(c => ({ ...c, webhook_status_url: e.target.value }))}
-              placeholder="https://seu-projeto.supabase.co/functions/v1/facilita-sms-webhook"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={`https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/facilita-sms-webhook?type=status&fone=#phone&idSMS=#smsId&statusEntregue=#status&chaveCliente=#externalkey&dataPostagem=#dataPostagem`}
+                readOnly
+                className="font-mono text-xs bg-muted"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(`https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/facilita-sms-webhook?type=status&fone=#phone&idSMS=#smsId&statusEntregue=#status&chaveCliente=#externalkey&dataPostagem=#dataPostagem`);
+                  toast({ title: "URL copiada!" });
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">
-              URL que receberá os callbacks de status de entrega dos SMS
+              Configure esta URL no painel FacilitaMóvel → Webhooks → URL de Status
             </p>
           </div>
 
           <div className="space-y-2">
             <Label>Webhook de Resposta (MO)</Label>
-            <Input
-              value={config.webhook_response_url}
-              onChange={(e) => setConfig(c => ({ ...c, webhook_response_url: e.target.value }))}
-              placeholder="https://seu-projeto.supabase.co/functions/v1/facilita-sms-webhook"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={`https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/facilita-sms-webhook?type=response&fone=#phone&datahora=#datahora&mensagem=#msg&smsId=#smsId&externalKey=#externalKey`}
+                readOnly
+                className="font-mono text-xs bg-muted"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(`https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/facilita-sms-webhook?type=response&fone=#phone&datahora=#datahora&mensagem=#msg&smsId=#smsId&externalKey=#externalKey`);
+                  toast({ title: "URL copiada!" });
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">
-              URL que receberá as respostas enviadas pelos destinatários
+              Configure esta URL no painel FacilitaMóvel → Webhooks → URL de Respostas (MO)
             </p>
           </div>
         </div>
