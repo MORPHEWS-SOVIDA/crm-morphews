@@ -494,7 +494,7 @@ export function DeliveryTypeSelector({
                     CPF/CNPJ obrigatório para Transportadora
                   </p>
                   <p className="text-xs text-red-700 dark:text-red-500">
-                    Para gerar etiquetas de envio pelo Melhor Envio, é necessário informar o CPF ou CNPJ do cliente.
+                    Informe o CPF ou CNPJ do cliente para gerar etiquetas ou enviar via transportadora.
                   </p>
                   
                   {/* Inline CPF Input */}
@@ -536,7 +536,7 @@ export function DeliveryTypeSelector({
               </div>
             )}
 
-            {/* Ver Frete Button - Correios Quote */}
+            {/* Cotação Correios - only if integrated carriers exist */}
             {hasIntegratedOptions && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -567,7 +567,7 @@ export function DeliveryTypeSelector({
                   </p>
                 )}
 
-            {quotesError && !proceedWithoutMelhorEnvio && (
+                {quotesError && !proceedWithoutMelhorEnvio && (
                   <div className="space-y-2">
                     <p className="text-sm text-destructive">{quotesError}</p>
                     <Button
@@ -575,38 +575,31 @@ export function DeliveryTypeSelector({
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        // Allow proceeding without Melhor Envio integration
                         setQuotesError(null);
                         setProceedWithoutMelhorEnvio(true);
-                        // Set a flag to indicate manual mode
                         onChange({
                           ...value,
                           selectedQuoteServiceId: null,
                           carrierId: null,
-                          // Keep shippingCost at 0 or user can set it manually
                         });
-                        toast.info('Prosseguindo sem Melhor Envio. Adicione o código de rastreio manualmente após a venda.');
+                        toast.info('Prosseguindo sem cotação. Defina o frete manualmente abaixo.');
                       }}
                       className="text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/50"
                     >
                       <Truck className="w-4 h-4 mr-1.5" />
-                      Prosseguir sem Melhor Envio
+                      Prosseguir sem cotação
                     </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Você poderá adicionar o código de rastreio manualmente depois
-                    </p>
                   </div>
                 )}
 
-                {/* Show confirmation when proceeding without Melhor Envio */}
                 {proceedWithoutMelhorEnvio && (
                   <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
                       <AlertTriangle className="w-4 h-4" />
-                      <span className="font-medium">Prosseguindo sem Melhor Envio</span>
+                      <span className="font-medium">Prosseguindo sem cotação integrada</span>
                     </div>
                     <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                      Adicione o código de rastreio manualmente na venda depois. O frete pode ser definido abaixo.
+                      Defina o frete manualmente abaixo. O código de rastreio pode ser adicionado na venda depois.
                     </p>
                     <Button
                       type="button"
@@ -684,22 +677,22 @@ export function DeliveryTypeSelector({
               </div>
             )}
 
-            {/* Manual Carriers Section */}
-            {manualCarriers.length > 0 && (
-              <div className="space-y-3">
-                {hasIntegratedOptions && (
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">ou transportadora manual</span>
-                    </div>
+            {/* Manual Carriers / Outra Transportadora - ALWAYS visible */}
+            <div className="space-y-3">
+              {hasIntegratedOptions && (
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
                   </div>
-                )}
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">ou outra transportadora</span>
+                  </div>
+                </div>
+              )}
 
+              {manualCarriers.length > 0 && (
                 <div>
-                  <Label>Transportadora Manual</Label>
+                  <Label>Transportadora Cadastrada</Label>
                   <Select 
                     value={!selectedQuoteServiceId && value.carrierId ? value.carrierId : ''} 
                     onValueChange={(carrierId) => {
@@ -713,7 +706,7 @@ export function DeliveryTypeSelector({
                     }}
                   >
                     <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Selecione transportadora manual" />
+                      <SelectValue placeholder="Selecione transportadora" />
                     </SelectTrigger>
                     <SelectContent>
                       {manualCarriers.map((carrier) => (
@@ -729,8 +722,18 @@ export function DeliveryTypeSelector({
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* Info about manual tracking */}
+              {(!hasIntegratedOptions || proceedWithoutMelhorEnvio || !selectedQuoteServiceId) && (
+                <div className="p-2 bg-muted/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5" />
+                    Você poderá adicionar o código de rastreio manualmente na tela da venda
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Free shipping checkbox */}
             <div className="flex items-center space-x-3 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
