@@ -55,6 +55,7 @@ const PERMISSION_TO_FEATURE: Partial<Record<PermissionKey, FeatureKey>> = {
   'dashboard_funnel_view': 'dashboard_funnel',
   'dashboard_kanban_view': 'dashboard_kanban',
   'seller_panel_view': 'seller_panel',
+  'team_panel_view': 'team_panel',
   'sales_dashboard_view': 'sales_dashboard',
   // Módulos
   'ai_bots_view': 'ai_bots',
