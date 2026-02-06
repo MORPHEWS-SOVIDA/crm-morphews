@@ -42,10 +42,9 @@ export function validateBrazilianPhone(phone: string): { valid: boolean; message
     return { valid: false, message: 'Número deve começar com 55 (código do Brasil)' };
   }
   
-  // Check for duplicated country code (e.g., 555565...)
-  if (digits.startsWith('5555')) {
-    return { valid: false, message: 'Número inválido: código do país duplicado (5555...)' };
-  }
+  // Note: We no longer reject '5555' prefix because DDD 55 is a valid
+  // Brazilian area code (Pelotas, Santa Maria - RS). A truly duplicated
+  // country code would produce 15+ digits, already caught by length check.
   
   // Extract DDD and number
   const ddd = digits.substring(2, 4);
