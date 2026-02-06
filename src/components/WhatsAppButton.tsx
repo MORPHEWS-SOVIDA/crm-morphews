@@ -9,9 +9,11 @@ interface WhatsAppButtonProps {
   message?: string;
   className?: string;
   variant?: 'default' | 'icon' | 'external'; // 'external' abre wa.me
+  leadId?: string; // ID do lead para vincular automaticamente à conversa
+  leadName?: string; // Nome do lead para exibição
 }
 
-export function WhatsAppButton({ phone, message = '', className, variant = 'default' }: WhatsAppButtonProps) {
+export function WhatsAppButton({ phone, message = '', className, variant = 'default', leadId, leadName }: WhatsAppButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
   const cleanPhone = phone.replace(/\D/g, '');
   
@@ -49,6 +51,8 @@ export function WhatsAppButton({ phone, message = '', className, variant = 'defa
           onOpenChange={setShowDialog}
           phoneNumber={cleanPhone}
           message={message}
+          leadId={leadId}
+          leadName={leadName}
         />
       </>
     );
@@ -69,6 +73,8 @@ export function WhatsAppButton({ phone, message = '', className, variant = 'defa
         onOpenChange={setShowDialog}
         phoneNumber={cleanPhone}
         message={message}
+        leadId={leadId}
+        leadName={leadName}
       />
     </>
   );

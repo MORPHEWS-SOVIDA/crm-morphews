@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -76,6 +76,7 @@ interface Conversation {
   unread_count: number;
   lead_id: string | null;
   instance_id: string;
+  current_instance_id?: string | null;
   chat_id?: string | null;
   status?: string; // 'pending' | 'autodistributed' | 'assigned' | 'closed'
   assigned_user_id?: string | null;
@@ -133,6 +134,7 @@ interface InstanceUserPermission {
 export default function WhatsAppChat() {
   const { user, profile, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { data: funnelStages } = useFunnelStages();
   const { claimConversation, closeConversation, closeConversationWithoutNPS, reactivateConversation } = useConversationDistribution();
@@ -247,6 +249,39 @@ export default function WhatsAppChat() {
 
     fetchInstances();
   }, [user]);
+
+  // Handle URL query params to auto-select conversation (from lead page WhatsApp button)
+  useEffect(() => {
+    const conversationIdParam = searchParams.get('conversation');
+    const instanceIdParam = searchParams.get('instance');
+    
+    if (conversationIdParam && conversations.length > 0) {
+      // Find the conversation in the loaded list
+      const targetConversation = conversations.find(c => c.id === conversationIdParam);
+      
+      if (targetConversation) {
+        // Set the appropriate instance filter
+        if (instanceIdParam && instances.length > 1) {
+          // If multiple instances exist and we have instance param, filter to show that instance
+          // or keep 'all' to ensure the conversation is visible
+          setSelectedInstance('all');
+        }
+        
+        // Select the conversation
+        setSelectedConversation(targetConversation);
+        setActiveInstanceId(targetConversation.current_instance_id || targetConversation.instance_id);
+        
+        // Set the right status tab to show this conversation
+        const convStatus = targetConversation.status || 'pending';
+        if (['assigned', 'autodistributed', 'pending', 'closed', 'with_bot', 'groups'].includes(convStatus)) {
+          setStatusFilter(convStatus as StatusTab);
+        }
+        
+        // Clear the query params after processing (keeps URL clean)
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, conversations, instances, setSearchParams]);
 
   // Send presence updates every 5 minutes
   useEffect(() => {

@@ -415,7 +415,7 @@ export default function LeadDetail() {
 
                 <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50">
                   <div className="p-2 rounded-lg bg-green-500/10">
-                    <WhatsAppButton phone={lead.whatsapp} variant="icon" />
+                    <WhatsAppButton phone={lead.whatsapp} variant="icon" leadId={lead.id} leadName={lead.name} />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm text-muted-foreground">WhatsApp</p>
@@ -806,6 +806,8 @@ export default function LeadDetail() {
                   phone={lead.whatsapp} 
                   message={`Olá ${lead.name.split(' ')[0]}!`}
                   className="w-full justify-center"
+                  leadId={lead.id}
+                  leadName={lead.name}
                 />
                 
                 {canDeleteLead && (
