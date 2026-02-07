@@ -15,7 +15,8 @@ import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Clock, RefreshCw, Check, Package, Save, Gift, MapPin } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { AlertTriangle, Store, Bike, Truck, CalendarDays, Loader2, Clock, RefreshCw, Check, Package, Save, Gift, MapPin, FileText, Hash } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -67,6 +68,7 @@ export function DeliveryTypeSelector({
 }: DeliveryTypeSelectorProps) {
   // Local state for inline CPF input
   const [inlineCpf, setInlineCpf] = useState('');
+  const [carrierMethod, setCarrierMethod] = useState<'manual' | 'melhor_envio' | null>(null);
   const { data: regions = [] } = useDeliveryRegions();
   const carriers = useActiveShippingCarriers();
   const { getQuotes: getCorreiosQuotes, isLoading: isCorreiosLoading } = useCorreiosSimpleQuote();
@@ -76,7 +78,6 @@ export function DeliveryTypeSelector({
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [quotesError, setQuotesError] = useState<string | null>(null);
   const [selectedQuoteServiceId, setSelectedQuoteServiceId] = useState<string | null>(null);
-  const [proceedWithoutMelhorEnvio, setProceedWithoutMelhorEnvio] = useState(false);
   const [hasAttemptedQuote, setHasAttemptedQuote] = useState(false);
 
   const activeRegions = regions.filter(r => r.is_active);
@@ -180,7 +181,7 @@ export function DeliveryTypeSelector({
     // Reset shipping quotes when type changes
     setShippingQuotes([]);
     setSelectedQuoteServiceId(null);
-    setProceedWithoutMelhorEnvio(false);
+    setCarrierMethod(null);
     setHasAttemptedQuote(false);
     setQuotesError(null);
     
@@ -531,122 +532,156 @@ export function DeliveryTypeSelector({
               </div>
             )}
 
-            {/* === SECTION 1: Custo de Frete (ALWAYS visible, FIRST) === */}
-            {!value.freeShipping && (
-              <div>
-                <Label className="text-base font-semibold">Custo de Frete</Label>
-                <CurrencyInput
-                  value={value.shippingCost}
-                  onChange={(cents) => onChange({ ...value, shippingCost: cents, shippingCostReal: cents })}
-                  className="mt-1"
-                  placeholder="0,00"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {selectedQuoteServiceId 
-                    ? 'Valor da cotação (editável para ajustes)'
-                    : 'Informe o valor do frete a ser cobrado do cliente'}
-                </p>
-              </div>
-            )}
-
-            {/* Free shipping checkbox */}
-            <div className="flex items-center space-x-3 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-              <Checkbox
-                id="free-shipping"
-                checked={value.freeShipping || false}
-                onCheckedChange={(checked) => {
-                  const realCost = value.shippingCostReal || value.shippingCost || 0;
-                  onChange({
-                    ...value,
-                    freeShipping: !!checked,
-                    shippingCostReal: realCost,
-                    shippingCost: checked ? 0 : realCost,
-                  });
+            {/* === STEP 1: Choose carrier method === */}
+            <div>
+              <Label className="text-base font-semibold mb-3 block">Como deseja enviar?</Label>
+              <RadioGroup
+                value={carrierMethod || ''}
+                onValueChange={(v) => {
+                  setCarrierMethod(v as 'manual' | 'melhor_envio');
+                  // Reset quotes when switching method
+                  setShippingQuotes([]);
+                  setSelectedQuoteServiceId(null);
+                  setHasAttemptedQuote(false);
+                  setQuotesError(null);
+                  if (v === 'manual') {
+                    onChange({
+                      ...value,
+                      shippingCost: 0,
+                      shippingCostReal: 0,
+                      freeShipping: false,
+                      selectedQuoteServiceId: null,
+                    });
+                  }
                 }}
-              />
-              <div className="flex-1">
-                <label htmlFor="free-shipping" className="flex items-center gap-2 text-sm font-medium text-green-800 dark:text-green-200 cursor-pointer">
-                  <Gift className="h-4 w-4" />
-                  Isentar frete para o cliente
-                </label>
-                <p className="text-xs text-green-600 dark:text-green-400">
-                  O cliente não será cobrado, mas o custo real é preservado
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+              >
+                <Label
+                  htmlFor="carrier-manual"
+                  className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    carrierMethod === 'manual'
+                      ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                      : 'border-muted hover:border-primary/50 hover:bg-muted/30'
+                  }`}
+                >
+                  <RadioGroupItem value="manual" id="carrier-manual" />
+                  <div>
+                    <span className="font-medium">Manualmente</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Informe o custo e rastreio por conta própria
+                    </p>
+                  </div>
+                </Label>
+
+                {hasIntegratedOptions && leadCep && (
+                  <Label
+                    htmlFor="carrier-melhor-envio"
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      carrierMethod === 'melhor_envio'
+                        ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                        : 'border-muted hover:border-primary/50 hover:bg-muted/30'
+                    }`}
+                  >
+                    <RadioGroupItem value="melhor_envio" id="carrier-melhor-envio" />
+                    <div>
+                      <span className="font-medium">Via Melhor Envio</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Cotação automática PAC / SEDEX
+                      </p>
+                    </div>
+                  </Label>
+                )}
+              </RadioGroup>
+
+              {/* Show manual-only hint when no integration available */}
+              {(!hasIntegratedOptions || !leadCep) && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {!leadCep 
+                    ? 'CEP não disponível — apenas envio manual possível.'
+                    : 'Nenhuma integração de frete configurada.'}
                 </p>
-              </div>
+              )}
             </div>
 
-            {/* Show real cost when free shipping is enabled */}
-            {value.freeShipping && (value.shippingCostReal || 0) > 0 && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                    Custo real do frete (interno):
-                  </span>
-                  <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
-                    {formatCurrency(value.shippingCostReal || 0)}
-                  </span>
+            {/* === MANUAL FLOW === */}
+            {carrierMethod === 'manual' && (
+              <div className="space-y-4 border-t pt-4">
+                {/* Shipping cost */}
+                <div>
+                  <Label className="text-sm font-medium">Houve cobrança de frete?</Label>
+                  <CurrencyInput
+                    value={value.shippingCost}
+                    onChange={(cents) => onChange({ ...value, shippingCost: cents, shippingCostReal: cents })}
+                    className="mt-1"
+                    placeholder="0,00 (sem cobrança)"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Deixe R$ 0,00 se não houve cobrança de frete
+                  </p>
+                </div>
+
+                {/* Manual carrier select */}
+                {manualCarriers.length > 0 && (
+                  <div>
+                    <Label>Transportadora (opcional)</Label>
+                    <Select 
+                      value={value.carrierId || ''} 
+                      onValueChange={(carrierId) => {
+                        const carrier = manualCarriers.find(c => c.id === carrierId);
+                        onChange({
+                          ...value,
+                          carrierId,
+                          shippingCost: carrier?.cost_cents || value.shippingCost,
+                          shippingCostReal: carrier?.cost_cents || value.shippingCostReal,
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Selecione transportadora (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {manualCarriers.map((carrier) => (
+                          <SelectItem key={carrier.id} value={carrier.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{carrier.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                ({formatCurrency(carrier.cost_cents)} • {carrier.estimated_days}d)
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Tracking code */}
+                <div>
+                  <Label className="flex items-center gap-1.5">
+                    <Hash className="w-3.5 h-3.5" />
+                    Código de Rastreio (opcional)
+                  </Label>
+                  <Input
+                    placeholder="Ex: BR123456789BR"
+                    className="mt-1"
+                    onChange={(e) => {
+                      // tracking code is stored elsewhere (sale level), just informational here
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Pode ser preenchido agora ou adicionado depois na tela da venda
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* Manual tracking info */}
-            <div className="p-2.5 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Truck className="w-3.5 h-3.5" />
-                O código de rastreio pode ser adicionado depois na tela da venda
-              </p>
-            </div>
-
-            {/* === SECTION 2: Transportadoras cadastradas (if any) === */}
-            {manualCarriers.length > 0 && (
-              <div>
-                <Label>Transportadora Cadastrada (opcional)</Label>
-                <Select 
-                  value={!selectedQuoteServiceId && value.carrierId ? value.carrierId : ''} 
-                  onValueChange={(carrierId) => {
-                    const carrier = manualCarriers.find(c => c.id === carrierId);
-                    setSelectedQuoteServiceId(null);
-                    onChange({
-                      ...value,
-                      carrierId,
-                      shippingCost: value.freeShipping ? 0 : (carrier?.cost_cents || 0),
-                      shippingCostReal: carrier?.cost_cents || 0,
-                    });
-                  }}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione transportadora (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {manualCarriers.map((carrier) => (
-                      <SelectItem key={carrier.id} value={carrier.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{carrier.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            ({formatCurrency(carrier.cost_cents)} • {carrier.estimated_days}d)
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* === SECTION 3: Cotação Correios (OPTIONAL, collapsible) === */}
-            {hasIntegratedOptions && leadCep && (
-              <details className="group border rounded-lg">
-                <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors list-none">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <Package className="w-4 h-4 text-yellow-600" />
-                    Cotação Correios (PAC / SEDEX)
-                  </div>
-                  <Badge variant="outline" className="text-xs">Opcional</Badge>
-                </summary>
-                <div className="p-3 pt-0 space-y-3">
+            {/* === MELHOR ENVIO FLOW === */}
+            {carrierMethod === 'melhor_envio' && (
+              <div className="space-y-4 border-t pt-4">
+                {/* Step 1: Fetch quotes */}
+                <div>
                   <Button
                     variant="outline"
-                    size="sm"
                     onClick={fetchShippingQuotes}
                     disabled={quotesLoading}
                     className="w-full"
@@ -656,17 +691,32 @@ export function DeliveryTypeSelector({
                     ) : shippingQuotes.length > 0 ? (
                       <RefreshCw className="w-4 h-4 mr-1.5" />
                     ) : (
-                      <Truck className="w-4 h-4 mr-1.5" />
+                      <Package className="w-4 h-4 mr-1.5" />
                     )}
-                    {shippingQuotes.length > 0 ? 'Atualizar Cotação' : 'Consultar Frete Correios'}
+                    {shippingQuotes.length > 0 ? 'Atualizar Cotação' : 'Orçar Entregas'}
                   </Button>
+                </div>
 
-                  {quotesError && (
+                {quotesError && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
                     <p className="text-xs text-destructive">{quotesError}</p>
-                  )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-1 text-xs"
+                      onClick={() => {
+                        setCarrierMethod('manual');
+                      }}
+                    >
+                      Prosseguir manualmente →
+                    </Button>
+                  </div>
+                )}
 
-                  {/* Shipping Quote Cards */}
-                  {shippingQuotes.length > 0 && (
+                {/* Step 2: Show quotes - select PAC or SEDEX */}
+                {shippingQuotes.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Selecione o serviço:</Label>
                     <div className="grid gap-2">
                       {shippingQuotes.map((quote) => {
                         const isSelected = selectedQuoteServiceId === quote.service_code;
@@ -708,19 +758,62 @@ export function DeliveryTypeSelector({
                         );
                       })}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Show selected shipping info */}
-                  {selectedQuoteServiceId && value.shippingCost > 0 && (
-                    <div className="p-2 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-                      <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                {/* Step 3: AFTER selecting a quote, show free shipping option + confirmation */}
+                {selectedQuoteServiceId && (
+                  <div className="space-y-3">
+                    {/* Selected shipping confirmation */}
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                      <div className="flex items-center gap-2 text-sm font-medium text-primary">
                         <Check className="w-4 h-4" />
-                        <span>Frete selecionado: <strong>{formatCurrency(value.shippingCost)}</strong></span>
+                        <span>Frete selecionado: <strong>{formatCurrency(value.shippingCostReal || value.shippingCost)}</strong></span>
                       </div>
                     </div>
-                  )}
-                </div>
-              </details>
+
+                    {/* Free shipping checkbox - only after selecting a quote */}
+                    <div className="flex items-center space-x-3 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                      <Checkbox
+                        id="free-shipping"
+                        checked={value.freeShipping || false}
+                        onCheckedChange={(checked) => {
+                          const realCost = value.shippingCostReal || value.shippingCost || 0;
+                          onChange({
+                            ...value,
+                            freeShipping: !!checked,
+                            shippingCostReal: realCost,
+                            shippingCost: checked ? 0 : realCost,
+                          });
+                        }}
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="free-shipping" className="flex items-center gap-2 text-sm font-medium text-green-800 dark:text-green-200 cursor-pointer">
+                          <Gift className="h-4 w-4" />
+                          Isentar frete para o cliente
+                        </label>
+                        <p className="text-xs text-green-600 dark:text-green-400">
+                          O cliente não será cobrado, mas o custo real é preservado
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Show real cost when free shipping is enabled */}
+                    {value.freeShipping && (value.shippingCostReal || 0) > 0 && (
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                            Custo real do frete (interno):
+                          </span>
+                          <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
+                            {formatCurrency(value.shippingCostReal || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
