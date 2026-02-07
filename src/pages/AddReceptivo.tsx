@@ -1021,11 +1021,9 @@ export default function AddReceptivo() {
       toast({ title: 'Selecione uma data de entrega', variant: 'destructive' });
       return;
     }
-    // Accept either a carrier selected OR an integrated quote selected
-    if (deliveryConfig.type === 'carrier' && !deliveryConfig.carrierId && !deliveryConfig.selectedQuoteServiceId) {
-      toast({ title: 'Selecione uma transportadora ou cotação de frete', variant: 'destructive' });
-      return;
-    }
+    // For carrier: manual flow doesn't require carrierId or quote selection
+    // Only block if no carrier method was chosen at all (neither manual nor melhor_envio)
+    // Manual flow is always valid - carrier selection and tracking code are optional
     setCurrentStep('payment');
   };
   const handleGoToSaleOrReason = () => {
