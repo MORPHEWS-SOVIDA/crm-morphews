@@ -9,3 +9,11 @@ Logística de Envio e Expedição: Integra cotações via Correios e Melhor Envi
 - No DeliveryTypeSelector, a seção "outra transportadora" é SEMPRE visível, não apenas quando há transportadoras manuais cadastradas
 - Informação clara de que o rastreio pode ser adicionado depois
 - Tracking code salvo diretamente na coluna `tracking_code` da tabela `sales`
+
+## Fluxo Cronológico da Transportadora no Add Receptivo (v6)
+1. Usuário seleciona tipo de entrega (Retirada / Motoboy / Transportadora)
+2. "Região de Entrega" só aparece para Motoboy
+3. Ao selecionar Transportadora, pergunta: "Manualmente" ou "Via Melhor Envio"
+   - **Manual**: pergunta custo do frete, seleção opcional de transportadora cadastrada, campo de código de rastreio
+   - **Via Melhor Envio**: botão "Orçar Entregas" → exibe PAC/SEDEX com preços → somente APÓS selecionar serviço aparece opção "Isentar frete para o cliente"
+4. O "Isentar frete" só aparece no fluxo Melhor Envio APÓS selecionar uma cotação
