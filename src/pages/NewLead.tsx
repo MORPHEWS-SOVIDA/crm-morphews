@@ -200,7 +200,9 @@ export default function NewLead() {
     e.preventDefault();
     setErrors({});
 
-    const result = leadSchema.safeParse(formData);
+    const selectedStage = selectableStages.find(s => s.id === selectedFunnelStageId);
+    const stageEnumValue = selectedStage ? getStageEnumValue(selectedStage) : '';
+    const result = leadSchema.safeParse({ ...formData, stage: stageEnumValue });
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
       const friendlyMessages: string[] = [];
@@ -232,8 +234,6 @@ export default function NewLead() {
     }
     
     try {
-      const selectedStage = selectableStages.find(s => s.id === selectedFunnelStageId);
-      const stageEnumValue = selectedStage ? getStageEnumValue(selectedStage) : 'prospect';
 
       const newLead = await createLead.mutateAsync({
         name: formData.name.trim(),
