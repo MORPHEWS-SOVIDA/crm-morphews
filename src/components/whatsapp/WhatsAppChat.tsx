@@ -133,7 +133,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       return data;
     },
     enabled: !!instanceId,
-    refetchInterval: 10000, // Check every 10 seconds
+    refetchInterval: 60000, // Check every 60 seconds
   });
 
   const isInstanceConnected = instanceData?.is_connected ?? true; // Default to true if no instanceId
@@ -220,7 +220,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       return data as Conversation[];
     },
     enabled: !!profile?.organization_id,
-    refetchInterval: 5000, // Poll every 5 seconds
+    refetchInterval: 30000, // Poll every 30 seconds (realtime handles instant updates)
   });
 
   // Buscar TODAS as conversas do mesmo phone_number em diferentes instâncias da organização
@@ -335,7 +335,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       return counts;
     },
     enabled: leadIds.length > 0,
-    refetchInterval: 30000, // Poll every 30 seconds
+    refetchInterval: 120000, // Poll every 2 minutes
   });
 
   // Fetch lead details for drawer (stars, instagram, stage)
@@ -451,7 +451,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       return messagesWithSender as Message[];
     },
     enabled: !!activeConversation?.id,
-    refetchInterval: 3000, // Poll every 3 seconds
+    refetchInterval: 15000, // Poll every 15 seconds (realtime handles instant updates)
   });
 
   // Real-time subscription for new messages - agora pela org
