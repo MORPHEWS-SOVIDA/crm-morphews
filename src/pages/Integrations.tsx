@@ -41,6 +41,7 @@ import {
   useIntegrationLogs,
   useIntegrationLogStats,
   useDeleteIntegration,
+  useUnpauseIntegration,
   Integration,
   IntegrationLog,
   getWebhookUrl
@@ -78,6 +79,7 @@ const typeLabels: Record<string, { label: string; icon: React.ReactNode }> = {
 const statusColors: Record<string, string> = {
   active: 'bg-green-500',
   inactive: 'bg-gray-400',
+  paused: 'bg-orange-500',
 };
 
 const logStatusConfig: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
@@ -123,6 +125,7 @@ export default function Integrations() {
   const { data: allLogs, isLoading: loadingLogs, refetch: refetchLogs } = useIntegrationLogs(undefined, 200);
   const { data: integrationStats } = useIntegrationLogStats();
   const deleteIntegration = useDeleteIntegration();
+  const unpauseIntegration = useUnpauseIntegration();
   
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
@@ -296,7 +299,7 @@ export default function Integrations() {
                         return (
                           <Card 
                             key={integration.id} 
-                            className="hover:shadow-md transition-shadow cursor-pointer"
+                            className={`hover:shadow-md transition-shadow cursor-pointer ${(integration as any).is_paused ? 'border-orange-500 border-2' : ''}`}
                             onClick={() => setSelectedIntegration(integration)}
                           >
                             <CardHeader className="pb-2">
@@ -307,14 +310,39 @@ export default function Integrations() {
                                 </div>
                                 <Badge 
                                   variant="secondary"
-                                  className={`${statusColors[integration.status]} text-white`}
+                                  className={`${statusColors[(integration as any).is_paused ? 'paused' : integration.status]} text-white`}
                                 >
-                                  {integration.status === 'active' ? 'Ativa' : 'Inativa'}
+                                  {(integration as any).is_paused ? '⏸ Pausada' : integration.status === 'active' ? 'Ativa' : 'Inativa'}
                                 </Badge>
                               </div>
                               <CardDescription>{integration.description || typeInfo.label}</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-3">
+                              {/* Paused Alert */}
+                              {(integration as any).is_paused && (
+                                <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-3 space-y-2">
+                                  <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                                    <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                                    <span className="text-xs font-semibold">ERRO REPETITIVO — Integração pausada automaticamente</span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    {(integration as any).pause_reason || 'Mais de 3 falhas consecutivas detectadas'}
+                                  </p>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    className="w-full text-xs border-orange-500/30 hover:bg-orange-500/10"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      unpauseIntegration.mutate(integration.id);
+                                    }}
+                                  >
+                                    <RefreshCw className="h-3 w-3 mr-1" />
+                                    Reativar integração
+                                  </Button>
+                                </div>
+                              )}
+
                               {integration.type === 'webhook_inbound' && (
                                 <div className="flex items-center gap-2">
                                   <code className="flex-1 text-xs bg-muted px-2 py-1 rounded truncate">
