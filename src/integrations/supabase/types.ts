@@ -6093,6 +6093,7 @@ export type Database = {
         Row: {
           auth_token: string
           auto_followup_days: number | null
+          consecutive_failures: number
           created_at: string
           created_by: string | null
           default_product_id: string | null
@@ -6102,9 +6103,12 @@ export type Database = {
           description: string | null
           event_mode: string | null
           id: string
+          is_paused: boolean
           name: string
           non_purchase_reason_id: string | null
           organization_id: string
+          pause_reason: string | null
+          paused_at: string | null
           sac_category: string | null
           sac_default_description: string | null
           sac_priority: string | null
@@ -6121,6 +6125,7 @@ export type Database = {
         Insert: {
           auth_token?: string
           auto_followup_days?: number | null
+          consecutive_failures?: number
           created_at?: string
           created_by?: string | null
           default_product_id?: string | null
@@ -6130,9 +6135,12 @@ export type Database = {
           description?: string | null
           event_mode?: string | null
           id?: string
+          is_paused?: boolean
           name: string
           non_purchase_reason_id?: string | null
           organization_id: string
+          pause_reason?: string | null
+          paused_at?: string | null
           sac_category?: string | null
           sac_default_description?: string | null
           sac_priority?: string | null
@@ -6149,6 +6157,7 @@ export type Database = {
         Update: {
           auth_token?: string
           auto_followup_days?: number | null
+          consecutive_failures?: number
           created_at?: string
           created_by?: string | null
           default_product_id?: string | null
@@ -6158,9 +6167,12 @@ export type Database = {
           description?: string | null
           event_mode?: string | null
           id?: string
+          is_paused?: boolean
           name?: string
           non_purchase_reason_id?: string | null
           organization_id?: string
+          pause_reason?: string | null
+          paused_at?: string | null
           sac_category?: string | null
           sac_default_description?: string | null
           sac_priority?: string | null

@@ -283,7 +283,7 @@ export default function WhatsAppChat() {
     }
   }, [searchParams, conversations, instances, setSearchParams]);
 
-  // Send presence updates every 5 minutes
+  // Send presence updates every 30 minutes (reduced from 5min to save Cloud compute)
   useEffect(() => {
     const sendPresenceUpdate = async () => {
       try {
@@ -294,7 +294,7 @@ export default function WhatsAppChat() {
     };
 
     sendPresenceUpdate();
-    const presenceInterval = setInterval(sendPresenceUpdate, 5 * 60 * 1000);
+    const presenceInterval = setInterval(sendPresenceUpdate, 30 * 60 * 1000);
     return () => clearInterval(presenceInterval);
   }, []);
 

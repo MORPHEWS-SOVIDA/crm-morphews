@@ -37,6 +37,11 @@ export interface Integration {
   default_seller_id: string | null;
   trigger_rules: TriggerRule[] | null;
   trigger_rules_logic: 'AND' | 'OR';
+  // Circuit breaker fields
+  consecutive_failures: number;
+  is_paused: boolean;
+  paused_at: string | null;
+  pause_reason: string | null;
 }
 
 export interface IntegrationFieldMapping {
@@ -498,6 +503,34 @@ export function useDeleteIntegrationEvent() {
     onError: (error) => {
       console.error('Error deleting event:', error);
       toast.error('Erro ao excluir evento');
+    },
+  });
+}
+
+export function useUnpauseIntegration() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (integrationId: string) => {
+      const { error } = await supabase
+        .from('integrations')
+        .update({
+          is_paused: false,
+          consecutive_failures: 0,
+          paused_at: null,
+          pause_reason: null,
+        } as any)
+        .eq('id', integrationId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['integrations'] });
+      toast.success('Integração reativada com sucesso');
+    },
+    onError: (error) => {
+      console.error('Error unpausing integration:', error);
+      toast.error('Erro ao reativar integração');
     },
   });
 }

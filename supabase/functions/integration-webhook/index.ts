@@ -525,6 +525,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Circuit breaker: if integration is paused due to consecutive failures, reject immediately
+    if (integration.is_paused) {
+      console.warn(`Integration ${integration.name} is PAUSED (${integration.pause_reason}). Rejecting webhook.`);
+      return new Response(JSON.stringify({ 
+        error: 'Integração pausada por erros repetitivos',
+        reason: integration.pause_reason,
+        hint: 'Acesse /integracoes para verificar e reativar a integração.'
+      }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Get client IP for rate limiting
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
                      req.headers.get('x-real-ip') || 
@@ -677,16 +690,29 @@ Deno.serve(async (req) => {
 
     // If inactive, reject but still log what arrived
     if (typedIntegration.status !== 'active') {
-      await supabase.from('integration_logs').insert({
-        integration_id: typedIntegration.id,
-        organization_id: typedIntegration.organization_id,
-        direction: 'inbound',
-        status: 'rejected',
-        event_type: 'inactive_integration',
-        request_payload: payload ?? requestPayloadForLog,
-        error_message: 'Integração inativa',
-        processing_time_ms: Date.now() - startTime,
-      });
+      // Try to log, but don't fail if logging fails
+      try {
+        await supabase.from('integration_logs').insert({
+          integration_id: typedIntegration.id,
+          organization_id: typedIntegration.organization_id,
+          direction: 'inbound',
+          status: 'rejected',
+          event_type: 'inactive_integration',
+          request_payload: payload ?? requestPayloadForLog,
+          error_message: 'Integração inativa',
+          processing_time_ms: Date.now() - startTime,
+        });
+      } catch (logErr) {
+        console.warn('Failed to log rejected webhook:', logErr);
+      }
+
+      // Increment consecutive failures on inactive integration
+      await supabase.from('integrations').update({
+        consecutive_failures: (integration.consecutive_failures || 0) + 1,
+        is_paused: (integration.consecutive_failures || 0) + 1 >= 3,
+        paused_at: (integration.consecutive_failures || 0) + 1 >= 3 ? new Date().toISOString() : integration.paused_at,
+        pause_reason: (integration.consecutive_failures || 0) + 1 >= 3 ? 'Integração inativa com 3+ tentativas consecutivas' : integration.pause_reason,
+      }).eq('id', integration.id);
 
       return new Response(JSON.stringify({ error: 'Integração inativa' }), {
         status: 401,
@@ -1692,6 +1718,16 @@ Deno.serve(async (req) => {
       lead_id: leadId,
       processing_time_ms: Date.now() - startTime,
     });
+
+    // Reset consecutive failures on success
+    if (integration.consecutive_failures > 0) {
+      await supabase.from('integrations').update({
+        consecutive_failures: 0,
+        is_paused: false,
+        paused_at: null,
+        pause_reason: null,
+      }).eq('id', integration.id);
+    }
     
     // Save to lead_webhook_history for detailed tracking
     await supabase.from('lead_webhook_history').insert({
@@ -1729,6 +1765,33 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Webhook error:', error);
+
+    // Try to increment consecutive failures for circuit breaker
+    try {
+      const backendUrl = Deno.env.get('SUPABASE_URL')!;
+      const backendKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const errorSupabase = createClient(backendUrl, backendKey);
+      const url = new URL(req.url);
+      const errorToken = url.searchParams.get('token');
+      if (errorToken) {
+        const { data: errorIntegration } = await errorSupabase
+          .from('integrations')
+          .select('id, consecutive_failures')
+          .eq('auth_token', errorToken)
+          .maybeSingle();
+        if (errorIntegration) {
+          const newCount = (errorIntegration.consecutive_failures || 0) + 1;
+          await errorSupabase.from('integrations').update({
+            consecutive_failures: newCount,
+            is_paused: newCount >= 3,
+            paused_at: newCount >= 3 ? new Date().toISOString() : null,
+            pause_reason: newCount >= 3 ? `Erro 500 repetitivo: ${String(error).substring(0, 200)}` : null,
+          }).eq('id', errorIntegration.id);
+        }
+      }
+    } catch (trackErr) {
+      console.warn('Failed to track failure:', trackErr);
+    }
     
     return new Response(
       JSON.stringify({ error: 'Erro interno do servidor', details: String(error) }),
