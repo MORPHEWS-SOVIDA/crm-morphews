@@ -53,7 +53,7 @@ export function EnergyUsageChart() {
       }));
     },
     enabled: !!tenantId,
-    refetchInterval: 60000 // Refresh every minute
+    refetchInterval: 300000 // Refresh every 5 minutes
   });
 
   const totalEnergy = usageData?.reduce((sum, d) => sum + d.energy, 0) || 0;

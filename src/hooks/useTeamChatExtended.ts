@@ -465,7 +465,7 @@ export function useTypingIndicator(conversationId: string | null) {
       });
     },
     enabled: !!conversationId && !!tenantId,
-    refetchInterval: 3000, // Refresh a cada 3s
+    refetchInterval: 5000, // Refresh a cada 5s
   });
 }
 

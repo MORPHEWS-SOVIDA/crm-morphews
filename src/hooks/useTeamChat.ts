@@ -193,7 +193,7 @@ export function useTeamUnreadTotal() {
       return { total, mentions };
     },
     enabled: !!tenantId && !!user?.id,
-    refetchInterval: 10000, // Refresh a cada 10s
+    refetchInterval: 30000, // Refresh a cada 30s
   });
 }
 

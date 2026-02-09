@@ -320,7 +320,7 @@ export function useOrganizationEnergy() {
       return data as unknown as OrganizationEnergy;
     },
     enabled: !!tenantId,
-    refetchInterval: 30000, // Atualizar a cada 30 segundos
+    refetchInterval: 120000, // Atualizar a cada 2 minutos
   });
 }
 
