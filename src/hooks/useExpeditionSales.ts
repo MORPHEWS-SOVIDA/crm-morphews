@@ -82,7 +82,7 @@ export function useExpeditionSales() {
     staleTime: 10_000,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000, // Refresh a cada 2 minutos
     retry: 1,
     placeholderData: (prev) => prev ?? [],
   });

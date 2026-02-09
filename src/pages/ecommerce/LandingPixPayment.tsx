@@ -41,7 +41,7 @@ function useSaleStatus(saleId: string | null) {
       return data as SaleData | null;
     },
     enabled: !!saleId,
-    refetchInterval: 5000, // Poll every 5 seconds
+    refetchInterval: 10000, // Poll every 10 seconds
   });
 }
 

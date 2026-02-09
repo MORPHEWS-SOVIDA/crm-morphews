@@ -132,7 +132,7 @@ export function useTenantStats(tenantId?: string | null) {
       return stats as TenantStats | null;
     },
     enabled: !!effectiveTenantId,
-    refetchInterval: 30000, // Atualiza a cada 30 segundos
+    refetchInterval: 300000, // Atualiza a cada 5 minutos
   });
 }
 

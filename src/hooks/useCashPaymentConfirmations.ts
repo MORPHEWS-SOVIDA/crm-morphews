@@ -176,7 +176,7 @@ export function useCashPaymentSales(filters?: {
       return filtered;
     },
     enabled: !!tenantId,
-    refetchInterval: 30000,
+    refetchInterval: 120000, // Refresh a cada 2 minutos
   });
 }
 

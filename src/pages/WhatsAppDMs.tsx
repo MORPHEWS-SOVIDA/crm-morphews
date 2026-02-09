@@ -135,7 +135,7 @@ export default function WhatsAppDMs() {
       return data as EvolutionInstance[];
     },
     enabled: !!profile?.organization_id,
-    refetchInterval: 10000,
+    refetchInterval: 30000, // Refresh a cada 30s
   });
 
   // Polling for non-connected instances
