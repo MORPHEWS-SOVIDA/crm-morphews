@@ -12,24 +12,37 @@ export interface UseLeadsOptions {
 }
 
 export function useLeads(options: UseLeadsOptions = {}) {
-  // Default increased to 5000 to handle larger organizations
-  const { limit = 5000 } = options;
+  const { limit = 10000 } = options;
   
   return useQuery({
     queryKey: ['leads', { limit }],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      // Supabase caps at 1000 rows per request, so we paginate
+      const pageSize = 1000;
+      let allData: any[] = [];
+      let from = 0;
 
-      if (error) {
-        console.error('Error fetching leads:', error);
-        throw error;
+      while (from < limit) {
+        const to = Math.min(from + pageSize - 1, limit - 1);
+        const { data, error } = await supabase
+          .from('leads')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (error) {
+          console.error('Error fetching leads:', error);
+          throw error;
+        }
+
+        allData = allData.concat(data || []);
+
+        // If we got fewer rows than page size, we've reached the end
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
       }
 
-      return data;
+      return allData;
     },
     staleTime: 3 * 60 * 1000, // 3 minutes - reduce refetches
   });
