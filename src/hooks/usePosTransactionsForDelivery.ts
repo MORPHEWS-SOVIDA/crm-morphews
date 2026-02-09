@@ -43,7 +43,7 @@ export function useUnmatchedPosTransactions() {
       return (data || []) as UnmatchedPosTransaction[];
     },
     enabled: !!user?.id && !!profile?.organization_id,
-    refetchInterval: 30000, // Refresh every 30 seconds to catch new transactions
+    refetchInterval: 120000, // Refresh every 2 minutes
   });
 }
 
