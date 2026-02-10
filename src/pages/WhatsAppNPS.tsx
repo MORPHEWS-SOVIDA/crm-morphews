@@ -706,7 +706,7 @@ export default function WhatsAppNPS() {
                   <div>
                     <p className="text-muted-foreground">Cliente:</p>
                     <p className="font-medium">
-                      {selectedReview.leads?.name || selectedReview.leads?.whatsapp_number || "–"}
+                      {selectedReview.leads?.name || selectedReview.leads?.whatsapp || "–"}
                     </p>
                   </div>
                   <div>

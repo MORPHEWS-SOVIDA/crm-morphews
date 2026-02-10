@@ -55,7 +55,7 @@ export function useNPSReviewRequests() {
           reviewed_by,
           review_notes,
           closed_at,
-          leads(name, whatsapp_number),
+          leads(name, whatsapp),
           profiles:assigned_user_id(first_name, last_name),
           requester_profile:review_requested_by(first_name, last_name),
           whatsapp_instances:instance_id(name, display_name_for_team)
