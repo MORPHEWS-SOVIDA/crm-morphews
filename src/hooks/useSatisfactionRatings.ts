@@ -156,7 +156,7 @@ export function useSatisfactionRatings(filters?: {
         .from("conversation_satisfaction_ratings")
         .select(`
           *,
-          leads(name, phone),
+          leads(name, whatsapp),
           profiles:assigned_user_id(first_name, last_name),
           whatsapp_instances(name)
         `)
