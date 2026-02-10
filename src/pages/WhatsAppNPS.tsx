@@ -87,7 +87,7 @@ interface SatisfactionRating {
   review_request_reason: string | null;
   review_notes: string | null;
   reviewed_at: string | null;
-  leads?: { name: string; whatsapp_number: string | null } | null;
+  leads?: { name: string; whatsapp: string | null } | null;
   profiles?: { first_name: string | null; last_name: string | null } | null;
   whatsapp_instances?: { name: string; display_name_for_team: string | null } | null;
 }
