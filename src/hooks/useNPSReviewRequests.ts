@@ -21,7 +21,7 @@ export interface NPSReviewRequest {
   reviewed_by: string | null;
   review_notes: string | null;
   closed_at: string;
-  leads?: { name: string | null; whatsapp_number: string | null } | null;
+  leads?: { name: string | null; whatsapp: string | null } | null;
   profiles?: { first_name: string | null; last_name: string | null } | null;
   requester_profile?: { first_name: string | null; last_name: string | null } | null;
   whatsapp_instances?: { name: string; display_name_for_team: string | null } | null;
@@ -55,7 +55,7 @@ export function useNPSReviewRequests() {
           reviewed_by,
           review_notes,
           closed_at,
-          leads(name, whatsapp_number),
+          leads(name, whatsapp),
           profiles:assigned_user_id(first_name, last_name),
           requester_profile:review_requested_by(first_name, last_name),
           whatsapp_instances:instance_id(name, display_name_for_team)

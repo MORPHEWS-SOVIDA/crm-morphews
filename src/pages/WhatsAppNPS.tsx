@@ -87,7 +87,7 @@ interface SatisfactionRating {
   review_request_reason: string | null;
   review_notes: string | null;
   reviewed_at: string | null;
-  leads?: { name: string; whatsapp_number: string | null } | null;
+  leads?: { name: string; whatsapp: string | null } | null;
   profiles?: { first_name: string | null; last_name: string | null } | null;
   whatsapp_instances?: { name: string; display_name_for_team: string | null } | null;
 }
@@ -169,7 +169,7 @@ export default function WhatsAppNPS() {
           review_request_reason,
           review_notes,
           reviewed_at,
-          leads(name, whatsapp_number),
+          leads(name, whatsapp),
           profiles:assigned_user_id(first_name, last_name),
           whatsapp_instances:instance_id(name, display_name_for_team)
         `)
@@ -536,7 +536,7 @@ export default function WhatsAppNPS() {
                           
                           <div>
                             <p className="font-medium">
-                              {rating.leads?.name || rating.leads?.whatsapp_number || "Cliente desconhecido"}
+                              {rating.leads?.name || rating.leads?.whatsapp || "Cliente desconhecido"}
                             </p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>{format(new Date(rating.closed_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
@@ -706,7 +706,7 @@ export default function WhatsAppNPS() {
                   <div>
                     <p className="text-muted-foreground">Cliente:</p>
                     <p className="font-medium">
-                      {selectedReview.leads?.name || selectedReview.leads?.whatsapp_number || "–"}
+                      {selectedReview.leads?.name || selectedReview.leads?.whatsapp || "–"}
                     </p>
                   </div>
                   <div>

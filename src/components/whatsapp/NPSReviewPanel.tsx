@@ -168,7 +168,7 @@ export function NPSReviewPanel({ className }: NPSReviewPanelProps) {
                             </Badge>
                           )}
                           <span className="text-sm font-medium truncate">
-                            {review.leads?.name || review.leads?.whatsapp_number || "Cliente"}
+                            {review.leads?.name || review.leads?.whatsapp || "Cliente"}
                           </span>
                         </div>
                         <span className="text-xs text-muted-foreground shrink-0">
@@ -271,7 +271,7 @@ export function NPSReviewPanel({ className }: NPSReviewPanelProps) {
                 <div>
                   <p className="text-muted-foreground">Cliente:</p>
                   <p className="font-medium">
-                    {selectedReview.leads?.name || selectedReview.leads?.whatsapp_number || "–"}
+                    {selectedReview.leads?.name || selectedReview.leads?.whatsapp || "–"}
                   </p>
                 </div>
                 <div>
