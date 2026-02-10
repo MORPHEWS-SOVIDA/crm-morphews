@@ -405,6 +405,14 @@ export default function WhatsAppNPS() {
                   total={user.total}
                   avgRating={user.avg_rating}
                   detractors={user.detractors}
+                  onClickUser={() => {
+                    setUserFilter(user.user_id);
+                    setRatingFilter("all");
+                  }}
+                  onClickDetractors={() => {
+                    setUserFilter(user.user_id);
+                    setRatingFilter("detractors");
+                  }}
                 />
               ))}
             </div>
@@ -788,12 +796,16 @@ function UserBadge({
   userId, 
   total, 
   avgRating, 
-  detractors 
+  detractors,
+  onClickUser,
+  onClickDetractors,
 }: { 
   userId: string;
   total: number;
   avgRating: number;
   detractors: number;
+  onClickUser?: () => void;
+  onClickDetractors?: () => void;
 }) {
   const { data: profile } = useQuery({
     queryKey: ["profile-name", userId],
@@ -814,10 +826,14 @@ function UserBadge({
   };
 
   return (
-    <div className={cn(
-      "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm",
-      getRatingBg()
-    )}>
+    <div 
+      className={cn(
+        "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all",
+        getRatingBg()
+      )}
+      onClick={onClickUser}
+      title="Clique para filtrar por este vendedor"
+    >
       <Avatar className="h-6 w-6">
         <AvatarFallback className="text-xs">
           {profile?.first_name?.[0] || "?"}
@@ -828,7 +844,15 @@ function UserBadge({
         {avgRating.toFixed(1)} ({total})
       </span>
       {detractors > 0 && (
-        <Badge variant="destructive" className="h-5 text-xs px-1.5">
+        <Badge 
+          variant="destructive" 
+          className="h-5 text-xs px-1.5 cursor-pointer hover:bg-red-700 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClickDetractors?.();
+          }}
+          title="Ver apenas detratores deste vendedor"
+        >
           {detractors}
         </Badge>
       )}
