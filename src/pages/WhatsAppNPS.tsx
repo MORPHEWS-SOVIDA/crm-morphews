@@ -405,6 +405,14 @@ export default function WhatsAppNPS() {
                   total={user.total}
                   avgRating={user.avg_rating}
                   detractors={user.detractors}
+                  onClickUser={() => {
+                    setUserFilter(user.user_id);
+                    setRatingFilter("all");
+                  }}
+                  onClickDetractors={() => {
+                    setUserFilter(user.user_id);
+                    setRatingFilter("detractors");
+                  }}
                 />
               ))}
             </div>
