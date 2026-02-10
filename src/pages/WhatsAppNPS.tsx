@@ -536,7 +536,7 @@ export default function WhatsAppNPS() {
                           
                           <div>
                             <p className="font-medium">
-                              {rating.leads?.name || rating.leads?.whatsapp_number || "Cliente desconhecido"}
+                              {rating.leads?.name || rating.leads?.whatsapp || "Cliente desconhecido"}
                             </p>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>{format(new Date(rating.closed_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
