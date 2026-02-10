@@ -796,12 +796,16 @@ function UserBadge({
   userId, 
   total, 
   avgRating, 
-  detractors 
+  detractors,
+  onClickUser,
+  onClickDetractors,
 }: { 
   userId: string;
   total: number;
   avgRating: number;
   detractors: number;
+  onClickUser?: () => void;
+  onClickDetractors?: () => void;
 }) {
   const { data: profile } = useQuery({
     queryKey: ["profile-name", userId],
