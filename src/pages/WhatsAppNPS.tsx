@@ -169,7 +169,7 @@ export default function WhatsAppNPS() {
           review_request_reason,
           review_notes,
           reviewed_at,
-          leads(name, whatsapp_number),
+          leads(name, whatsapp),
           profiles:assigned_user_id(first_name, last_name),
           whatsapp_instances:instance_id(name, display_name_for_team)
         `)
