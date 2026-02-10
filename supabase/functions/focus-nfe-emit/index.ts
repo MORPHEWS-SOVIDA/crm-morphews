@@ -42,14 +42,14 @@ function getIndicadorIEDestinatario(draft: any, lead: any, isJuridica: boolean):
   const draftIEIsento = draft?.recipient_inscricao_estadual_isento;
   
   if (draftIE && !draftIEIsento) return '1'; // Contribuinte com IE
-  if (draftIEIsento === true) return '2'; // Contribuinte isento
+  if (draftIEIsento === true) return '9'; // Isento = Não contribuinte (indIEDest=2 rejeitado por muitos estados)
   
   // Fallback to lead data
   const leadIE = lead?.inscricao_estadual;
   const leadIEIsento = lead?.inscricao_estadual_isento;
   
   if (leadIE && !leadIEIsento) return '1'; // Contribuinte com IE
-  if (leadIEIsento === true && isJuridica) return '2'; // PJ isento
+  if (leadIEIsento === true) return '9'; // Isento = Não contribuinte
   
   return '9'; // Não contribuinte (default for PF or PJ without IE info)
 }
