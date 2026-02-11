@@ -1612,6 +1612,16 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {selectedConversation.phone_number}
+                    {(() => {
+                      const inst = instancesMap[selectedConversation.instance_id];
+                      if (!inst) return null;
+                      const label = inst.display_name_for_team || inst.name;
+                      return (
+                        <span className="ml-1.5">
+                          • {inst.is_connected ? '🟢' : '🔴'} {label}
+                        </span>
+                      );
+                    })()}
                   </p>
                 </div>
 
