@@ -2277,14 +2277,20 @@ export default function WhatsAppChat() {
                     </div>
 
                     {/* Instância ativa (sub-aba) */}
-                    {getInstanceLabel(activeInstanceId ?? selectedConversation.instance_id) && (
-                      <div>
-                        <span className="text-sm text-muted-foreground">Instância</span>
-                        <p className="text-sm font-medium truncate">
-                          {getInstanceLabel(activeInstanceId ?? selectedConversation.instance_id)}
-                        </p>
-                      </div>
-                    )}
+                    <div>
+                      <span className="text-sm text-muted-foreground">Instância</span>
+                      <p className="text-sm font-medium truncate">
+                        {(() => {
+                          const instId = activeInstanceId ?? selectedConversation.instance_id;
+                          const label = getInstanceLabel(instId);
+                          if (label) {
+                            const inst = instances.find(i => i.id === instId);
+                            return <>{inst?.is_connected ? '🟢' : '🔴'} {label}</>;
+                          }
+                          return <span className="text-muted-foreground italic">🔴 Instância removida</span>;
+                        })()}
+                      </p>
+                    </div>
 
                     {/* Abre em nova aba */}
                     <Button 
