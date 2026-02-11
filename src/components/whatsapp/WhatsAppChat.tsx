@@ -68,6 +68,7 @@ interface InstanceInfo {
   display_name_for_team: string | null;
   manual_instance_number: string | null;
   phone_number: string | null;
+  is_connected: boolean;
 }
 
 interface Message {
@@ -144,7 +145,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("whatsapp_instances")
-        .select("id, name, display_name_for_team, manual_instance_number, phone_number");
+        .select("id, name, display_name_for_team, manual_instance_number, phone_number, is_connected");
       if (error) return [];
       return data as InstanceInfo[];
     },
@@ -1861,7 +1862,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                             <option value="" disabled>Continuar por outra instância...</option>
                             {allInstances.map(inst => (
                               <option key={inst.id} value={inst.id}>
-                                {inst.display_name_for_team || inst.name} {inst.phone_number ? `(${inst.phone_number.slice(-4)})` : ''}
+                                {inst.is_connected ? '🟢' : '🔴'} {inst.display_name_for_team || inst.name} {inst.phone_number ? `(${inst.phone_number.slice(-4)})` : ''}
                               </option>
                             ))}
                           </select>
@@ -1897,7 +1898,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                             <option value="" disabled>Continuar por outra instância...</option>
                             {allInstances.filter(i => i.id !== selectedConversation.instance_id).map(inst => (
                               <option key={inst.id} value={inst.id}>
-                                {inst.display_name_for_team || inst.name} {inst.phone_number ? `(${inst.phone_number.slice(-4)})` : ''}
+                                {inst.is_connected ? '🟢' : '🔴'} {inst.display_name_for_team || inst.name} {inst.phone_number ? `(${inst.phone_number.slice(-4)})` : ''}
                               </option>
                             ))}
                           </select>
