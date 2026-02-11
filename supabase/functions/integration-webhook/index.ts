@@ -1214,25 +1214,116 @@ Deno.serve(async (req) => {
       if (insertError) {
         console.error('Error creating lead:', insertError);
 
-        await supabase.from('integration_logs').insert({
-          integration_id: typedIntegration.id,
-          organization_id: typedIntegration.organization_id,
-          direction: 'inbound',
-          status: 'error',
-          request_payload: payload,
-          error_message: insertError.message,
-          processing_time_ms: Date.now() - startTime,
-        });
+        // Handle duplicate WhatsApp constraint - fall back to updating existing lead
+        if (insertError.message?.includes('WhatsApp já cadastrado') || 
+            insertError.message?.includes('duplicate key') ||
+            insertError.message?.includes('unique constraint') ||
+            insertError.code === '23505') {
+          console.log('Duplicate WhatsApp detected, falling back to existing lead lookup...');
+          
+          // Try to find the existing lead by whatsapp (exact match on normalized value)
+          const { data: dupLead } = await supabase
+            .from('leads')
+            .select('id, name, whatsapp, stage')
+            .eq('organization_id', typedIntegration.organization_id)
+            .eq('whatsapp', leadData.whatsapp)
+            .maybeSingle();
+          
+          if (dupLead) {
+            existingLead = dupLead;
+            leadId = dupLead.id;
+            action = 'updated';
+            console.log(`Fallback: found existing lead ${leadId} by duplicate whatsapp`);
+            
+            // Update the existing lead with new data
+            const updateData: Record<string, any> = {
+              updated_at: new Date().toISOString(),
+              webhook_data: payload,
+              stage: leadData.stage || typedIntegration.default_stage || dupLead.stage,
+            };
+            if (leadData.name && leadData.name !== dupLead.name) updateData.name = leadData.name;
+            if (leadData.email) updateData.email = leadData.email;
+            if (leadData.cpf_cnpj) updateData.cpf_cnpj = leadData.cpf_cnpj;
+            
+            await supabase.from('leads').update(updateData).eq('id', leadId);
 
-        return new Response(
-          JSON.stringify({ error: 'Erro ao criar lead', details: insertError.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+            // Upsert address for this existing lead
+            if (Object.keys(addressData).length > 0) {
+              const { data: existingAddr } = await supabase
+                .from('lead_addresses')
+                .select('id')
+                .eq('lead_id', leadId)
+                .eq('is_primary', true)
+                .maybeSingle();
+
+              if (existingAddr) {
+                await supabase.from('lead_addresses').update({
+                  street: addressData.street || undefined,
+                  street_number: addressData.number || undefined,
+                  complement: addressData.complement || undefined,
+                  neighborhood: addressData.neighborhood || undefined,
+                  city: addressData.city || undefined,
+                  state: addressData.state || undefined,
+                  cep: addressData.cep || undefined,
+                  updated_at: new Date().toISOString(),
+                }).eq('id', existingAddr.id);
+              } else {
+                await supabase.from('lead_addresses').insert({
+                  lead_id: leadId,
+                  organization_id: typedIntegration.organization_id,
+                  label: 'Principal',
+                  is_primary: true,
+                  street: addressData.street,
+                  street_number: addressData.number,
+                  complement: addressData.complement,
+                  neighborhood: addressData.neighborhood,
+                  city: addressData.city,
+                  state: addressData.state,
+                  cep: addressData.cep,
+                });
+              }
+            }
+          } else {
+            // Could not find the duplicate lead - log and continue
+            await supabase.from('integration_logs').insert({
+              integration_id: typedIntegration.id,
+              organization_id: typedIntegration.organization_id,
+              direction: 'inbound',
+              status: 'error',
+              request_payload: payload,
+              error_message: `Duplicate WhatsApp but could not find existing lead: ${insertError.message}`,
+              processing_time_ms: Date.now() - startTime,
+            });
+
+            return new Response(
+              JSON.stringify({ error: 'Erro ao criar lead', details: insertError.message }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } else {
+          await supabase.from('integration_logs').insert({
+            integration_id: typedIntegration.id,
+            organization_id: typedIntegration.organization_id,
+            direction: 'inbound',
+            status: 'error',
+            request_payload: payload,
+            error_message: insertError.message,
+            processing_time_ms: Date.now() - startTime,
+          });
+
+          return new Response(
+            JSON.stringify({ error: 'Erro ao criar lead', details: insertError.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
 
-      leadId = newLead.id;
-      action = 'created';
-      console.log(`Created new lead: ${leadId}`);
+      // Only set from newLead if insert succeeded (not fallback path)
+      if (!existingLead) {
+        leadId = newLead.id;
+        action = 'created';
+        console.log(`Created new lead: ${leadId}`);
+      }
 
       // Add address if we have address data
       if (Object.keys(addressData).length > 0) {
