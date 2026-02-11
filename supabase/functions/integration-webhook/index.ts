@@ -757,7 +757,8 @@ Deno.serve(async (req) => {
     // VALID lead table columns - only these will be written to leads table
     const VALID_LEAD_COLUMNS = new Set([
       'name', 'email', 'whatsapp', 'observations', 'stage', 'stars', 
-      'organization_id', 'assigned_to', 'webhook_data', 'created_at', 'updated_at'
+      'organization_id', 'assigned_to', 'webhook_data', 'created_at', 'updated_at',
+      'cpf_cnpj'
     ]);
     
     // Build lead data from mappings
@@ -804,39 +805,50 @@ Deno.serve(async (req) => {
       
       // Common field name variations - ONLY for fields that exist in leads table
       const fieldAliases: Record<string, string[]> = {
-        name: ['name', 'nome', 'nome_completo', 'full_name', 'fullName', 'customer_name', 'customerName', 'nome completo'],
-        email: ['email', 'e-mail', 'mail', 'customer_email', 'customerEmail'],
-        whatsapp: ['whatsapp', 'phone', 'phone_number', 'phoneNumber', 'telefone', 'celular', 'mobile', 'tel', 'fone', 'customer_phone', 'customerPhone'],
+        name: ['customer.name', 'name', 'nome', 'nome_completo', 'full_name', 'fullName', 'customer_name', 'customerName', 'nome completo'],
+        email: ['customer.email', 'email', 'e-mail', 'mail', 'customer_email', 'customerEmail'],
+        whatsapp: ['customer.phone', 'whatsapp', 'phone', 'phone_number', 'phoneNumber', 'telefone', 'celular', 'mobile', 'tel', 'fone', 'customer_phone', 'customerPhone'],
+        cpf_cnpj: ['customer.doc', 'doc', 'cpf', 'cnpj', 'cpf_cnpj', 'document', 'documento', 'customer_doc'],
         observations: ['observations', 'observacoes', 'notes', 'notas', 'observacao'],
-        // Address fields
-        address_street: ['street', 'rua', 'endereco', 'address', 'logradouro'],
-        address_number: ['number', 'numero', 'num', 'street_number'],
-        address_complement: ['complement', 'complemento', 'comp'],
-        address_neighborhood: ['neighborhood', 'bairro', 'district'],
-        address_city: ['city', 'cidade', 'municipio'],
-        address_state: ['state', 'estado', 'uf'],
-        address_cep: ['cep', 'zipcode', 'zip', 'postal_code', 'postalCode', 'zip_code'],
+        // Address fields - prioritize shipping.address then customer.billing_address
+        address_street: ['shipping.address.street', 'customer.billing_address.street', 'street', 'rua', 'endereco', 'address', 'logradouro'],
+        address_number: ['shipping.address.street_number', 'customer.billing_address.street_number', 'number', 'numero', 'num', 'street_number'],
+        address_complement: ['shipping.address.complement', 'customer.billing_address.complement', 'complement', 'complemento', 'comp'],
+        address_neighborhood: ['shipping.address.district', 'customer.billing_address.district', 'neighborhood', 'bairro', 'district'],
+        address_city: ['shipping.address.city', 'customer.billing_address.city', 'city', 'cidade', 'municipio'],
+        address_state: ['shipping.address.state', 'customer.billing_address.state', 'state', 'estado', 'uf'],
+        address_cep: ['shipping.address.zipcode', 'customer.billing_address.zipcode', 'cep', 'zipcode', 'zip', 'postal_code', 'postalCode', 'zip_code'],
         // Sale auto-detection
-        sale_product_name: ['product.name', 'product_name', 'productName', 'link.title', 'item_name', 'item.name'],
+        sale_product_name: ['link.title', 'product.name', 'product_name', 'productName', 'item_name', 'item.name'],
         sale_product_sku: ['product.sku', 'product_sku', 'productSku', 'sku', 'product.code', 'product_code'],
-        sale_quantity: ['quantity', 'quantidade', 'qty', 'qtd', 'product.quantity'],
-        sale_total_cents: ['total_cents', 'amount', 'value', 'total', 'price', 'preco'],
-        sale_external_id: ['order_id', 'orderId', 'external_id', 'transaction_id', 'transactionId', 'id_pedido'],
-        sale_external_url: ['order_url', 'orderUrl', 'external_url', 'link', 'url_pedido'],
+        sale_quantity: ['product.quantity', 'quantity', 'quantidade', 'qty', 'qtd'],
+        sale_total_cents: ['transaction.total_price', 'product.price', 'total_cents', 'amount', 'value', 'total', 'price', 'preco'],
+        sale_external_id: ['transaction_id', 'order_id', 'orderId', 'external_id', 'transactionId', 'id_pedido'],
+        sale_external_url: ['customer.url', 'order_url', 'orderUrl', 'external_url', 'url_pedido'],
+        // Payment details
+        sale_payment_method: ['transaction.payment_method', 'payment_method', 'metodo_pagamento'],
+        sale_installments: ['transaction.installments', 'installments', 'parcelas'],
+        sale_observation_1: ['link.title', 'title', 'titulo'],
       };
 
       for (const [targetField, aliases] of Object.entries(fieldAliases)) {
         for (const alias of aliases) {
           const value = findValueInPayload(payload, alias);
-          if (value) {
+          if (value !== null && value !== undefined && String(value).trim() !== '') {
             const transformed = targetField === 'whatsapp' 
               ? normalizePhone(String(value)) 
               : String(value).trim();
             
             if (targetField.startsWith('address_')) {
-              addressData[targetField.replace('address_', '')] = transformed;
+              const addrKey = targetField.replace('address_', '');
+              if (!addressData[addrKey]) {
+                addressData[addrKey] = transformed;
+              }
             } else if (targetField.startsWith('sale_')) {
-              saleData[targetField.replace('sale_', '')] = transformed;
+              const saleKey = targetField.replace('sale_', '');
+              if (!saleData[saleKey]) {
+                saleData[saleKey] = transformed;
+              }
             } else {
               // Only set valid lead columns
               if (VALID_LEAD_COLUMNS.has(targetField) && !leadData[targetField]) {
@@ -991,12 +1003,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update other fields if provided (name, email, etc.) - don't overwrite with nulls
+      // Update other fields if provided (name, email, cpf_cnpj, etc.) - don't overwrite with nulls
       if (leadData.name && leadData.name !== existingLead.name) {
         updateData.name = leadData.name;
       }
       if (leadData.email && !updateData.email) {
         updateData.email = leadData.email;
+      }
+      if (leadData.cpf_cnpj) {
+        updateData.cpf_cnpj = leadData.cpf_cnpj;
       }
       
       // Only append minimal note to observations, not full JSON
@@ -1025,6 +1040,45 @@ Deno.serve(async (req) => {
       leadId = existingLead.id;
       action = newStage !== previousStage ? 'stage_changed' : 'updated';
       console.log(`Updated existing lead: ${leadId}, action: ${action}`);
+
+      // Upsert address for existing lead if we have address data
+      if (Object.keys(addressData).length > 0) {
+        const { data: existingAddress } = await supabase
+          .from('lead_addresses')
+          .select('id')
+          .eq('lead_id', leadId)
+          .eq('is_primary', true)
+          .maybeSingle();
+
+        if (existingAddress) {
+          await supabase.from('lead_addresses').update({
+            street: addressData.street || undefined,
+            street_number: addressData.number || undefined,
+            complement: addressData.complement || undefined,
+            neighborhood: addressData.neighborhood || undefined,
+            city: addressData.city || undefined,
+            state: addressData.state || undefined,
+            cep: addressData.cep || undefined,
+            updated_at: new Date().toISOString(),
+          }).eq('id', existingAddress.id);
+          console.log('Updated existing address for lead');
+        } else {
+          await supabase.from('lead_addresses').insert({
+            lead_id: leadId,
+            organization_id: typedIntegration.organization_id,
+            label: 'Principal',
+            is_primary: true,
+            street: addressData.street,
+            street_number: addressData.number,
+            complement: addressData.complement,
+            neighborhood: addressData.neighborhood,
+            city: addressData.city,
+            state: addressData.state,
+            cep: addressData.cep,
+          });
+          console.log('Created new address for existing lead');
+        }
+      }
     } else {
       // Create new lead
       if (!leadData.name) {
@@ -1536,7 +1590,21 @@ Deno.serve(async (req) => {
         lead_id: leadId,
         created_by: sellerUserId,
         seller_user_id: sellerUserId,
-        status: typedIntegration.sale_status_on_create || 'draft',
+        status: (() => {
+          // Map common Portuguese/informal status names to valid enum values
+          const statusMap: Record<string, string> = {
+            'pago': 'payment_confirmed',
+            'paid': 'payment_confirmed',
+            'pendente': 'draft',
+            'pending': 'draft',
+            'rascunho': 'draft',
+            'confirmado': 'payment_confirmed',
+            'confirmed': 'payment_confirmed',
+            'pending_expedition': 'pending_expedition',
+          };
+          const raw = typedIntegration.sale_status_on_create || 'draft';
+          return statusMap[raw.toLowerCase()] || raw;
+        })(),
         subtotal_cents: totalCents,
         discount_cents: 0,
         total_cents: totalCents,
@@ -1544,9 +1612,11 @@ Deno.serve(async (req) => {
         external_order_id: saleData.external_id || null,
         external_order_url: saleData.external_url || null,
         external_source: typedIntegration.name,
-        observation_1: saleData.observation_1 || productName || null,
+        observation_1: saleData.observation_1 || saleData.product_name || productName || null,
         observation_2: saleData.observation_2 || null,
         payment_notes: typedIntegration.sale_tag ? `[${typedIntegration.sale_tag}]` : null,
+        payment_method: saleData.payment_method || null,
+        payment_installments: saleData.installments ? parseInt(String(saleData.installments)) || 1 : null,
       };
       
       if (leadAddress?.id) {
