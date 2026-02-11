@@ -300,6 +300,13 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     return selectedConversation;
   }, [selectedConversation, hasMultipleInstances, activeInstanceId, samePhoneConversations]);
 
+  // Flag: instância da conversa ativa está desconectada/excluída?
+  const isActiveInstanceOffline = useMemo(() => {
+    if (!activeConversation) return false;
+    const statusInfo = getInstanceStatusInfo(activeConversation);
+    return statusInfo.status === 'disconnected' || statusInfo.status === 'deleted';
+  }, [activeConversation]);
+
   // Atualizar activeInstanceId quando selecionar uma nova conversa
   // IMPORTANTE: usar id E instance_id como dependências para garantir atualização
   // quando clicar em card diferente do mesmo número
@@ -569,6 +576,14 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
 
   const handleSendMessage = () => {
     if (!messageText.trim()) return;
+    if (isActiveInstanceOffline) {
+      toast({
+        title: "Instância desconectada",
+        description: "Esta instância está offline. Use outra instância para continuar a conversa.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const now = Date.now();
     if (now - lastSendAt < SEND_COOLDOWN_MS) {
@@ -1946,7 +1961,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           size="icon"
                           className="h-10 w-10"
                           onClick={() => imageInputRef.current?.click()}
-                          disabled={isSendingImage}
+                          disabled={isSendingImage || isActiveInstanceOffline}
                           title="Enviar imagem"
                         >
                           {isSendingImage ? (
@@ -1960,7 +1975,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           size="icon"
                           className="h-10 w-10"
                           onClick={() => documentInputRef.current?.click()}
-                          disabled={isSendingDocument}
+                          disabled={isSendingDocument || isActiveInstanceOffline}
                           title="Enviar documento"
                         >
                           {isSendingDocument ? (
@@ -1974,7 +1989,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           size="icon"
                           className="h-10 w-10"
                           onClick={() => videoInputRef.current?.click()}
-                          disabled={isSendingVideo}
+                          disabled={isSendingVideo || isActiveInstanceOffline}
                           title="Enviar vídeo"
                         >
                           {isSendingVideo ? (
@@ -1988,6 +2003,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           variant="ghost"
                           className="h-10 w-10"
                           onClick={() => setIsRecordingAudio(true)}
+                          disabled={isActiveInstanceOffline}
                           title="Gravar áudio"
                         >
                           <Mic className="h-5 w-5 text-muted-foreground" />
@@ -2035,7 +2051,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                                 handleSendMessage();
                               }
                             }}
-                            disabled={sendMessage.isPending || isSendingImage || isSendingVideo}
+                            disabled={sendMessage.isPending || isSendingImage || isSendingVideo || isActiveInstanceOffline}
                             isMobile={isMobile}
                           />
                         </div>
@@ -2060,7 +2076,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                             handleSendMessage();
                           }
                         }}
-                        disabled={sendMessage.isPending || isSendingImage || isSendingVideo || (!selectedImage && !selectedVideo && !messageText.trim())}
+                        disabled={sendMessage.isPending || isSendingImage || isSendingVideo || isActiveInstanceOffline || (!selectedImage && !selectedVideo && !messageText.trim())}
                       >
                         {sendMessage.isPending || isSendingImage || isSendingVideo ? (
                           <Loader2 className={cn("animate-spin", isMobile ? "h-6 w-6" : "h-5 w-5")} />
