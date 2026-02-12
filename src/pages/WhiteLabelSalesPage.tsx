@@ -387,7 +387,7 @@ export default function WhiteLabelSalesPage() {
                     </Button>
                   </a>
                 )}
-                <Link to="/login">
+                <Link to={`/${slug}/login`}>
                   <Button variant="ghost" size="sm">Entrar</Button>
                 </Link>
                 <Button 
@@ -420,7 +420,7 @@ export default function WhiteLabelSalesPage() {
                 <button onClick={() => scrollToSection("ecommerce")} className="text-left py-2">E-commerce</button>
                 <button onClick={() => scrollToSection("whatsapp-multi")} className="text-left py-2">WhatsApp</button>
                 <button onClick={() => scrollToSection("precos")} className="text-left py-2">Preços</button>
-                <Link to="/login" className="py-2">Entrar</Link>
+                <Link to={`/${slug}/login`} className="py-2">Entrar</Link>
                 <Button onClick={() => scrollToSection("precos")} style={{ backgroundColor: primaryColor }} className="w-full">
                   Começar Agora
                 </Button>
