@@ -50,6 +50,16 @@ export function useCustomDomainDetection(): CustomDomainResult {
   useEffect(() => {
     const hostname = window.location.hostname;
     
+    // Redirect subdomains to path-based URLs on morphews.com
+    const SUBDOMAIN_REDIRECTS: Record<string, string> = {
+      'atomicsales.morphews.com': 'https://morphews.com/atomicsales',
+    };
+    
+    if (SUBDOMAIN_REDIRECTS[hostname]) {
+      window.location.href = SUBDOMAIN_REDIRECTS[hostname] + window.location.pathname;
+      return;
+    }
+
     // Skip detection for main domains
     if (isMainDomain(hostname)) {
       setResult({
