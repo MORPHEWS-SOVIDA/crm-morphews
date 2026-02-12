@@ -19,6 +19,18 @@
   </head>
 
   <body>
+    <script>
+      // Redirect subdomains before React loads
+      (function() {
+        var redirects = {
+          'atomicsales.morphews.com': 'https://morphews.com/atomicsales'
+        };
+        var target = redirects[window.location.hostname];
+        if (target) {
+          window.location.replace(target + window.location.pathname);
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
