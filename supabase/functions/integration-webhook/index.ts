@@ -789,9 +789,11 @@ Deno.serve(async (req) => {
           customFieldsData[customFieldName] = transformedValue;
           console.log(`Collected custom field: ${customFieldName} = ${transformedValue}`);
         } else {
-          // Only add to leadData if it's a valid column (ignore unknown fields like 'cpf')
-          if (VALID_LEAD_COLUMNS.has(mapping.target_field)) {
-            leadData[mapping.target_field] = transformedValue;
+          // Map legacy 'cpf' target to the actual column 'cpf_cnpj'
+          const effectiveTarget = mapping.target_field === 'cpf' ? 'cpf_cnpj' : mapping.target_field;
+          // Only add to leadData if it's a valid column
+          if (VALID_LEAD_COLUMNS.has(effectiveTarget)) {
+            leadData[effectiveTarget] = transformedValue;
           } else {
             console.log(`Ignoring unknown lead field: ${mapping.target_field} (not in schema)`);
           }
@@ -1629,6 +1631,49 @@ Deno.serve(async (req) => {
             console.log('Found product by SKU:', matchedProduct.name);
             productId = matchedProduct.id;
             productName = matchedProduct.name;
+            
+            // Try to extract quantity from Payt's product.items array
+            let itemsQuantity: number | null = null;
+            const productItems = payload?.product?.items;
+            if (Array.isArray(productItems)) {
+              for (const item of productItems) {
+                if (item.sku === productSku || item.code) {
+                  itemsQuantity = parseInt(String(item.quantity)) || null;
+                  if (itemsQuantity) {
+                    console.log(`Found quantity ${itemsQuantity} from product.items for SKU ${productSku}`);
+                    break;
+                  }
+                }
+              }
+            }
+            
+            // Also check payload's product.quantity for grouped products
+            if (!itemsQuantity && payload?.product?.type === 'grouped') {
+              const topQty = payload?.product?.quantity;
+              // For grouped products, the top-level quantity is usually 1 (the bundle)
+              // The real quantity is in items array - already handled above
+            }
+            
+            // Try to find matching kit by quantity
+            if (itemsQuantity) {
+              const { data: kitByQty } = await supabase
+                .from('product_price_kits')
+                .select('id, quantity, promotional_price_cents, regular_price_cents, sku')
+                .eq('product_id', matchedProduct.id)
+                .eq('quantity', itemsQuantity)
+                .maybeSingle();
+              
+              if (kitByQty) {
+                console.log(`Found kit by product + quantity: Kit ${kitByQty.quantity}un, SKU: ${kitByQty.sku}`);
+                matchedKitId = kitByQty.id;
+                matchedKitQuantity = kitByQty.quantity;
+                matchedKitPriceCents = kitByQty.promotional_price_cents || kitByQty.regular_price_cents;
+              } else {
+                // No kit found but we have quantity from items
+                matchedKitQuantity = itemsQuantity;
+                console.log(`No kit found for quantity ${itemsQuantity}, using quantity directly`);
+              }
+            }
           } else {
             console.log('No product or kit found with SKU:', productSku);
           }
