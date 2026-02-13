@@ -1,0 +1,1 @@
+ALTER TABLE public.fiscal_invoices ADD COLUMN billing_description TEXT;

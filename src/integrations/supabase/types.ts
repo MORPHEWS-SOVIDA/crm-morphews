@@ -4863,6 +4863,7 @@ export type Database = {
           access_key: string | null
           additional_info: string | null
           authorized_at: string | null
+          billing_description: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           carrier_address: string | null
@@ -4943,6 +4944,7 @@ export type Database = {
           access_key?: string | null
           additional_info?: string | null
           authorized_at?: string | null
+          billing_description?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           carrier_address?: string | null
@@ -5023,6 +5025,7 @@ export type Database = {
           access_key?: string | null
           additional_info?: string | null
           authorized_at?: string | null
+          billing_description?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           carrier_address?: string | null
