@@ -144,10 +144,6 @@ function EnvioIndividual() {
       toast.error('Digite a mensagem');
       return;
     }
-    if (!config?.is_active) {
-      toast.error('Serviço de SMS indisponível. Entre em contato com o suporte.');
-      return;
-    }
     if (!balance || balance.current_credits < 1) {
       toast.error('Saldo de SMS insuficiente');
       return;
@@ -319,10 +315,6 @@ function EnvioEmMassa() {
     }
     if (!message.trim()) {
       toast.error('Digite a mensagem');
-      return;
-    }
-    if (!config?.is_active) {
-      toast.error('Serviço de SMS indisponível. Entre em contato com o suporte.');
       return;
     }
     if (!balance || balance.current_credits < totalSms) {
