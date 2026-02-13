@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,8 @@ import {
   UserX,
   UserCheck,
   Ban,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { UserPermissionsEditor } from "@/components/team/UserPermissionsEditor";
@@ -101,6 +103,161 @@ interface OrgMember {
     name: string;
     color: string;
   } | null;
+}
+
+// Component to render members with active/inactive filter
+function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, handleDeleteUser, isTogglingActive, isDeletingUser }: {
+  member: OrgMember;
+  user: any;
+  myPermissions: any;
+  getRoleBadge: (role: OrgRole) => React.ReactNode;
+  handleEditMember: (member: OrgMember) => void;
+  handleToggleUserActive: (member: OrgMember) => void;
+  handleDeleteUser: (memberId: string, userId: string) => void;
+  isTogglingActive: string | null;
+  isDeletingUser: string | null;
+}) {
+  return (
+    <div
+      className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors ${!member.is_active ? 'opacity-60' : ''}`}
+    >
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
+          {member.profile?.first_name?.[0] || "U"}
+        </div>
+        <div>
+          <p className="font-medium">
+            {member.profile 
+              ? `${member.profile.first_name} ${member.profile.last_name}`
+              : "Usuário"}
+          </p>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Mail className="w-3 h-3" />
+            <span>{member.profile?.email || "—"}</span>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        {getRoleBadge(member.role)}
+        {member.team && (
+          <Badge 
+            variant="outline" 
+            className="border-opacity-30"
+            style={{ 
+              backgroundColor: `${member.team.color}20`,
+              color: member.team.color,
+              borderColor: `${member.team.color}50`,
+            }}
+          >
+            <Users className="w-3 h-3 mr-1" />
+            {member.team.name}
+          </Badge>
+        )}
+        {member.is_sales_manager && (
+          <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
+            <Crown className="w-3 h-3 mr-1" />
+            Gerente
+          </Badge>
+        )}
+        {member.role !== "owner" && (
+          <Badge 
+            variant="outline" 
+            className={member.can_see_all_leads 
+              ? "bg-green-500/10 text-green-600 border-green-500/30" 
+              : "bg-amber-500/10 text-amber-600 border-amber-500/30"}
+          >
+            {member.can_see_all_leads ? (
+              <><Eye className="w-3 h-3 mr-1" />Vê todos</>
+            ) : (
+              <><EyeOff className="w-3 h-3 mr-1" />Só seus</>
+            )}
+          </Badge>
+        )}
+        {!member.is_active && (
+          <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">
+            <Ban className="w-3 h-3 mr-1" />
+            Desativado
+          </Badge>
+        )}
+        {member.user_id !== user?.id && myPermissions?.team_edit_member && (
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={() => handleEditMember(member)}>
+            <Pencil className="w-4 h-4" />
+          </Button>
+        )}
+        {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_edit_member && (
+          <Button 
+            variant="ghost" size="icon" 
+            className={member.is_active ? "text-muted-foreground hover:text-amber-600" : "text-muted-foreground hover:text-green-600"}
+            onClick={() => handleToggleUserActive(member)}
+            disabled={isTogglingActive === member.id}
+            title={member.is_active ? "Desativar usuário" : "Reativar usuário"}
+          >
+            {isTogglingActive === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : member.is_active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+          </Button>
+        )}
+        {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_delete_member && (
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteUser(member.id, member.user_id)} disabled={isDeletingUser === member.id}>
+            {isDeletingUser === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, handleDeleteUser, isTogglingActive, isDeletingUser }: {
+  members: OrgMember[];
+  user: any;
+  myPermissions: any;
+  getRoleBadge: (role: OrgRole) => React.ReactNode;
+  handleEditMember: (member: OrgMember) => void;
+  handleToggleUserActive: (member: OrgMember) => void;
+  handleDeleteUser: (memberId: string, userId: string) => void;
+  isTogglingActive: string | null;
+  isDeletingUser: string | null;
+}) {
+  const [showInactive, setShowInactive] = useState(false);
+
+  const activeMembers = members.filter(m => m.is_active);
+  const inactiveMembers = members.filter(m => !m.is_active);
+
+  if (members.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+        <p>Nenhum membro encontrado</p>
+      </div>
+    );
+  }
+
+  const sharedProps = { user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, handleDeleteUser, isTogglingActive, isDeletingUser };
+
+  return (
+    <div className="space-y-3">
+      {/* Active members */}
+      {activeMembers.map((member) => (
+        <MemberRow key={member.id} member={member} {...sharedProps} />
+      ))}
+
+      {/* Inactive members toggle */}
+      {inactiveMembers.length > 0 && (
+        <>
+          <button
+            onClick={() => setShowInactive(!showInactive)}
+            className="flex items-center gap-2 w-full py-3 px-4 rounded-lg border border-dashed border-muted-foreground/30 text-muted-foreground hover:bg-muted/30 transition-colors text-sm font-medium"
+          >
+            {showInactive ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            <Ban className="w-4 h-4" />
+            {inactiveMembers.length} usuário{inactiveMembers.length > 1 ? 's' : ''} desativado{inactiveMembers.length > 1 ? 's' : ''}
+          </button>
+
+          {showInactive && inactiveMembers.map((member) => (
+            <MemberRow key={member.id} member={member} {...sharedProps} />
+          ))}
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function Team() {
@@ -1452,139 +1609,7 @@ export default function Team() {
               </div>
             )}
 
-            <div className="space-y-3">
-              {members.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
-                      {member.profile?.first_name?.[0] || "U"}
-                    </div>
-                    <div>
-                      <p className="font-medium">
-                        {member.profile 
-                          ? `${member.profile.first_name} ${member.profile.last_name}`
-                          : "Usuário"}
-                      </p>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Mail className="w-3 h-3" />
-                        <span>{member.profile?.email || "—"}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    {getRoleBadge(member.role)}
-                    {/* Team badge */}
-                    {member.team && (
-                      <Badge 
-                        variant="outline" 
-                        className="border-opacity-30"
-                        style={{ 
-                          backgroundColor: `${member.team.color}20`,
-                          color: member.team.color,
-                          borderColor: `${member.team.color}50`,
-                        }}
-                      >
-                        <Users className="w-3 h-3 mr-1" />
-                        {member.team.name}
-                      </Badge>
-                    )}
-                    {/* Sales Manager badge */}
-                    {member.is_sales_manager && (
-                      <Badge 
-                        variant="outline" 
-                        className="bg-purple-500/10 text-purple-600 border-purple-500/30"
-                      >
-                        <Crown className="w-3 h-3 mr-1" />
-                        Gerente
-                      </Badge>
-                    )}
-                    {/* Visibility badge */}
-                    {member.role !== "owner" && (
-                      <Badge 
-                        variant="outline" 
-                        className={member.can_see_all_leads 
-                          ? "bg-green-500/10 text-green-600 border-green-500/30" 
-                          : "bg-amber-500/10 text-amber-600 border-amber-500/30"}
-                      >
-                        {member.can_see_all_leads ? (
-                          <><Eye className="w-3 h-3 mr-1" />Vê todos</>
-                        ) : (
-                          <><EyeOff className="w-3 h-3 mr-1" />Só seus</>
-                        )}
-                      </Badge>
-                    )}
-                    {/* Inactive badge */}
-                    {!member.is_active && (
-                      <Badge 
-                        variant="outline" 
-                        className="bg-red-500/10 text-red-600 border-red-500/30"
-                      >
-                        <Ban className="w-3 h-3 mr-1" />
-                        Desativado
-                      </Badge>
-                    )}
-                    {/* Edit button for all members except self - requires team_edit_member permission */}
-                    {member.user_id !== user?.id && myPermissions?.team_edit_member && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-muted-foreground hover:text-primary"
-                        onClick={() => handleEditMember(member)}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                    )}
-                    {/* Toggle active button for non-owners and non-self - requires team_edit_member permission */}
-                    {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_edit_member && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className={member.is_active 
-                          ? "text-muted-foreground hover:text-amber-600" 
-                          : "text-muted-foreground hover:text-green-600"}
-                        onClick={() => handleToggleUserActive(member)}
-                        disabled={isTogglingActive === member.id}
-                        title={member.is_active ? "Desativar usuário" : "Reativar usuário"}
-                      >
-                        {isTogglingActive === member.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : member.is_active ? (
-                          <UserX className="w-4 h-4" />
-                        ) : (
-                          <UserCheck className="w-4 h-4" />
-                        )}
-                      </Button>
-                    )}
-                    {/* Delete button only for non-owners and non-self - requires team_delete_member permission */}
-                    {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_delete_member && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDeleteUser(member.id, member.user_id)}
-                        disabled={isDeletingUser === member.id}
-                      >
-                        {isDeletingUser === member.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {members.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Nenhum membro encontrado</p>
-                </div>
-              )}
-            </div>
+            <MembersListWithFilter members={members} user={user} myPermissions={myPermissions} getRoleBadge={getRoleBadge} handleEditMember={handleEditMember} handleToggleUserActive={handleToggleUserActive} handleDeleteUser={handleDeleteUser} isTogglingActive={isTogglingActive} isDeletingUser={isDeletingUser} />
           </CardContent>
         </Card>
 
