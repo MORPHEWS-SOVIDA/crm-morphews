@@ -232,7 +232,7 @@ export function FiscalInvoiceFormDialog({ invoice, onClose }: Props) {
                     <Label>Número</Label>
                     <Input 
                       defaultValue={formData.invoice_number || ''} 
-                      disabled 
+                      disabled={!isEditable}
                       placeholder="Automático"
                     />
                   </div>

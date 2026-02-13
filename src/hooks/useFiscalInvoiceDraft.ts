@@ -79,15 +79,27 @@ export function useCreateDraftFromSale() {
         .eq('id', fiscalCompanyId)
         .single();
 
-      // Get lead address if available
-      const { data: addresses } = await supabase
+      // Get lead address - try primary first, fallback to any address
+      const { data: primaryAddresses } = await supabase
         .from('lead_addresses')
         .select('*')
         .eq('lead_id', sale.lead_id)
         .eq('is_primary', true)
         .limit(1);
 
-      const primaryAddress = addresses?.[0];
+      let primaryAddress = primaryAddresses?.[0];
+      
+      // Fallback: if no primary address, use the first available address
+      if (!primaryAddress) {
+        const { data: anyAddresses } = await supabase
+          .from('lead_addresses')
+          .select('*')
+          .eq('lead_id', sale.lead_id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        primaryAddress = anyAddresses?.[0];
+      }
+      
       const primaryAddressAny = primaryAddress as any;
 
       // Build items array with fiscal data
@@ -133,14 +145,33 @@ export function useCreateDraftFromSale() {
       const recipientIM = leadAny?.inscricao_municipal ? String(leadAny.inscricao_municipal).replace(/\D/g, '') : null;
       const recipientIMIsento = !!leadAny?.inscricao_municipal_isento;
 
-      // IMPORTANT: Reserve the invoice number NOW to avoid duplicates
-      const currentLastNumber = data.invoice_type === 'nfe' 
-        ? (fiscalCompany?.nfe_last_number || 0) 
-        : (fiscalCompany?.nfse_last_number || 0);
-      const nextNumber = currentLastNumber + 1;
+      // IMPORTANT: Get the REAL max invoice number from the database to avoid duplicates
       const serie = data.invoice_type === 'nfe' 
         ? (fiscalCompany?.nfe_serie || 1) 
         : (fiscalCompany?.nfse_serie || 1);
+      
+      const { data: maxInvoiceRow } = await (supabase as any)
+        .from('fiscal_invoices')
+        .select('invoice_number')
+        .eq('fiscal_company_id', fiscalCompanyId)
+        .eq('invoice_type', data.invoice_type)
+        .not('status', 'eq', 'cancelled')
+        .order('invoice_number', { ascending: false })
+        .limit(50);
+      
+      // Find the actual max number (parse as integers since stored as strings)
+      const maxFromInvoices = (maxInvoiceRow || []).reduce((max: number, row: any) => {
+        const num = parseInt(String(row.invoice_number), 10);
+        return isNaN(num) ? max : Math.max(max, num);
+      }, 0);
+      
+      const currentLastNumber = data.invoice_type === 'nfe' 
+        ? (fiscalCompany?.nfe_last_number || 0) 
+        : (fiscalCompany?.nfse_last_number || 0);
+      
+      // Use the HIGHER of the two sources to guarantee no duplicates
+      const effectiveLastNumber = Math.max(maxFromInvoices, currentLastNumber);
+      const nextNumber = effectiveLastNumber + 1;
 
       // Update the company's last number to reserve it
       const updateField = data.invoice_type === 'nfe' ? 'nfe_last_number' : 'nfse_last_number';
