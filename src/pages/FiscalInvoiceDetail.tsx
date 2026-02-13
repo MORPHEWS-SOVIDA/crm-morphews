@@ -108,6 +108,7 @@ export default function FiscalInvoiceDetail() {
     header: true,
     recipient: true,
     items: true,
+    billing: false,
     taxes: false,
     transport: false,
     additional: false,
@@ -116,7 +117,7 @@ export default function FiscalInvoiceDetail() {
 
   // Editable form state
   const [editMode, setEditMode] = useState(false);
-  const [formData, setFormData] = useState<Partial<FiscalInvoice>>({});
+  const [formData, setFormData] = useState<Record<string, any>>({});
   const [editableItems, setEditableItems] = useState<any[]>([]);
 
   // Sync form data when invoice loads
@@ -146,6 +147,7 @@ export default function FiscalInvoiceDetail() {
         nature_operation: invoice.nature_operation || 'Venda de mercadorias',
         presence_indicator: invoice.presence_indicator || '0',
         freight_responsibility: invoice.freight_responsibility || '9',
+        billing_description: (invoice as any).billing_description || '',
       });
       // Initialize editable items from invoice items
       const invoiceItems = Array.isArray(invoice.items) ? invoice.items : [];
@@ -177,10 +179,13 @@ export default function FiscalInvoiceDetail() {
 
   const handleSave = async () => {
     if (!invoice?.id) return;
-    // Include updated items in the save
+    // Recalculate totals from items
+    const productsTotalCents = editableItems.reduce((sum, item) => sum + (item.total_cents || 0), 0);
     const updates = {
       ...formData,
       items: editableItems,
+      products_total_cents: productsTotalCents,
+      total_cents: productsTotalCents - (invoice.discount_cents || 0) + (invoice.freight_value_cents || 0) + (invoice.other_expenses_cents || 0) + (invoice.insurance_value_cents || 0),
     };
     await saveDraft.mutateAsync({ id: invoice.id, updates });
     setEditMode(false);
@@ -847,13 +852,81 @@ export default function FiscalInvoiceDetail() {
                                 <span className="text-xs font-mono">{item.cfop || '-'}</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-center">{item.quantity}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(item.unit_price_cents)}</TableCell>
+                            <TableCell className="text-center">
+                              {editMode ? (
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    const qty = parseInt(e.target.value) || 1;
+                                    const updated = [...editableItems];
+                                    updated[index] = { ...updated[index], quantity: qty, total_cents: qty * (updated[index].unit_price_cents || 0) };
+                                    setEditableItems(updated);
+                                  }}
+                                  className="h-8 w-16 text-center text-xs"
+                                />
+                              ) : (
+                                item.quantity
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {editMode ? (
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={((item.unit_price_cents || 0) / 100).toFixed(2)}
+                                  onChange={(e) => {
+                                    const cents = Math.round(parseFloat(e.target.value || '0') * 100);
+                                    const updated = [...editableItems];
+                                    updated[index] = { ...updated[index], unit_price_cents: cents, total_cents: (updated[index].quantity || 1) * cents };
+                                    setEditableItems(updated);
+                                  }}
+                                  className="h-8 w-24 text-right text-xs"
+                                />
+                              ) : (
+                                formatCurrency(item.unit_price_cents)
+                              )}
+                            </TableCell>
                             <TableCell className="text-right font-medium">{formatCurrency(item.total_cents)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+
+            {/* Cobrança / Billing Section */}
+            <Collapsible open={openSections.billing} onOpenChange={() => toggleSection('billing')}>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Cobrança</CardTitle>
+                      <ChevronDown className={`w-5 h-5 transition-transform ${openSections.billing ? 'rotate-180' : ''}`} />
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">Descrição da cobrança (forma de pagamento)</Label>
+                      {editMode ? (
+                        <Textarea
+                          value={formData.billing_description as string || ''}
+                          onChange={(e) => updateFormField('billing_description', e.target.value)}
+                          placeholder="Ex: Pagamento via boleto bancário em 30/60/90 dias..."
+                          rows={3}
+                          className="mt-1"
+                        />
+                      ) : (
+                        <p className="font-medium mt-1 whitespace-pre-wrap">
+                          {(invoice as any).billing_description || 'Não informado'}
+                        </p>
+                      )}
+                    </div>
                   </CardContent>
                 </CollapsibleContent>
               </Card>

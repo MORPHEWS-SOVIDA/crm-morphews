@@ -732,6 +732,11 @@ function buildNFePayload(invoiceDraft: any, sale: any, company: any, cfop: strin
     
     // Frete
     modalidade_frete: String(draft?.freight_responsibility ?? '9'), // 9 = sem frete
+    
+    // Informações complementares (cobrança)
+    ...(draft?.billing_description && {
+      informacoes_complementares: draft.billing_description,
+    }),
   };
   
   // Remove undefined/null/empty values from payload
