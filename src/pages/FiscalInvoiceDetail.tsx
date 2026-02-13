@@ -123,6 +123,8 @@ export default function FiscalInvoiceDetail() {
   useEffect(() => {
     if (invoice) {
       setFormData({
+        invoice_number: invoice.invoice_number || '',
+        invoice_series: invoice.invoice_series || '1',
         recipient_name: invoice.recipient_name || '',
         recipient_type: invoice.recipient_type || 'fisica',
         recipient_cpf_cnpj: invoice.recipient_cpf_cnpj || '',
@@ -434,11 +436,28 @@ export default function FiscalInvoiceDetail() {
                   <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <Label className="text-muted-foreground text-xs">Número</Label>
-                      <p className="font-medium">{invoice.invoice_number || '-'}</p>
+                      {editMode ? (
+                        <Input
+                          type="number"
+                          value={formData.invoice_number || ''}
+                          onChange={(e) => updateFormField('invoice_number', e.target.value)}
+                          className="mt-1"
+                        />
+                      ) : (
+                        <p className="font-medium">{invoice.invoice_number || '-'}</p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-muted-foreground text-xs">Série</Label>
-                      <p className="font-medium">{invoice.invoice_series || '-'}</p>
+                      {editMode ? (
+                        <Input
+                          value={formData.invoice_series || '1'}
+                          onChange={(e) => updateFormField('invoice_series', e.target.value)}
+                          className="mt-1"
+                        />
+                      ) : (
+                        <p className="font-medium">{invoice.invoice_series || '-'}</p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-muted-foreground text-xs">Tipo</Label>
