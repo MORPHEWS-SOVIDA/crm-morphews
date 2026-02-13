@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,7 @@ import { useProductVisibility, useSaveProductVisibility } from '@/hooks/useProdu
 import { normalizeText } from '@/lib/utils';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useOrgHasFeature } from '@/hooks/usePlanFeatures';
+import { useCreateProductChangeLog } from '@/hooks/useProductChangesLog';
 import type { DynamicQuestion } from '@/components/products/DynamicQuestionsManager';
 import type { ProductFaq } from '@/components/products/ProductFaqManager';
 import type { ProductIngredient } from '@/components/products/ProductIngredientsManager';
@@ -64,6 +65,7 @@ const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping
 
 export default function Products() {
   const navigate = useNavigate();
+  const { productId: urlProductId } = useParams<{ productId?: string }>();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [displayMode, setDisplayMode] = useState<DisplayMode>('cards');
   const [selectedBrandId, setSelectedBrandId] = useState<string>('all');
@@ -92,6 +94,20 @@ export default function Products() {
   const saveFaqs = useSaveProductFaqs();
   const saveIngredients = useSaveProductIngredients();
   const saveProductVisibility = useSaveProductVisibility();
+  const createChangeLog = useCreateProductChangeLog();
+  
+  // Auto-open product from URL
+  const [urlHandled, setUrlHandled] = useState(false);
+  useEffect(() => {
+    if (urlProductId && products && !urlHandled) {
+      const found = products.find(p => p.id === urlProductId);
+      if (found) {
+        setSelectedProduct(found);
+        setViewMode('edit');
+        setUrlHandled(true);
+      }
+    }
+  }, [urlProductId, products, urlHandled]);
   
   // User can manage products if they are owner OR have products_manage permission
   const canManageProducts = isOwner || myPermissions?.products_manage || false;
@@ -301,6 +317,15 @@ export default function Products() {
         userIds: selectedUserIds,
       });
     }
+    // Log creation
+    if (product?.id) {
+      const changeType = viewMode === 'clone' ? 'cloned' : 'created';
+      createChangeLog.mutate({
+        product_id: product.id,
+        change_type: changeType as any,
+        notes: `Produto "${data.name}" ${changeType === 'cloned' ? 'clonado' : 'criado'}`,
+      });
+    }
     
     setViewMode('list');
     setCloneSourceId(null); // Clear clone source on success
@@ -355,6 +380,12 @@ export default function Products() {
       productId: selectedProduct.id,
       userIds: selectedUserIds || [],
     });
+    // Log update
+    createChangeLog.mutate({
+      product_id: selectedProduct.id,
+      change_type: 'updated',
+      notes: `Produto "${data.name}" atualizado`,
+    });
     
     setViewMode('list');
     setSelectedProduct(null);
@@ -363,6 +394,10 @@ export default function Products() {
     setInitialFaqs([]);
     setInitialIngredients([]);
     setInitialVisibleUserIds([]);
+    // Navigate back to /produtos if came from URL
+    if (urlProductId) {
+      navigate('/produtos');
+    }
   };
 
   const handleDelete = async () => {
@@ -374,6 +409,7 @@ export default function Products() {
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
     setViewMode('edit');
+    navigate(`/produtos/${product.id}`, { replace: true });
   };
 
   const handleClone = (product: Product) => {
@@ -397,6 +433,9 @@ export default function Products() {
     setInitialFaqs([]);
     setInitialIngredients([]);
     setInitialVisibleUserIds([]);
+    if (urlProductId) {
+      navigate('/produtos');
+    }
   };
 
 

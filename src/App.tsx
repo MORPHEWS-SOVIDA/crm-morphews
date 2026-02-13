@@ -704,6 +704,14 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/produtos/:productId"
+                  element={
+                    <ProtectedRoute requiredPermissions={['products_view']}>
+                      <Products />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/produtos/combos"
                   element={
                     <ProtectedRoute requiredPermissions={['products_view']}>

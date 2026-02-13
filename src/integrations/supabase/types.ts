@@ -7364,6 +7364,7 @@ export type Database = {
           category: string
           cost_cents: number | null
           created_at: string
+          created_by: string | null
           crosssell_product_1_id: string | null
           crosssell_product_2_id: string | null
           depth_cm: number | null
@@ -7433,6 +7434,7 @@ export type Database = {
           track_stock: boolean | null
           unit: string | null
           updated_at: string | null
+          updated_by: string | null
           usage_period_days: number | null
           width_cm: number | null
           youtube_video_url: string | null
@@ -7453,6 +7455,7 @@ export type Database = {
           category?: string
           cost_cents?: number | null
           created_at?: string
+          created_by?: string | null
           crosssell_product_1_id?: string | null
           crosssell_product_2_id?: string | null
           depth_cm?: number | null
@@ -7522,6 +7525,7 @@ export type Database = {
           track_stock?: boolean | null
           unit?: string | null
           updated_at?: string | null
+          updated_by?: string | null
           usage_period_days?: number | null
           width_cm?: number | null
           youtube_video_url?: string | null
@@ -7542,6 +7546,7 @@ export type Database = {
           category?: string
           cost_cents?: number | null
           created_at?: string
+          created_by?: string | null
           crosssell_product_1_id?: string | null
           crosssell_product_2_id?: string | null
           depth_cm?: number | null
@@ -7611,6 +7616,7 @@ export type Database = {
           track_stock?: boolean | null
           unit?: string | null
           updated_at?: string | null
+          updated_by?: string | null
           usage_period_days?: number | null
           width_cm?: number | null
           youtube_video_url?: string | null
@@ -11777,6 +11783,63 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_changes_log: {
+        Row: {
+          change_type: string
+          changed_at: string
+          changed_by: string
+          created_at: string
+          field_name: string | null
+          id: string
+          new_value: string | null
+          notes: string | null
+          old_value: string | null
+          organization_id: string
+          product_id: string
+        }
+        Insert: {
+          change_type: string
+          changed_at?: string
+          changed_by: string
+          created_at?: string
+          field_name?: string | null
+          id?: string
+          new_value?: string | null
+          notes?: string | null
+          old_value?: string | null
+          organization_id: string
+          product_id: string
+        }
+        Update: {
+          change_type?: string
+          changed_at?: string
+          changed_by?: string
+          created_at?: string
+          field_name?: string | null
+          id?: string
+          new_value?: string | null
+          notes?: string | null
+          old_value?: string | null
+          organization_id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_changes_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_changes_log_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
             referencedColumns: ["id"]
           },
         ]

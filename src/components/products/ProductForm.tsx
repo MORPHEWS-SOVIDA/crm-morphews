@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot, Factory, Star } from 'lucide-react';
+import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot, Factory, Star, History } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 import { PRODUCT_CATEGORIES, useProducts } from '@/hooks/useProducts';
@@ -44,6 +44,7 @@ import { CreateBrandDialog } from './CreateBrandDialog';
 import { BaseUnitPricing } from './BaseUnitPricing';
 import { ProductCombosReadOnly } from './ProductCombosReadOnly';
 import { ProductIndustryCostsManager } from './ProductIndustryCostsManager';
+import { ProductChangesLogTab } from './ProductChangesLogTab';
 
 // Categorias que usam o sistema de kits dinâmicos (múltiplos de 2+)
 const CATEGORIES_WITH_KITS = ['produto_pronto', 'print_on_demand', 'dropshipping', 'outro'];
@@ -286,7 +287,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         {/* Header com abas */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-7 gap-1 h-auto p-1">
+          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 gap-1 h-auto p-1">
             <TabsTrigger value="basic" className="gap-1.5 text-xs sm:text-sm py-2">
               <Package className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Básico</span>
@@ -315,6 +316,12 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
               <Settings className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Config.</span>
             </TabsTrigger>
+            {product?.id && (
+              <TabsTrigger value="history" className="gap-1.5 text-xs sm:text-sm py-2">
+                <History className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Histórico</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* =============== TAB BÁSICO =============== */}
@@ -1477,6 +1484,23 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* =============== TAB HISTÓRICO =============== */}
+          {product?.id && (
+            <TabsContent value="history" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Histórico de Alterações
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ProductChangesLogTab productId={product.id} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Botões sempre visíveis */}
