@@ -182,26 +182,29 @@ async function getBotTeamRoutes(botId: string, organizationId: string): Promise<
   routes: BotTeamRoute[];
   isInitialBot: boolean;
 }> {
-  // Primeiro, verificar se este bot é o initial_bot de algum time
-  const { data: teamAsInitial } = await supabase
+  // Primeiro, verificar se este bot é o initial_bot de algum(s) time(s)
+  // IMPORTANTE: Um bot pode ser maestro de MÚLTIPLOS times, usar select() ao invés de maybeSingle()
+  const { data: teamsAsInitial } = await supabase
     .from('bot_teams')
     .select('id')
     .eq('initial_bot_id', botId)
     .eq('organization_id', organizationId)
-    .eq('is_active', true)
-    .maybeSingle();
+    .eq('is_active', true);
 
-  if (teamAsInitial) {
-    // Este bot é o maestro/secretária - buscar rotas para especialistas
+  if (teamsAsInitial && teamsAsInitial.length > 0) {
+    // Este bot é o maestro/secretária - buscar rotas de TODOS os times onde é maestro
+    const teamIds = teamsAsInitial.map(t => t.id);
     const { data: routes } = await supabase
       .from('bot_team_routes')
       .select('id, team_id, target_bot_id, condition_type, keywords, intent_description, priority, is_active')
-      .eq('team_id', teamAsInitial.id)
+      .in('team_id', teamIds)
       .eq('is_active', true)
       .order('priority', { ascending: true });
 
+    console.log(`🎭 Maestro bot found in ${teamsAsInitial.length} team(s), loaded ${routes?.length || 0} routes`);
+
     return {
-      teamId: teamAsInitial.id,
+      teamId: teamsAsInitial[0].id, // Primary team for reference
       routes: (routes || []) as BotTeamRoute[],
       isInitialBot: true
     };
