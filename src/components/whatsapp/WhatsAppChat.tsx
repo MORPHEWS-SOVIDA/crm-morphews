@@ -221,7 +221,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       return data as Conversation[];
     },
     enabled: !!profile?.organization_id,
-    refetchInterval: 30000, // Poll every 30 seconds (realtime handles instant updates)
+    refetchInterval: 120000, // Poll every 2 minutes (realtime handles instant updates)
   });
 
   // Buscar TODAS as conversas do mesmo phone_number em diferentes instâncias da organização
@@ -459,7 +459,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       return messagesWithSender as Message[];
     },
     enabled: !!activeConversation?.id,
-    refetchInterval: 15000, // Poll every 15 seconds (realtime handles instant updates)
+    refetchInterval: 60000, // Poll every 60 seconds (realtime handles instant updates)
   });
 
   // Real-time subscription for new messages - agora pela org
