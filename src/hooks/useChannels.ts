@@ -123,7 +123,7 @@ export function useChannel(channelId: string | null) {
       } as Channel;
     },
     enabled: !!channelId,
-    refetchInterval: 15000, // QR code refresh a cada 15s
+    refetchInterval: 60000, // QR code refresh a cada 60s
   });
 }
 

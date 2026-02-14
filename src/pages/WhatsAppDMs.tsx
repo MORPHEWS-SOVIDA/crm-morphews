@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot, Star, BarChart3, Zap, RotateCw } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -118,10 +118,7 @@ export default function WhatsAppDMs() {
   const [statusFilter, setStatusFilter] = useState<"all" | "connected" | "disconnected">("all");
   const [distributionFilter, setDistributionFilter] = useState<DistributionModeFilter>("all");
 
-  // Polling interval ref
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Fetch instances
+  // Fetch instances - sem polling automático para instâncias desconectadas
   const { data: instances, isLoading, refetch } = useQuery({
     queryKey: ["evolution-instances", profile?.organization_id],
     queryFn: async () => {
@@ -135,33 +132,8 @@ export default function WhatsAppDMs() {
       return data as EvolutionInstance[];
     },
     enabled: !!profile?.organization_id,
-    refetchInterval: 30000, // Refresh a cada 30s
+    refetchInterval: 120000, // Refresh a cada 2 minutos (apenas dados do banco, sem chamar Evolution API)
   });
-
-  // Polling for non-connected instances
-  useEffect(() => {
-    const disconnectedInstances = instances?.filter(i => !i.is_connected && i.evolution_instance_id) || [];
-
-    if (disconnectedInstances.length === 0) {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      return;
-    }
-
-    pollingIntervalRef.current = setInterval(() => {
-      disconnectedInstances.forEach(instance => {
-        checkInstanceStatus(instance.id, true);
-      });
-    }, 8000);
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, [instances]);
 
   const checkInstanceStatus = async (instanceId: string, silent = false) => {
     if (!silent) setIsCheckingStatus(instanceId);
