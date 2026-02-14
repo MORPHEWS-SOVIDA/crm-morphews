@@ -73,6 +73,8 @@ export default function PickupClosingPrint() {
         .from('sales')
         .select(`
           id,
+          romaneio_number,
+          created_at,
           payment_method,
           payment_method_id,
           delivery_status,
@@ -96,6 +98,8 @@ export default function PickupClosingPrint() {
         
         return {
           ...cs,
+          romaneio_number: saleData?.romaneio_number || null,
+          sale_created_at: saleData?.created_at || null,
           payment_method: paymentMethod?.name || saleData?.payment_method || cs.payment_method,
           payment_category: paymentMethod?.category || null,
           delivery_status: saleData?.delivery_status || null,
@@ -257,28 +261,29 @@ export default function PickupClosingPrint() {
         <table>
           <thead>
             <tr>
-              <th>Nº</th>
+              <th>Romaneio</th>
+              <th>Nº Venda</th>
               <th>Cliente</th>
-              <th>Data/Hora</th>
-              <th className="text-center">Status App</th>
+              <th>Forma Pgto</th>
+              <th>Data Venda</th>
               <th className="text-right">Valor</th>
             </tr>
           </thead>
           <tbody>
             {salesList.map(sale => {
-              const statusInfo = formatDeliveryStatus(sale.delivery_status);
               return (
                 <tr key={sale.id}>
-                  <td className="font-bold">#{sale.sale_number}</td>
+                  <td className="font-bold">{sale.romaneio_number ? `#${sale.romaneio_number}` : '-'}</td>
+                  <td>#{sale.sale_number}</td>
                   <td>{sale.lead_name || 'Cliente'}</td>
-                  <td>{sale.delivered_at ? format(parseISO(sale.delivered_at), "dd/MM HH:mm") : '-'}</td>
-                  <td className="text-center" style={{ color: statusInfo.color }}>{statusInfo.label}</td>
+                  <td>{sale.payment_method || '-'}</td>
+                  <td>{sale.sale_created_at ? format(parseISO(sale.sale_created_at), "dd/MM/yy") : '-'}</td>
                   <td className="text-right">{formatCurrency(sale.total_cents || 0)}</td>
                 </tr>
               );
             })}
             <tr className="total-row">
-              <td colSpan={4} className="font-bold">SUBTOTAL {config.label.toUpperCase()}</td>
+              <td colSpan={5} className="font-bold">SUBTOTAL {config.label.toUpperCase()}</td>
               <td className="text-right font-bold">{formatCurrency(total)}</td>
             </tr>
           </tbody>
