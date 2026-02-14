@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, UserPlus, Check } from "lucide-react";
+import { Loader2, UserPlus, Check, Search } from "lucide-react";
 import { useConversationDistribution } from "@/hooks/useConversationDistribution";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -45,24 +45,38 @@ export function ConversationTransferDialog({
   const { profile } = useAuth();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const { transferConversation } = useConversationDistribution();
 
   // Buscar usuários elegíveis (que têm acesso à instância)
   const { data: eligibleUsers, isLoading } = useQuery({
-    queryKey: ["transfer-eligible-users", instanceId],
+    queryKey: ["transfer-eligible-users", instanceId, profile?.organization_id],
     queryFn: async () => {
-      // Buscar usuários com acesso à instância
+      if (!profile?.organization_id) return [];
+
+      // Fetch active members of the current tenant
+      const { data: activeMembers, error: membersError } = await supabase
+        .from("organization_members")
+        .select("user_id")
+        .eq("organization_id", profile.organization_id)
+        .eq("is_active", true);
+
+      if (membersError) throw membersError;
+      if (!activeMembers?.length) return [];
+
+      const activeMemberIds = activeMembers.map(m => m.user_id);
+
+      // Fetch users with access to this instance AND who are active tenant members
       const { data: instanceUsers, error: instanceError } = await supabase
         .from("whatsapp_instance_users")
         .select("user_id, can_view, can_send")
         .eq("instance_id", instanceId)
-        .eq("can_view", true);
+        .eq("can_view", true)
+        .in("user_id", activeMemberIds);
 
       if (instanceError) throw instanceError;
-
       if (!instanceUsers?.length) return [];
 
-      // Buscar perfis dos usuários
       const userIds = instanceUsers.map(u => u.user_id);
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
@@ -71,10 +85,9 @@ export function ConversationTransferDialog({
 
       if (profilesError) throw profilesError;
 
-      // Filtrar o usuário atual
       return (profiles || []).filter(p => p.user_id !== currentUserId) as EligibleUser[];
     },
-    enabled: open,
+    enabled: open && !!profile?.organization_id,
   });
 
   const handleTransfer = async () => {
@@ -120,9 +133,25 @@ export function ConversationTransferDialog({
           <div className="space-y-4">
             <div>
               <Label className="mb-2 block">Selecione o usuário</Label>
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Buscar colaborador..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </div>
               <ScrollArea className="h-[200px] border rounded-lg">
                 <div className="p-2 space-y-1">
-                  {eligibleUsers?.map((user) => (
+                  {(eligibleUsers || [])
+                    .filter((user) => {
+                      if (!searchTerm.trim()) return true;
+                      const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
+                      return fullName.includes(searchTerm.toLowerCase()) || (user.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+                    })
+                    .map((user) => (
                     <button
                       key={user.user_id}
                       onClick={() => setSelectedUserId(user.user_id)}
