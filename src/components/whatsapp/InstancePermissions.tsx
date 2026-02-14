@@ -72,7 +72,8 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
       const { data: members, error: membersError } = await supabase
         .from("organization_members")
         .select("user_id, role")
-        .eq("organization_id", profile.organization_id);
+        .eq("organization_id", profile.organization_id)
+        .eq("is_active", true);
 
       if (membersError) throw membersError;
 
