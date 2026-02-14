@@ -248,7 +248,11 @@ export function useCreatePickupClosing() {
         .from('pickup_closing_sales')
         .insert(closingSales);
 
-      if (salesError) throw salesError;
+      if (salesError) {
+        // Rollback: delete the orphan closing header to avoid empty closings
+        await supabase.from('pickup_closings').delete().eq('id', closing.id);
+        throw salesError;
+      }
 
       // No need to update sales - they're tracked in pickup_closing_sales
 
