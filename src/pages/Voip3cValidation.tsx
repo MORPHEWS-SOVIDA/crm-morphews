@@ -23,6 +23,7 @@ import {
   Filter,
   Layers,
   Clock,
+  ExternalLink,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -309,6 +310,7 @@ export default function Voip3cValidation() {
           const enriched: Call3cData & MatchedAttendance = {
             ...call,
             receptive_id: matchedAtt.id,
+            lead_id: matchedAtt.lead_id || null,
             user_name: matchedAtt.user_id ? userMap.get(matchedAtt.user_id) || 'Desconhecido' : '-',
             conversation_mode: matchedAtt.conversation_mode || '',
             lead_name: lead?.name || '-',
@@ -706,7 +708,11 @@ export default function Voip3cValidation() {
                           <TableHead>Vendedor</TableHead>
                           <TableHead>Modo</TableHead>
                           <TableHead>Produto</TableHead>
+                          <TableHead>Interesse 3C+</TableHead>
                           <TableHead>Valor Venda</TableHead>
+                          <TableHead>Queue</TableHead>
+                          <TableHead>Atendente 3C+</TableHead>
+                          <TableHead><div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo</div></TableHead>
                           <TableHead>Hora 3C+</TableHead>
                           <TableHead>Hora Registro</TableHead>
                           <TableHead>Completo</TableHead>
@@ -731,9 +737,16 @@ export default function Voip3cValidation() {
                                 )}
                               </TableCell>
                               <TableCell>
-                                <div className="flex flex-col">
-                                  <span className="font-medium text-sm">{call.lead_name}</span>
-                                  <span className="text-xs text-muted-foreground">{call.lead_stage}</span>
+                                <div className="flex items-center gap-1">
+                                  <div className="flex flex-col">
+                                    <span className="font-medium text-sm">{call.lead_name}</span>
+                                    <span className="text-xs text-muted-foreground">{call.lead_stage}</span>
+                                  </div>
+                                  {call.lead_id && (
+                                    <a href={`/leads/${call.lead_id}`} target="_blank" rel="noopener noreferrer" title="Abrir lead em nova aba">
+                                      <ExternalLink className="w-3.5 h-3.5 text-primary hover:text-primary/80 shrink-0" />
+                                    </a>
+                                  )}
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -748,10 +761,22 @@ export default function Voip3cValidation() {
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-sm">{call.product_name}</TableCell>
+                              <TableCell className="text-xs">{call.product_interest || '-'}</TableCell>
                               <TableCell>
                                 <Badge className="bg-green-600 hover:bg-green-700 text-xs">
                                   {formatCurrency(call.sale_total_cents)}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {call.source_queue_name || call.queue_name || '-'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm">{call.agent_name || '-'}</TableCell>
+                              <TableCell>
+                                <span className={`text-xs font-mono ${call.speaking_time_seconds >= 120 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                                  {formatSpeakingTime(call.speaking_time_seconds)}
+                                </span>
                               </TableCell>
                               <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
                               <TableCell className="text-xs text-muted-foreground">
@@ -881,9 +906,16 @@ export default function Voip3cValidation() {
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  <div className="flex flex-col">
-                                    <span className="font-medium text-sm">{call.lead_name}</span>
-                                    <span className="text-xs text-muted-foreground">{call.lead_stage}</span>
+                                  <div className="flex items-center gap-1">
+                                    <div className="flex flex-col">
+                                      <span className="font-medium text-sm">{call.lead_name}</span>
+                                      <span className="text-xs text-muted-foreground">{call.lead_stage}</span>
+                                    </div>
+                                    {call.lead_id && (
+                                      <a href={`/leads/${call.lead_id}`} target="_blank" rel="noopener noreferrer" title="Abrir lead em nova aba">
+                                        <ExternalLink className="w-3.5 h-3.5 text-primary hover:text-primary/80 shrink-0" />
+                                      </a>
+                                    )}
                                   </div>
                                 </TableCell>
                                 <TableCell>
@@ -949,13 +981,21 @@ export default function Voip3cValidation() {
                           <TableHead>Follow-up</TableHead>
                           <TableHead>Hora 3C+</TableHead>
                           <TableHead>Atendente 3C+</TableHead>
+                          <TableHead><div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo</div></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {result.callsWithLeadOnly.map((call, idx) => (
                           <TableRow key={idx}>
                             <TableCell className="font-mono text-sm">{call.number}</TableCell>
-                            <TableCell className="font-medium text-sm">{call.lead_name}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <span className="font-medium text-sm">{call.lead_name}</span>
+                                <a href={`/leads/${call.lead_id}`} target="_blank" rel="noopener noreferrer" title="Abrir lead em nova aba">
+                                  <ExternalLink className="w-3.5 h-3.5 text-primary hover:text-primary/80 shrink-0" />
+                                </a>
+                              </div>
+                            </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="text-xs">{call.lead_stage}</Badge>
                             </TableCell>
@@ -976,6 +1016,11 @@ export default function Voip3cValidation() {
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
                             <TableCell className="text-sm">{call.agent_name || '-'}</TableCell>
+                            <TableCell>
+                              <span className={`text-xs font-mono ${call.speaking_time_seconds >= 120 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                                {formatSpeakingTime(call.speaking_time_seconds)}
+                              </span>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

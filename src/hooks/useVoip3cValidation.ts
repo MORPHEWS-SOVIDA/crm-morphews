@@ -26,6 +26,7 @@ export interface Call3cData {
 
 export interface MatchedAttendance {
   receptive_id: string;
+  lead_id: string | null;
   user_name: string;
   conversation_mode: string;
   lead_name: string;
