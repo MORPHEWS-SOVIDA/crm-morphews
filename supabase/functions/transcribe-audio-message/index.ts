@@ -23,12 +23,17 @@ interface TranscribeRequest {
 
 async function consumeEnergy(organizationId: string, amount: number, description: string): Promise<boolean> {
   try {
-    // Use the new consume_energy RPC that handles organization_energy table
+    // Use the consume_energy RPC with its correct signature
     const { data, error } = await supabase.rpc('consume_energy', {
       p_organization_id: organizationId,
-      p_amount: amount,
+      p_energy_amount: amount,
       p_action_type: 'audio_transcription',
-      p_description: description
+      p_details: description,
+      p_model_used: 'whisper-large-v3-turbo',
+      p_tokens_used: 0,
+      p_real_cost_usd: 0,
+      p_bot_id: null,
+      p_conversation_id: null,
     });
 
     if (error) {
