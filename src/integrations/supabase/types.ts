@@ -1696,6 +1696,63 @@ export type Database = {
           },
         ]
       }
+      conversation_lead_links: {
+        Row: {
+          channel_type: Database["public"]["Enums"]["channel_type"]
+          conversation_id: string
+          funnel_stage_at_link: string | null
+          id: string
+          instagram_username: string | null
+          lead_id: string
+          lead_name: string | null
+          lead_whatsapp: string | null
+          linked_at: string
+          linked_by: string
+          organization_id: string
+        }
+        Insert: {
+          channel_type?: Database["public"]["Enums"]["channel_type"]
+          conversation_id: string
+          funnel_stage_at_link?: string | null
+          id?: string
+          instagram_username?: string | null
+          lead_id: string
+          lead_name?: string | null
+          lead_whatsapp?: string | null
+          linked_at?: string
+          linked_by?: string
+          organization_id: string
+        }
+        Update: {
+          channel_type?: Database["public"]["Enums"]["channel_type"]
+          conversation_id?: string
+          funnel_stage_at_link?: string | null
+          id?: string
+          instagram_username?: string | null
+          lead_id?: string
+          lead_name?: string | null
+          lead_whatsapp?: string | null
+          linked_at?: string
+          linked_by?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_lead_links_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_lead_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_satisfaction_ratings: {
         Row: {
           ai_original_rating: number | null
@@ -8595,6 +8652,103 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messaging_daily_metrics: {
+        Row: {
+          avg_first_response_minutes: number | null
+          avg_resolution_minutes: number | null
+          channel_type: Database["public"]["Enums"]["channel_type"]
+          conversations_closed: number
+          conversations_inbound: number
+          conversations_opened: number
+          conversations_outbound: number
+          created_at: string
+          funnel_stage_changes: number
+          id: string
+          instance_id: string | null
+          leads_created: number
+          leads_linked: number
+          messages_from_bot: number
+          messages_received: number
+          messages_sent: number
+          metric_date: string
+          nps_avg_score: number | null
+          nps_responded: number
+          nps_sent: number
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          avg_first_response_minutes?: number | null
+          avg_resolution_minutes?: number | null
+          channel_type?: Database["public"]["Enums"]["channel_type"]
+          conversations_closed?: number
+          conversations_inbound?: number
+          conversations_opened?: number
+          conversations_outbound?: number
+          created_at?: string
+          funnel_stage_changes?: number
+          id?: string
+          instance_id?: string | null
+          leads_created?: number
+          leads_linked?: number
+          messages_from_bot?: number
+          messages_received?: number
+          messages_sent?: number
+          metric_date: string
+          nps_avg_score?: number | null
+          nps_responded?: number
+          nps_sent?: number
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          avg_first_response_minutes?: number | null
+          avg_resolution_minutes?: number | null
+          channel_type?: Database["public"]["Enums"]["channel_type"]
+          conversations_closed?: number
+          conversations_inbound?: number
+          conversations_opened?: number
+          conversations_outbound?: number
+          created_at?: string
+          funnel_stage_changes?: number
+          id?: string
+          instance_id?: string | null
+          leads_created?: number
+          leads_linked?: number
+          messages_from_bot?: number
+          messages_received?: number
+          messages_sent?: number
+          metric_date?: string
+          nps_avg_score?: number | null
+          nps_responded?: number
+          nps_sent?: number
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messaging_daily_metrics_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messaging_daily_metrics_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messaging_daily_metrics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -21639,6 +21793,10 @@ export type Database = {
       add_voice_minutes: {
         Args: { p_minutes: number; p_organization_id: string }
         Returns: number
+      }
+      aggregate_daily_messaging_metrics: {
+        Args: { p_date?: string }
+        Returns: Json
       }
       approve_partner_application: {
         Args: { p_application_id: string; p_reviewer_id: string }
