@@ -2029,7 +2029,8 @@ async function processMessage(
   userMessage: string,
   instanceName: string,
   isWithinSchedule: boolean = true, // Novo parâmetro - vem do webhook
-  routingDepth: number = 0 // Protege contra loop infinito de roteamento entre especialistas
+  routingDepth: number = 0, // Protege contra loop infinito de roteamento entre especialistas
+  incomingMessageType: string = 'text' // Tipo da mensagem recebida (text, audio, image)
 ): Promise<ProcessResult> {
   
   console.log('🤖 Processing message for bot:', bot.name, `(routing depth: ${routingDepth})`);
@@ -2121,7 +2122,7 @@ async function processMessage(
           };
           
           // Processar recursivamente com o novo bot (incrementar depth para evitar loop)
-          return processMessage(specialistBot, newContext, userMessage, instanceName, isWithinSchedule, routingDepth + 1);
+          return processMessage(specialistBot, newContext, userMessage, instanceName, isWithinSchedule, routingDepth + 1, incomingMessageType);
         }
       }
     }
@@ -2302,8 +2303,10 @@ async function processMessage(
   let sent = false;
   let voiceEnergyConsumed = 0;
   
+  // Só responde com áudio se o cliente mandou áudio (ou pela probabilidade antiga se quiser manter)
   const shouldSendAudio = bot.voice_enabled && 
     bot.audio_response_probability && 
+    incomingMessageType === 'audio' && // Só responde em áudio se o cliente mandou áudio
     Math.random() * 100 < bot.audio_response_probability;
   
   if (shouldSendAudio && bot.voice_id) {
@@ -2661,7 +2664,7 @@ serve(async (req) => {
     }
 
     // Processar mensagem (texto ou áudio transcrito)
-    const result = await processMessage(bot, context, processedMessage, instanceName, isWithinSchedule);
+    const result = await processMessage(bot, context, processedMessage, instanceName, isWithinSchedule, 0, messageType);
 
     // Adicionar energia de processamento de mídia ao resultado
     if (mediaProcessingEnergy > 0 && result.energyUsed) {
