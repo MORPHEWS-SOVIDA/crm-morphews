@@ -23,14 +23,25 @@ export interface Call3cData {
   agent_name: string;
 }
 
+export interface MatchedAttendance {
+  receptive_id: string;
+  user_name: string;
+  conversation_mode: string;
+  lead_name: string;
+  lead_stage: string;
+  product_name: string;
+  sale_id: string | null;
+  sale_total_cents: number | null;
+  sale_status: string | null;
+  reason_name: string;
+  completed: boolean;
+  attendance_created_at: string;
+}
+
 export interface ValidationResult {
   callsWithoutRecord: Call3cData[];
-  callsWithRecordNoSale: Array<Call3cData & {
-    receptive_id: string;
-    user_name: string;
-    reason_name: string;
-    has_followup: boolean;
-  }>;
+  callsWithRecordNoSale: Array<Call3cData & MatchedAttendance>;
+  callsWithRecordAndSale: Array<Call3cData & MatchedAttendance>;
 }
 
 export interface Voip3cValidation {
@@ -160,6 +171,30 @@ export function useSaveVoip3cValidation() {
   });
 }
 
+/**
+ * Fuzzy phone matching: compares last N digits (at least 8).
+ * Handles cases where CSV has "51989423022" and DB has "5551989423022".
+ */
+export function phonesMatch(csvPhone: string, dbPhone: string): boolean {
+  const a = csvPhone.replace(/\D/g, '');
+  const b = dbPhone.replace(/\D/g, '');
+  if (!a || !b) return false;
+  
+  // Exact match
+  if (a === b) return true;
+  
+  // One contains the other
+  if (a.endsWith(b) || b.endsWith(a)) return true;
+  
+  // Compare last 10 digits (area code + number)
+  const minLen = Math.min(a.length, b.length, 10);
+  if (minLen >= 8) {
+    return a.slice(-minLen) === b.slice(-minLen);
+  }
+  
+  return false;
+}
+
 // Parse CSV with semicolon separator
 export function parseCsv3c(csvContent: string): Call3cData[] {
   const lines = csvContent.split('\n');
@@ -251,3 +286,14 @@ export function parseDate3c(dateStr: string): Date | null {
     parseInt(second)
   );
 }
+
+export const CONVERSATION_MODE_LABELS: Record<string, string> = {
+  receptive_call: 'Ligação Receptiva',
+  active_call: 'Ligação Ativa',
+  receptive_whatsapp: 'WhatsApp Receptivo',
+  active_whatsapp: 'WhatsApp Ativo',
+  receptive_instagram: 'Instagram Receptivo',
+  active_instagram: 'Instagram Ativo',
+  counter: 'Balcão',
+  email: 'E-mail',
+};
