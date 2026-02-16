@@ -177,36 +177,30 @@ export default function Voip3cValidation() {
         queryMaxDate = format(new Date(maxDate.getTime() + 86400000), 'yyyy-MM-dd');
       }
       
-      // Fetch receptive attendances with enriched data
-      let attendanceQuery = supabase
-        .from('receptive_attendances')
-        .select(`
-          id,
-          phone_searched,
-          user_id,
-          sale_id,
-          non_purchase_reason_id,
-          created_at,
-          conversation_mode,
-          lead_id,
-          product_id,
-          completed,
-          lead_existed
-        `)
-        .eq('organization_id', profile.organization_id)
-        .gte('created_at', queryMinDate)
-        .lte('created_at', queryMaxDate);
+      // Paginated fetch to overcome Supabase 1000-row default limit
+      const PAGE_SIZE = 1000;
       
-      // Filter only receptive modes if toggle is on
-      if (onlyReceptive) {
-        attendanceQuery = attendanceQuery.in('conversation_mode', [
-          'receptive_call', 'receptive_whatsapp', 'receptive_instagram'
-        ]);
+      // Fetch ALL receptive attendances (paginated)
+      const attendances: any[] = [];
+      let attOffset = 0;
+      while (true) {
+        let q = supabase
+          .from('receptive_attendances')
+          .select('id, phone_searched, user_id, sale_id, non_purchase_reason_id, created_at, conversation_mode, lead_id, product_id, completed, lead_existed')
+          .eq('organization_id', profile.organization_id)
+          .gte('created_at', queryMinDate)
+          .lte('created_at', queryMaxDate);
+        if (onlyReceptive) {
+          q = q.in('conversation_mode', ['receptive_call', 'receptive_whatsapp', 'receptive_instagram']);
+        }
+        q = q.range(attOffset, attOffset + PAGE_SIZE - 1);
+        const { data, error } = await q;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        attendances.push(...data);
+        if (data.length < PAGE_SIZE) break;
+        attOffset += PAGE_SIZE;
       }
-      
-      const { data: attendances, error } = await attendanceQuery;
-      
-      if (error) throw error;
       
       // Collect IDs for batch lookups
       const userIds = new Set<string>();
@@ -248,11 +242,21 @@ export default function Voip3cValidation() {
       const saleMap = new Map((salesRes.data || []).map(s => [s.id, s]));
       const reasonMap = new Map((reasonsRes.data || []).map(r => [r.id, r.name]));
       
-      // Also fetch all leads to match by phone when no attendance exists
-      const { data: allLeads } = await supabase
-        .from('leads')
-        .select('id, name, whatsapp, stage, assigned_to')
-        .eq('organization_id', profile.organization_id);
+      // Also fetch ALL leads to match by phone (paginated to overcome 1000-row limit)
+      const allLeads: any[] = [];
+      let leadOffset = 0;
+      while (true) {
+        const { data, error: leadErr } = await supabase
+          .from('leads')
+          .select('id, name, whatsapp, stage, assigned_to')
+          .eq('organization_id', profile.organization_id)
+          .range(leadOffset, leadOffset + PAGE_SIZE - 1);
+        if (leadErr) throw leadErr;
+        if (!data || data.length === 0) break;
+        allLeads.push(...data);
+        if (data.length < PAGE_SIZE) break;
+        leadOffset += PAGE_SIZE;
+      }
       
       // Fetch followups for leads
       const allLeadIds = (allLeads || []).map(l => l.id);
