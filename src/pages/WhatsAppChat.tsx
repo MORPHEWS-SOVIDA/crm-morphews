@@ -688,55 +688,83 @@ export default function WhatsAppChat() {
         throw new Error('Organização não encontrada');
       }
 
-      const body: any = {
-        organizationId: profile.organization_id,
-        instanceId: conversationInstanceId, // Usar instance_id da conversa
-        conversationId: selectedConversation.id,
-        chatId: selectedConversation.chat_id || null,
-        phone: selectedConversation.phone_number,
-        messageType,
-        content: messageText || '',
-        senderUserId: user?.id, // ID do usuário para multi-atendimento
-      };
+      // Detect if this is an Instagram conversation (SendPulse)
+      const isInstagram = (selectedConversation as any).channel_type === 'instagram';
 
-      if (documentToSend) {
-        body.mediaUrl = documentToSend.base64;
-        body.mediaCaption = messageText || documentToSend.fileName;
-        body.mediaMimeType = documentToSend.mimeType;
-      } else if (audioToSend) {
-        body.mediaUrl = audioToSend.base64;
-      } else if (imageToSend) {
-        body.mediaUrl = imageToSend;
-        body.mediaCaption = messageText || '';
+      let data: any;
+      let error: any;
+
+      if (isInstagram) {
+        // Route via SendPulse for Instagram DMs
+        console.log("[Instagram] Enviando via SendPulse:", {
+          conversation_id: selectedConversation.id,
+          message_type: messageType,
+        });
+
+        const result = await supabase.functions.invoke('sendpulse-send', {
+          body: {
+            conversationId: selectedConversation.id,
+            content: messageText || '',
+            contactId: selectedConversation.phone_number,
+          },
+        });
+        data = result.data;
+        error = result.error;
+      } else {
+        // Route via Evolution API for WhatsApp
+        const body: any = {
+          organizationId: profile.organization_id,
+          instanceId: conversationInstanceId,
+          conversationId: selectedConversation.id,
+          chatId: selectedConversation.chat_id || null,
+          phone: selectedConversation.phone_number,
+          messageType,
+          content: messageText || '',
+          senderUserId: user?.id,
+        };
+
+        if (documentToSend) {
+          body.mediaUrl = documentToSend.base64;
+          body.mediaCaption = messageText || documentToSend.fileName;
+          body.mediaMimeType = documentToSend.mimeType;
+        } else if (audioToSend) {
+          body.mediaUrl = audioToSend.base64;
+        } else if (imageToSend) {
+          body.mediaUrl = imageToSend;
+          body.mediaCaption = messageText || '';
+        }
+
+        console.log("[WhatsApp] Enviando mensagem:", {
+          organization_id: profile.organization_id,
+          instance_id: conversationInstanceId,
+          conversation_id: selectedConversation.id,
+          message_type: messageType,
+        });
+
+        const result = await supabase.functions.invoke('whatsapp-send-message', {
+          body,
+        });
+        data = result.data;
+        error = result.error;
       }
 
-      console.log("[WhatsApp] Enviando mensagem:", {
-        organization_id: profile.organization_id,
-        instance_id: conversationInstanceId,
-        conversation_id: selectedConversation.id,
-        message_type: messageType,
-      });
-
-      const { data, error } = await supabase.functions.invoke('whatsapp-send-message', {
-        body
-      });
-
       if (error) {
-        console.error("[WhatsApp] Edge function error:", error);
+        console.error("[Send] Edge function error:", error);
         throw new Error(error.message || 'Erro na função de envio');
       }
 
       if (data?.error) {
-        console.error("[WhatsApp] API error:", data.error);
+        console.error("[Send] API error:", data.error);
         throw new Error(data.error);
       }
 
-      if (!data?.success) {
-        console.error("[WhatsApp] Send failed:", data);
+      // SendPulse returns { ok: true }, WhatsApp returns { success: true }
+      if (!data?.success && !data?.ok) {
+        console.error("[Send] Send failed:", data);
         throw new Error(data?.error || 'Falha ao enviar mensagem');
       }
 
-      console.log("[WhatsApp] Mensagem enviada:", data?.providerMessageId);
+      console.log("[Send] Mensagem enviada:", data?.providerMessageId || data?.message?.id);
       
       // Replace optimistic message with real one
       if (data?.message) {

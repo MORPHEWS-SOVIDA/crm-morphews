@@ -1,47 +1,57 @@
 import { useState } from 'react';
-import { Instagram, Lock, Plus, ExternalLink, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Instagram, ExternalLink, RefreshCw, CheckCircle2, AlertCircle, Loader2, Copy, Webhook } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { useEvolutionInstances } from '@/hooks/useEvolutionInstances';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function InstagramDMs() {
   const navigate = useNavigate();
-  const { 
-    instances, isLoading, refetch,
-    createInstagramInstance, getInstagramOAuthUrl,
-    archiveInstance, logoutInstance,
-  } = useEvolutionInstances();
+  const { profile } = useAuth();
 
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [instanceName, setInstanceName] = useState('');
+  const WEBHOOK_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || 'rriizlxqfpfpdflgxjtj'}.supabase.co/functions/v1/sendpulse-webhook`;
 
-  const instagramInstances = (instances || []).filter(
-    i => i.channel_type === 'instagram' && !i.deleted_at
-  );
+  // Fetch Instagram instances from DB
+  const { data: instagramInstances, isLoading, refetch } = useQuery({
+    queryKey: ['instagram-instances', profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) return [];
+      const { data, error } = await supabase
+        .from('whatsapp_instances')
+        .select('id, name, is_connected, channel_type, instagram_username, created_at, distribution_mode')
+        .eq('organization_id', profile.organization_id)
+        .eq('channel_type', 'instagram')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!profile?.organization_id,
+  });
 
-  const handleCreate = async () => {
-    if (!instanceName.trim()) {
-      toast.error('Digite um nome para a instância');
-      return;
-    }
-    try {
-      await createInstagramInstance.mutateAsync({ name: instanceName.trim() });
-      setShowCreateDialog(false);
-      setInstanceName('');
-    } catch {}
-  };
+  // Count conversations
+  const { data: conversationCount } = useQuery({
+    queryKey: ['instagram-conv-count', profile?.organization_id],
+    queryFn: async () => {
+      if (!profile?.organization_id) return 0;
+      const { count } = await supabase
+        .from('whatsapp_conversations')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', profile.organization_id)
+        .in('instance_id', (instagramInstances || []).map(i => i.id));
+      return count || 0;
+    },
+    enabled: !!profile?.organization_id && (instagramInstances || []).length > 0,
+  });
 
-  const handleReconnect = async (instanceId: string) => {
-    try {
-      await getInstagramOAuthUrl.mutateAsync(instanceId);
-    } catch {}
+  const copyWebhookUrl = () => {
+    navigator.clipboard.writeText(WEBHOOK_URL);
+    toast.success('URL do webhook copiada!');
   };
 
   return (
@@ -52,7 +62,7 @@ export default function InstagramDMs() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Instagram DMs</h1>
             <p className="text-muted-foreground mt-1">
-              Gerencie suas contas do Instagram e veja conversas no inbox unificado
+              Integração via SendPulse — DMs do Instagram no inbox unificado
             </p>
           </div>
           <div className="flex gap-2">
@@ -60,43 +70,66 @@ export default function InstagramDMs() {
               <RefreshCw className="h-4 w-4 mr-1" />
               Atualizar
             </Button>
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Conectar Instagram
+            <Button onClick={() => navigate('/whatsapp')}>
+              <ExternalLink className="h-4 w-4 mr-1" />
+              Abrir Inbox
             </Button>
           </div>
         </div>
 
-        {/* Connected Instances */}
+        {/* Webhook Setup Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Webhook className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Configuração do Webhook (SendPulse)</CardTitle>
+            </div>
+            <CardDescription>
+              Configure este URL no painel do SendPulse em Chatbots → Bot Settings → Webhooks → Incoming messages
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono break-all">
+                {WEBHOOK_URL}
+              </code>
+              <Button variant="outline" size="sm" onClick={copyWebhookUrl}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Cole este URL no SendPulse para que as DMs do Instagram cheguem automaticamente ao seu inbox.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Status */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : instagramInstances.length === 0 ? (
+        ) : (instagramInstances || []).length === 0 ? (
           <Card className="max-w-2xl mx-auto">
             <CardContent className="pt-8 pb-8 text-center">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center mx-auto mb-6">
                 <Instagram className="w-10 h-10 text-white" />
               </div>
               <h2 className="text-2xl font-bold text-foreground mb-3">
-                Conecte sua conta do Instagram
+                Aguardando primeira mensagem
               </h2>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Conecte sua conta do Instagram Professional (Business ou Creator) para receber e responder DMs 
-                diretamente no CRM, vincular a leads e usar bots de IA.
+                Configure o webhook no SendPulse (acima) e envie uma mensagem de teste pelo Instagram.
+                A instância será criada automaticamente ao receber a primeira DM.
               </p>
-              <Button onClick={() => setShowCreateDialog(true)} size="lg">
-                <Instagram className="h-5 w-5 mr-2" />
-                Conectar Instagram
-              </Button>
-              <p className="text-xs text-muted-foreground mt-4">
-                Requer conta Instagram Business/Creator vinculada a uma Facebook Page.
-              </p>
+              <Badge variant="secondary" className="text-sm">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                Nenhuma instância Instagram ativa
+              </Badge>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {instagramInstances.map(instance => (
+            {(instagramInstances || []).map(instance => (
               <Card key={instance.id}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -111,123 +144,55 @@ export default function InstagramDMs() {
                         )}
                       </div>
                     </div>
-                    <Badge variant={instance.is_connected ? 'default' : 'destructive'} className="text-xs">
+                    <Badge variant={instance.is_connected ? 'default' : 'secondary'} className="text-xs">
                       {instance.is_connected ? (
-                        <><CheckCircle2 className="h-3 w-3 mr-1" />Conectado</>
+                        <><CheckCircle2 className="h-3 w-3 mr-1" />Ativo</>
                       ) : (
-                        <><AlertCircle className="h-3 w-3 mr-1" />Desconectado</>
+                        <><AlertCircle className="h-3 w-3 mr-1" />Inativo</>
                       )}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-2">
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" size="sm" className="flex-1"
-                      onClick={() => navigate('/whatsapp')}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Ver no Inbox
-                    </Button>
-                    {!instance.is_connected && (
-                      <Button 
-                        variant="default" size="sm" className="flex-1"
-                        onClick={() => handleReconnect(instance.id)}
-                        disabled={getInstagramOAuthUrl.isPending}
-                      >
-                        <RefreshCw className="h-3 w-3 mr-1" />
-                        Reconectar
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="ghost" size="sm" className="flex-1 text-xs text-muted-foreground"
-                      onClick={() => {
-                        if (confirm('Deseja desconectar esta instância?')) {
-                          logoutInstance.mutate(instance.id);
-                        }
-                      }}
-                    >
-                      Desconectar
-                    </Button>
-                    <Button 
-                      variant="ghost" size="sm" className="flex-1 text-xs text-destructive"
-                      onClick={() => {
-                        if (confirm('Deseja arquivar esta instância?')) {
-                          archiveInstance.mutate(instance.id);
-                        }
-                      }}
-                    >
-                      Arquivar
-                    </Button>
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Provider: SendPulse • Modo: {instance.distribution_mode || 'manual'}
+                  </p>
+                  <Button 
+                    variant="outline" size="sm" className="w-full"
+                    onClick={() => navigate('/whatsapp')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Ver conversas no Inbox
+                  </Button>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
 
-        {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-          {[
-            { title: 'Inbox Unificado', desc: 'WhatsApp + Instagram no mesmo chat' },
-            { title: 'Bot de IA', desc: 'Seus bots atendem no Instagram também' },
-            { title: 'Vincular a Leads', desc: 'Associe DMs aos leads do funil automaticamente' },
-          ].map((feature, i) => (
-            <Card key={i} className="text-center">
+        {/* Stats */}
+        {(instagramInstances || []).length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            <Card className="text-center">
               <CardContent className="pt-4 pb-4">
-                <h3 className="font-semibold text-foreground mb-1">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                <p className="text-2xl font-bold text-foreground">{conversationCount || 0}</p>
+                <p className="text-sm text-muted-foreground">Conversas Instagram</p>
               </CardContent>
             </Card>
-          ))}
-        </div>
-
-        {/* Create Dialog */}
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Conectar conta do Instagram</DialogTitle>
-              <DialogDescription>
-                Dê um nome para esta conexão. Depois de criar, você será redirecionado para autorizar pelo Facebook.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="ig-name">Nome da instância</Label>
-                <Input
-                  id="ig-name"
-                  placeholder="Ex: Instagram Principal"
-                  value={instanceName}
-                  onChange={e => setInstanceName(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleCreate()}
-                />
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground space-y-1">
-                <p className="font-medium text-foreground">Pré-requisitos:</p>
-                <p>• Conta Instagram Business ou Creator</p>
-                <p>• Vinculada a uma Facebook Page</p>
-                <p>• Permissões de mensagem ativadas nas configurações do Instagram</p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleCreate} 
-                disabled={createInstagramInstance.isPending || !instanceName.trim()}
-              >
-                {createInstagramInstance.isPending ? (
-                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Criando...</>
-                ) : (
-                  <><Instagram className="h-4 w-4 mr-1" />Criar e Conectar</>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            <Card className="text-center">
+              <CardContent className="pt-4 pb-4">
+                <h3 className="font-semibold text-foreground mb-1">Bot de IA</h3>
+                <p className="text-sm text-muted-foreground">Seus bots atendem no Instagram também</p>
+              </CardContent>
+            </Card>
+            <Card className="text-center">
+              <CardContent className="pt-4 pb-4">
+                <h3 className="font-semibold text-foreground mb-1">Auto-link de Leads</h3>
+                <p className="text-sm text-muted-foreground">DMs vinculam a leads por @username</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </Layout>
   );
