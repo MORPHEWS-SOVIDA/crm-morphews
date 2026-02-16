@@ -22,6 +22,7 @@ import {
   Calendar,
   Filter,
   Layers,
+  Clock,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -46,6 +47,7 @@ import {
   parseCsv3c,
   parseDate3c,
   phonesMatch,
+  formatSpeakingTime,
   Call3cData,
   ValidationResult,
   MatchedAttendance,
@@ -74,6 +76,18 @@ export default function Voip3cValidation() {
   const [dateTo, setDateTo] = useState('');
   const [onlyReceptive, setOnlyReceptive] = useState(false);
   const [motivoFilter, setMotivoFilter] = useState('all');
+  
+  // Sem Registro filters
+  const [srQueueFilter, setSrQueueFilter] = useState('all');
+  const [srStatusFilter, setSrStatusFilter] = useState('all');
+  const [srAgentFilter, setSrAgentFilter] = useState('all');
+  const [srMinTime, setSrMinTime] = useState('all');
+  
+  // Sem Venda extra filters
+  const [svQueueFilter, setSvQueueFilter] = useState('all');
+  const [svStatusFilter, setSvStatusFilter] = useState('all');
+  const [svAgentFilter, setSvAgentFilter] = useState('all');
+  const [svMinTime, setSvMinTime] = useState('all');
   
   // Initialize config text when data loads
   useEffect(() => {
@@ -381,13 +395,60 @@ export default function Voip3cValidation() {
     return Array.from(reasons).sort();
   }, [result]);
 
-  // Filtered no-sale calls by motivo
+  // Apply all Sem Venda filters
   const filteredNoSale = useMemo(() => {
     if (!result) return [];
-    if (motivoFilter === 'all') return result.callsWithRecordNoSale;
-    if (motivoFilter === 'sem_motivo') return result.callsWithRecordNoSale.filter(c => !c.reason_name);
-    return result.callsWithRecordNoSale.filter(c => c.reason_name === motivoFilter);
-  }, [result, motivoFilter]);
+    let data = result.callsWithRecordNoSale;
+    if (motivoFilter !== 'all') {
+      data = motivoFilter === 'sem_motivo' ? data.filter(c => !c.reason_name) : data.filter(c => c.reason_name === motivoFilter);
+    }
+    if (svQueueFilter !== 'all') data = data.filter(c => (c.source_queue_name || c.queue_name || '') === svQueueFilter);
+    if (svStatusFilter !== 'all') data = data.filter(c => c.readable_status_text === svStatusFilter);
+    if (svAgentFilter !== 'all') data = data.filter(c => c.agent_name === svAgentFilter);
+    if (svMinTime !== 'all') data = data.filter(c => c.speaking_time_seconds >= parseInt(svMinTime));
+    return data;
+  }, [result, motivoFilter, svQueueFilter, svStatusFilter, svAgentFilter, svMinTime]);
+
+  // Unique values for Sem Registro filters
+  const srFilterOptions = useMemo(() => {
+    if (!result) return { queues: [], statuses: [], agents: [] };
+    const queues = new Set<string>();
+    const statuses = new Set<string>();
+    const agents = new Set<string>();
+    result.callsWithoutRecord.forEach(c => {
+      const q = c.source_queue_name || c.queue_name;
+      if (q) queues.add(q);
+      if (c.readable_status_text) statuses.add(c.readable_status_text);
+      if (c.agent_name) agents.add(c.agent_name);
+    });
+    return { queues: Array.from(queues).sort(), statuses: Array.from(statuses).sort(), agents: Array.from(agents).sort() };
+  }, [result]);
+
+  // Unique values for Sem Venda filters
+  const svFilterOptions = useMemo(() => {
+    if (!result) return { queues: [], statuses: [], agents: [] };
+    const queues = new Set<string>();
+    const statuses = new Set<string>();
+    const agents = new Set<string>();
+    result.callsWithRecordNoSale.forEach(c => {
+      const q = c.source_queue_name || c.queue_name;
+      if (q) queues.add(q);
+      if (c.readable_status_text) statuses.add(c.readable_status_text);
+      if (c.agent_name) agents.add(c.agent_name);
+    });
+    return { queues: Array.from(queues).sort(), statuses: Array.from(statuses).sort(), agents: Array.from(agents).sort() };
+  }, [result]);
+
+  // Filtered Sem Registro
+  const filteredWithoutRecord = useMemo(() => {
+    if (!result) return [];
+    let data = result.callsWithoutRecord;
+    if (srQueueFilter !== 'all') data = data.filter(c => (c.source_queue_name || c.queue_name || '') === srQueueFilter);
+    if (srStatusFilter !== 'all') data = data.filter(c => c.readable_status_text === srStatusFilter);
+    if (srAgentFilter !== 'all') data = data.filter(c => c.agent_name === srAgentFilter);
+    if (srMinTime !== 'all') data = data.filter(c => c.speaking_time_seconds >= parseInt(srMinTime));
+    return data;
+  }, [result, srQueueFilter, srStatusFilter, srAgentFilter, srMinTime]);
 
   // Helper: group records by phone number for consolidated view
   type GroupedCall<T> = { phone: string; records: T[] };
@@ -395,7 +456,7 @@ export default function Voip3cValidation() {
   function groupByPhone<T extends { number: string }>(calls: T[]): GroupedCall<T>[] {
     const map = new Map<string, T[]>();
     for (const call of calls) {
-      const key = call.number.slice(-10); // last 10 digits
+      const key = call.number.slice(-10);
       const existing = map.get(key);
       if (existing) {
         existing.push(call);
@@ -406,10 +467,18 @@ export default function Voip3cValidation() {
     return Array.from(map.entries()).map(([phone, records]) => ({ phone, records }));
   }
 
+  const TIME_FILTER_OPTIONS = [
+    { value: 'all', label: 'Qualquer duração' },
+    { value: '60', label: '≥ 1 minuto' },
+    { value: '120', label: '≥ 2 minutos' },
+    { value: '300', label: '≥ 5 minutos' },
+    { value: '600', label: '≥ 10 minutos' },
+  ];
+
   // Grouped results for all tabs
   const groupedWithSale = useMemo(() => result ? groupByPhone(result.callsWithRecordAndSale) : [], [result]);
   const groupedNoSale = useMemo(() => groupByPhone(filteredNoSale), [filteredNoSale]);
-  const groupedWithoutRecord = useMemo(() => result ? groupByPhone(result.callsWithoutRecord) : [], [result]);
+  const groupedWithoutRecord = useMemo(() => groupByPhone(filteredWithoutRecord), [filteredWithoutRecord]);
   
   return (
     <Layout>
@@ -703,26 +772,67 @@ export default function Voip3cValidation() {
                   </div>
                 </TabsContent>
                 
-                {/* SEM VENDA - with motivo filter + grouped */}
+                {/* SEM VENDA - with all filters + grouped */}
                 <TabsContent value="no-sale">
-                  {/* Motivo filter */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <Label className="text-sm whitespace-nowrap">Filtrar Motivo:</Label>
+                  {/* Filters */}
+                  <div className="flex flex-wrap items-center gap-3 mb-3 p-3 border rounded-lg bg-muted/30">
+                    <Label className="text-sm whitespace-nowrap font-medium flex items-center gap-1"><Filter className="w-3 h-3" /> Filtros:</Label>
                     <Select value={motivoFilter} onValueChange={setMotivoFilter}>
-                      <SelectTrigger className="w-[250px]">
-                        <SelectValue placeholder="Todos os motivos" />
+                      <SelectTrigger className="w-[200px] h-8 text-xs">
+                        <SelectValue placeholder="Motivo" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Todos ({result.callsWithRecordNoSale.length})</SelectItem>
+                        <SelectItem value="all">Todos motivos</SelectItem>
                         <SelectItem value="sem_motivo">Sem motivo</SelectItem>
                         {uniqueMotivos.map(m => (
                           <SelectItem key={m} value={m}>{m}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {motivoFilter !== 'all' && (
-                      <Badge variant="secondary">{filteredNoSale.length} registros</Badge>
-                    )}
+                    <Select value={svQueueFilter} onValueChange={setSvQueueFilter}>
+                      <SelectTrigger className="w-[180px] h-8 text-xs">
+                        <SelectValue placeholder="Queue" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas queues</SelectItem>
+                        {svFilterOptions.queues.map(q => (
+                          <SelectItem key={q} value={q}>{q}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={svStatusFilter} onValueChange={setSvStatusFilter}>
+                      <SelectTrigger className="w-[160px] h-8 text-xs">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos status</SelectItem>
+                        {svFilterOptions.statuses.map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={svAgentFilter} onValueChange={setSvAgentFilter}>
+                      <SelectTrigger className="w-[160px] h-8 text-xs">
+                        <SelectValue placeholder="Atendente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos atendentes</SelectItem>
+                        {svFilterOptions.agents.map(a => (
+                          <SelectItem key={a} value={a}>{a}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={svMinTime} onValueChange={setSvMinTime}>
+                      <SelectTrigger className="w-[150px] h-8 text-xs">
+                        <SelectValue placeholder="Duração" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_FILTER_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Badge variant="secondary" className="text-xs">{filteredNoSale.length} registros</Badge>
                   </div>
 
                   <div className="border rounded-lg overflow-auto max-h-[600px]">
@@ -735,6 +845,9 @@ export default function Voip3cValidation() {
                           <TableHead>Modo</TableHead>
                           <TableHead>Produto</TableHead>
                           <TableHead>Motivo</TableHead>
+                          <TableHead>Queue</TableHead>
+                          <TableHead>Atendente 3C+</TableHead>
+                          <TableHead className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo</TableHead>
                           <TableHead>Hora 3C+</TableHead>
                           <TableHead>Hora Registro</TableHead>
                           <TableHead>Completo</TableHead>
@@ -743,8 +856,10 @@ export default function Voip3cValidation() {
                       <TableBody>
                         {filteredNoSale.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                              {motivoFilter !== 'all' ? 'Nenhum registro com este motivo' : 'Todos os registros têm venda! 🎉'}
+                            <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                              {motivoFilter !== 'all' || svQueueFilter !== 'all' || svAgentFilter !== 'all' || svMinTime !== 'all'
+                                ? 'Nenhum registro com estes filtros'
+                                : 'Todos os registros têm venda! 🎉'}
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -789,6 +904,17 @@ export default function Voip3cValidation() {
                                   ) : (
                                     <span className="text-muted-foreground text-xs">-</span>
                                   )}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs">
+                                    {call.source_queue_name || call.queue_name || '-'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-sm">{call.agent_name || '-'}</TableCell>
+                                <TableCell>
+                                  <span className={`text-xs font-mono ${call.speaking_time_seconds >= 120 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                                    {formatSpeakingTime(call.speaking_time_seconds)}
+                                  </span>
                                 </TableCell>
                                 <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
                                 <TableCell className="text-xs text-muted-foreground">
@@ -857,8 +983,57 @@ export default function Voip3cValidation() {
                   </div>
                 </TabsContent>
                 
-                {/* SEM REGISTRO */}
+                {/* SEM REGISTRO - with filters + speaking time */}
                 <TabsContent value="without-record">
+                  {/* Filters */}
+                  <div className="flex flex-wrap items-center gap-3 mb-3 p-3 border rounded-lg bg-muted/30">
+                    <Label className="text-sm whitespace-nowrap font-medium flex items-center gap-1"><Filter className="w-3 h-3" /> Filtros:</Label>
+                    <Select value={srQueueFilter} onValueChange={setSrQueueFilter}>
+                      <SelectTrigger className="w-[180px] h-8 text-xs">
+                        <SelectValue placeholder="Queue" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas queues</SelectItem>
+                        {srFilterOptions.queues.map(q => (
+                          <SelectItem key={q} value={q}>{q}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={srStatusFilter} onValueChange={setSrStatusFilter}>
+                      <SelectTrigger className="w-[160px] h-8 text-xs">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos status</SelectItem>
+                        {srFilterOptions.statuses.map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={srAgentFilter} onValueChange={setSrAgentFilter}>
+                      <SelectTrigger className="w-[160px] h-8 text-xs">
+                        <SelectValue placeholder="Atendente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos atendentes</SelectItem>
+                        {srFilterOptions.agents.map(a => (
+                          <SelectItem key={a} value={a}>{a}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={srMinTime} onValueChange={setSrMinTime}>
+                      <SelectTrigger className="w-[150px] h-8 text-xs">
+                        <SelectValue placeholder="Duração" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_FILTER_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Badge variant="secondary" className="text-xs">{filteredWithoutRecord.length} registros</Badge>
+                  </div>
+
                   <div className="border rounded-lg overflow-auto max-h-[600px]">
                     <Table>
                       <TableHeader className="sticky top-0 bg-background">
@@ -868,28 +1043,51 @@ export default function Voip3cValidation() {
                           <TableHead>Queue (origem)</TableHead>
                           <TableHead>Status 3C+</TableHead>
                           <TableHead>Atendente</TableHead>
+                          <TableHead><div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo</div></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {result.callsWithoutRecord.length === 0 ? (
+                        {filteredWithoutRecord.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                              Todas as ligações têm registro! 🎉
+                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                              {srQueueFilter !== 'all' || srStatusFilter !== 'all' || srAgentFilter !== 'all' || srMinTime !== 'all'
+                                ? 'Nenhum registro com estes filtros'
+                                : 'Todas as ligações têm registro! 🎉'}
                             </TableCell>
                           </TableRow>
                         ) : (
-                          result.callsWithoutRecord.map((call, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell className="font-mono">{call.number}</TableCell>
-                              <TableCell>{call.created_at}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="text-xs">
-                                  {call.source_queue_name || call.queue_name || 'N/A'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{call.readable_status_text}</TableCell>
-                              <TableCell>{call.agent_name || '-'}</TableCell>
-                            </TableRow>
+                          groupedWithoutRecord.map((group) => (
+                            group.records.map((call, idx) => (
+                              <TableRow key={`wr-${group.phone}-${idx}`} className={group.records.length > 1 && idx > 0 ? 'border-t-0 bg-muted/20' : group.records.length > 1 ? 'border-l-4 border-l-primary' : ''}>
+                                <TableCell className="font-mono text-sm">
+                                  {idx === 0 ? (
+                                    <div className="flex items-center gap-1">
+                                      {call.number}
+                                      {group.records.length > 1 && (
+                                        <Badge variant="outline" className="text-[10px] ml-1">
+                                          <Layers className="w-3 h-3 mr-0.5" />{group.records.length}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">↳ {call.number}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs">
+                                    {call.source_queue_name || call.queue_name || 'N/A'}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-sm">{call.readable_status_text}</TableCell>
+                                <TableCell className="text-sm">{call.agent_name || '-'}</TableCell>
+                                <TableCell>
+                                  <span className={`text-xs font-mono ${call.speaking_time_seconds >= 120 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                                    {formatSpeakingTime(call.speaking_time_seconds)}
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            ))
                           ))
                         )}
                       </TableBody>
