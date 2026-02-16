@@ -38,6 +38,7 @@ import { TenantPaymentFeesTab } from "@/components/super-admin/TenantPaymentFees
 import { LandingTemplatesTab } from "@/components/super-admin/LandingTemplatesTab";
 import { ImplementersTab } from "@/components/super-admin/ImplementersTab";
 import { CommunicationLogsTab } from "@/components/super-admin/CommunicationLogsTab";
+import { CloudCostsTab } from "@/components/super-admin/CloudCostsTab";
 import { VoiceAITab } from "@/components/super-admin/VoiceAITab";
 import { SmsDashboardTab } from "@/components/super-admin/SmsDashboardTab";
 import { SuperAdminNavigation, SUPER_ADMIN_CATEGORIES } from "@/components/super-admin/SuperAdminNavigation";
@@ -1039,6 +1040,7 @@ export default function SuperAdmin({ defaultTab = "organizations" }: SuperAdminP
             {activeTab === "org-overrides" && <OrgFeatureOverridesEditor />}
             {activeTab === "error-logs" && <ErrorLogsTab />}
             {activeTab === "onboarding-emails" && <OnboardingEmailsManager />}
+            {activeTab === "cloud-costs" && <CloudCostsTab />}
           </div>
         </div>
       </div>

@@ -76,6 +76,7 @@ const TAB_TO_PATH: Record<string, string> = {
   "org-overrides": "/super-admin/sistema/overrides",
   "error-logs": "/super-admin/sistema/logs",
   "onboarding-emails": "/super-admin/sistema/emails",
+  "cloud-costs": "/super-admin/sistema/custos-cloud",
 };
 
 // Reverse mapping from path to tab ID
@@ -170,6 +171,7 @@ const SUPER_ADMIN_CATEGORIES: NavCategory[] = [
       { id: "org-overrides", label: "Overrides", icon: Settings, description: "Features por org", path: "/super-admin/sistema/overrides" },
       { id: "error-logs", label: "Logs", icon: AlertTriangle, description: "Erros do sistema", path: "/super-admin/sistema/logs" },
       { id: "onboarding-emails", label: "Emails", icon: MailOpen, description: "Onboarding", path: "/super-admin/sistema/emails" },
+      { id: "cloud-costs", label: "Custos Cloud", icon: AlertTriangle, description: "Gastos e otimização", path: "/super-admin/sistema/custos-cloud" },
     ],
   },
 ];
