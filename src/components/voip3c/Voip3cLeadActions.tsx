@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { MessageSquare, ArrowRight, UserPlus, CalendarPlus, ExternalLink } from 'lucide-react';
+import { ArrowRight, UserPlus, CalendarPlus, ExternalLink } from 'lucide-react';
+import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -41,11 +42,7 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, c
   const [followupReason, setFollowupReason] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const openWhatsApp = () => {
-    if (!leadWhatsapp) return;
-    const clean = leadWhatsapp.replace(/\D/g, '');
-    window.open(`https://wa.me/${clean}`, '_blank');
-  };
+  const funnelStages = (stages || []).filter(s => s.stage_type === 'funnel');
 
   const handleChangeStage = async () => {
     if (!selectedStageId || !profile?.organization_id) return;
@@ -120,21 +117,18 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, c
     });
   };
 
-  const funnelStages = (stages || []).filter(s => s.stage_type === 'funnel');
-
   return (
     <TooltipProvider>
       <div className="flex items-center gap-1">
-        {/* WhatsApp */}
+        {/* WhatsApp - internal dialog */}
         {leadWhatsapp && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={openWhatsApp}>
-                <MessageSquare className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>WhatsApp</TooltipContent>
-          </Tooltip>
+          <WhatsAppButton
+            phone={leadWhatsapp}
+            variant="icon"
+            leadId={leadId}
+            leadName={leadName}
+            className="h-7 w-7 !rounded-md"
+          />
         )}
 
         {/* Change Stage */}
