@@ -174,6 +174,7 @@ const ComunicacoesPage = lazy(() => import("./pages/super-admin/ComunicacoesPage
 const OverridesPage = lazy(() => import("./pages/super-admin/OverridesPage"));
 const LogsPage = lazy(() => import("./pages/super-admin/LogsPage"));
 const EmailsPage = lazy(() => import("./pages/super-admin/EmailsPage"));
+const CustosCloudPage = lazy(() => import("./pages/super-admin/CustosCloudPage"));
 
 // Ecommerce
 const Ecommerce = lazy(() => import("./pages/Ecommerce"));
@@ -638,6 +639,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requireAdmin>
                       <EmailsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/super-admin/sistema/custos-cloud"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <CustosCloudPage />
                     </ProtectedRoute>
                   }
                 />
