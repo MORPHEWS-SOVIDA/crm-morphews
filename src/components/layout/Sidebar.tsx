@@ -245,7 +245,7 @@ export function Sidebar() {
     { icon: Building2, label: 'White Admin', path: '/white-admin', visible: isWhiteLabelOwner === true },
     
     // Instagram (permission controlled)
-    { icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve', visible: canSeeInstagram && hasFeature('instagram') },
+    { icon: Instagram, label: 'Instagram DMs', path: '/instagram', visible: canSeeInstagram && hasFeature('instagram') },
     
     // SMS Center
     { icon: Send, label: 'Enviar SMS', path: '/sms', visible: canSeeSettings && hasFeature('sms') },
@@ -306,11 +306,6 @@ export function Sidebar() {
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">{item.label}</span>
-                {item.badge && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary">
-                    {item.badge}
-                  </span>
-                )}
               </NavLink>
             ))}
           </nav>

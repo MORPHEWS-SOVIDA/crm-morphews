@@ -102,6 +102,7 @@ const WhatsAppGlobalConfig = lazy(() => import("./pages/WhatsAppGlobalConfig"));
 
 // Instagram
 const InstagramDMs = lazy(() => import("./pages/InstagramDMs"));
+const MessagingMetricsPage = lazy(() => import("./pages/MessagingMetricsPage"));
 
 // Team & Settings
 const Team = lazy(() => import("./pages/Team"));
@@ -970,6 +971,17 @@ const App = () => (
                     <ProtectedRoute requiredPermissions={['reports_view']}>
                       <ErrorBoundary title="Transações POS indisponíveis">
                         <PosTransactionsReport />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                
+                <Route
+                  path="/relatorios/mensagens"
+                  element={
+                    <ProtectedRoute requiredPermissions={['reports_view']}>
+                      <ErrorBoundary title="Métricas indisponíveis">
+                        <MessagingMetricsPage />
                       </ErrorBoundary>
                     </ProtectedRoute>
                   }

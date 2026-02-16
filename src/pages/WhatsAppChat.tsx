@@ -185,6 +185,7 @@ export default function WhatsAppChat() {
   
   // Filter state
   const [conversationTypeFilter, setConversationTypeFilter] = useState<'all' | 'individual' | 'group'>('all');
+  const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'instagram'>('all');
   const [assignedUserFilter, setAssignedUserFilter] = useState<string | null>(null);
   
   // Fetch users for filter dropdown
@@ -1110,6 +1111,12 @@ export default function WhatsAppChat() {
       return false;
     }
     
+    // Filtro por canal (WhatsApp/Instagram)
+    if (channelFilter !== 'all') {
+      const convChannel = (c as any).channel_type || 'whatsapp';
+      if (convChannel !== channelFilter) return false;
+    }
+    
     return true;
   });
 
@@ -1735,6 +1742,31 @@ export default function WhatsAppChat() {
               </Select>
             )}
             
+            {/* Filtro por canal (WhatsApp/Instagram) */}
+            <div className="mb-2">
+              <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as any)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <Filter className="h-3 w-3 mr-1.5" />
+                  <SelectValue placeholder="Filtrar por canal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os canais</SelectItem>
+                  <SelectItem value="whatsapp">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3 w-3" />
+                      WhatsApp
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="instagram">
+                    <div className="flex items-center gap-2">
+                      <Instagram className="h-3 w-3" />
+                      Instagram
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Filtro de tipo de conversa */}
             <div className="mb-2">
               <Select value={conversationTypeFilter} onValueChange={(v) => setConversationTypeFilter(v as any)}>
