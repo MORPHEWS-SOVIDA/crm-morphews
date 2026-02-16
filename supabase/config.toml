@@ -164,3 +164,9 @@ verify_jwt = false
 
 [functions.facilita-sms-webhook]
 verify_jwt = false
+
+[functions.sendpulse-webhook]
+verify_jwt = false
+
+[functions.sendpulse-send]
+verify_jwt = false
