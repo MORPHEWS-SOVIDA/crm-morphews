@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot, Star, BarChart3, Zap, RotateCw } from "lucide-react";
+import { MessageSquare, Plus, QrCode, Settings, Users, Check, X, Loader2, ArrowLeft, RefreshCw, Unplug, Phone, Smartphone, Clock, Pencil, Trash2, Settings2, Cog, Bot, Star, BarChart3, Zap, RotateCw, Instagram } from "lucide-react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +52,8 @@ interface EvolutionInstance {
   manual_device_label: string | null;
   display_name_for_team: string | null;
   distribution_mode: "manual" | "auto" | "bot" | null;
+  channel_type: string | null;
+  instagram_username: string | null;
 }
 
 type DistributionModeFilter = "all" | "manual" | "auto" | "bot";
@@ -807,30 +809,50 @@ export default function WhatsAppDMs() {
               
               return (
                 <Card key={instance.id} className="relative overflow-hidden">
-                  {/* WhatsApp indicator bar */}
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-green-500" />
+                  {/* Channel indicator bar */}
+                  <div className={`absolute top-0 left-0 right-0 h-1 ${(instance as any).channel_type === 'instagram' ? 'bg-pink-500' : 'bg-green-500'}`} />
                   
                   <CardHeader className="pb-3 pt-4">
                     <div className="space-y-3">
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
-                            <MessageSquare className="h-3.5 w-3.5 text-white" />
+                          <div className={`h-6 w-6 rounded-full flex items-center justify-center ${(instance as any).channel_type === 'instagram' ? 'bg-pink-500' : 'bg-green-500'}`}>
+                            {(instance as any).channel_type === 'instagram' ? (
+                              <Instagram className="h-3.5 w-3.5 text-white" />
+                            ) : (
+                              <MessageSquare className="h-3.5 w-3.5 text-white" />
+                            )}
                           </div>
                           <CardTitle className="text-lg">{instance.name}</CardTitle>
+                          {(instance as any).channel_type === 'instagram' && (
+                            <Badge className="bg-pink-500/10 text-pink-500 border-pink-500/30 text-[10px]">Instagram</Badge>
+                          )}
                         </div>
                         {getStatusBadge(instance)}
                       </div>
                       
                       {/* Phone Number Display */}
                       <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                        {/* Número da Instância */}
+                        {/* Número da Instância / Instagram Username */}
                         <div>
                           <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">Número da instância:</span>
+                            {(instance as any).channel_type === 'instagram' ? (
+                              <>
+                                <Instagram className="h-4 w-4 text-pink-500" />
+                                <span className="text-sm text-muted-foreground">Conta Instagram:</span>
+                              </>
+                            ) : (
+                              <>
+                                <Phone className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">Número da instância:</span>
+                              </>
+                            )}
                           </div>
-                          {(instance.manual_instance_number || instance.phone_number) ? (
+                          {(instance as any).channel_type === 'instagram' ? (
+                            <p className="text-base font-semibold">
+                              @{(instance as any).instagram_username || instance.name}
+                            </p>
+                          ) : (instance.manual_instance_number || instance.phone_number) ? (
                             <p className="text-base font-semibold font-mono">
                               +{instance.manual_instance_number || instance.phone_number}
                             </p>
@@ -979,7 +1001,7 @@ export default function WhatsAppDMs() {
                       <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center space-y-3">
                         <Check className="h-8 w-8 mx-auto text-green-500 mb-2" />
                         <p className="text-sm text-green-700 dark:text-green-300 font-medium">
-                          WhatsApp conectado e funcionando!
+                          {(instance as any).channel_type === 'instagram' ? 'Instagram conectado e funcionando!' : 'WhatsApp conectado e funcionando!'}
                         </p>
                         <div className="flex gap-2 justify-center flex-wrap">
                           <Button 
