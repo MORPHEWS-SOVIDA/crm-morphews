@@ -40,10 +40,14 @@ export interface ReceptiveHistoryItem {
   transcription_status: string | null;
   call_quality_score: CallQualityScore | null;
   notes: string | null;
+  // Product answers from the attendance
+  product_answers: Record<string, string> | null;
   // Joined data
   user_name?: string;
   product_name?: string;
   reason_name?: string;
+  // Source info (from lead_source_history around same time)
+  source_name?: string;
 }
 
 export function useLeadReceptiveHistory(leadId: string | undefined) {
@@ -69,7 +73,8 @@ export function useLeadReceptiveHistory(leadId: string | undefined) {
           transcription,
           transcription_status,
           call_quality_score,
-          notes
+          notes,
+          product_answers
         `)
         .eq('lead_id', leadId)
         .order('created_at', { ascending: false });
@@ -103,16 +108,49 @@ export function useLeadReceptiveHistory(leadId: string | undefined) {
             .in('id', reasonIds as string[])
         : { data: [] };
 
+      // Fetch source history for this lead to match with attendance timestamps
+      const { data: sourceHistory } = await supabase
+        .from('lead_source_history')
+        .select('source_id, recorded_at')
+        .eq('lead_id', leadId)
+        .order('recorded_at', { ascending: false });
+
+      // Fetch source names
+      const sourceIds = [...new Set((sourceHistory || []).map(s => s.source_id))];
+      const { data: sources } = sourceIds.length > 0
+        ? await supabase.from('lead_sources').select('id, name').in('id', sourceIds)
+        : { data: [] };
+      const sourceNameMap = new Map((sources || []).map(s => [s.id, s.name]));
+
       const userMap = new Map((users || []).map(u => [u.user_id, `${u.first_name} ${u.last_name}`]));
       const productMap = new Map((products || []).map(p => [p.id, p.name]));
       const reasonMap = new Map((reasons || []).map(r => [r.id, r.name]));
 
+      // Match source history entries to attendances by closest timestamp
+      const findSourceForAttendance = (attendanceDate: string) => {
+        if (!sourceHistory || sourceHistory.length === 0) return undefined;
+        const aTime = new Date(attendanceDate).getTime();
+        // Find closest source entry within 5 minutes
+        let best: typeof sourceHistory[0] | null = null;
+        let bestDiff = Infinity;
+        for (const sh of sourceHistory) {
+          const diff = Math.abs(new Date(sh.recorded_at).getTime() - aTime);
+          if (diff < bestDiff && diff < 5 * 60 * 1000) {
+            bestDiff = diff;
+            best = sh;
+          }
+        }
+        return best ? sourceNameMap.get(best.source_id) : undefined;
+      };
+
       return (data || []).map(item => ({
         ...item,
         call_quality_score: item.call_quality_score as unknown as CallQualityScore | null,
+        product_answers: item.product_answers as unknown as Record<string, string> | null,
         user_name: userMap.get(item.user_id) || 'Desconhecido',
         product_name: item.product_id ? productMap.get(item.product_id) : undefined,
         reason_name: item.non_purchase_reason_id ? reasonMap.get(item.non_purchase_reason_id) : undefined,
+        source_name: findSourceForAttendance(item.created_at),
       })) as ReceptiveHistoryItem[];
     },
     enabled: !!leadId,

@@ -761,16 +761,42 @@ export function useCreateSale() {
           .maybeSingle();
 
         if (targetStage && data.lead_id) {
+          // Get current lead stage before changing
+          const { data: currentLead } = await supabase
+            .from('leads')
+            .select('stage, funnel_stage_id')
+            .eq('id', data.lead_id)
+            .single();
+
+          const previousStage = currentLead?.stage || null;
+
           // Move lead to the target stage
           await supabase
             .from('leads')
             .update({ 
               funnel_stage_id: targetStage.id,
+              stage: 'sale_completed' as any,
               updated_at: new Date().toISOString(),
             })
             .eq('id', data.lead_id);
 
           console.log(`[Post-sale Automation] Lead ${data.lead_id} moved to stage "${targetStage.name}"`);
+
+          // Record stage change in history
+          try {
+            const { data: { user: currentUser } } = await supabase.auth.getUser();
+            await supabase.from('lead_stage_history').insert({
+              lead_id: data.lead_id,
+              organization_id: organizationId,
+              stage: 'sale_completed',
+              previous_stage: previousStage,
+              reason: `Venda criada (automático)`,
+              changed_by: currentUser?.id || data.seller_user_id || null,
+              source: 'automation',
+            });
+          } catch (historyErr) {
+            console.warn('Error recording stage history:', historyErr);
+          }
 
           // If the stage has a default follow-up reason, schedule the messages
           if (targetStage.default_followup_reason_id) {
@@ -966,6 +992,13 @@ export function useUpdateSale() {
             .maybeSingle();
           
           if (returnedStage?.id) {
+            // Get current stage before changing
+            const { data: currentLead } = await supabase
+              .from('leads')
+              .select('stage')
+              .eq('id', sale.lead_id)
+              .single();
+
             // Update lead to move to the returned stage
             await supabase
               .from('leads')
@@ -976,6 +1009,22 @@ export function useUpdateSale() {
               .eq('id', sale.lead_id);
               
             console.log(`Lead ${sale.lead_id} moved to TELE ENTREGA VOLTOU stage`);
+
+            // Record in stage history
+            try {
+              const { data: { user: currentUser } } = await supabase.auth.getUser();
+              await supabase.from('lead_stage_history').insert({
+                lead_id: sale.lead_id,
+                organization_id: organizationId,
+                stage: 'no_show',
+                previous_stage: currentLead?.stage || null,
+                reason: 'Venda devolvida (automático)',
+                changed_by: currentUser?.id || null,
+                source: 'automation',
+              });
+            } catch (historyErr) {
+              console.warn('Error recording stage history on return:', historyErr);
+            }
           }
         }
         
