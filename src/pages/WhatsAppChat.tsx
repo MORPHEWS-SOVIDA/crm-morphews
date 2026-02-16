@@ -2129,13 +2129,15 @@ export default function WhatsAppChat() {
                           variant="outline"
                           onClick={() => {
                             if (selectedConversation) {
-                              handleCloseConversationById(selectedConversation.id);
+                              closeConversationWithoutNPS.mutateAsync({ conversationId: selectedConversation.id });
+                              setConversations(prev => prev.map(c => 
+                                c.id === selectedConversation.id ? { ...c, status: 'closed' } : c
+                              ));
                             }
                           }}
                           disabled={
                             !selectedConversation ||
-                            closingConversationId === selectedConversation?.id ||
-                            closeConversation.isPending
+                            closeConversationWithoutNPS.isPending
                           }
                           className="border-orange-300 text-orange-600 hover:bg-orange-50"
                         >
