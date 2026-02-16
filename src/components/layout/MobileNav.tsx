@@ -185,7 +185,7 @@ export function MobileNav() {
       commItems.push({ icon: Send, label: 'Mensagens Agendadas', path: '/mensagens-agendadas' });
     }
     if (canSeeInstagram && hasFeature('instagram')) {
-      commItems.push({ icon: Instagram, label: 'Instagram DMs', path: '/instagram', badge: 'Em breve' });
+      commItems.push({ icon: Instagram, label: 'Instagram DMs', path: '/instagram' });
     }
     if (commItems.length > 0) {
       groups.push({ id: 'communication', label: 'Comunicação', icon: MessageSquare, items: commItems });
