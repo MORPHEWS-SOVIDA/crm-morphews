@@ -54,14 +54,17 @@ import {
   MatchedAttendance,
   LeadOnlyMatch,
   CONVERSATION_MODE_LABELS,
+  type Voip3cValidation as Voip3cValidationType,
 } from '@/hooks/useVoip3cValidation';
+import { Voip3cLeadActions } from '@/components/voip3c/Voip3cLeadActions';
 
 export default function Voip3cValidation() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { data: config } = useVoip3cConfig();
   const { mutate: saveConfig, isPending: savingConfig } = useSaveVoip3cConfig();
   const { data: validations } = useVoip3cValidations();
   const { mutate: saveValidation, isPending: savingValidation } = useSaveVoip3cValidation();
+  const [activeValidationId, setActiveValidationId] = useState<string | null>(null);
   
   const [configOpen, setConfigOpen] = useState(false);
   const [blacklistText, setBlacklistText] = useState('');
@@ -485,6 +488,32 @@ export default function Voip3cValidation() {
   const groupedWithSale = useMemo(() => result ? groupByPhone(result.callsWithRecordAndSale) : [], [result]);
   const groupedNoSale = useMemo(() => groupByPhone(filteredNoSale), [filteredNoSale]);
   const groupedWithoutRecord = useMemo(() => groupByPhone(filteredWithoutRecord), [filteredWithoutRecord]);
+
+  // Load a saved validation from history
+  const loadValidation = (v: Voip3cValidationType) => {
+    setResult(v.validation_data);
+    setTotalCalls(v.total_calls);
+    setActiveValidationId(v.id);
+    toast.success(`Relatório "${v.file_name}" carregado`);
+  };
+
+  // Fetch uploader profiles for history
+
+  // Fetch uploader profiles
+  const [uploaderMap, setUploaderMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!validations || validations.length === 0) return;
+    const ids = [...new Set(validations.map(v => v.uploaded_by).filter(Boolean))];
+    if (ids.length === 0) return;
+    supabase.from('profiles').select('user_id, first_name, last_name').in('user_id', ids)
+      .then(({ data }) => {
+        if (data) {
+          const m: Record<string, string> = {};
+          data.forEach(p => { m[p.user_id] = `${p.first_name || ''} ${p.last_name || ''}`.trim(); });
+          setUploaderMap(m);
+        }
+      });
+  }, [validations]);
   
   return (
     <Layout>
@@ -986,6 +1015,7 @@ export default function Voip3cValidation() {
                           <TableHead>Hora 3C+</TableHead>
                           <TableHead>Atendente 3C+</TableHead>
                           <TableHead><div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo</div></TableHead>
+                          <TableHead>Ações</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -993,12 +1023,7 @@ export default function Voip3cValidation() {
                           <TableRow key={idx}>
                             <TableCell className="font-mono text-sm">{call.number}</TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                <span className="font-medium text-sm">{call.lead_name}</span>
-                                <a href={`/leads/${call.lead_id}`} target="_blank" rel="noopener noreferrer" title="Abrir lead em nova aba">
-                                  <ExternalLink className="w-3.5 h-3.5 text-primary hover:text-primary/80 shrink-0" />
-                                </a>
-                              </div>
+                              <span className="font-medium text-sm">{call.lead_name}</span>
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="text-xs">{call.lead_stage}</Badge>
@@ -1024,6 +1049,14 @@ export default function Voip3cValidation() {
                               <span className={`text-xs font-mono ${call.speaking_time_seconds >= 120 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
                                 {formatSpeakingTime(call.speaking_time_seconds)}
                               </span>
+                            </TableCell>
+                            <TableCell>
+                              <Voip3cLeadActions
+                                leadId={call.lead_id}
+                                leadName={call.lead_name}
+                                leadWhatsapp={call.lead_whatsapp || call.number}
+                                leadStage={call.lead_stage}
+                              />
                             </TableCell>
                           </TableRow>
                         ))}
@@ -1156,6 +1189,7 @@ export default function Voip3cValidation() {
                 <History className="w-5 h-5" />
                 Histórico de Validações
               </CardTitle>
+              <CardDescription>Clique para carregar um relatório anterior</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="border rounded-lg overflow-auto">
@@ -1163,25 +1197,42 @@ export default function Voip3cValidation() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Data</TableHead>
+                      <TableHead>Usuário</TableHead>
                       <TableHead>Arquivo</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Sem Registro</TableHead>
                       <TableHead>Sem Venda</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {validations.map((v) => (
-                      <TableRow key={v.id}>
-                        <TableCell>
+                      <TableRow 
+                        key={v.id} 
+                        className={`cursor-pointer hover:bg-muted/50 ${activeValidationId === v.id ? 'bg-primary/10' : ''}`}
+                        onClick={() => loadValidation(v)}
+                      >
+                        <TableCell className="text-sm">
                           {format(new Date(v.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                         </TableCell>
-                        <TableCell className="max-w-[200px] truncate">{v.file_name}</TableCell>
+                        <TableCell className="text-sm">
+                          <div className="flex items-center gap-1">
+                            <User className="w-3 h-3 text-muted-foreground" />
+                            {uploaderMap[v.uploaded_by] || '...'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate text-sm">{v.file_name}</TableCell>
                         <TableCell>{v.total_calls}</TableCell>
                         <TableCell>
                           <Badge variant="destructive">{v.calls_without_record}</Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary">{v.calls_with_record_no_sale}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+                            <ExternalLink className="w-3 h-3" /> Abrir
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
