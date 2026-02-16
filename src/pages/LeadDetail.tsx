@@ -39,6 +39,7 @@ import { LeadReceptiveHistorySection } from '@/components/leads/LeadReceptiveHis
 import { LeadStandardQuestionsSection } from '@/components/leads/LeadStandardQuestionsSection';
 import { LeadScheduledMessagesSection } from '@/components/leads/LeadScheduledMessagesSection';
 import { LeadOwnershipHistory } from '@/components/leads/LeadOwnershipHistory';
+import { LeadSourceHistorySection } from '@/components/leads/LeadSourceHistorySection';
 import { LeadDemandsSection } from '@/components/leads/LeadDemandsSection';
 import { LeadNonPurchaseSection } from '@/components/leads/LeadNonPurchaseSection';
 import { LeadWebhookDataSection } from '@/components/leads/LeadWebhookDataSection';
@@ -101,7 +102,7 @@ export default function LeadDetail() {
   const canSeeSensitiveData = isAdmin || (user && lead?.created_by === user.id);
   
   const userOptions = users.map((user) => ({
-    value: `${user.first_name} ${user.last_name}`,
+    value: user.user_id,
     label: `${user.first_name} ${user.last_name}`,
   }));
 
@@ -731,6 +732,11 @@ export default function LeadDetail() {
                 <LeadReceptiveHistorySection leadId={id!} />
               </SectionErrorBoundary>
             )}
+
+            {/* Histórico de Origens */}
+            <SectionErrorBoundary title="Histórico de Origens">
+              <LeadSourceHistorySection leadId={id!} />
+            </SectionErrorBoundary>
 
             {/* Stage History Timeline */}
             <SectionErrorBoundary title="Histórico do Funil">

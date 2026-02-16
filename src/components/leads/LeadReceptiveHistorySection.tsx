@@ -15,7 +15,9 @@ import {
   ChevronDown,
   ChevronUp,
   Star,
-  Upload
+  Upload,
+  MapPin,
+  ClipboardList
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -205,9 +207,16 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
                       <User className="w-3 h-3 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">{item.user_name}</span>
+                      {item.source_name && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <MapPin className="w-3 h-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">{item.source_name}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -292,6 +301,26 @@ export function LeadReceptiveHistorySection({ leadId }: LeadReceptiveHistorySect
                       score={item.call_quality_score as any} 
                       hasSale={!!item.sale_id} 
                     />
+                  )}
+
+                  {/* Product Answers */}
+                  {item.product_answers && Object.keys(item.product_answers).length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <ClipboardList className="w-4 h-4" />
+                        Respostas do Produto
+                      </p>
+                      <div className="grid grid-cols-1 gap-1 bg-background p-2 rounded border">
+                        {Object.entries(item.product_answers).map(([key, value]) => (
+                          value && (
+                            <div key={key} className="text-sm">
+                              <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}: </span>
+                              <span className="text-foreground">{String(value)}</span>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
                   )}
 
                   {/* Notes */}

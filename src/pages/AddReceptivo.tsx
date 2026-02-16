@@ -950,7 +950,39 @@ export default function AddReceptivo() {
         
         if (responsibleError) {
           console.error('Error creating lead responsible:', responsibleError);
-          // Don't fail the flow, but log it
+        }
+
+        // Record first ownership transfer in history
+        try {
+          await supabase.from('lead_ownership_transfers').insert({
+            organization_id: tenantId,
+            lead_id: newLead.id,
+            from_user_id: null,
+            to_user_id: user.id,
+            transferred_by: user.id,
+            transfer_reason: 'first_assignment',
+            notes: 'Primeiro cadastro via Add Receptivo',
+          });
+        } catch (ownershipErr) {
+          console.warn('Error recording first ownership:', ownershipErr);
+        }
+
+        // Record initial stage in history
+        try {
+          const stageEnum = selectedFunnelStageId 
+            ? getStageEnumValue(selectableStages.find(s => s.id === selectedFunnelStageId) || selectableStages[0])
+            : 'prospect';
+          await supabase.from('lead_stage_history').insert({
+            lead_id: newLead.id,
+            organization_id: tenantId,
+            stage: stageEnum,
+            previous_stage: null,
+            reason: 'Cadastro inicial via Add Receptivo',
+            changed_by: user.id,
+            source: 'manual',
+          });
+        } catch (stageErr) {
+          console.warn('Error recording initial stage:', stageErr);
         }
         
         setLeadData(prev => ({ 
