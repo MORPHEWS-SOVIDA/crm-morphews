@@ -15,6 +15,10 @@ import {
   History,
   PhoneOff,
   ShoppingCart,
+  DollarSign,
+  User,
+  MessageSquare,
+  Package,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -36,8 +40,11 @@ import {
   useSaveVoip3cValidation,
   parseCsv3c,
   parseDate3c,
+  phonesMatch,
   Call3cData,
   ValidationResult,
+  MatchedAttendance,
+  CONVERSATION_MODE_LABELS,
 } from '@/hooks/useVoip3cValidation';
 
 export default function Voip3cValidation() {
@@ -92,7 +99,6 @@ export default function Voip3cValidation() {
     setResult(null);
     
     try {
-      // Read file content
       const content = await file.text();
       const calls = parseCsv3c(content);
       
@@ -102,11 +108,10 @@ export default function Voip3cValidation() {
         return;
       }
       
-      // Get blacklist and CNPJ numbers
+      // Filter out blacklisted and CNPJ numbers
       const blacklistNumbers = config?.blacklist_numbers || [];
       const cnpjNumbers = config?.cnpj_numbers || [];
       
-      // Filter out blacklisted and CNPJ numbers
       const filteredCalls = calls.filter(call => {
         const normalizedNumber = call.number;
         if (blacklistNumbers.some(b => normalizedNumber.includes(b) || b.includes(normalizedNumber))) {
@@ -119,21 +124,6 @@ export default function Voip3cValidation() {
       });
       
       setTotalCalls(filteredCalls.length);
-      
-      // Group calls by phone and date for lookup
-      const callsByPhoneDate = new Map<string, Call3cData[]>();
-      for (const call of filteredCalls) {
-        const parsedDate = parseDate3c(call.created_at);
-        if (!parsedDate) continue;
-        
-        const dateKey = format(parsedDate, 'yyyy-MM-dd');
-        const key = `${call.number}_${dateKey}`;
-        
-        if (!callsByPhoneDate.has(key)) {
-          callsByPhoneDate.set(key, []);
-        }
-        callsByPhoneDate.get(key)!.push(call);
-      }
       
       // Get date range from calls
       const dates = filteredCalls
@@ -149,7 +139,7 @@ export default function Voip3cValidation() {
       const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
       const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
       
-      // Fetch receptive attendances for the date range
+      // Fetch receptive attendances with enriched data
       const { data: attendances, error } = await supabase
         .from('receptive_attendances')
         .select(`
@@ -158,7 +148,12 @@ export default function Voip3cValidation() {
           user_id,
           sale_id,
           non_purchase_reason_id,
-          created_at
+          created_at,
+          conversation_mode,
+          lead_id,
+          product_id,
+          completed,
+          lead_existed
         `)
         .eq('organization_id', profile.organization_id)
         .gte('created_at', format(minDate, 'yyyy-MM-dd'))
@@ -166,95 +161,102 @@ export default function Voip3cValidation() {
       
       if (error) throw error;
       
-      // Build map of phone+date to attendance
-      const attendanceByPhoneDate = new Map<string, (typeof attendances)[0]>();
-      for (const att of attendances || []) {
-        const phone = att.phone_searched?.replace(/\D/g, '') || '';
-        const dateKey = format(new Date(att.created_at), 'yyyy-MM-dd');
-        const key = `${phone}_${dateKey}`;
-        attendanceByPhoneDate.set(key, att);
-      }
-      
-      // Get unique phone+date keys from calls
-      const uniqueCallKeys = Array.from(callsByPhoneDate.keys());
-      
-      // Find calls without record
-      const callsWithoutRecord: Call3cData[] = [];
-      const callsWithRecordNoSale: Array<Call3cData & {
-        receptive_id: string;
-        user_name: string;
-        reason_name: string;
-        has_followup: boolean;
-      }> = [];
-      
-      // Get user IDs and reason IDs for lookup
+      // Collect IDs for batch lookups
       const userIds = new Set<string>();
+      const leadIds = new Set<string>();
+      const productIds = new Set<string>();
+      const saleIds = new Set<string>();
       const reasonIds = new Set<string>();
       
-      for (const key of uniqueCallKeys) {
-        const attendance = attendanceByPhoneDate.get(key);
-        const calls = callsByPhoneDate.get(key)!;
-        
-        if (!attendance) {
-          // No record for this phone+date
-          callsWithoutRecord.push(...calls);
-        } else if (!attendance.sale_id) {
-          // Has record but no sale
-          if (attendance.user_id) userIds.add(attendance.user_id);
-          if (attendance.non_purchase_reason_id) reasonIds.add(attendance.non_purchase_reason_id);
-          
-          for (const call of calls) {
-            callsWithRecordNoSale.push({
-              ...call,
-              receptive_id: attendance.id,
-              user_name: '',
-              reason_name: '',
-              has_followup: false,
-            });
-          }
+      for (const att of attendances || []) {
+        if (att.user_id) userIds.add(att.user_id);
+        if (att.lead_id) leadIds.add(att.lead_id);
+        if (att.product_id) productIds.add(att.product_id);
+        if (att.sale_id) saleIds.add(att.sale_id);
+        if (att.non_purchase_reason_id) reasonIds.add(att.non_purchase_reason_id);
+      }
+      
+      // Batch fetch all related data in parallel
+      const [usersRes, leadsRes, productsRes, salesRes, reasonsRes] = await Promise.all([
+        userIds.size > 0
+          ? supabase.from('profiles').select('user_id, first_name, last_name').in('user_id', Array.from(userIds))
+          : { data: [] },
+        leadIds.size > 0
+          ? supabase.from('leads').select('id, name, stage').in('id', Array.from(leadIds))
+          : { data: [] },
+        productIds.size > 0
+          ? supabase.from('lead_products').select('id, name').in('id', Array.from(productIds))
+          : { data: [] },
+        saleIds.size > 0
+          ? supabase.from('sales').select('id, total_cents, status').in('id', Array.from(saleIds))
+          : { data: [] },
+        reasonIds.size > 0
+          ? supabase.from('non_purchase_reasons').select('id, name').in('id', Array.from(reasonIds))
+          : { data: [] },
+      ]);
+      
+      const userMap = new Map((usersRes.data || []).map(u => [u.user_id, `${u.first_name || ''} ${u.last_name || ''}`.trim()]));
+      const leadMap = new Map((leadsRes.data || []).map(l => [l.id, l]));
+      const productMap = new Map((productsRes.data || []).map(p => [p.id, p.name]));
+      const saleMap = new Map((salesRes.data || []).map(s => [s.id, s]));
+      const reasonMap = new Map((reasonsRes.data || []).map(r => [r.id, r.name]));
+      
+      // Match calls to attendances using fuzzy phone matching
+      const callsWithoutRecord: Call3cData[] = [];
+      const callsWithRecordNoSale: Array<Call3cData & MatchedAttendance> = [];
+      const callsWithRecordAndSale: Array<Call3cData & MatchedAttendance> = [];
+      
+      for (const call of filteredCalls) {
+        const callDate = parseDate3c(call.created_at);
+        if (!callDate) {
+          callsWithoutRecord.push(call);
+          continue;
         }
-      }
-      
-      // Fetch user names
-      let userMap = new Map<string, string>();
-      if (userIds.size > 0) {
-        const { data: users } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name')
-          .in('user_id', Array.from(userIds));
         
-        userMap = new Map((users || []).map(u => [u.user_id, `${u.first_name} ${u.last_name}`]));
-      }
-      
-      // Fetch reason names
-      let reasonMap = new Map<string, string>();
-      if (reasonIds.size > 0) {
-        const { data: reasons } = await supabase
-          .from('non_purchase_reasons')
-          .select('id, name')
-          .in('id', Array.from(reasonIds));
+        const callDateKey = format(callDate, 'yyyy-MM-dd');
         
-        reasonMap = new Map((reasons || []).map(r => [r.id, r.name]));
-      }
-      
-      // Update with fetched data - map attendance to get user/reason
-      for (const call of callsWithRecordNoSale) {
-        const phone = call.number;
-        const parsedDate = parseDate3c(call.created_at);
-        if (parsedDate) {
-          const dateKey = format(parsedDate, 'yyyy-MM-dd');
-          const key = `${phone}_${dateKey}`;
-          const attendance = attendanceByPhoneDate.get(key);
-          if (attendance) {
-            call.user_name = attendance.user_id ? userMap.get(attendance.user_id) || 'Desconhecido' : 'Desconhecido';
-            call.reason_name = attendance.non_purchase_reason_id ? reasonMap.get(attendance.non_purchase_reason_id) || '' : '';
-          }
+        // Find matching attendance by phone (fuzzy) and same date
+        const matchedAtt = (attendances || []).find(att => {
+          const attPhone = att.phone_searched?.replace(/\D/g, '') || '';
+          const attDateKey = format(new Date(att.created_at), 'yyyy-MM-dd');
+          return phonesMatch(call.number, attPhone) && callDateKey === attDateKey;
+        });
+        
+        if (!matchedAtt) {
+          callsWithoutRecord.push(call);
+          continue;
+        }
+        
+        const lead = matchedAtt.lead_id ? leadMap.get(matchedAtt.lead_id) : null;
+        const sale = matchedAtt.sale_id ? saleMap.get(matchedAtt.sale_id) : null;
+        
+        const enriched: Call3cData & MatchedAttendance = {
+          ...call,
+          receptive_id: matchedAtt.id,
+          user_name: matchedAtt.user_id ? userMap.get(matchedAtt.user_id) || 'Desconhecido' : '-',
+          conversation_mode: matchedAtt.conversation_mode || '',
+          lead_name: lead?.name || '-',
+          lead_stage: lead?.stage || '-',
+          product_name: matchedAtt.product_id ? productMap.get(matchedAtt.product_id) || '-' : '-',
+          sale_id: matchedAtt.sale_id,
+          sale_total_cents: sale?.total_cents || null,
+          sale_status: sale?.status || null,
+          reason_name: matchedAtt.non_purchase_reason_id ? reasonMap.get(matchedAtt.non_purchase_reason_id) || '' : '',
+          completed: matchedAtt.completed || false,
+          attendance_created_at: matchedAtt.created_at,
+        };
+        
+        if (matchedAtt.sale_id) {
+          callsWithRecordAndSale.push(enriched);
+        } else {
+          callsWithRecordNoSale.push(enriched);
         }
       }
       
       const validationResult: ValidationResult = {
         callsWithoutRecord,
         callsWithRecordNoSale,
+        callsWithRecordAndSale,
       };
       
       setResult(validationResult);
@@ -275,6 +277,11 @@ export default function Voip3cValidation() {
       setProcessing(false);
     }
   }, [file, profile, config, saveValidation]);
+
+  const formatCurrency = (cents: number | null) => {
+    if (!cents) return '-';
+    return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
+  };
   
   return (
     <Layout>
@@ -386,35 +393,185 @@ export default function Voip3cValidation() {
                 <FileText className="w-5 h-5" />
                 Resultado da Validação
               </CardTitle>
-              <div className="flex gap-4 mt-2">
+              <div className="flex flex-wrap gap-3 mt-2">
                 <Badge variant="outline" className="text-base">
                   Total: {totalCalls} ligações
+                </Badge>
+                {result.callsWithRecordAndSale.length > 0 && (
+                  <Badge className="text-base bg-green-600 hover:bg-green-700">
+                    <DollarSign className="w-4 h-4 mr-1" />
+                    Com venda: {result.callsWithRecordAndSale.length}
+                  </Badge>
+                )}
+                <Badge variant="secondary" className="text-base">
+                  <ShoppingCart className="w-4 h-4 mr-1" />
+                  Sem venda: {result.callsWithRecordNoSale.length}
                 </Badge>
                 <Badge variant="destructive" className="text-base">
                   <PhoneOff className="w-4 h-4 mr-1" />
                   Sem registro: {result.callsWithoutRecord.length}
                 </Badge>
-                <Badge variant="secondary" className="text-base">
-                  <ShoppingCart className="w-4 h-4 mr-1" />
-                  Sem venda: {result.callsWithRecordNoSale.length}
-                </Badge>
               </div>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="without-record">
+              <Tabs defaultValue={
+                result.callsWithRecordAndSale.length > 0 ? 'with-sale' :
+                result.callsWithRecordNoSale.length > 0 ? 'no-sale' : 'without-record'
+              }>
                 <TabsList className="mb-4">
+                  {result.callsWithRecordAndSale.length > 0 && (
+                    <TabsTrigger value="with-sale" className="gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Com Venda ({result.callsWithRecordAndSale.length})
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger value="no-sale" className="gap-2">
+                    <ShoppingCart className="w-4 h-4" />
+                    Sem Venda ({result.callsWithRecordNoSale.length})
+                  </TabsTrigger>
                   <TabsTrigger value="without-record" className="gap-2">
                     <AlertCircle className="w-4 h-4" />
                     Sem Registro ({result.callsWithoutRecord.length})
                   </TabsTrigger>
-                  <TabsTrigger value="no-sale" className="gap-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    Sem Venda ({result.callsWithRecordNoSale.length})
-                  </TabsTrigger>
                 </TabsList>
                 
+                {/* COM VENDA */}
+                <TabsContent value="with-sale">
+                  <div className="border rounded-lg overflow-auto max-h-[600px]">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background">
+                        <TableRow>
+                          <TableHead>Telefone</TableHead>
+                          <TableHead>Lead</TableHead>
+                          <TableHead>Vendedor</TableHead>
+                          <TableHead>Modo</TableHead>
+                          <TableHead>Produto</TableHead>
+                          <TableHead>Valor Venda</TableHead>
+                          <TableHead>Hora 3C+</TableHead>
+                          <TableHead>Hora Registro</TableHead>
+                          <TableHead>Completo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {result.callsWithRecordAndSale.map((call, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-mono text-sm">{call.number}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="font-medium text-sm">{call.lead_name}</span>
+                                <span className="text-xs text-muted-foreground">{call.lead_stage}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <User className="w-3 h-3 text-muted-foreground" />
+                                <span className="text-sm">{call.user_name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {CONVERSATION_MODE_LABELS[call.conversation_mode] || call.conversation_mode || '-'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm">{call.product_name}</TableCell>
+                            <TableCell>
+                              <Badge className="bg-green-600 hover:bg-green-700 text-xs">
+                                {formatCurrency(call.sale_total_cents)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {format(new Date(call.attendance_created_at), "dd/MM HH:mm", { locale: ptBR })}
+                            </TableCell>
+                            <TableCell>
+                              {call.completed ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <AlertCircle className="w-4 h-4 text-yellow-500" />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+                
+                {/* SEM VENDA */}
+                <TabsContent value="no-sale">
+                  <div className="border rounded-lg overflow-auto max-h-[600px]">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background">
+                        <TableRow>
+                          <TableHead>Telefone</TableHead>
+                          <TableHead>Lead</TableHead>
+                          <TableHead>Vendedor</TableHead>
+                          <TableHead>Modo</TableHead>
+                          <TableHead>Produto</TableHead>
+                          <TableHead>Motivo</TableHead>
+                          <TableHead>Hora 3C+</TableHead>
+                          <TableHead>Hora Registro</TableHead>
+                          <TableHead>Completo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {result.callsWithRecordNoSale.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                              Todos os registros têm venda! 🎉
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          result.callsWithRecordNoSale.map((call, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="font-mono text-sm">{call.number}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm">{call.lead_name}</span>
+                                  <span className="text-xs text-muted-foreground">{call.lead_stage}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <User className="w-3 h-3 text-muted-foreground" />
+                                  <span className="text-sm">{call.user_name}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {CONVERSATION_MODE_LABELS[call.conversation_mode] || call.conversation_mode || '-'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm">{call.product_name}</TableCell>
+                              <TableCell>
+                                {call.reason_name ? (
+                                  <Badge variant="secondary" className="text-xs">{call.reason_name}</Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
+                              <TableCell className="text-xs text-muted-foreground">
+                                {format(new Date(call.attendance_created_at), "dd/MM HH:mm", { locale: ptBR })}
+                              </TableCell>
+                              <TableCell>
+                                {call.completed ? (
+                                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                ) : (
+                                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+                
+                {/* SEM REGISTRO */}
                 <TabsContent value="without-record">
-                  <div className="border rounded-lg overflow-auto max-h-[500px]">
+                  <div className="border rounded-lg overflow-auto max-h-[600px]">
                     <Table>
                       <TableHeader className="sticky top-0 bg-background">
                         <TableRow>
@@ -444,51 +601,6 @@ export default function Voip3cValidation() {
                               </TableCell>
                               <TableCell>{call.readable_status_text}</TableCell>
                               <TableCell>{call.agent_name || '-'}</TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="no-sale">
-                  <div className="border rounded-lg overflow-auto max-h-[500px]">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-background">
-                        <TableRow>
-                          <TableHead>Telefone</TableHead>
-                          <TableHead>Data/Hora</TableHead>
-                          <TableHead>Queue (origem)</TableHead>
-                          <TableHead>Vendedor</TableHead>
-                          <TableHead>Motivo</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {result.callsWithRecordNoSale.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                              Todos os registros têm venda! 🎉
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          result.callsWithRecordNoSale.map((call, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell className="font-mono">{call.number}</TableCell>
-                              <TableCell>{call.created_at}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="text-xs">
-                                  {call.source_queue_name || call.queue_name || 'N/A'}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{call.user_name}</TableCell>
-                              <TableCell>
-                                {call.reason_name ? (
-                                  <Badge variant="secondary">{call.reason_name}</Badge>
-                                ) : (
-                                  <span className="text-muted-foreground">-</span>
-                                )}
-                              </TableCell>
                             </TableRow>
                           ))
                         )}
