@@ -73,20 +73,55 @@ serve(async (req) => {
       });
 
       // =========================
-      // FIND INSTAGRAM INSTANCE
+      // FIND OR CREATE INSTAGRAM INSTANCE
       // =========================
-      // Look for an instagram instance linked to this org via SendPulse
-      const { data: instance } = await supabase
+      let { data: instance } = await supabase
         .from("whatsapp_instances")
         .select("id, organization_id, name, channel_type, distribution_mode")
         .eq("channel_type", "instagram")
-        .eq("is_connected", true)
+        .is("deleted_at", null)
         .limit(1)
         .maybeSingle();
 
       if (!instance) {
-        console.warn("📸 No active Instagram instance found");
-        continue;
+        // Auto-create Instagram instance on first message
+        // Find the organization that owns this bot (use the first org with active whatsapp instances)
+        const { data: refInstance } = await supabase
+          .from("whatsapp_instances")
+          .select("organization_id")
+          .is("deleted_at", null)
+          .limit(1)
+          .maybeSingle();
+
+        const orgId = refInstance?.organization_id;
+        if (!orgId) {
+          console.warn("📸 No organization found to create Instagram instance");
+          continue;
+        }
+
+        const botName = bot?.name || "Thiago Rocha";
+        const { data: newInstance, error: createInstErr } = await supabase
+          .from("whatsapp_instances")
+          .insert({
+            organization_id: orgId,
+            name: `Instagram - ${botName}`,
+            channel_type: "instagram",
+            is_connected: true,
+            distribution_mode: "manual",
+            instagram_username: botName,
+          })
+          .select("id, organization_id, name, channel_type, distribution_mode")
+          .single();
+
+        if (createInstErr || !newInstance) {
+          console.error("📸 Error creating Instagram instance:", createInstErr);
+          continue;
+        }
+        instance = newInstance;
+        console.log("📸 Auto-created Instagram instance:", newInstance.id);
+      } else if (!instance.is_connected) {
+        // Ensure it's marked as connected
+        await supabase.from("whatsapp_instances").update({ is_connected: true }).eq("id", instance.id);
       }
 
       const organizationId = instance.organization_id;
