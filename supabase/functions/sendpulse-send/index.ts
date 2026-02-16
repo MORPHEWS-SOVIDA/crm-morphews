@@ -87,6 +87,7 @@ serve(async (req) => {
     const token = await getSendPulseToken();
 
     // Send message via SendPulse Instagram API
+    // Docs: POST /instagram/contacts/send requires "contact_id" and "messages" array
     const sendRes = await fetch("https://api.sendpulse.com/instagram/contacts/send", {
       method: "POST",
       headers: {
@@ -95,12 +96,14 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         contact_id: spContactId,
-        message: {
-          type: "text",
-          text: {
-            text: content,
+        messages: [
+          {
+            type: "text",
+            message: {
+              text: content,
+            },
           },
-        },
+        ],
       }),
     });
 
