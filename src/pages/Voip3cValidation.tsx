@@ -44,6 +44,7 @@ import {
   Call3cData,
   ValidationResult,
   MatchedAttendance,
+  LeadOnlyMatch,
   CONVERSATION_MODE_LABELS,
 } from '@/hooks/useVoip3cValidation';
 
@@ -201,10 +202,44 @@ export default function Voip3cValidation() {
       const saleMap = new Map((salesRes.data || []).map(s => [s.id, s]));
       const reasonMap = new Map((reasonsRes.data || []).map(r => [r.id, r.name]));
       
+      // Also fetch all leads to match by phone when no attendance exists
+      const { data: allLeads } = await supabase
+        .from('leads')
+        .select('id, name, whatsapp, stage, assigned_to')
+        .eq('organization_id', profile.organization_id);
+      
+      // Fetch followups for leads
+      const allLeadIds = (allLeads || []).map(l => l.id);
+      const { data: followups } = allLeadIds.length > 0
+        ? await supabase
+            .from('lead_followups')
+            .select('lead_id, reason, scheduled_at')
+            .in('lead_id', allLeadIds)
+            .order('scheduled_at', { ascending: false })
+        : { data: [] };
+      
+      const followupMap = new Map<string, { reason: string; scheduled_at: string }>();
+      for (const f of followups || []) {
+        if (!followupMap.has(f.lead_id)) {
+          followupMap.set(f.lead_id, { reason: f.reason, scheduled_at: f.scheduled_at });
+        }
+      }
+      
+      // Fetch responsible names for leads
+      const responsibleIds = new Set<string>();
+      for (const l of allLeads || []) {
+        if (l.assigned_to) responsibleIds.add(l.assigned_to);
+      }
+      const { data: responsibles } = responsibleIds.size > 0
+        ? await supabase.from('profiles').select('user_id, first_name, last_name').in('user_id', Array.from(responsibleIds))
+        : { data: [] };
+      const responsibleMap = new Map((responsibles || []).map(u => [u.user_id, `${u.first_name || ''} ${u.last_name || ''}`.trim()]));
+      
       // Match calls to attendances using fuzzy phone matching
       const callsWithoutRecord: Call3cData[] = [];
       const callsWithRecordNoSale: Array<Call3cData & MatchedAttendance> = [];
       const callsWithRecordAndSale: Array<Call3cData & MatchedAttendance> = [];
+      const callsWithLeadOnly: Array<Call3cData & LeadOnlyMatch> = [];
       
       for (const call of filteredCalls) {
         const callDate = parseDate3c(call.created_at);
@@ -222,41 +257,63 @@ export default function Voip3cValidation() {
           return phonesMatch(call.number, attPhone) && callDateKey === attDateKey;
         });
         
-        if (!matchedAtt) {
-          callsWithoutRecord.push(call);
+        if (matchedAtt) {
+          const lead = matchedAtt.lead_id ? leadMap.get(matchedAtt.lead_id) : null;
+          const sale = matchedAtt.sale_id ? saleMap.get(matchedAtt.sale_id) : null;
+          
+          const enriched: Call3cData & MatchedAttendance = {
+            ...call,
+            receptive_id: matchedAtt.id,
+            user_name: matchedAtt.user_id ? userMap.get(matchedAtt.user_id) || 'Desconhecido' : '-',
+            conversation_mode: matchedAtt.conversation_mode || '',
+            lead_name: lead?.name || '-',
+            lead_stage: lead?.stage || '-',
+            product_name: matchedAtt.product_id ? productMap.get(matchedAtt.product_id) || '-' : '-',
+            sale_id: matchedAtt.sale_id,
+            sale_total_cents: sale?.total_cents || null,
+            sale_status: sale?.status || null,
+            reason_name: matchedAtt.non_purchase_reason_id ? reasonMap.get(matchedAtt.non_purchase_reason_id) || '' : '',
+            completed: matchedAtt.completed || false,
+            attendance_created_at: matchedAtt.created_at,
+          };
+          
+          if (matchedAtt.sale_id) {
+            callsWithRecordAndSale.push(enriched);
+          } else {
+            callsWithRecordNoSale.push(enriched);
+          }
           continue;
         }
         
-        const lead = matchedAtt.lead_id ? leadMap.get(matchedAtt.lead_id) : null;
-        const sale = matchedAtt.sale_id ? saleMap.get(matchedAtt.sale_id) : null;
+        // No attendance found - check if lead exists by phone
+        const matchedLead = (allLeads || []).find(l => {
+          const leadPhone = l.whatsapp?.replace(/\D/g, '') || '';
+          return phonesMatch(call.number, leadPhone);
+        });
         
-        const enriched: Call3cData & MatchedAttendance = {
-          ...call,
-          receptive_id: matchedAtt.id,
-          user_name: matchedAtt.user_id ? userMap.get(matchedAtt.user_id) || 'Desconhecido' : '-',
-          conversation_mode: matchedAtt.conversation_mode || '',
-          lead_name: lead?.name || '-',
-          lead_stage: lead?.stage || '-',
-          product_name: matchedAtt.product_id ? productMap.get(matchedAtt.product_id) || '-' : '-',
-          sale_id: matchedAtt.sale_id,
-          sale_total_cents: sale?.total_cents || null,
-          sale_status: sale?.status || null,
-          reason_name: matchedAtt.non_purchase_reason_id ? reasonMap.get(matchedAtt.non_purchase_reason_id) || '' : '',
-          completed: matchedAtt.completed || false,
-          attendance_created_at: matchedAtt.created_at,
-        };
-        
-        if (matchedAtt.sale_id) {
-          callsWithRecordAndSale.push(enriched);
-        } else {
-          callsWithRecordNoSale.push(enriched);
+        if (matchedLead) {
+          const fu = followupMap.get(matchedLead.id);
+          callsWithLeadOnly.push({
+            ...call,
+            lead_id: matchedLead.id,
+            lead_name: matchedLead.name || '-',
+            lead_stage: matchedLead.stage || '-',
+            lead_whatsapp: matchedLead.whatsapp || '',
+            followup_reason: fu?.reason || null,
+            followup_scheduled_at: fu?.scheduled_at || null,
+            responsible_name: matchedLead.assigned_to ? responsibleMap.get(matchedLead.assigned_to) || null : null,
+          });
+          continue;
         }
+        
+        callsWithoutRecord.push(call);
       }
       
       const validationResult: ValidationResult = {
         callsWithoutRecord,
         callsWithRecordNoSale,
         callsWithRecordAndSale,
+        callsWithLeadOnly,
       };
       
       setResult(validationResult);
@@ -407,6 +464,12 @@ export default function Voip3cValidation() {
                   <ShoppingCart className="w-4 h-4 mr-1" />
                   Sem venda: {result.callsWithRecordNoSale.length}
                 </Badge>
+                {result.callsWithLeadOnly.length > 0 && (
+                  <Badge className="text-base bg-yellow-600 hover:bg-yellow-700">
+                    <User className="w-4 h-4 mr-1" />
+                    Lead sem Receptivo: {result.callsWithLeadOnly.length}
+                  </Badge>
+                )}
                 <Badge variant="destructive" className="text-base">
                   <PhoneOff className="w-4 h-4 mr-1" />
                   Sem registro: {result.callsWithoutRecord.length}
@@ -429,6 +492,12 @@ export default function Voip3cValidation() {
                     <ShoppingCart className="w-4 h-4" />
                     Sem Venda ({result.callsWithRecordNoSale.length})
                   </TabsTrigger>
+                  {result.callsWithLeadOnly.length > 0 && (
+                    <TabsTrigger value="lead-only" className="gap-2">
+                      <User className="w-4 h-4" />
+                      Lead sem Receptivo ({result.callsWithLeadOnly.length})
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="without-record" className="gap-2">
                     <AlertCircle className="w-4 h-4" />
                     Sem Registro ({result.callsWithoutRecord.length})
@@ -564,6 +633,53 @@ export default function Voip3cValidation() {
                             </TableRow>
                           ))
                         )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+                
+                {/* LEAD SEM RECEPTIVO */}
+                <TabsContent value="lead-only">
+                  <div className="border rounded-lg overflow-auto max-h-[600px]">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background">
+                        <TableRow>
+                          <TableHead>Telefone</TableHead>
+                          <TableHead>Lead</TableHead>
+                          <TableHead>Etapa Funil</TableHead>
+                          <TableHead>Responsável</TableHead>
+                          <TableHead>Follow-up</TableHead>
+                          <TableHead>Hora 3C+</TableHead>
+                          <TableHead>Atendente 3C+</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {result.callsWithLeadOnly.map((call, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-mono text-sm">{call.number}</TableCell>
+                            <TableCell className="font-medium text-sm">{call.lead_name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">{call.lead_stage}</Badge>
+                            </TableCell>
+                            <TableCell className="text-sm">{call.responsible_name || '-'}</TableCell>
+                            <TableCell>
+                              {call.followup_reason ? (
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-medium">{call.followup_reason}</span>
+                                  {call.followup_scheduled_at && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(call.followup_scheduled_at), "dd/MM HH:mm", { locale: ptBR })}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Sem follow-up</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
+                            <TableCell className="text-sm">{call.agent_name || '-'}</TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </div>

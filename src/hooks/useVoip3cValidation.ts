@@ -38,10 +38,21 @@ export interface MatchedAttendance {
   attendance_created_at: string;
 }
 
+export interface LeadOnlyMatch {
+  lead_id: string;
+  lead_name: string;
+  lead_stage: string;
+  lead_whatsapp: string;
+  followup_reason: string | null;
+  followup_scheduled_at: string | null;
+  responsible_name: string | null;
+}
+
 export interface ValidationResult {
   callsWithoutRecord: Call3cData[];
   callsWithRecordNoSale: Array<Call3cData & MatchedAttendance>;
   callsWithRecordAndSale: Array<Call3cData & MatchedAttendance>;
+  callsWithLeadOnly: Array<Call3cData & LeadOnlyMatch>;
 }
 
 export interface Voip3cValidation {
