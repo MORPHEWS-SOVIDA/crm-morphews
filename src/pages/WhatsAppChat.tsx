@@ -2126,6 +2126,26 @@ export default function WhatsAppChat() {
                         </span>
                         <Button
                           size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (selectedConversation) {
+                              handleCloseConversationById(selectedConversation.id);
+                            }
+                          }}
+                          disabled={
+                            !selectedConversation ||
+                            closingConversationId === selectedConversation?.id ||
+                            closeConversation.isPending
+                          }
+                          className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          {closingConversationId === selectedConversation?.id
+                            ? 'Encerrando...'
+                            : 'Encerrar'}
+                        </Button>
+                        <Button
+                          size="sm"
                           onClick={() => {
                             if (selectedConversation) {
                               handleClaimConversation(selectedConversation.id);
