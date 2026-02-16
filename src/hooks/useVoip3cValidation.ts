@@ -21,6 +21,7 @@ export interface Call3cData {
   product_interest: string;
   loss_reason: string;
   agent_name: string;
+  speaking_time_seconds: number;
 }
 
 export interface MatchedAttendance {
@@ -219,6 +220,7 @@ export function parseCsv3c(csvContent: string): Call3cData[] {
   const createdAtIdx = header.indexOf('created_at');
   const statusIdx = header.indexOf('readable_status_text');
   const agentNameIdx = header.indexOf('agent_name');
+  const speakingTimeIdx = header.indexOf('speaking_with_agent_time');
   
   // Find source queue name (in mailing_data.data.queue_name)
   const sourceQueueIdx = header.findIndex(h => h.includes('mailing_data.data.queue_name'));
@@ -241,6 +243,7 @@ export function parseCsv3c(csvContent: string): Call3cData[] {
     const number = values[numberIdx]?.replace(/"/g, '').trim();
     if (!number) continue;
     
+    const speakingRaw = speakingTimeIdx >= 0 ? values[speakingTimeIdx]?.replace(/"/g, '').trim() || '0' : '0';
     calls.push({
       number: normalizePhone(number),
       queue_name: values[queueNameIdx]?.replace(/"/g, '').trim() || '',
@@ -250,6 +253,7 @@ export function parseCsv3c(csvContent: string): Call3cData[] {
       product_interest: productIdx >= 0 ? values[productIdx]?.replace(/"/g, '').trim() || '' : '',
       loss_reason: lossReasonIdx >= 0 ? values[lossReasonIdx]?.replace(/"/g, '').trim() || '' : '',
       agent_name: values[agentNameIdx]?.replace(/"/g, '').trim() || '',
+      speaking_time_seconds: parseSpeakingTime(speakingRaw),
     });
   }
   
@@ -278,8 +282,30 @@ function parseCsvLine(line: string): string[] {
 }
 
 function normalizePhone(phone: string): string {
-  // Remove all non-digits
   return phone.replace(/\D/g, '');
+}
+
+/** Parse speaking time from various formats: seconds number, "HH:MM:SS", "MM:SS" */
+function parseSpeakingTime(raw: string): number {
+  if (!raw || raw === '0') return 0;
+  // If it contains ":", parse as time
+  if (raw.includes(':')) {
+    const parts = raw.split(':').map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 0;
+  }
+  return parseInt(raw) || 0;
+}
+
+/** Format seconds to readable MM:SS or HH:MM:SS */
+export function formatSpeakingTime(seconds: number): string {
+  if (!seconds || seconds <= 0) return '0:00';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 export function parseDate3c(dateStr: string): Date | null {
