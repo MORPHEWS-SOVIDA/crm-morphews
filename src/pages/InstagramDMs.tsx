@@ -70,7 +70,7 @@ export default function InstagramDMs() {
               <RefreshCw className="h-4 w-4 mr-1" />
               Atualizar
             </Button>
-            <Button onClick={() => navigate('/whatsapp')}>
+            <Button onClick={() => navigate('/whatsapp/chat')}>
               <ExternalLink className="h-4 w-4 mr-1" />
               Abrir Inbox
             </Button>
@@ -159,7 +159,7 @@ export default function InstagramDMs() {
                   </p>
                   <Button 
                     variant="outline" size="sm" className="w-full"
-                    onClick={() => navigate('/whatsapp')}
+                    onClick={() => navigate('/whatsapp/chat')}
                   >
                     <ExternalLink className="h-3 w-3 mr-1" />
                     Ver conversas no Inbox
