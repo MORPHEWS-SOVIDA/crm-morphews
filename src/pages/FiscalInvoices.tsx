@@ -426,71 +426,69 @@ export default function FiscalInvoices() {
           </Card>
 
           {/* Actions Sidebar */}
-          <Card className="w-64 shrink-0 h-fit">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Ações</CardTitle>
+          <Card className="w-72 shrink-0 h-fit sticky top-6">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Ações</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="px-3 pb-4 space-y-1">
+              {/* Batch actions on selected */}
+              <p className="text-[11px] font-medium text-muted-foreground px-2 pt-1 pb-1">Selecionadas</p>
               <Button
                 variant="ghost"
-                className="w-full justify-start"
-                size="sm"
+                className="w-full justify-start text-sm h-9 px-3 gap-2.5 font-normal"
                 disabled={selectedIds.length === 0 || sendInvoice.isPending}
                 onClick={handleBatchSend}
               >
                 {sendInvoice.isPending ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
                 ) : (
-                <Send className="w-4 h-4 mr-2" />
+                  <Send className="w-4 h-4 shrink-0" />
                 )}
-                Enviar NF-es selecionadas
+                <span className="truncate">Enviar NF-es selecionadas</span>
               </Button>
               <Button
                 variant="ghost"
-                className="w-full justify-start"
-                size="sm"
+                className="w-full justify-start text-sm h-9 px-3 gap-2.5 font-normal"
                 disabled={selectedIds.length === 0}
                 onClick={handleBatchPrint}
               >
-                <Printer className="w-4 h-4 mr-2" />
-                Imprimir NF-es selecionadas
+                <Printer className="w-4 h-4 shrink-0" />
+                <span className="truncate">Imprimir NF-es selecionadas</span>
               </Button>
               <Button
                 variant="ghost"
-                className="w-full justify-start"
-                size="sm"
+                className="w-full justify-start text-sm h-9 px-3 gap-2.5 font-normal"
                 disabled={selectedIds.length === 0}
               >
-                <Mail className="w-4 h-4 mr-2" />
-                Enviar dados para loja virtual
+                <Mail className="w-4 h-4 shrink-0" />
+                <span className="truncate">Enviar para loja virtual</span>
               </Button>
 
-              <div className="border-t my-3" />
+              <Separator className="!my-2.5" />
 
+              {/* General actions */}
+              <p className="text-[11px] font-medium text-muted-foreground px-2 pt-1 pb-1">Geral</p>
               <Button
                 variant="ghost"
-                className="w-full justify-start"
-                size="sm"
+                className="w-full justify-start text-sm h-9 px-3 gap-2.5 font-normal"
                 disabled={processingCount === 0 || refreshAllProcessing.isPending}
                 onClick={() => refreshAllProcessing.mutate()}
               >
                 {refreshAllProcessing.isPending ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
                 ) : (
-                  <RefreshCw className="w-4 h-4 mr-2" />
+                  <RefreshCw className="w-4 h-4 shrink-0" />
                 )}
-                Atualizar todas em processamento
+                <span className="truncate">Atualizar em processamento</span>
                 {processingCount > 0 && (
-                  <Badge variant="secondary" className="ml-auto text-xs">
+                  <Badge variant="secondary" className="ml-auto text-[10px] h-5 px-1.5">
                     {processingCount}
                   </Badge>
                 )}
               </Button>
-
               <Button
                 variant="ghost"
-                className="w-full justify-start"
-                size="sm"
+                className="w-full justify-start text-sm h-9 px-3 gap-2.5 font-normal"
                 onClick={() => {
                   const pending = invoices.filter(i => i.status === 'pending');
                   if (pending.length === 0) {
@@ -500,69 +498,63 @@ export default function FiscalInvoices() {
                   toast({ title: `${pending.length} notas pendentes` });
                 }}
               >
-                <Send className="w-4 h-4 mr-2" />
-                Enviar notas pendentes
+                <Send className="w-4 h-4 shrink-0" />
+                <span className="truncate">Enviar notas pendentes</span>
               </Button>
               <Button
                 variant="ghost"
-                className="w-full justify-start"
-                size="sm"
+                className="w-full justify-start text-sm h-9 px-3 gap-2.5 font-normal"
                 disabled={selectedIds.length === 0}
                 onClick={handleBatchPrint}
               >
-                <FileText className="w-4 h-4 mr-2" />
-                Gerar PDF DANFE
+                <FileText className="w-4 h-4 shrink-0" />
+                <span className="truncate">Gerar PDF DANFE</span>
               </Button>
               <Button
                 variant="ghost"
-                className="w-full justify-start"
-                size="sm"
+                className="w-full justify-start text-sm h-9 px-3 gap-2.5 font-normal"
                 disabled={selectedIds.length === 0}
                 onClick={handleBatchExportXML}
               >
-              <Download className="w-4 h-4 mr-2" />
-                Exportar XML
+                <Download className="w-4 h-4 shrink-0" />
+                <span className="truncate">Exportar XML</span>
               </Button>
 
-              <Separator className="my-3" />
+              <Separator className="!my-2.5" />
 
-              {/* Outras ações */}
-              <p className="text-xs font-medium text-muted-foreground mb-2">Outros</p>
+              <p className="text-[11px] font-medium text-muted-foreground px-2 pt-1 pb-1">Outros</p>
               <Button
                 variant="ghost"
-                className="w-full justify-start text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                size="sm"
+                className="w-full justify-start text-sm h-9 px-3 gap-2.5 font-normal text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                 onClick={() => setShowInvalidateDialog(true)}
               >
-                <Ban className="w-4 h-4 mr-2" />
-                Inutilizar numeração
+                <Ban className="w-4 h-4 shrink-0" />
+                <span className="truncate">Inutilizar numeração</span>
               </Button>
 
-              <Separator className="my-3" />
+              <Separator className="!my-2.5" />
 
-              {/* Configurações */}
-              <p className="text-xs font-medium text-muted-foreground mb-2">Configurações</p>
+              <p className="text-[11px] font-medium text-muted-foreground px-2 pt-1 pb-1">Configurações</p>
               <Button
                 variant="ghost"
-                className="w-full justify-start"
-                size="sm"
+                className="w-full justify-start text-sm h-9 px-3 gap-2.5 font-normal"
                 onClick={() => setShowAutoSendDialog(true)}
               >
-                <Settings className="w-4 h-4 mr-2" />
-                Envio automático
+                <Settings className="w-4 h-4 shrink-0" />
+                <span className="truncate">Envio automático</span>
               </Button>
 
-              <Separator className="my-3" />
+              <Separator className="!my-2.5" />
 
               {/* Summary */}
-              <div className="text-sm space-y-1">
+              <div className="text-sm space-y-1.5 px-2 pt-1">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Quantidade de notas</span>
-                  <span className="font-medium text-foreground">{summary.count}</span>
+                  <span>Quantidade</span>
+                  <span className="font-semibold text-foreground">{summary.count}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Valor total</span>
-                  <span className="font-medium text-foreground">
+                  <span className="font-semibold text-foreground">
                     {formatCurrency(summary.totalCents)}
                   </span>
                 </div>
