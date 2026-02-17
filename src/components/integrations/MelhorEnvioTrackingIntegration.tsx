@@ -38,6 +38,7 @@ import { TrackingStatusMessageEditor } from '@/components/settings/TrackingStatu
 import { toast } from 'sonner';
 
 const statusIcons: Record<string, React.ReactNode> = {
+  label_generated: <Package className="w-4 h-4" />,
   waiting_post: <Package className="w-4 h-4" />,
   posted: <Truck className="w-4 h-4" />,
   in_destination_city: <MapPin className="w-4 h-4" />,
