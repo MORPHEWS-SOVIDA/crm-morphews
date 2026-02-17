@@ -60,6 +60,7 @@ import { useConversationDistribution } from '@/hooks/useConversationDistribution
 // Removido: useCrossInstanceConversations - cada conversa agora é um item separado
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QuickLeadActions } from '@/components/whatsapp/QuickLeadActions';
+import { SocialSellingQuickActions } from '@/components/whatsapp/SocialSellingQuickActions';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileConversationTabs, MobileConversationItem, MobileHeader, SwipeableConversationItem, MobileLeadDrawer } from '@/components/whatsapp/mobile';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from '@/components/ui/drawer';
@@ -113,6 +114,7 @@ interface Lead {
   stage: string;
   stars: number;
   funnel_stage_id?: string | null;
+  source?: string | null;
 }
 
 interface Instance {
@@ -2357,6 +2359,16 @@ export default function WhatsAppChat() {
                         />
                       </div>
                     </div>
+
+                    {/* Social Selling quick actions - only for social selling leads */}
+                    {lead.source === 'social_selling' && (
+                      <div>
+                        <SocialSellingQuickActions
+                          leadId={lead.id}
+                          leadInstagram={lead.instagram}
+                        />
+                      </div>
+                    )}
 
                     {/* Instância ativa (sub-aba) */}
                     <div>

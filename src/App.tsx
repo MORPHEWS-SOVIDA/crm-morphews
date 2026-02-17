@@ -105,6 +105,7 @@ const InstagramDMs = lazy(() => import("./pages/InstagramDMs"));
 const MessagingMetricsPage = lazy(() => import("./pages/MessagingMetricsPage"));
 const SocialSelling = lazy(() => import("./pages/SocialSelling"));
 const SocialSellingImport = lazy(() => import("./pages/SocialSellingImport"));
+const SocialSellingEvolution = lazy(() => import("./pages/SocialSellingEvolution"));
 
 // Team & Settings
 const Team = lazy(() => import("./pages/Team"));
@@ -394,6 +395,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['instagram_view']}>
                       <SocialSellingImport />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/instagram/social-selling/evolucao"
+                  element={
+                    <ProtectedRoute requiredPermissions={['instagram_view']}>
+                      <SocialSellingEvolution />
                     </ProtectedRoute>
                   }
                 />
