@@ -20,6 +20,8 @@ export interface FiscalAutoSendConfig {
   // WhatsApp
   whatsapp_enabled: boolean;
   whatsapp_instance_id?: string;
+  whatsapp_instance_id_2?: string;
+  whatsapp_instance_id_3?: string;
   whatsapp_message_template?: string;
   whatsapp_send_danfe: boolean;
   whatsapp_send_xml: boolean;

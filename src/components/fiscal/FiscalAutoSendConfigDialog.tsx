@@ -62,6 +62,8 @@ Atenciosamente,
   // WhatsApp form state
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [whatsappInstanceId, setWhatsappInstanceId] = useState('');
+  const [whatsappInstanceId2, setWhatsappInstanceId2] = useState('');
+  const [whatsappInstanceId3, setWhatsappInstanceId3] = useState('');
   const [whatsappMessage, setWhatsappMessage] = useState(`🧾 Nota Fiscal #{invoice_number}
 
 Olá {recipient_name}! Sua nota fiscal foi emitida com sucesso.
@@ -86,6 +88,8 @@ Acesse o PDF da DANFE:
       setEmailSendXml(config.email_send_xml);
       setWhatsappEnabled(config.whatsapp_enabled);
       setWhatsappInstanceId(config.whatsapp_instance_id || '');
+      setWhatsappInstanceId2(config.whatsapp_instance_id_2 || '');
+      setWhatsappInstanceId3(config.whatsapp_instance_id_3 || '');
       setWhatsappMessage(config.whatsapp_message_template || whatsappMessage);
       setWhatsappSendDanfe(config.whatsapp_send_danfe);
       setWhatsappSendXml(config.whatsapp_send_xml);
@@ -115,14 +119,45 @@ Acesse o PDF da DANFE:
     await upsertConfig.mutateAsync({
       whatsapp_enabled: whatsappEnabled,
       whatsapp_instance_id: whatsappInstanceId || null,
+      whatsapp_instance_id_2: whatsappInstanceId2 || null,
+      whatsapp_instance_id_3: whatsappInstanceId3 || null,
       whatsapp_message_template: whatsappMessage,
       whatsapp_send_danfe: whatsappSendDanfe,
       whatsapp_send_xml: whatsappSendXml,
     });
   };
 
-  const connectedInstances = instances.filter(
-    (i) => i.is_connected
+  // All instances (show status indicator)
+  const allInstances = instances;
+
+  const renderInstanceSelect = (
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    placeholder: string
+  ) => (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">Nenhuma</SelectItem>
+          {allInstances.map((inst) => {
+            const isOnline = inst.is_connected;
+            return (
+              <SelectItem key={inst.id} value={inst.id}>
+                <span className="flex items-center gap-2">
+                  <span className={`inline-block w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+                  {inst.name} ({inst.phone_number || 'Sem número'})
+                </span>
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
+    </div>
   );
 
   const variablesHelp = [
@@ -307,28 +342,36 @@ Acesse o PDF da DANFE:
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {connectedInstances.length === 0 ? (
+                  {allInstances.length === 0 ? (
                     <Alert>
                       <Info className="h-4 w-4" />
                       <AlertDescription>
-                        Nenhuma instância WhatsApp conectada. Configure uma instância primeiro.
+                        Nenhuma instância WhatsApp encontrada. Configure uma instância primeiro.
                       </AlertDescription>
                     </Alert>
                   ) : (
-                    <div className="space-y-2">
-                      <Label>Instância de Envio</Label>
-                      <Select value={whatsappInstanceId} onValueChange={setWhatsappInstanceId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione uma instância" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {connectedInstances.map((inst) => (
-                            <SelectItem key={inst.id} value={inst.id}>
-                              {inst.name} ({inst.phone_number || 'Sem número'})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-3">
+                      {renderInstanceSelect(
+                        'Instância Principal',
+                        whatsappInstanceId,
+                        setWhatsappInstanceId,
+                        'Selecione a instância principal'
+                      )}
+                      {renderInstanceSelect(
+                        'Instância Reserva 1 (fallback)',
+                        whatsappInstanceId2,
+                        setWhatsappInstanceId2,
+                        'Opcional - caso a principal esteja offline'
+                      )}
+                      {renderInstanceSelect(
+                        'Instância Reserva 2 (fallback)',
+                        whatsappInstanceId3,
+                        setWhatsappInstanceId3,
+                        'Opcional - terceira opção'
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        🟢 Online  🔴 Offline — Se a instância principal estiver offline, o sistema tentará automaticamente as reservas.
+                      </p>
                     </div>
                   )}
 
