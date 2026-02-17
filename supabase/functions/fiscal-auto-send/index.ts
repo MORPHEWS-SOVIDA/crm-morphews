@@ -147,56 +147,79 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Send WhatsApp
-    if (config.whatsapp_enabled && config.whatsapp_instance_id && invoice.recipient_phone) {
-      try {
-        // Get instance details
-        const { data: instance } = await supabase
-          .from('whatsapp_instances')
-          .select('*')
-          .eq('id', config.whatsapp_instance_id)
-          .single();
+    // Send WhatsApp (with fallback instances)
+    if (config.whatsapp_enabled && invoice.recipient_phone) {
+      const instanceIds = [
+        config.whatsapp_instance_id,
+        config.whatsapp_instance_id_2,
+        config.whatsapp_instance_id_3,
+      ].filter(Boolean);
 
-        if (instance && instance.connection_status === 'open') {
-          const message = replaceVariables(config.whatsapp_message_template || '');
+      if (instanceIds.length === 0) {
+        results.errors.push('WhatsApp: Nenhuma instância configurada');
+      } else {
+        const message = replaceVariables(config.whatsapp_message_template || '');
+        const phone = String(invoice.recipient_phone).replace(/\D/g, '');
+        const formattedPhone = phone.startsWith('55') ? phone : `55${phone}`;
+        const remoteJid = `${formattedPhone}@s.whatsapp.net`;
 
-          // Clean phone number
-          const phone = String(invoice.recipient_phone).replace(/\D/g, '');
-          const formattedPhone = phone.startsWith('55') ? phone : `55${phone}`;
+        let sent = false;
+        for (const instanceId of instanceIds) {
+          try {
+            // Check if instance is online
+            const { data: instance } = await supabase
+              .from('whatsapp_instances')
+              .select('id, name, connection_status')
+              .eq('id', instanceId)
+              .single();
 
-          // Call evolution-send-message function
-          const { error: sendError } = await supabase.functions.invoke('evolution-send-message', {
-            body: {
-              instance_id: instance.id,
-              remote_jid: `${formattedPhone}@s.whatsapp.net`,
-              message_type: 'text',
-              content: message,
-            },
-          });
+            if (!instance || instance.connection_status !== 'open') {
+              console.log(`[fiscal-auto-send] Instance ${instance?.name || instanceId} is offline, trying next...`);
+              continue;
+            }
 
-          if (sendError) {
-            throw sendError;
-          }
+            console.log(`[fiscal-auto-send] Sending via instance: ${instance.name}`);
 
-          // Optionally send DANFE as document
-          if (config.whatsapp_send_danfe && invoice.pdf_url) {
-            await supabase.functions.invoke('evolution-send-message', {
+            const { error: sendError } = await supabase.functions.invoke('evolution-send-message', {
               body: {
                 instance_id: instance.id,
-                remote_jid: `${formattedPhone}@s.whatsapp.net`,
-                message_type: 'document',
-                content: invoice.pdf_url,
-                filename: `DANFE_${invoice.invoice_number}.pdf`,
+                remote_jid: remoteJid,
+                message_type: 'text',
+                content: message,
               },
             });
-          }
 
-          results.whatsapp_sent = true;
+            if (sendError) {
+              console.error(`[fiscal-auto-send] Failed on ${instance.name}:`, sendError);
+              continue;
+            }
+
+            // Send DANFE PDF if configured
+            if (config.whatsapp_send_danfe && invoice.pdf_url) {
+              await supabase.functions.invoke('evolution-send-message', {
+                body: {
+                  instance_id: instance.id,
+                  remote_jid: remoteJid,
+                  message_type: 'document',
+                  content: invoice.pdf_url,
+                  filename: `DANFE_${invoice.invoice_number}.pdf`,
+                },
+              });
+            }
+
+            results.whatsapp_sent = true;
+            sent = true;
+            console.log(`[fiscal-auto-send] WhatsApp sent successfully via ${instance.name}`);
+            break; // Success, no need to try fallbacks
+          } catch (err: any) {
+            console.error(`[fiscal-auto-send] Error with instance ${instanceId}:`, err);
+            continue;
+          }
         }
 
-      } catch (waError: any) {
-        console.error('Error sending WhatsApp:', waError);
-        results.errors.push(`WhatsApp: ${waError.message}`);
+        if (!sent) {
+          results.errors.push('WhatsApp: Todas as instâncias falharam ou estão offline');
+        }
       }
     }
 

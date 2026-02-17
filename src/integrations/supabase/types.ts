@@ -4684,6 +4684,8 @@ export type Database = {
           updated_at: string
           whatsapp_enabled: boolean
           whatsapp_instance_id: string | null
+          whatsapp_instance_id_2: string | null
+          whatsapp_instance_id_3: string | null
           whatsapp_message_template: string | null
           whatsapp_send_danfe: boolean
           whatsapp_send_xml: boolean
@@ -4703,6 +4705,8 @@ export type Database = {
           updated_at?: string
           whatsapp_enabled?: boolean
           whatsapp_instance_id?: string | null
+          whatsapp_instance_id_2?: string | null
+          whatsapp_instance_id_3?: string | null
           whatsapp_message_template?: string | null
           whatsapp_send_danfe?: boolean
           whatsapp_send_xml?: boolean
@@ -4722,6 +4726,8 @@ export type Database = {
           updated_at?: string
           whatsapp_enabled?: boolean
           whatsapp_instance_id?: string | null
+          whatsapp_instance_id_2?: string | null
+          whatsapp_instance_id_3?: string | null
           whatsapp_message_template?: string | null
           whatsapp_send_danfe?: boolean
           whatsapp_send_xml?: boolean
@@ -4732,6 +4738,34 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: true
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_auto_send_config_whatsapp_instance_id_2_fkey"
+            columns: ["whatsapp_instance_id_2"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_auto_send_config_whatsapp_instance_id_2_fkey"
+            columns: ["whatsapp_instance_id_2"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_auto_send_config_whatsapp_instance_id_3_fkey"
+            columns: ["whatsapp_instance_id_3"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_auto_send_config_whatsapp_instance_id_3_fkey"
+            columns: ["whatsapp_instance_id_3"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
             referencedColumns: ["id"]
           },
           {
