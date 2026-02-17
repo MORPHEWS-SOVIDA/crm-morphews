@@ -10,7 +10,8 @@ import { useNavigate } from 'react-router-dom';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import {
   Instagram, Users, Target, TrendingUp, Camera, BarChart3,
-  ArrowRight, MessageSquare, Phone, Send, UserCheck, Loader2
+  ArrowRight, MessageSquare, Phone, Send, UserCheck, Loader2,
+  CalendarCheck, PhoneCall
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -120,7 +121,8 @@ export default function SocialSelling() {
   const totalMessages = (activities || []).filter(a => a.activity_type === 'message_sent').length;
   const totalReplies = (activities || []).filter(a => a.activity_type === 'reply_received').length;
   const totalWhatsapp = (activities || []).filter(a => a.activity_type === 'whatsapp_shared').length;
-  const totalCalls = (activities || []).filter(a => ['call_scheduled', 'call_done'].includes(a.activity_type)).length;
+  const totalCallScheduled = (activities || []).filter(a => a.activity_type === 'call_scheduled').length;
+  const totalCallDone = (activities || []).filter(a => a.activity_type === 'call_done').length;
 
   // Per seller metrics
   const sellerMetrics = (sellers || []).map(seller => {
@@ -130,7 +132,8 @@ export default function SocialSelling() {
       messages: sellerActivities.filter(a => a.activity_type === 'message_sent').length,
       replies: sellerActivities.filter(a => a.activity_type === 'reply_received').length,
       whatsapp: sellerActivities.filter(a => a.activity_type === 'whatsapp_shared').length,
-      calls: sellerActivities.filter(a => ['call_scheduled', 'call_done'].includes(a.activity_type)).length,
+      callScheduled: sellerActivities.filter(a => a.activity_type === 'call_scheduled').length,
+      callDone: sellerActivities.filter(a => a.activity_type === 'call_done').length,
     };
   });
 
@@ -142,6 +145,8 @@ export default function SocialSelling() {
       messages: profileActivities.filter(a => a.activity_type === 'message_sent').length,
       replies: profileActivities.filter(a => a.activity_type === 'reply_received').length,
       whatsapp: profileActivities.filter(a => a.activity_type === 'whatsapp_shared').length,
+      callScheduled: profileActivities.filter(a => a.activity_type === 'call_scheduled').length,
+      callDone: profileActivities.filter(a => a.activity_type === 'call_done').length,
       conversionRate: profileActivities.filter(a => a.activity_type === 'message_sent').length > 0
         ? ((profileActivities.filter(a => a.activity_type === 'reply_received').length /
             profileActivities.filter(a => a.activity_type === 'message_sent').length) * 100).toFixed(1)
@@ -189,12 +194,12 @@ export default function SocialSelling() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="pt-4 pb-4 text-center">
               <Send className="h-5 w-5 mx-auto mb-1 text-blue-500" />
               <p className="text-2xl font-bold text-foreground">{totalMessages}</p>
-              <p className="text-xs text-muted-foreground">Mensagens Enviadas</p>
+              <p className="text-xs text-muted-foreground">Msgs Enviadas</p>
             </CardContent>
           </Card>
           <Card>
@@ -213,14 +218,21 @@ export default function SocialSelling() {
             <CardContent className="pt-4 pb-4 text-center">
               <UserCheck className="h-5 w-5 mx-auto mb-1 text-purple-500" />
               <p className="text-2xl font-bold text-foreground">{totalWhatsapp}</p>
-              <p className="text-xs text-muted-foreground">WhatsApp Compartilhado</p>
+              <p className="text-xs text-muted-foreground">WhatsApp</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4 pb-4 text-center">
-              <Phone className="h-5 w-5 mx-auto mb-1 text-amber-500" />
-              <p className="text-2xl font-bold text-foreground">{totalCalls}</p>
-              <p className="text-xs text-muted-foreground">Calls Agendadas/Feitas</p>
+              <CalendarCheck className="h-5 w-5 mx-auto mb-1 text-amber-500" />
+              <p className="text-2xl font-bold text-foreground">{totalCallScheduled}</p>
+              <p className="text-xs text-muted-foreground">Call Agendada</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-4 text-center">
+              <PhoneCall className="h-5 w-5 mx-auto mb-1 text-blue-600" />
+              <p className="text-2xl font-bold text-foreground">{totalCallDone}</p>
+              <p className="text-xs text-muted-foreground">Call Feita</p>
             </CardContent>
           </Card>
         </div>
@@ -242,33 +254,35 @@ export default function SocialSelling() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-2 font-medium text-muted-foreground">Seller</th>
-                      <th className="text-center py-2 px-2 font-medium text-muted-foreground">Msgs Enviadas</th>
-                      <th className="text-center py-2 px-2 font-medium text-muted-foreground">Respostas</th>
-                      <th className="text-center py-2 px-2 font-medium text-muted-foreground">Taxa Resposta</th>
-                      <th className="text-center py-2 px-2 font-medium text-muted-foreground">WhatsApp</th>
-                      <th className="text-center py-2 px-2 font-medium text-muted-foreground">Calls</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sellerMetrics.map(s => (
-                      <tr key={s.id} className="border-b last:border-0">
-                        <td className="py-3 px-2 font-medium">{s.name}</td>
-                        <td className="py-3 px-2 text-center">
-                          <Badge variant="secondary">{s.messages}</Badge>
-                        </td>
-                        <td className="py-3 px-2 text-center">{s.replies}</td>
-                        <td className="py-3 px-2 text-center">
-                          <span className={s.messages > 0 && (s.replies / s.messages) > 0.1 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
-                            {s.messages > 0 ? ((s.replies / s.messages) * 100).toFixed(1) : 0}%
-                          </span>
-                        </td>
-                        <td className="py-3 px-2 text-center">{s.whatsapp}</td>
-                        <td className="py-3 px-2 text-center">{s.calls}</td>
-                      </tr>
-                    ))}
-                  </tbody>
+                     <tr className="border-b">
+                       <th className="text-left py-2 px-2 font-medium text-muted-foreground">Seller</th>
+                       <th className="text-center py-2 px-2 font-medium text-muted-foreground">Msgs Enviadas</th>
+                       <th className="text-center py-2 px-2 font-medium text-muted-foreground">Respostas</th>
+                       <th className="text-center py-2 px-2 font-medium text-muted-foreground">Taxa</th>
+                       <th className="text-center py-2 px-2 font-medium text-muted-foreground">WhatsApp</th>
+                       <th className="text-center py-2 px-2 font-medium text-muted-foreground">Call Agendada</th>
+                       <th className="text-center py-2 px-2 font-medium text-muted-foreground">Call Feita</th>
+                     </tr>
+                   </thead>
+                   <tbody>
+                     {sellerMetrics.map(s => (
+                       <tr key={s.id} className="border-b last:border-0">
+                         <td className="py-3 px-2 font-medium">{s.name}</td>
+                         <td className="py-3 px-2 text-center">
+                           <Badge variant="secondary">{s.messages}</Badge>
+                         </td>
+                         <td className="py-3 px-2 text-center">{s.replies}</td>
+                         <td className="py-3 px-2 text-center">
+                           <span className={s.messages > 0 && (s.replies / s.messages) > 0.1 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
+                             {s.messages > 0 ? ((s.replies / s.messages) * 100).toFixed(1) : 0}%
+                           </span>
+                         </td>
+                         <td className="py-3 px-2 text-center">{s.whatsapp}</td>
+                         <td className="py-3 px-2 text-center">{s.callScheduled}</td>
+                         <td className="py-3 px-2 text-center">{s.callDone}</td>
+                       </tr>
+                     ))}
+                   </tbody>
                 </table>
               </div>
             )}
@@ -301,7 +315,7 @@ export default function SocialSelling() {
                           {p.display_name && <p className="text-xs text-muted-foreground">{p.display_name}</p>}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="grid grid-cols-3 gap-2 text-sm">
                         <div className="bg-muted/50 rounded p-2 text-center">
                           <p className="font-bold">{p.messages}</p>
                           <p className="text-xs text-muted-foreground">Enviadas</p>
@@ -313,6 +327,14 @@ export default function SocialSelling() {
                         <div className="bg-muted/50 rounded p-2 text-center">
                           <p className="font-bold">{p.whatsapp}</p>
                           <p className="text-xs text-muted-foreground">WhatsApp</p>
+                        </div>
+                        <div className="bg-muted/50 rounded p-2 text-center">
+                          <p className="font-bold">{p.callScheduled}</p>
+                          <p className="text-xs text-muted-foreground">Call Agend.</p>
+                        </div>
+                        <div className="bg-muted/50 rounded p-2 text-center">
+                          <p className="font-bold">{p.callDone}</p>
+                          <p className="text-xs text-muted-foreground">Call Feita</p>
                         </div>
                         <div className="bg-muted/50 rounded p-2 text-center">
                           <p className="font-bold text-green-600">{p.conversionRate}%</p>
