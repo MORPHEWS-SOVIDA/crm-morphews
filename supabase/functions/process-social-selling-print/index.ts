@@ -162,24 +162,25 @@ Examples: ["username1", "dr.example", "john_doe"]`
         .maybeSingle();
 
       if (existingActivity) {
-        // Already tracked this outreach - skip entirely
         leadsSkipped++;
         continue;
       }
 
-      // Check if lead exists
+      // Check if lead exists - normalize: search with and without @, case-insensitive
+      // Use ilike for case-insensitive match, check both "username" and "@username"
       const { data: existingLead } = await supabase
         .from("leads")
         .select("id")
         .eq("organization_id", profile.organization_id)
-        .eq("instagram", username)
+        .or(`instagram.ilike.${username},instagram.ilike.@${username}`)
+        .limit(1)
         .maybeSingle();
 
       let leadId: string;
 
       if (existingLead) {
         leadId = existingLead.id;
-        leadsSkipped++;
+        // Lead already exists, don't count as new but still create activity
       } else {
         const { data: newLead, error: leadErr } = await supabase
           .from("leads")
@@ -189,6 +190,7 @@ Examples: ["username1", "dr.example", "john_doe"]`
             instagram: username,
             stage: stageEnum,
             source: "social_selling",
+            assigned_to: user.id,
           })
           .select("id")
           .single();
