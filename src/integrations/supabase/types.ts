@@ -8269,6 +8269,7 @@ export type Database = {
           recorded_call_link: string | null
           secondary_phone: string | null
           site: string | null
+          source: string | null
           specialty: string | null
           src: string | null
           stage: Database["public"]["Enums"]["funnel_stage"]
@@ -8285,7 +8286,7 @@ export type Database = {
           utm_source: string | null
           utm_term: string | null
           webhook_data: Json | null
-          whatsapp: string
+          whatsapp: string | null
           whatsapp_group: string | null
         }
         Insert: {
@@ -8332,6 +8333,7 @@ export type Database = {
           recorded_call_link?: string | null
           secondary_phone?: string | null
           site?: string | null
+          source?: string | null
           specialty?: string | null
           src?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
@@ -8348,7 +8350,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           webhook_data?: Json | null
-          whatsapp: string
+          whatsapp?: string | null
           whatsapp_group?: string | null
         }
         Update: {
@@ -8395,6 +8397,7 @@ export type Database = {
           recorded_call_link?: string | null
           secondary_phone?: string | null
           site?: string | null
+          source?: string | null
           specialty?: string | null
           src?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
@@ -8411,7 +8414,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           webhook_data?: Json | null
-          whatsapp?: string
+          whatsapp?: string | null
           whatsapp_group?: string | null
         }
         Relationships: [
@@ -15422,6 +15425,218 @@ export type Database = {
           },
           {
             foreignKeyName: "sms_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_sellers: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_sellers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_selling_activities: {
+        Row: {
+          activity_type: string
+          created_at: string
+          id: string
+          import_id: string | null
+          instagram_username: string | null
+          lead_id: string | null
+          organization_id: string
+          profile_id: string
+          seller_id: string
+        }
+        Insert: {
+          activity_type?: string
+          created_at?: string
+          id?: string
+          import_id?: string | null
+          instagram_username?: string | null
+          lead_id?: string | null
+          organization_id: string
+          profile_id: string
+          seller_id: string
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          id?: string
+          import_id?: string | null
+          instagram_username?: string | null
+          lead_id?: string | null
+          organization_id?: string
+          profile_id?: string
+          seller_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_selling_activities_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "social_selling_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_selling_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_selling_activities_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_selling_activities_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "social_selling_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_selling_activities_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "social_sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_selling_imports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          extracted_usernames: string[] | null
+          id: string
+          leads_created_count: number
+          organization_id: string
+          period_end: string
+          period_start: string
+          processed_at: string | null
+          profile_id: string
+          screenshot_urls: string[]
+          seller_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          extracted_usernames?: string[] | null
+          id?: string
+          leads_created_count?: number
+          organization_id: string
+          period_end: string
+          period_start: string
+          processed_at?: string | null
+          profile_id: string
+          screenshot_urls?: string[]
+          seller_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          extracted_usernames?: string[] | null
+          id?: string
+          leads_created_count?: number
+          organization_id?: string
+          period_end?: string
+          period_start?: string
+          processed_at?: string | null
+          profile_id?: string
+          screenshot_urls?: string[]
+          seller_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_selling_imports_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_selling_imports_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "social_selling_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_selling_imports_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "social_sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_selling_profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          instagram_username: string
+          is_active: boolean
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          instagram_username: string
+          is_active?: boolean
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          instagram_username?: string
+          is_active?: boolean
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_selling_profiles_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
