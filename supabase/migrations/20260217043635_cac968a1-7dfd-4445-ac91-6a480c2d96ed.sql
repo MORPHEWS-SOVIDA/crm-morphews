@@ -1,0 +1,1 @@
+ALTER TABLE public.ecommerce_carts ADD COLUMN IF NOT EXISTS standalone_checkout_id UUID REFERENCES public.standalone_checkouts(id);
