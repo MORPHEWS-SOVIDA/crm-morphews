@@ -71,7 +71,7 @@ export function ErrorLogsTab() {
       if (error) throw error;
       return data as ErrorLog[];
     },
-    refetchInterval: 30000, // Refetch every 30s
+    refetchInterval: 120000, // Refetch every 2min
   });
 
   // Get unique sources from logs

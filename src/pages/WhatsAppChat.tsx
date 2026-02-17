@@ -515,10 +515,10 @@ export default function WhatsAppChat() {
           console.log('[Realtime] Messages subscription status:', status);
         });
 
-      // Polling backup every 5 seconds
+      // Polling backup every 30 seconds (realtime handles instant updates)
       const pollInterval = setInterval(() => {
         fetchMessages({ silent: true, resetUnread: false });
-      }, 5000);
+      }, 30000);
 
       return () => {
         supabase.removeChannel(channel);
