@@ -1,5 +1,5 @@
 /**
- * Morphews Cart API - Integration Snippet
+ * Morphews Cart API v2 - Integration Snippet
  * 
  * Cole este script no site externo para integrar com o checkout Morphews.
  * 
@@ -11,21 +11,30 @@
  * 
  * Exemplo:
  *   MorphewsCart.init({ storefrontId: 'SEU_STOREFRONT_ID' });
- *   MorphewsCart.addItem({ product_id: 'xxx', quantity: 2, price_cents: 9900 });
+ *   MorphewsCart.addItem({ 
+ *     product_id: 'xxx', 
+ *     name: 'DalFlore Slim Balance',
+ *     image_url: 'https://...',
+ *     quantity: 1,
+ *     kit_size: 6,
+ *     unit_price_cents: 10392,
+ *     sku: 'SLIM-KIT6'
+ *   });
  *   MorphewsCart.checkout(); // redireciona para o checkout Morphews
  */
 
 (function() {
   'use strict';
 
-  const MORPHEWS_API = 'https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/cart-sync';
-  const MORPHEWS_CHECKOUT = 'https://crm-morphews.lovable.app/c';
-  const MORPHEWS_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyaWl6bHhxZnBmcGRmbGd4anRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2MTIxODYsImV4cCI6MjA4MzE4ODE4Nn0.fg_ErgFi73cPPKgcpvDzJnzRi6mbcRqcY8MgOQqGIGM';
+  var MORPHEWS_API = 'https://rriizlxqfpfpdflgxjtj.supabase.co/functions/v1/cart-sync';
+  var MORPHEWS_CHECKOUT = 'https://crm-morphews.lovable.app/c';
+  var MORPHEWS_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyaWl6bHhxZnBmcGRmbGd4anRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2MTIxODYsImV4cCI6MjA4MzE4ODE4Nn0.fg_ErgFi73cPPKgcpvDzJnzRi6mbcRqcY8MgOQqGIGM';
 
   var config = {
     storefrontId: null,
     landingPageId: null,
     source: 'storefront',
+    checkoutBaseUrl: MORPHEWS_CHECKOUT,
   };
 
   var items = [];
@@ -39,7 +48,6 @@
       var val = params.get(key);
       if (val) utm[key] = val;
     });
-    // Captura ?ref= para afiliados
     var ref = params.get('ref');
     if (ref) utm._affiliate_code = ref;
     return utm;
@@ -48,46 +56,92 @@
   window.MorphewsCart = {
     /**
      * Inicializa a integração
-     * @param {Object} opts - { storefrontId, landingPageId, source }
+     * @param {Object} opts - { storefrontId, landingPageId, source, checkoutBaseUrl }
      */
     init: function(opts) {
       if (opts.storefrontId) config.storefrontId = opts.storefrontId;
       if (opts.landingPageId) config.landingPageId = opts.landingPageId;
       if (opts.source) config.source = opts.source;
+      if (opts.checkoutBaseUrl) config.checkoutBaseUrl = opts.checkoutBaseUrl;
       items = [];
       customerData = {};
-      console.log('[MorphewsCart] Initialized', config);
+      console.log('[MorphewsCart] Initialized v2', config);
     },
 
     /**
-     * Adiciona um item ao carrinho
-     * @param {Object} item - { product_id, quantity, price_cents, name? }
+     * Adiciona um item ao carrinho (formato rico)
+     * @param {Object} item - { 
+     *   product_id: string (obrigatório),
+     *   name: string (obrigatório - nome do produto),
+     *   quantity: number (obrigatório),
+     *   kit_size: number (padrão 1 - quantas unidades no kit),
+     *   unit_price_cents: number (obrigatório - preço por unidade em centavos),
+     *   image_url?: string (URL da imagem do produto),
+     *   sku?: string (SKU do kit),
+     *   storefront_product_id?: string (ID do produto no storefront)
+     * }
      */
     addItem: function(item) {
-      if (!item.product_id || !item.quantity || !item.price_cents) {
-        console.error('[MorphewsCart] Item inválido. Campos obrigatórios: product_id, quantity, price_cents');
+      if (!item.product_id || !item.name || !item.unit_price_cents) {
+        console.error('[MorphewsCart] Item inválido. Campos obrigatórios: product_id, name, unit_price_cents');
         return;
       }
+
+      var kitSize = item.kit_size || 1;
+      var quantity = item.quantity || 1;
+      var totalPriceCents = quantity * item.unit_price_cents * kitSize;
+
       // Verifica se já existe - atualiza quantidade
-      var existing = items.find(function(i) { return i.product_id === item.product_id; });
+      var existing = items.find(function(i) { 
+        return i.product_id === item.product_id && i.kit_size === kitSize; 
+      });
+      
       if (existing) {
-        existing.quantity += item.quantity;
+        existing.quantity += quantity;
+        existing.total_price_cents = existing.quantity * existing.unit_price_cents * existing.kit_size;
       } else {
         items.push({
           product_id: item.product_id,
-          quantity: item.quantity,
-          price_cents: item.price_cents,
+          storefront_product_id: item.storefront_product_id || null,
+          name: item.name,
+          image_url: item.image_url || null,
+          quantity: quantity,
+          kit_size: kitSize,
+          unit_price_cents: item.unit_price_cents,
+          total_price_cents: totalPriceCents,
+          sku: item.sku || null,
         });
       }
-      console.log('[MorphewsCart] Item adicionado. Total:', items.length, 'itens');
+      console.log('[MorphewsCart] Item adicionado:', item.name, '| Total itens:', items.length);
+    },
+
+    /**
+     * Adiciona item no formato legado (compatibilidade)
+     * @param {Object} item - { product_id, quantity, price_cents, name? }
+     */
+    addItemLegacy: function(item) {
+      this.addItem({
+        product_id: item.product_id,
+        name: item.name || 'Produto',
+        quantity: item.quantity || 1,
+        kit_size: 1,
+        unit_price_cents: item.price_cents,
+      });
     },
 
     /**
      * Remove um item do carrinho
      * @param {string} productId
+     * @param {number} kitSize (opcional, remove todos os kits do produto se não especificado)
      */
-    removeItem: function(productId) {
-      items = items.filter(function(i) { return i.product_id !== productId; });
+    removeItem: function(productId, kitSize) {
+      if (kitSize !== undefined) {
+        items = items.filter(function(i) { 
+          return !(i.product_id === productId && i.kit_size === kitSize); 
+        });
+      } else {
+        items = items.filter(function(i) { return i.product_id !== productId; });
+      }
     },
 
     /**
@@ -103,6 +157,15 @@
      */
     getItems: function() {
       return items.slice();
+    },
+
+    /**
+     * Retorna o subtotal em centavos
+     */
+    getSubtotal: function() {
+      return items.reduce(function(sum, item) {
+        return sum + item.total_price_cents;
+      }, 0);
     },
 
     /**
@@ -166,7 +229,7 @@
 
         console.log('[MorphewsCart] Carrinho criado:', result.cart_id);
         
-        var checkoutUrl = MORPHEWS_CHECKOUT + '/' + result.cart_id;
+        var checkoutUrl = config.checkoutBaseUrl + '/' + result.cart_id;
 
         if (opts.openInNewTab) {
           window.open(checkoutUrl, '_blank');

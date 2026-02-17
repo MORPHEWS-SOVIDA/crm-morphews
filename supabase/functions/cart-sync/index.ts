@@ -3,26 +3,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
  * Normalizes Brazilian phone numbers to always include country code 55
- * Input can be: 21987654321, 5521987654321, (21) 98765-4321, etc.
- * Output will always be: 5521987654321 (13 digits) or 5521876543210 (12 digits for landline)
  */
 function normalizeBrazilianPhone(phone: string | null | undefined): string {
   if (!phone) return '';
-  
-  // Remove all non-digits
   const clean = phone.replace(/\D/g, '');
-  
-  // If already starts with 55 and has 12-13 digits, return as-is
   if (clean.startsWith('55') && (clean.length === 12 || clean.length === 13)) {
     return clean;
   }
-  
-  // If has 10-11 digits (local format), prepend 55
   if (clean.length === 10 || clean.length === 11) {
     return `55${clean}`;
   }
-  
-  // Return cleaned number for edge cases
   return clean;
 }
 
@@ -31,6 +21,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface CartItemRich {
+  product_id: string;
+  storefront_product_id?: string;
+  name?: string;
+  image_url?: string;
+  quantity: number;
+  kit_size?: number;
+  unit_price_cents?: number;
+  total_price_cents?: number;
+  price_cents?: number; // Legacy format support
+  sku?: string;
+}
+
 interface CartSyncRequest {
   cart_id?: string;
   session_id?: string;
@@ -38,11 +41,7 @@ interface CartSyncRequest {
   landing_page_id?: string;
   standalone_checkout_id?: string;
   offer_id?: string;
-  items?: Array<{
-    product_id: string;
-    quantity: number;
-    price_cents: number;
-  }>;
+  items?: CartItemRich[];
   customer?: {
     name?: string;
     email?: string;
@@ -59,7 +58,7 @@ interface CartSyncRequest {
     state?: string;
   };
   utm?: Record<string, string>;
-  affiliate_code?: string; // ?ref= parameter for affiliate tracking
+  affiliate_code?: string;
   source: 'storefront' | 'landing_page' | 'standalone_checkout';
 }
 
@@ -76,7 +75,6 @@ serve(async (req) => {
     const body: CartSyncRequest = await req.json();
     const { cart_id, session_id, storefront_id, landing_page_id, standalone_checkout_id, offer_id, items, customer, shipping, utm, affiliate_code, source } = body;
 
-    // Generate session_id if not provided
     const effectiveSessionId = session_id || crypto.randomUUID();
 
     // 1. Determine organization
@@ -109,10 +107,67 @@ serve(async (req) => {
       throw new Error('Organização não identificada');
     }
 
-    // 2. Calculate total
-    const totalCents = items?.reduce((sum, item) => sum + (item.price_cents * item.quantity), 0) || 0;
+    // 2. Normalize items - support both rich and legacy formats
+    const normalizedItems = items?.map(item => {
+      const kitSize = item.kit_size || 1;
+      const unitPrice = item.unit_price_cents || item.price_cents || 0;
+      const totalPrice = item.total_price_cents || (unitPrice * item.quantity * kitSize);
+      
+      return {
+        product_id: item.product_id,
+        storefront_product_id: item.storefront_product_id || null,
+        name: item.name || null,
+        image_url: item.image_url || null,
+        quantity: item.quantity,
+        kit_size: kitSize,
+        unit_price_cents: unitPrice,
+        total_price_cents: totalPrice,
+        sku: item.sku || null,
+      };
+    }) || [];
 
-    // 3. Prepare cart data
+    // 3. Calculate total from rich items
+    const totalCents = normalizedItems.reduce((sum, item) => sum + item.total_price_cents, 0);
+
+    // 4. If items don't have names, try to enrich from product catalog
+    if (storefront_id && normalizedItems.some(item => !item.name)) {
+      const productIds = normalizedItems.filter(i => !i.name).map(i => i.product_id);
+      
+      if (productIds.length > 0) {
+        const { data: products } = await supabase
+          .from('storefront_products')
+          .select('id, product:lead_products(id, name, image_url)')
+          .eq('storefront_id', storefront_id)
+          .in('product_id', productIds);
+
+        if (products) {
+          const productMap = new Map<string, any>();
+          for (const sp of products) {
+            const prod = sp.product as any;
+            if (prod) {
+              productMap.set(prod.id, { 
+                name: prod.name, 
+                image_url: prod.image_url,
+                storefront_product_id: sp.id 
+              });
+            }
+          }
+          
+          for (const item of normalizedItems) {
+            if (!item.name) {
+              const info = productMap.get(item.product_id);
+              if (info) {
+                item.name = info.name;
+                item.image_url = item.image_url || info.image_url;
+                item.storefront_product_id = item.storefront_product_id || info.storefront_product_id;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 5. Prepare cart data
     const cartData: Record<string, any> = {
       organization_id: organizationId,
       session_id: effectiveSessionId,
@@ -121,12 +176,11 @@ serve(async (req) => {
       standalone_checkout_id: standalone_checkout_id || null,
       offer_id: offer_id || null,
       status: 'active',
-      items: items ? JSON.stringify(items) : null,
+      items: JSON.stringify(normalizedItems),
       total_cents: totalCents,
       updated_at: new Date().toISOString(),
     };
 
-    // Add affiliate code if provided (from ?ref= parameter)
     if (affiliate_code) {
       cartData.affiliate_code = affiliate_code;
     }
@@ -135,13 +189,11 @@ serve(async (req) => {
     if (customer?.phone) cartData.customer_phone = normalizeBrazilianPhone(customer.phone);
     if (customer?.cpf) cartData.customer_cpf = customer.cpf?.replace(/\D/g, '');
 
-    // Add shipping data
     if (shipping?.cep) cartData.shipping_cep = shipping.cep;
     if (shipping?.street) cartData.shipping_address = shipping.street;
     if (shipping?.city) cartData.shipping_city = shipping.city;
     if (shipping?.state) cartData.shipping_state = shipping.state;
 
-    // Add UTM data
     if (utm) {
       if (utm.utm_source) cartData.utm_source = utm.utm_source;
       if (utm.utm_medium) cartData.utm_medium = utm.utm_medium;
@@ -156,34 +208,27 @@ serve(async (req) => {
 
     let resultCartId = cart_id;
 
-    // 4. Create or update cart
+    // 6. Create or update cart
     if (cart_id) {
-      // Update existing cart
       const { error } = await supabase
         .from('ecommerce_carts')
         .update(cartData)
         .eq('id', cart_id);
-
       if (error) throw error;
     } else {
-      // Create new cart
       cartData.created_at = new Date().toISOString();
-      
       const { data: newCart, error } = await supabase
         .from('ecommerce_carts')
         .insert(cartData)
         .select('id')
         .single();
-
       if (error) throw error;
       resultCartId = newCart.id;
     }
 
-    // 5. Try to link lead if we have contact info
+    // 7. Try to link lead if we have contact info
     if (resultCartId && (customer?.email || customer?.phone)) {
       const normalizedPhone = normalizeBrazilianPhone(customer?.phone);
-      
-      // Find or create lead
       let leadId: string | null = null;
       
       if (normalizedPhone) {
@@ -193,7 +238,6 @@ serve(async (req) => {
           .eq('organization_id', organizationId)
           .eq('whatsapp', normalizedPhone)
           .maybeSingle();
-        
         leadId = existingLead?.id || null;
       }
       
@@ -204,11 +248,9 @@ serve(async (req) => {
           .eq('organization_id', organizationId)
           .eq('email', customer.email)
           .maybeSingle();
-        
         leadId = existingLead?.id || null;
       }
 
-      // If we found a lead, link it to the cart
       if (leadId) {
         await supabase
           .from('ecommerce_carts')
