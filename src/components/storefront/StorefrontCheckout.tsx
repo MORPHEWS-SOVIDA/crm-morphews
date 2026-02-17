@@ -49,19 +49,46 @@ export function StorefrontCheckout() {
     delivery_days: number;
   } | null>(null);
   
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    cpf: '',
-    // Address
-    cep: '',
-    street: '',
-    number: '',
-    complement: '',
-    neighborhood: '',
-    city: '',
-    state: '',
+  const [formData, setFormData] = useState(() => {
+    // Try to restore customer/shipping data from UniversalCheckout restoration
+    let initial = {
+      name: '',
+      email: '',
+      phone: '',
+      cpf: '',
+      cep: '',
+      street: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      city: '',
+      state: '',
+    };
+    
+    try {
+      const savedCustomer = localStorage.getItem('checkout_customer');
+      if (savedCustomer) {
+        const parsed = JSON.parse(savedCustomer);
+        if (parsed.name) initial.name = parsed.name;
+        if (parsed.email) initial.email = parsed.email;
+        if (parsed.phone) initial.phone = parsed.phone;
+        if (parsed.cpf) initial.cpf = parsed.cpf;
+        localStorage.removeItem('checkout_customer'); // consume once
+      }
+      const savedShipping = localStorage.getItem('checkout_shipping');
+      if (savedShipping) {
+        const parsed = JSON.parse(savedShipping);
+        if (parsed.cep) initial.cep = parsed.cep;
+        if (parsed.address) initial.street = parsed.address;
+        if (parsed.city) initial.city = parsed.city;
+        if (parsed.state) initial.state = parsed.state;
+        localStorage.removeItem('checkout_shipping'); // consume once
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+    
+    return initial;
   });
 
   // Universal tracking for server-side CAPI
