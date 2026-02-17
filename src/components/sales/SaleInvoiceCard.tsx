@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -16,8 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Loader2, FileText, Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { Loader2, FileText, Download, RefreshCw, AlertCircle, Eye, Upload } from 'lucide-react';
 import {
   useSaleInvoices,
   useRefreshInvoiceStatus,
@@ -34,9 +36,22 @@ import { ptBR } from 'date-fns/locale';
 interface SaleInvoiceCardProps {
   saleId: string;
   saleTotalCents: number;
+  invoicePdfUrl?: string | null;
+  invoiceXmlUrl?: string | null;
+  onUploadInvoice?: (e: React.ChangeEvent<HTMLInputElement>, type: 'pdf' | 'xml') => void;
+  onViewFile?: (url: string) => void;
+  onDownloadFile?: (url: string) => void;
 }
 
-export function SaleInvoiceCard({ saleId, saleTotalCents }: SaleInvoiceCardProps) {
+export function SaleInvoiceCard({
+  saleId,
+  saleTotalCents,
+  invoicePdfUrl,
+  invoiceXmlUrl,
+  onUploadInvoice,
+  onViewFile,
+  onDownloadFile,
+}: SaleInvoiceCardProps) {
   const { data: invoices = [], isLoading } = useSaleInvoices(saleId);
   const { data: companies = [] } = useFiscalCompanies();
   const createDraft = useCreateDraftFromSale();
@@ -46,12 +61,9 @@ export function SaleInvoiceCard({ saleId, saleTotalCents }: SaleInvoiceCardProps
   const [selectedType, setSelectedType] = useState<InvoiceType>('nfe');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
 
-  // Check if there's at least one active company (certificate is optional for initial draft)
   const activeCompanies = companies.filter(c => c.is_active);
   const hasActiveCompany = activeCompanies.length > 0;
   const primaryCompany = companies.find(c => c.is_primary && c.is_active);
-  
-  // Default to primary company or first active
   const defaultCompanyId = primaryCompany?.id || activeCompanies[0]?.id || '';
 
   const handleCreateDraft = async () => {
@@ -132,7 +144,7 @@ export function SaleInvoiceCard({ saleId, saleTotalCents }: SaleInvoiceCardProps
                   <span>{formatCurrency(invoice.total_cents)}</span>
                 </div>
                 {invoice.error_message && (
-                  <p className="text-xs text-red-600">{invoice.error_message}</p>
+                  <p className="text-xs text-destructive">{invoice.error_message}</p>
                 )}
               </div>
               <div className="flex items-center gap-1">
@@ -159,6 +171,87 @@ export function SaleInvoiceCard({ saleId, saleTotalCents }: SaleInvoiceCardProps
         </div>
       )}
 
+      {/* Manual Upload Section */}
+      {onUploadInvoice && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Upload className="w-3.5 h-3.5" />
+              Anexar manualmente
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">NF PDF</Label>
+                <Input
+                  type="file"
+                  accept=".pdf"
+                  className="text-xs h-8"
+                  onChange={(e) => onUploadInvoice(e, 'pdf')}
+                />
+                {invoicePdfUrl && (
+                  <div className="flex items-center gap-2">
+                    {onViewFile && (
+                      <button
+                        type="button"
+                        onClick={() => onViewFile(invoicePdfUrl)}
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" />
+                        Ver
+                      </button>
+                    )}
+                    {onDownloadFile && (
+                      <button
+                        type="button"
+                        onClick={() => onDownloadFile(invoicePdfUrl)}
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Download className="w-3 h-3" />
+                        Baixar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">NF XML</Label>
+                <Input
+                  type="file"
+                  accept=".xml"
+                  className="text-xs h-8"
+                  onChange={(e) => onUploadInvoice(e, 'xml')}
+                />
+                {invoiceXmlUrl && (
+                  <div className="flex items-center gap-2">
+                    {onViewFile && (
+                      <button
+                        type="button"
+                        onClick={() => onViewFile(invoiceXmlUrl)}
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" />
+                        Ver
+                      </button>
+                    )}
+                    {onDownloadFile && (
+                      <button
+                        type="button"
+                        onClick={() => onDownloadFile(invoiceXmlUrl)}
+                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                      >
+                        <Download className="w-3 h-3" />
+                        Baixar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Emit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
@@ -183,7 +276,6 @@ export function SaleInvoiceCard({ saleId, saleTotalCents }: SaleInvoiceCardProps
               </Select>
             </div>
 
-            {/* Always show company selector */}
             {activeCompanies.length > 0 && (
               <div className="space-y-2">
                 <Label>Empresa Emissora</Label>

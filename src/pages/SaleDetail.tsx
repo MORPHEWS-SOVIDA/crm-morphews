@@ -1606,10 +1606,18 @@ export default function SaleDetail() {
             {/* Sale Closing Info Card - Shows which closing this sale belongs to */}
             <SaleClosingInfoCard saleId={sale.id} />
 
-            {/* Fiscal Invoice Card */}
+            {/* Fiscal Invoice Card - Unified */}
             <Card>
               <CardContent className="pt-6">
-                <SaleInvoiceCard saleId={sale.id} saleTotalCents={sale.total_cents} />
+                <SaleInvoiceCard
+                  saleId={sale.id}
+                  saleTotalCents={sale.total_cents}
+                  invoicePdfUrl={sale.invoice_pdf_url}
+                  invoiceXmlUrl={sale.invoice_xml_url}
+                  onUploadInvoice={handleInvoiceUpload}
+                  onViewFile={handleViewFile}
+                  onDownloadFile={handleDownloadFile}
+                />
               </CardContent>
             </Card>
 
@@ -1981,74 +1989,7 @@ export default function SaleDetail() {
               </CardContent>
             </Card>
 
-            {/* Invoice Upload */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Nota Fiscal
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>NF PDF</Label>
-                  <Input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => handleInvoiceUpload(e, 'pdf')}
-                  />
-                  {sale.invoice_pdf_url && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleViewFile(sale.invoice_pdf_url!)}
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Ver NF PDF
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadFile(sale.invoice_pdf_url!)}
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Download className="w-4 h-4" />
-                        Baixar
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label>NF XML</Label>
-                  <Input
-                    type="file"
-                    accept=".xml"
-                    onChange={(e) => handleInvoiceUpload(e, 'xml')}
-                  />
-                  {sale.invoice_xml_url && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleViewFile(sale.invoice_xml_url!)}
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Ver NF XML
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadFile(sale.invoice_xml_url!)}
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Download className="w-4 h-4" />
-                        Baixar
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            {/* Legacy Invoice Upload card removed - unified into SaleInvoiceCard above */}
 
             {/* Changes History Log */}
             {changesLog.length > 0 && (
