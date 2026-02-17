@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Phone, UserCheck, Loader2, Instagram } from "lucide-react";
+import { MessageSquare, Phone, UserCheck, Loader2, Instagram, CalendarCheck, PhoneCall } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-type ActivityType = 'reply_received' | 'whatsapp_shared' | 'call_scheduled';
+type ActivityType = 'reply_received' | 'whatsapp_shared' | 'call_scheduled' | 'call_done';
 
 interface SocialSellingQuickActionsProps {
   leadId: string;
@@ -17,7 +17,8 @@ interface SocialSellingQuickActionsProps {
 const BUTTONS: { type: ActivityType; label: string; icon: React.ReactNode; color: string }[] = [
   { type: 'reply_received', label: 'Respondeu', icon: <MessageSquare className="h-3 w-3" />, color: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400' },
   { type: 'whatsapp_shared', label: 'WhatsApp', icon: <UserCheck className="h-3 w-3" />, color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
-  { type: 'call_scheduled', label: 'Call', icon: <Phone className="h-3 w-3" />, color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
+  { type: 'call_scheduled', label: 'Call Agendada', icon: <CalendarCheck className="h-3 w-3" />, color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
+  { type: 'call_done', label: 'Call Feita', icon: <PhoneCall className="h-3 w-3" />, color: 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400' },
 ];
 
 export function SocialSellingQuickActions({ leadId, leadInstagram }: SocialSellingQuickActionsProps) {
