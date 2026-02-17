@@ -1753,6 +1753,12 @@ Deno.serve(async (req) => {
         payment_notes: typedIntegration.sale_tag ? `[${typedIntegration.sale_tag}]` : null,
         payment_method: saleData.payment_method || null,
         payment_installments: saleData.installments ? parseInt(String(saleData.installments)) || 1 : null,
+        // If sale is created as payment_confirmed, also set payment_status and timestamp
+        ...((() => {
+          const raw = typedIntegration.sale_status_on_create || 'draft';
+          const mapped = ({ 'pago': true, 'paid': true, 'confirmado': true, 'confirmed': true, 'payment_confirmed': true } as Record<string, boolean>)[raw.toLowerCase()];
+          return mapped ? { payment_status: 'paid', payment_confirmed_at: new Date().toISOString() } : {};
+        })()),
       };
       
       if (leadAddress?.id) {
