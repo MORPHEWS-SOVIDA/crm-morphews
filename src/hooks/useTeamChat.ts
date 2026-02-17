@@ -138,7 +138,7 @@ export function useTeamConversations() {
       })) as TeamConversation[];
     },
     enabled: !!tenantId && !!user?.id,
-    refetchInterval: 30000, // Refresh a cada 30s
+    refetchInterval: 120000, // Refresh a cada 2min
   });
 }
 
@@ -193,7 +193,7 @@ export function useTeamUnreadTotal() {
       return { total, mentions };
     },
     enabled: !!tenantId && !!user?.id,
-    refetchInterval: 30000, // Refresh a cada 30s
+    refetchInterval: 120000, // Refresh a cada 2min
   });
 }
 

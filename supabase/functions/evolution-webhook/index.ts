@@ -582,11 +582,24 @@ serve(async (req) => {
     const instanceName = body?.instance || body?.instanceName || "";
     const event = body?.event || "";
 
-    console.log("Evolution Webhook received:", {
-      event,
-      instanceName,
-      topLevelKeys: Object.keys(body || {}).slice(0, 10),
-    });
+    // =====================
+    // EARLY FILTER: Rejeitar eventos desnecessários IMEDIATAMENTE
+    // Economia: ~15% das invocações (status updates, typing, presence, etc.)
+    // =====================
+    const ALLOWED_EVENTS = new Set([
+      "messages.upsert", "MESSAGES_UPSERT",
+      "connection.update", "CONNECTION_UPDATE",
+      "qrcode.updated", "QRCODE_UPDATED",
+    ]);
+
+    if (event && !ALLOWED_EVENTS.has(event)) {
+      // Retorna 200 sem processar - não logar para economizar
+      return new Response(JSON.stringify({ success: true, filtered: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log("Evolution Webhook:", { event, instanceName });
 
     // =====================
     // CONNECTION UPDATE
@@ -663,7 +676,6 @@ serve(async (req) => {
                     "MESSAGES_UPSERT",
                     "CONNECTION_UPDATE",
                     "QRCODE_UPDATED",
-                    "GROUPS_UPSERT",
                   ],
                 }),
               });
@@ -897,11 +909,8 @@ serve(async (req) => {
           ? (groupSubject || `Grupo ${remoteJid.split("@")[0]}`)
           : (pushName || `+${fromPhone}`);
         
-        // Se não temos foto do webhook, buscar via API Evolution (apenas para não-grupos)
+        // Usar foto do webhook se disponível (não buscar da API para economizar invocações)
         let profilePicToSave = contactProfilePic;
-        if (!profilePicToSave && !isGroup) {
-          profilePicToSave = await fetchProfilePictureFromEvolution(instanceName, fromPhone);
-        }
           
         const { data: newConvo, error: convoError } = await supabase
           .from("whatsapp_conversations")
@@ -978,12 +987,8 @@ serve(async (req) => {
           current_instance_id: instance.id,
         };
         
-        // Update contact profile picture if available and not a group
-        // Se não temos foto do webhook E a conversa também não tem foto, buscar via API
+        // Update contact profile picture only if available in webhook payload (skip API fetch to save costs)
         let profilePicToUpdate = contactProfilePic;
-        if (!profilePicToUpdate && !isGroup && !(conversation as any).contact_profile_pic) {
-          profilePicToUpdate = await fetchProfilePictureFromEvolution(instanceName, fromPhone);
-        }
         
         if (profilePicToUpdate && !isGroup) {
           updateData.contact_profile_pic = profilePicToUpdate;

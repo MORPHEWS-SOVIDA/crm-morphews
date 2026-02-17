@@ -154,7 +154,7 @@ export function useThreads(options?: {
       })) as Thread[];
     },
     enabled: !!tenantId,
-    refetchInterval: 30000, // Polling a cada 30 segundos
+    refetchInterval: 120000, // Polling a cada 2 minutos (realtime lida com updates instantâneos)
   });
 }
 
@@ -248,7 +248,7 @@ export function useUnreadThreadsCount() {
       return count || 0;
     },
     enabled: !!tenantId,
-    refetchInterval: 30000, // Atualiza a cada 30 segundos
+    refetchInterval: 120000, // Atualiza a cada 2 minutos
   });
 }
 
@@ -280,7 +280,7 @@ export function useMessages(threadId: string | null, limit = 100) {
       return (data || []) as Message[];
     },
     enabled: !!threadId,
-    refetchInterval: 15000, // Polling a cada 15 segundos
+    refetchInterval: 60000, // Polling a cada 60 segundos
   });
 }
 
