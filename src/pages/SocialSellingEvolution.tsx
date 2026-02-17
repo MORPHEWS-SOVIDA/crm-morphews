@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   ArrowLeft, Search, MessageSquare, Phone, UserCheck, Loader2,
-  CheckCircle2, Instagram, Send, CalendarCheck, PhoneCall
+  CheckCircle2, Instagram, Send, CalendarCheck, PhoneCall, ExternalLink
 } from 'lucide-react';
 
 type ActivityType = 'reply_received' | 'whatsapp_shared' | 'call_scheduled' | 'call_done';
@@ -244,7 +244,7 @@ export default function SocialSellingEvolution() {
       toast.success(labels[activityType] || 'Registrado!');
       queryClient.invalidateQueries({ queryKey: ['social-selling-all-activities'] });
       queryClient.invalidateQueries({ queryKey: ['social-selling-activities'] });
-      queryClient.invalidateQueries({ queryKey: ['social-selling-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['social-selling-lead-activities'] });
       setPendingAction(null);
       setWhatsappDialog(null);
       setWhatsappNumber('');
@@ -447,6 +447,16 @@ export default function SocialSellingEvolution() {
                             </Button>
                           );
                         })}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs gap-1"
+                          onClick={() => window.open(`/leads/${lead.id}`, '_blank')}
+                          title="Ver lead em nova aba"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Ver Lead
+                        </Button>
                       </div>
                     </div>
                   );
