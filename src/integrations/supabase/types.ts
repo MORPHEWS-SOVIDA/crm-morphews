@@ -3551,6 +3551,7 @@ export type Database = {
           shipping_city: string | null
           shipping_state: string | null
           src: string | null
+          standalone_checkout_id: string | null
           status: string | null
           storefront_id: string | null
           subtotal_cents: number | null
@@ -3595,6 +3596,7 @@ export type Database = {
           shipping_city?: string | null
           shipping_state?: string | null
           src?: string | null
+          standalone_checkout_id?: string | null
           status?: string | null
           storefront_id?: string | null
           subtotal_cents?: number | null
@@ -3639,6 +3641,7 @@ export type Database = {
           shipping_city?: string | null
           shipping_state?: string | null
           src?: string | null
+          standalone_checkout_id?: string | null
           status?: string | null
           storefront_id?: string | null
           subtotal_cents?: number | null
@@ -3699,6 +3702,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_carts_standalone_checkout_id_fkey"
+            columns: ["standalone_checkout_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_checkouts"
             referencedColumns: ["id"]
           },
           {
