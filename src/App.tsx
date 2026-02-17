@@ -103,6 +103,8 @@ const WhatsAppGlobalConfig = lazy(() => import("./pages/WhatsAppGlobalConfig"));
 // Instagram
 const InstagramDMs = lazy(() => import("./pages/InstagramDMs"));
 const MessagingMetricsPage = lazy(() => import("./pages/MessagingMetricsPage"));
+const SocialSelling = lazy(() => import("./pages/SocialSelling"));
+const SocialSellingImport = lazy(() => import("./pages/SocialSellingImport"));
 
 // Team & Settings
 const Team = lazy(() => import("./pages/Team"));
@@ -376,6 +378,22 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['instagram_view']}>
                       <InstagramDMs />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/instagram/social-selling"
+                  element={
+                    <ProtectedRoute requiredPermissions={['instagram_view']}>
+                      <SocialSelling />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/instagram/social-selling/importar-print"
+                  element={
+                    <ProtectedRoute requiredPermissions={['instagram_view']}>
+                      <SocialSellingImport />
                     </ProtectedRoute>
                   }
                 />
