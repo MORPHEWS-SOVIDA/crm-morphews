@@ -431,12 +431,19 @@ async function createLabel(
     console.error('[Melhor Envio] Error saving label:', saveError);
   }
 
-  // Update sale with tracking code
+  // Update sale with tracking code and trigger label_generated notification
   if (sale_id) {
     await supabase
       .from('sales')
       .update({ tracking_code: trackingCode })
       .eq('id', sale_id);
+
+    // Trigger WhatsApp notification for label_generated status
+    try {
+      await triggerLabelGeneratedNotification(supabase, organization_id, sale_id, trackingCode);
+    } catch (notifErr) {
+      console.error('[Melhor Envio] Error triggering label_generated notification:', notifErr);
+    }
   }
 
   return {
@@ -706,3 +713,119 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// ─── Trigger WhatsApp notification when label is generated ───────────────────
+async function triggerLabelGeneratedNotification(
+  supabase: any,
+  organizationId: string,
+  saleId: string,
+  trackingCode: string
+) {
+  const statusKey = 'label_generated';
+  console.log(`[Melhor Envio] Triggering ${statusKey} notification for sale ${saleId}`);
+
+  // Get the tracking status configuration
+  const { data: statusConfig, error: configError } = await supabase
+    .from('carrier_tracking_statuses')
+    .select('whatsapp_instance_id, message_template, media_type, media_url, media_filename, is_active')
+    .eq('organization_id', organizationId)
+    .eq('status_key', statusKey)
+    .single();
+
+  if (configError || !statusConfig) {
+    console.log(`[Melhor Envio] No config found for ${statusKey}`);
+    return;
+  }
+
+  if (!statusConfig.is_active || !statusConfig.message_template || !statusConfig.whatsapp_instance_id) {
+    console.log(`[Melhor Envio] Status ${statusKey} not configured for notifications`);
+    return;
+  }
+
+  // Get sale info with lead data
+  const { data: sale, error: saleError } = await supabase
+    .from('sales')
+    .select(`
+      id, romaneio_number, total_cents, tracking_code, lead_id, seller_user_id,
+      leads!inner(id, name, whatsapp, lead_products(name, brand)),
+      sale_items(product_name),
+      melhor_envio_labels(tracking_code, company_name, service_name, melhor_envio_order_id)
+    `)
+    .eq('id', saleId)
+    .single();
+
+  if (saleError || !sale?.leads) {
+    console.log(`[Melhor Envio] Sale or lead not found: ${saleError?.message}`);
+    return;
+  }
+
+  const lead = sale.leads as any;
+  if (!lead.whatsapp) {
+    console.log(`[Melhor Envio] Lead has no WhatsApp number`);
+    return;
+  }
+
+  // Get seller name
+  let sellerName = '';
+  if (sale.seller_user_id) {
+    const { data: seller } = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('user_id', sale.seller_user_id)
+      .single();
+    if (seller) sellerName = `${seller.first_name || ''} ${seller.last_name || ''}`.trim();
+  }
+
+  const leadName = lead.name || '';
+  const firstName = leadName.split(' ')[0] || '';
+  const productName = lead.lead_products?.name || (sale.sale_items as any)?.[0]?.product_name || '';
+  const brandName = lead.lead_products?.brand || '';
+
+  const melhorEnvioLabel = (sale.melhor_envio_labels as any)?.[0];
+  const finalTrackingCode = trackingCode || sale.tracking_code || melhorEnvioLabel?.tracking_code || '';
+  const carrierName = melhorEnvioLabel?.company_name || 'Correios';
+  const isRealCode = finalTrackingCode && !finalTrackingCode.includes('-');
+  
+  let trackingLink = '';
+  if (isRealCode) {
+    const carrierType = carrierName.toLowerCase().includes('correios') ? 'correios' : 'rastreio';
+    trackingLink = `https://www.melhorrastreio.com.br/app/${carrierType}/${finalTrackingCode}`;
+  }
+
+  const totalValue = sale.total_cents ? `R$ ${(sale.total_cents / 100).toFixed(2).replace('.', ',')}` : '';
+  const saleNumber = sale.romaneio_number ? String(sale.romaneio_number) : sale.id.slice(0, 8);
+
+  let finalMessage = statusConfig.message_template
+    .replace(/\{\{nome\}\}/g, leadName)
+    .replace(/\{\{primeiro_nome\}\}/g, firstName)
+    .replace(/\{\{vendedor\}\}/g, sellerName)
+    .replace(/\{\{produto\}\}/g, productName)
+    .replace(/\{\{marca\}\}/g, brandName)
+    .replace(/\{\{link_rastreio\}\}/g, trackingLink)
+    .replace(/\{\{codigo_rastreio\}\}/g, isRealCode ? finalTrackingCode : '')
+    .replace(/\{\{transportadora\}\}/g, carrierName)
+    .replace(/\{\{numero_venda\}\}/g, saleNumber)
+    .replace(/\{\{valor\}\}/g, totalValue);
+
+  console.log(`[Melhor Envio] Scheduling ${statusKey} message for lead ${lead.id}`);
+
+  const { error: insertError } = await supabase
+    .from('lead_scheduled_messages')
+    .insert({
+      lead_id: lead.id,
+      organization_id: organizationId,
+      whatsapp_instance_id: statusConfig.whatsapp_instance_id,
+      final_message: finalMessage,
+      scheduled_at: new Date().toISOString(),
+      status: 'pending',
+      media_type: statusConfig.media_type || null,
+      media_url: statusConfig.media_url || null,
+      media_filename: statusConfig.media_filename || null,
+    });
+
+  if (insertError) {
+    console.error(`[Melhor Envio] Error scheduling message:`, insertError);
+  } else {
+    console.log(`[Melhor Envio] ${statusKey} message scheduled successfully`);
+  }
+}
