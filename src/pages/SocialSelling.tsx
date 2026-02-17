@@ -177,6 +177,10 @@ export default function SocialSelling() {
                 <SelectItem value="all">Tudo</SelectItem>
               </SelectContent>
             </Select>
+            <Button variant="outline" onClick={() => navigate('/instagram/social-selling/evolucao')}>
+              <TrendingUp className="h-4 w-4 mr-1" />
+              Evolução
+            </Button>
             <Button onClick={() => navigate('/instagram/social-selling/importar-print')}>
               <Camera className="h-4 w-4 mr-1" />
               Importar Prints
