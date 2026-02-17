@@ -128,8 +128,8 @@ export function OrderFinancialBreakdown({
   const tenantNet = tenantSplit?.net_amount_cents || 
     (subtotalCents - platformFee - affiliateFee - factoryFee - industryFee - coproducerFee);
   
-  // Interest (total - subtotal) goes to platform, not shown in splits
-  const interestCents = totalCents - subtotalCents;
+  // Interest (total - subtotal - shipping) goes to platform, not shown in splits
+  const interestCents = totalCents - subtotalCents - shippingCents;
 
   // Estimate availability date (D+2 for credit card)
   const availabilityDate = paidAt ? addDays(new Date(paidAt), 2) : null;
