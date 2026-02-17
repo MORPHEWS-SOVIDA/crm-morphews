@@ -1,4 +1,4 @@
-// Universal Checkout - handles cart restoration and redirect
+// Universal Checkout - handles cart restoration and redirect (v2 - explicit columns)
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
