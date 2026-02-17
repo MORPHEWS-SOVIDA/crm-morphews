@@ -106,10 +106,13 @@ serve(async (req) => {
     }
 
     // Save gateway fee (cost) when payment is confirmed
-    if (eventType === 'paid' && feeCents && feeCents > 0) {
-      updateData.gateway_fee_cents = feeCents;
-      updateData.gateway_net_cents = (amountCents || saleTotalCents) - feeCents;
-      console.log(`[PaymentWebhook] Gateway fee captured: ${feeCents} centavos`);
+    if (eventType === 'paid') {
+      updateData.payment_confirmed_at = new Date().toISOString();
+      if (feeCents && feeCents > 0) {
+        updateData.gateway_fee_cents = feeCents;
+        updateData.gateway_net_cents = (amountCents || saleTotalCents) - feeCents;
+        console.log(`[PaymentWebhook] Gateway fee captured: ${feeCents} centavos`);
+      }
     }
 
     const { error: updateError } = await supabase
