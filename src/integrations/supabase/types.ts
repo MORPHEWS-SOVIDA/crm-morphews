@@ -22003,6 +22003,10 @@ export type Database = {
         Args: { p_organization_id: string }
         Returns: Json
       }
+      get_cloud_infrastructure_summary: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
       get_default_permissions_for_role: {
         Args: { p_role: string }
         Returns: Json
