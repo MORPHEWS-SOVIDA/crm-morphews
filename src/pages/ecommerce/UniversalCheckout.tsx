@@ -62,10 +62,34 @@ export default function UniversalCheckout() {
 
       try {
         // Fetch cart with related storefront/landing page
+        // Use explicit columns instead of * to avoid schema cache issues
         const { data, error: fetchError } = await supabase
           .from('ecommerce_carts')
           .select(`
-            *,
+            id,
+            organization_id,
+            storefront_id,
+            landing_page_id,
+            offer_id,
+            lead_id,
+            session_id,
+            customer_name,
+            customer_email,
+            customer_phone,
+            customer_cpf,
+            shipping_cep,
+            shipping_address,
+            shipping_city,
+            shipping_state,
+            items,
+            total_cents,
+            status,
+            expires_at,
+            utm_source,
+            utm_medium,
+            utm_campaign,
+            fbclid,
+            gclid,
             storefront:tenant_storefronts(id, slug, name, organization_id),
             landing_page:landing_pages(id, slug, name, organization_id)
           `)
