@@ -6,6 +6,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -34,7 +44,6 @@ serve(async (req) => {
     const { import_id } = await req.json();
     if (!import_id) throw new Error("import_id required");
 
-    // Get the import record
     const { data: importRecord, error: importErr } = await supabase
       .from("social_selling_imports")
       .select("*, social_sellers(name), social_selling_profiles(instagram_username)")
@@ -44,7 +53,6 @@ serve(async (req) => {
 
     if (importErr || !importRecord) throw new Error("Import not found");
 
-    // Update status to processing
     await supabase
       .from("social_selling_imports")
       .update({ status: "processing" })
@@ -56,7 +64,6 @@ serve(async (req) => {
     // Process each screenshot with Gemini Vision
     for (const url of screenshotUrls) {
       try {
-        // Get signed URL for the screenshot
         const filePath = url.replace(/^.*social-selling-prints\//, "");
         const { data: signedData } = await supabase.storage
           .from("social-selling-prints")
@@ -64,13 +71,11 @@ serve(async (req) => {
 
         if (!signedData?.signedUrl) continue;
 
-        // Download the image and convert to base64
         const imgResponse = await fetch(signedData.signedUrl);
         const imgBuffer = await imgResponse.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+        const base64 = uint8ArrayToBase64(new Uint8Array(imgBuffer));
         const mimeType = imgResponse.headers.get("content-type") || "image/png";
 
-        // Call Lovable AI (Gemini Vision) to extract usernames
         const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -94,9 +99,7 @@ Examples: ["username1", "dr.example", "john_doe"]`
                 content: [
                   {
                     type: "image_url",
-                    image_url: {
-                      url: `data:${mimeType};base64,${base64}`,
-                    },
+                    image_url: { url: `data:${mimeType};base64,${base64}` },
                   },
                   {
                     type: "text",
@@ -115,8 +118,6 @@ Examples: ["username1", "dr.example", "john_doe"]`
 
         const aiData = await aiResponse.json();
         const content = aiData.choices?.[0]?.message?.content || "[]";
-        
-        // Parse usernames from AI response
         const cleaned = content.replace(/```json\n?/g, "").replace(/```/g, "").trim();
         try {
           const usernames = JSON.parse(cleaned);
@@ -131,10 +132,9 @@ Examples: ["username1", "dr.example", "john_doe"]`
       }
     }
 
-    // Deduplicate usernames
     const uniqueUsernames = [...new Set(allUsernames.filter(u => u.length > 0))];
 
-    // Get the first funnel stage (Mensagem Enviada Ativamente)
+    // Get first funnel stage
     const { data: firstStage } = await supabase
       .from("organization_funnel_stages")
       .select("id, enum_value")
@@ -145,10 +145,29 @@ Examples: ["username1", "dr.example", "john_doe"]`
 
     const stageEnum = firstStage?.enum_value || "no_contact";
     let leadsCreated = 0;
+    let leadsSkipped = 0;
 
-    // Create leads for each extracted username
     for (const username of uniqueUsernames) {
-      // Check if lead with this Instagram handle already exists
+      // Check if this username was already imported by ANY previous import
+      // for the same seller + profile combo (deduplication across imports)
+      const { data: existingActivity } = await supabase
+        .from("social_selling_activities")
+        .select("id")
+        .eq("organization_id", profile.organization_id)
+        .eq("seller_id", importRecord.seller_id)
+        .eq("profile_id", importRecord.profile_id)
+        .eq("instagram_username", username)
+        .eq("activity_type", "message_sent")
+        .limit(1)
+        .maybeSingle();
+
+      if (existingActivity) {
+        // Already tracked this outreach - skip entirely
+        leadsSkipped++;
+        continue;
+      }
+
+      // Check if lead exists
       const { data: existingLead } = await supabase
         .from("leads")
         .select("id")
@@ -160,8 +179,8 @@ Examples: ["username1", "dr.example", "john_doe"]`
 
       if (existingLead) {
         leadId = existingLead.id;
+        leadsSkipped++;
       } else {
-        // Create new lead (whatsapp is now nullable)
         const { data: newLead, error: leadErr } = await supabase
           .from("leads")
           .insert({
@@ -182,7 +201,7 @@ Examples: ["username1", "dr.example", "john_doe"]`
         leadsCreated++;
       }
 
-      // Create activity record
+      // Create activity record (only reaches here if no duplicate activity)
       await supabase
         .from("social_selling_activities")
         .insert({
@@ -212,6 +231,7 @@ Examples: ["username1", "dr.example", "john_doe"]`
         success: true,
         usernames: uniqueUsernames,
         leads_created: leadsCreated,
+        leads_skipped: leadsSkipped,
         total_extracted: uniqueUsernames.length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
