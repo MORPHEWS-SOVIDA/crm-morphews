@@ -234,16 +234,18 @@ export default function PaymentLinkCheckout() {
     const options = [];
     for (let i = 1; i <= maxInst; i++) {
       let value = amount;
+      let hasInterest = false;
       if (i > 1 && tenantFees.installment_fee_passed_to_buyer && tenantFees.installment_fees) {
-        const monthlyRate = (tenantFees.installment_fees[i.toString()] || 2.69) / 100;
-        // Compound interest for buyer
-        value = Math.round(amount * Math.pow(1 + monthlyRate, i - 1));
+        const feePercent = tenantFees.installment_fees[i.toString()] || 2.69;
+        // Simple interest: total percentage applied to base amount
+        value = Math.round(amount * (1 + feePercent / 100));
+        hasInterest = true;
       }
       options.push({
         installments: i,
         value,
         perInstallment: Math.round(value / i),
-        hasInterest: i > 1 && tenantFees.installment_fee_passed_to_buyer,
+        hasInterest,
       });
     }
     return options;
