@@ -316,7 +316,7 @@ export function InlineTelesalesForm({
                   {installmentOptions.map((opt) => (
                     <SelectItem key={opt.installments} value={opt.installments.toString()}>
                       {opt.installments}x de {formatCurrency(opt.perInstallment)}
-                      {opt.hasInterest && ' (com juros)'}
+                      {opt.hasInterest && ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
