@@ -14428,6 +14428,95 @@ export type Database = {
           },
         ]
       }
+      sale_payments: {
+        Row: {
+          acquirer_id: string | null
+          amount_cents: number
+          card_brand: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          installments: number | null
+          notes: string | null
+          nsu_cv: string | null
+          organization_id: string
+          payment_method_id: string | null
+          payment_method_name: string
+          sale_id: string
+          transaction_date: string | null
+          transaction_type: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          acquirer_id?: string | null
+          amount_cents: number
+          card_brand?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installments?: number | null
+          notes?: string | null
+          nsu_cv?: string | null
+          organization_id: string
+          payment_method_id?: string | null
+          payment_method_name: string
+          sale_id: string
+          transaction_date?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          acquirer_id?: string | null
+          amount_cents?: number
+          card_brand?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installments?: number | null
+          notes?: string | null
+          nsu_cv?: string | null
+          organization_id?: string
+          payment_method_id?: string | null
+          payment_method_name?: string
+          sale_id?: string
+          transaction_date?: string | null
+          transaction_type?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_payments_acquirer_id_fkey"
+            columns: ["acquirer_id"]
+            isOneToOne: false
+            referencedRelation: "payment_acquirers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_payments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_payments_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_payments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_splits: {
         Row: {
           created_at: string
