@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +31,7 @@ import {
   ThumbsDown,
   CheckCircle,
   ArrowRight,
+  ArrowLeft,
   Calendar,
   Coins,
   XCircle,
@@ -505,25 +506,21 @@ export default function AddReceptivo() {
   // Check access
   if (loadingAccess) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-96">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-      </Layout>
+      <div className="h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
   if (!accessInfo?.hasAccess) {
     return (
-      <Layout>
-        <div className="flex flex-col items-center justify-center h-96 text-center">
-          <ThumbsDown className="w-16 h-16 text-muted-foreground mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Acesso não disponível</h1>
-          <p className="text-muted-foreground max-w-md">
-            O módulo "Add Receptivo" não está habilitado para sua organização ou você não tem permissão de acesso.
-          </p>
-        </div>
-      </Layout>
+      <div className="h-screen flex flex-col items-center justify-center bg-background text-center">
+        <ThumbsDown className="w-16 h-16 text-muted-foreground mb-4" />
+        <h1 className="text-2xl font-bold mb-2">Acesso não disponível</h1>
+        <p className="text-muted-foreground max-w-md">
+          O módulo "Add Receptivo" não está habilitado para sua organização ou você não tem permissão de acesso.
+        </p>
+      </div>
     );
   }
 
@@ -1582,9 +1579,32 @@ export default function AddReceptivo() {
         }
       }
 
-      if (attendanceId) {
+      // Create attendance if it doesn't exist yet (e.g., "Sem Interesse" from early steps)
+      let finalAttendanceId = attendanceId;
+      if (!finalAttendanceId && tenantId && user) {
+        try {
+          const result = await createAttendance.mutateAsync({
+            organization_id: tenantId,
+            user_id: user.id,
+            lead_id: leadId,
+            phone_searched: leadData.whatsapp || phoneInput,
+            lead_existed: leadData.existed,
+            conversation_mode: conversationMode || 'receptive_call',
+            product_id: currentProductId || null,
+            product_answers: Object.keys(currentAnswers).length > 0 ? currentAnswers : null,
+            sale_id: null,
+            non_purchase_reason_id: reasonId,
+            purchase_potential_cents: purchasePotential,
+            completed: true,
+          });
+          finalAttendanceId = result.id;
+          setAttendanceId(result.id);
+        } catch (err) {
+          console.error('Error creating attendance for sem interesse:', err);
+        }
+      } else if (finalAttendanceId) {
         await updateAttendance.mutateAsync({
-          id: attendanceId,
+          id: finalAttendanceId,
           updates: {
             lead_id: leadId,
             product_id: currentProductId || null,
@@ -1717,308 +1737,266 @@ export default function AddReceptivo() {
     );
   };
 
-  return (
-    <Layout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
+  // Helper: Render the left panel client data (always visible after phone step)
+  const renderLeftPanel = () => (
+    <div className="p-4 space-y-4">
+      {/* Lead Summary Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Add Receptivo</h1>
-          <p className="text-muted-foreground mt-1">Atendimento guiado para novos leads</p>
+          <h2 className="text-xl font-bold">{leadData.name || 'Novo Cliente'}</h2>
+          <p className="text-sm text-muted-foreground font-mono">{leadData.whatsapp}</p>
         </div>
+        <SpyButtons />
+      </div>
 
-        {/* Step Indicator */}
-        {renderStepIndicator()}
+      {/* Stage & Stars for existing leads */}
+      {leadData.existed && leadData.stage && (
+        <div className="flex items-center gap-4 flex-wrap">
+          <Badge className={FUNNEL_STAGES[leadData.stage]?.color}>
+            {FUNNEL_STAGES[leadData.stage]?.label}
+          </Badge>
+          {leadData.stars !== undefined && leadData.stars > 0 && (
+            <div className="flex items-center gap-1">
+              {Array.from({ length: leadData.stars }).map((_, i) => (
+                <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* Phone Step */}
-        {currentStep === 'phone' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Phone className="w-5 h-5" />
-                Telefone do Cliente
-              </CardTitle>
-              <CardDescription>Digite o DDD + número do cliente</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Input
-                  type="tel"
-                  placeholder="5551999999999"
-                  value={phoneInput}
-                  onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))}
-                  onKeyDown={(e) => e.key === 'Enter' && handlePhoneSearch()}
-                  className="text-lg font-mono"
-                />
-                <Button onClick={handlePhoneSearch} disabled={searchLead.isPending}>
-                  {searchLead.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Formato: 55 (DDI) + DDD + Número. Ex: 5551999887766
-              </p>
-              
-              <Separator className="my-4" />
-              
-              {/* Name Search */}
-              <div className="space-y-3">
-                <div>
-                  <Label className="flex items-center gap-2 text-sm font-medium mb-2">
-                    <User className="w-4 h-4" />
-                    Ou buscar por nome
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="Digite o nome do cliente..."
-                    value={nameSearchInput}
-                    onChange={(e) => setNameSearchInput(e.target.value)}
-                    className="text-base"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Digite pelo menos 2 caracteres para buscar
-                  </p>
-                </div>
-                
-                {/* Name Search Results */}
-                {nameSearchInput.length >= 2 && (
-                  <div className="border rounded-lg overflow-hidden">
-                    {isSearchingByName ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                        <span className="ml-2 text-sm text-muted-foreground">Buscando...</span>
-                      </div>
-                    ) : nameSearchResults.length === 0 ? (
-                      <div className="py-4 text-center text-sm text-muted-foreground">
-                        Nenhum cliente encontrado com esse nome
-                      </div>
-                    ) : (
-                      <ScrollArea className="max-h-60">
-                        <div className="divide-y">
-                          {nameSearchResults.map((lead) => (
-                            <div
-                              key={lead.id}
-                              className="flex items-center gap-3 p-3 hover:bg-accent cursor-pointer transition-colors"
-                              onClick={() => handleSelectLeadFromNameSearch(lead.id)}
-                            >
-                              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <span className="text-primary font-semibold text-sm">
-                                  {lead.name.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate">{lead.name}</p>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <Phone className="w-3 h-3" />
-                                  <span className="font-mono">{lead.whatsapp}</span>
-                                  {lead.city && (
-                                    <>
-                                      <span>•</span>
-                                      <span>{lead.city}/{lead.state}</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                  <Star 
-                                    key={i} 
-                                    className={`w-3 h-3 ${i < lead.stars ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground/30'}`}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          ))}
+      {/* Funnel stage selector for new leads */}
+      {!leadData.existed && selectableStages.length > 0 && (
+        <div className="space-y-2">
+          <Label>Etapa do Funil</Label>
+          <Select value={selectedFunnelStageId} onValueChange={setSelectedFunnelStageId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a etapa" />
+            </SelectTrigger>
+            <SelectContent>
+              {selectableStages.map((stage) => (
+                <SelectItem key={stage.id} value={stage.id}>
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className={`w-3 h-3 rounded-full ${stage.color.startsWith('bg-') ? stage.color : ''}`}
+                      style={{ backgroundColor: !stage.color.startsWith('bg-') ? stage.color : undefined }}
+                    />
+                    {stage.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <Separator />
+
+      {/* Basic Info - Compact Editable Fields */}
+      <div>
+        <h3 className="font-medium mb-3 flex items-center gap-2 text-sm">
+          <User className="w-4 h-4" />
+          Informações do Cliente
+        </h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Nome *</Label>
+            <Input
+              value={leadData.name}
+              onChange={(e) => setLeadData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Nome do cliente"
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">WhatsApp</Label>
+            <Input value={leadData.whatsapp} disabled className="bg-muted h-9" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Tel. Secundário</Label>
+            <Input
+              value={leadData.secondary_phone}
+              onChange={(e) => setLeadData(prev => ({ ...prev, secondary_phone: e.target.value }))}
+              placeholder="Outro telefone"
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">E-mail</Label>
+            <Input
+              type="email"
+              value={leadData.email}
+              onChange={(e) => setLeadData(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="email@exemplo.com"
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Instagram</Label>
+            <Input
+              value={leadData.instagram}
+              onChange={(e) => setLeadData(prev => ({ ...prev, instagram: e.target.value }))}
+              placeholder="@usuario"
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Especialidade</Label>
+            <Input
+              value={leadData.specialty}
+              onChange={(e) => setLeadData(prev => ({ ...prev, specialty: e.target.value }))}
+              placeholder="Ex: Dermatologia"
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">CPF/CNPJ</Label>
+            <Input
+              value={leadData.cpf_cnpj}
+              onChange={(e) => setLeadData(prev => ({ ...prev, cpf_cnpj: e.target.value }))}
+              placeholder="000.000.000-00"
+              className="h-9"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Observations */}
+      <div className="space-y-1.5">
+        <Label className="text-xs flex items-center gap-2">
+          <FileText className="w-3 h-3" />
+          Observações
+        </Label>
+        <Textarea
+          value={leadData.observations}
+          onChange={(e) => setLeadData(prev => ({ ...prev, observations: e.target.value }))}
+          placeholder="Notas sobre o cliente..."
+          rows={2}
+          className="text-sm"
+        />
+      </div>
+
+      {/* HISTORY SECTIONS - only for existing leads */}
+      {leadData.existed && leadData.id && (
+        <SectionErrorBoundary title="Histórico do lead">
+          <>
+            {/* Previous Sales */}
+            {leadSales.length > 0 && (
+              <Card className="border-green-500/30">
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="flex items-center gap-2 text-green-600 text-sm">
+                    <ShoppingCart className="w-4 h-4" />
+                    Vendas Anteriores ({leadSales.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3">
+                  <div className="space-y-2">
+                    {leadSales.slice(0, 5).map((sale) => (
+                      <div
+                        key={sale.id}
+                        className="p-2 rounded-lg border bg-muted/30 flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className={getStatusColor(sale.status)}>
+                              {getStatusLabel(sale.status)}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(sale.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                            </span>
+                          </div>
+                          <p className="font-semibold text-primary text-sm mt-1">
+                            {formatCurrency(sale.total_cents)}
+                          </p>
                         </div>
-                      </ScrollArea>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
+                        >
+                          <Eye className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    {leadSales.length > 5 && (
+                      <Button
+                        variant="ghost"
+                        className="w-full text-xs"
+                        onClick={() => window.open(`/leads/${leadData.id}`, '_blank')}
+                      >
+                        Ver todas as {leadSales.length} vendas
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
                     )}
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                </CardContent>
+              </Card>
+            )}
 
-        {/* Lead Info Step - COMPLETO COM HISTÓRICO */}
-        {currentStep === 'lead_info' && (
-          <div className="space-y-6">
+            {/* Addresses */}
+            <LeadAddressesManager leadId={leadData.id} />
+
+            {/* Standard Questions */}
+            {orgFeatures?.standard_questions !== false && (
+              <SectionErrorBoundary title="Perguntas Sovida">
+                {leadData.id ? (
+                  <LeadStandardQuestionsSection leadId={leadData.id} />
+                ) : (
+                  <Card className="bg-muted/30 border-dashed">
+                    <CardContent className="py-4">
+                      <p className="text-sm text-muted-foreground text-center">
+                        Finalize ou busque um lead para acessar as Perguntas Sovida
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </SectionErrorBoundary>
+            )}
+
+            {/* Follow-ups */}
+            <LeadFollowupsSection leadId={leadData.id} />
+
+            {/* SAC */}
+            <LeadSacSection leadId={leadData.id} />
+
+            {/* Receptive History */}
+            <LeadReceptiveHistorySection leadId={leadData.id} />
+
+            {/* Stage Timeline */}
+            {leadData.stage && (
+              <LeadStageTimeline leadId={leadData.id} currentStage={leadData.stage} />
+            )}
+          </>
+        </SectionErrorBoundary>
+      )}
+    </div>
+  );
+
+  // Helper: Render right panel content based on current step
+  const renderRightPanel = () => {
+    switch (currentStep) {
+      case 'lead_info':
+        return (
+          <div className="p-4 space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    Dados do Cliente
-                    {leadData.existed && (
-                      <Badge variant="secondary">
-                        Cadastrado em {leadData.created_at && format(new Date(leadData.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  {leadData.id && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(`/leads/${leadData.id}`, '_blank')}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-1" />
-                      Abrir Perfil Completo
-                    </Button>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowQuickFollowupDialog(true)}
-                    disabled={!leadData.name.trim() || isCreatingLead}
-                  >
-                    Sem Interesse
-                  </Button>
-                  <Button 
-                    onClick={handleGoToConversation} 
-                    disabled={!leadData.name.trim() || isCreatingLead}
-                  >
-                    {isCreatingLead && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Continuar
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </div>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  Dados do Cliente
+                </CardTitle>
+                <CardDescription>
+                  Confira os dados ao lado e clique em continuar
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <Separator />
-
-                {/* Funnel Stage Selector - only for new leads */}
-                {!leadData.existed && (
-                  <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-                    <Label className="text-sm font-medium flex items-center gap-2 mb-2">
-                      <ClipboardList className="w-4 h-4 text-primary" />
-                      Etapa do Funil *
-                    </Label>
-                    <Select value={selectedFunnelStageId} onValueChange={setSelectedFunnelStageId}>
-                      <SelectTrigger className="w-full max-w-xs bg-background">
-                        <SelectValue placeholder="Selecione a etapa..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {selectableStages.map((stage) => (
-                          <SelectItem key={stage.id} value={stage.id}>
-                            <div className="flex items-center gap-2">
-                              <div 
-                                className={`w-3 h-3 rounded-full ${stage.color.startsWith('bg-') ? stage.color : ''}`}
-                                style={{ backgroundColor: !stage.color.startsWith('bg-') ? stage.color : undefined }}
-                              />
-                              {stage.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* Stage & Stars for existing leads */}
-                {leadData.existed && leadData.stage && (
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <Badge className={FUNNEL_STAGES[leadData.stage]?.color}>
-                      {FUNNEL_STAGES[leadData.stage]?.label}
-                    </Badge>
-                    {leadData.stars !== undefined && leadData.stars > 0 && (
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: leadData.stars }).map((_, i) => (
-                          <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Basic Info */}
-                <div>
-                  <h3 className="font-medium mb-3 flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Informações Básicas
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Nome *</Label>
-                      <Input
-                        value={leadData.name}
-                        onChange={(e) => setLeadData(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Nome do cliente"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>WhatsApp</Label>
-                      <Input value={leadData.whatsapp} disabled className="bg-muted" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Telefone Secundário</Label>
-                      <Input
-                        value={leadData.secondary_phone}
-                        onChange={(e) => setLeadData(prev => ({ ...prev, secondary_phone: e.target.value }))}
-                        placeholder="Outro telefone"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>E-mail</Label>
-                      <Input
-                        type="email"
-                        value={leadData.email}
-                        onChange={(e) => setLeadData(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="email@exemplo.com"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Instagram</Label>
-                      <Input
-                        value={leadData.instagram}
-                        onChange={(e) => setLeadData(prev => ({ ...prev, instagram: e.target.value }))}
-                        placeholder="@usuario"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Especialidade/Área</Label>
-                      <Input
-                        value={leadData.specialty}
-                        onChange={(e) => setLeadData(prev => ({ ...prev, specialty: e.target.value }))}
-                        placeholder="Ex: Dermatologia"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>CPF/CNPJ</Label>
-                      <Input
-                        value={leadData.cpf_cnpj}
-                        onChange={(e) => setLeadData(prev => ({ ...prev, cpf_cnpj: e.target.value }))}
-                        placeholder="000.000.000-00"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Observations */}
-                <div>
-                  <h3 className="font-medium mb-3 flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Observações
-                  </h3>
-                  <Textarea
-                    value={leadData.observations}
-                    onChange={(e) => setLeadData(prev => ({ ...prev, observations: e.target.value }))}
-                    placeholder="Notas sobre o cliente..."
-                    rows={3}
-                  />
-                </div>
-
-                <Separator />
-                <div className="flex justify-between gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowQuickFollowupDialog(true)}
-                    disabled={!leadData.name.trim() || isCreatingLead}
-                  >
-                    Sem Interesse
-                  </Button>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Os dados do cliente estão visíveis no painel à esquerda. Edite conforme necessário e continue.
+                </p>
+                <div className="flex justify-end">
                   <Button 
                     onClick={handleGoToConversation} 
                     disabled={!leadData.name.trim() || isCreatingLead}
+                    size="lg"
                   >
                     {isCreatingLead && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     {isCreatingLead ? 'Criando...' : 'Continuar'}
@@ -2027,280 +2005,171 @@ export default function AddReceptivo() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* HISTÓRICO COMPLETO DO LEAD - só para leads existentes */}
-            {leadData.existed && leadData.id && (
-              <SectionErrorBoundary title="Histórico do lead">
-                <>
-                  {/* Vendas Anteriores */}
-                  {leadSales.length > 0 && (
-                    <Card className="border-green-500/30">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-green-600">
-                          <ShoppingCart className="w-5 h-5" />
-                          Vendas Anteriores ({leadSales.length})
-                        </CardTitle>
-                        <CardDescription>Histórico de compras do cliente</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {leadSales.slice(0, 5).map((sale) => (
-                            <div
-                              key={sale.id}
-                              className="p-3 rounded-lg border bg-muted/30 flex items-center justify-between"
-                            >
-                              <div>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge className={getStatusColor(sale.status)}>
-                                    {getStatusLabel(sale.status)}
-                                  </Badge>
-                                  <span className="text-sm text-muted-foreground">
-                                    {format(new Date(sale.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                                  </span>
-                                </div>
-                                <p className="font-semibold text-primary mt-1">
-                                  {formatCurrency(sale.total_cents)}
-                                </p>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => window.open(`/vendas/${sale.id}`, '_blank')}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                          {leadSales.length > 5 && (
-                            <Button
-                              variant="ghost"
-                              className="w-full"
-                              onClick={() => window.open(`/leads/${leadData.id}`, '_blank')}
-                            >
-                              Ver todas as {leadSales.length} vendas
-                              <ExternalLink className="w-4 h-4 ml-2" />
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Endereços */}
-                  <LeadAddressesManager leadId={leadData.id} />
-
-                  {/* Perguntas Sovida - Standard Questions - only show if plan has standard_questions feature */}
-                  {orgFeatures?.standard_questions !== false && (
-                    <SectionErrorBoundary title="Perguntas Sovida">
-                      {leadData.id ? (
-                        <LeadStandardQuestionsSection leadId={leadData.id} />
-                      ) : (
-                        <Card className="bg-muted/30 border-dashed">
-                          <CardContent className="py-6">
-                            <p className="text-sm text-muted-foreground text-center">
-                              Finalize ou busque um lead para acessar as Perguntas Sovida
-                            </p>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </SectionErrorBoundary>
-                  )}
-
-                  {/* Follow-ups */}
-                  <LeadFollowupsSection leadId={leadData.id} />
-
-                  {/* SAC */}
-                  <LeadSacSection leadId={leadData.id} />
-
-                  {/* Histórico Receptivo */}
-                  <LeadReceptiveHistorySection leadId={leadData.id} />
-
-                  {/* Timeline de Etapas */}
-                  {leadData.stage && (
-                    <LeadStageTimeline leadId={leadData.id} currentStage={leadData.stage} />
-                  )}
-                </>
-              </SectionErrorBoundary>
-            )}
           </div>
-        )}
+        );
 
-        {/* Conversation Step */}
-        {currentStep === 'conversation' && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+      case 'conversation':
+        return (
+          <div className="p-4 space-y-4">
+            <Card>
+              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5" />
                   Modo de Conversa e Origem
                 </CardTitle>
-                <SpyButtons />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {renderNavButtons(() => setCurrentStep('lead_info'), handleGoToProduct, !conversationMode)}
-              <Separator />
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {renderNavButtons(() => setCurrentStep('lead_info'), handleGoToProduct, !conversationMode)}
+                <Separator />
 
-              <div className="space-y-2">
-                <Label>Como está conversando com o cliente? *</Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {CONVERSATION_MODES.map((mode) => (
-                    <Button
-                      key={mode.value}
-                      variant={conversationMode === mode.value ? 'default' : 'outline'}
-                      className="justify-start"
-                      onClick={() => setConversationMode(mode.value)}
-                    >
-                      {mode.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label>Origem deste Atendimento</Label>
-                
-                {leadData.existed && sourceHistory.length > 0 && (
-                  <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Histórico de origens:</p>
-                    <div className="space-y-1">
-                      {sourceHistory.map((entry, index) => (
-                        <div key={entry.id} className="flex items-center gap-2 text-sm">
-                          <Badge variant="outline" className="text-xs">
-                            {format(new Date(entry.recorded_at), "dd/MM/yy", { locale: ptBR })}
-                          </Badge>
-                          <span>{entry.source_name}</span>
-                          {index === 0 && <Badge variant="secondary" className="text-xs">Mais recente</Badge>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <p className="text-sm text-muted-foreground">
-                  Como o cliente nos encontrou <strong>desta vez</strong>?
-                </p>
-                <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a origem deste contato" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {leadSources.map((source) => (
-                      <SelectItem key={source.id} value={source.id}>{source.name}</SelectItem>
+                <div className="space-y-2">
+                  <Label>Como está conversando com o cliente? *</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CONVERSATION_MODES.map((mode) => (
+                      <Button
+                        key={mode.value}
+                        variant={conversationMode === mode.value ? 'default' : 'outline'}
+                        className="justify-start"
+                        onClick={() => setConversationMode(mode.value)}
+                      >
+                        {mode.label}
+                      </Button>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  </div>
+                </div>
 
-              <Separator />
-              {renderNavButtons(() => setCurrentStep('lead_info'), handleGoToProduct, !conversationMode)}
-            </CardContent>
-          </Card>
-        )}
+                <Separator />
 
-        {/* Product Step */}
-        {currentStep === 'product' && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Label>Origem deste Atendimento</Label>
+                  
+                  {leadData.existed && sourceHistory.length > 0 && (
+                    <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">Histórico de origens:</p>
+                      <div className="space-y-1">
+                        {sourceHistory.map((entry, index) => (
+                          <div key={entry.id} className="flex items-center gap-2 text-sm">
+                            <Badge variant="outline" className="text-xs">
+                              {format(new Date(entry.recorded_at), "dd/MM/yy", { locale: ptBR })}
+                            </Badge>
+                            <span>{entry.source_name}</span>
+                            {index === 0 && <Badge variant="secondary" className="text-xs">Mais recente</Badge>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-sm text-muted-foreground">
+                    Como o cliente nos encontrou <strong>desta vez</strong>?
+                  </p>
+                  {/* Lead sources as buttons instead of dropdown */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {leadSources.map((source) => (
+                      <Button
+                        key={source.id}
+                        variant={selectedSourceId === source.id ? 'default' : 'outline'}
+                        className="justify-start text-sm h-auto py-2"
+                        onClick={() => setSelectedSourceId(source.id)}
+                      >
+                        {source.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator />
+                {renderNavButtons(() => setCurrentStep('lead_info'), handleGoToProduct, !conversationMode)}
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'product':
+        return (
+          <div className="p-4 space-y-4">
+            <Card>
+              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="w-5 h-5" />
                   Produto de Interesse
                 </CardTitle>
-                <SpyButtons />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {renderNavButtons(() => setCurrentStep('conversation'), handleGoToOffer, !currentProductId && offerItems.length === 0)}
-              <Separator />
-              
-              <ProductSelectorForSale
-                products={products}
-                isLoading={false}
-                onSelect={(product) => {
-                  setCurrentProductId(product.id);
-                  setCurrentKitId(null);
-                  setCurrentRejectedKitIds([]);
-                  setShowPromo2(false);
-                  setShowMinimum(false);
-                }}
-                placeholder="Buscar produto por nome..."
-              />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {renderNavButtons(() => setCurrentStep('conversation'), handleGoToOffer, !currentProductId && offerItems.length === 0)}
+                <Separator />
+                
+                <ProductSelectorForSale
+                  products={products}
+                  isLoading={false}
+                  onSelect={(product) => {
+                    setCurrentProductId(product.id);
+                    setCurrentKitId(null);
+                    setCurrentRejectedKitIds([]);
+                    setShowPromo2(false);
+                    setShowMinimum(false);
+                  }}
+                  placeholder="Buscar produto por nome..."
+                />
 
-              {currentProduct && (
-                <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    {currentProduct.is_featured && <Star className="w-4 h-4 text-amber-500" />}
-                    <span className="font-medium">{currentProduct.name}</span>
-                    <Badge variant="outline">{currentProduct.category}</Badge>
+                {currentProduct && (
+                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      {currentProduct.is_featured && <Star className="w-4 h-4 text-amber-500" />}
+                      <span className="font-medium">{currentProduct.name}</span>
+                      <Badge variant="outline">{currentProduct.category}</Badge>
+                    </div>
+                    {currentProduct.description && (
+                      <p className="text-sm text-muted-foreground mt-2">{currentProduct.description}</p>
+                    )}
                   </div>
-                  {currentProduct.description && (
-                    <p className="text-sm text-muted-foreground mt-2">{currentProduct.description}</p>
-                  )}
-                </div>
-              )}
+                )}
 
-              <Separator />
-              {renderNavButtons(() => setCurrentStep('conversation'), handleGoToOffer, !currentProductId && offerItems.length === 0)}
-            </CardContent>
-          </Card>
-        )}
+                <Separator />
+                {renderNavButtons(() => setCurrentStep('conversation'), handleGoToOffer, !currentProductId && offerItems.length === 0)}
+              </CardContent>
+            </Card>
+          </div>
+        );
 
-        {/* Offer Step - INLINE SEM CARRINHO */}
-        {currentStep === 'offer' && (
-          <div className="space-y-6">
-            {/* Spy Buttons */}
-            <div className="flex justify-end">
-              <SpyButtons />
-            </div>
-
-            {/* Itens já adicionados - EXPANDIDO com detalhes completos */}
+      case 'offer':
+        return (
+          <div className="p-4 space-y-4">
+            {/* Already added products */}
             {offerItems.length > 0 && (
               <Card className="border-green-500/30">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-green-700">
-                    <Package className="w-5 h-5" />
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="flex items-center gap-2 text-green-700 text-sm">
+                    <Package className="w-4 h-4" />
                     Produtos Confirmados ({offerItems.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="px-4 pb-3 space-y-3">
                   {offerItems.map((item, index) => {
                     const itemTotal = item.unitPriceCents * item.quantity;
                     const installmentValue = Math.round(itemTotal / 10);
                     return (
-                      <div key={index} className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                      <div key={index} className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <p className="font-semibold text-lg">{item.productName}</p>
+                            <p className="font-semibold">{item.productName}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline">{item.quantity} {item.quantity === 1 ? 'unidade' : 'unidades'}</Badge>
+                              <Badge variant="outline" className="text-xs">{item.quantity} un</Badge>
                               {item.requisitionNumber && (
                                 <Badge variant="secondary" className="text-xs">Req: {item.requisitionNumber}</Badge>
                               )}
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveFromOffer(index)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        <Separator className="my-3" />
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Valor</p>
-                            <p className="text-xl font-bold">{formatPrice(itemTotal)}</p>
-                            <p className="text-xs text-muted-foreground">ou 12x de {formatPrice(installmentValue)}</p>
-                          </div>
                           <div className="text-right">
-                            <p className="text-sm text-muted-foreground">Sua comissão ({item.commissionPercentage}%)</p>
-                            <p className="text-lg font-bold text-green-600">Ganhe {formatPrice(item.commissionCents)}</p>
+                            <p className="font-bold text-green-700">{formatPrice(itemTotal)}</p>
+                            <p className="text-xs text-muted-foreground">12x {formatPrice(installmentValue)}</p>
                           </div>
+                        </div>
+                        <div className="flex justify-between mt-2 text-xs">
+                          <span className="text-green-600">Comissão: {formatPrice(item.commissionCents)}</span>
+                          <Button variant="ghost" size="sm" className="h-6 text-destructive" onClick={() => handleRemoveFromOffer(index)}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
                         </div>
                       </div>
                     );
@@ -2309,13 +2178,13 @@ export default function AddReceptivo() {
               </Card>
             )}
 
-            {/* Adicionar/Editar Produto Atual */}
-            {currentProduct ? (
+            {/* Current Product Offer Card */}
+            {currentProduct && (
               <ProductOfferCard
                 product={currentProduct}
                 sortedKits={sortedKits}
                 currentKitId={currentKitId}
-                currentPriceType={negotiatedPriceCents ? 'negotiated' : currentPriceType}
+                currentPriceType={currentPriceType}
                 currentRejectedKitIds={currentRejectedKitIds}
                 showPromo2={showPromo2}
                 showMinimum={showMinimum}
@@ -2340,9 +2209,8 @@ export default function AddReceptivo() {
                 onKitSelect={(kitId, priceType) => {
                   setCurrentKitId(kitId);
                   setCurrentPriceType(priceType);
-                  setCurrentCustomPrice(0);
-                  // Clear negotiation when selecting a different price type
                   setNegotiatedPriceCents(undefined);
+                  setNegotiatedInstallments(12);
                   setNegotiatedCommission(undefined);
                 }}
                 onRevealPromo2={() => setShowPromo2(true)}
@@ -2361,15 +2229,12 @@ export default function AddReceptivo() {
                 currentQuantity={currentQuantity}
                 currentCommission={currentCommission}
               />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="w-5 h-5" />
-                    Adicionar Produto
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+            )}
+
+            {/* Add another product button */}
+            {!currentProduct && showAddProduct && offerItems.length > 0 && (
+              <Card className="border-dashed">
+                <CardContent className="py-4">
                   <ProductSelectorForSale
                     products={products}
                     isLoading={false}
@@ -2379,24 +2244,32 @@ export default function AddReceptivo() {
                       setCurrentRejectedKitIds([]);
                       setShowPromo2(false);
                       setShowMinimum(false);
+                      setShowAddProduct(false);
                     }}
-                    placeholder="Buscar produto..."
+                    placeholder="Adicionar outro produto..."
                   />
                 </CardContent>
               </Card>
             )}
 
-            {/* Cross-sell Products */}
+            {!currentProduct && !showAddProduct && offerItems.length > 0 && (
+              <Button variant="outline" onClick={() => setShowAddProduct(true)} className="w-full">
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Produto
+              </Button>
+            )}
+
+            {/* Cross-sell */}
             {getCrossSellProducts().length > 0 && (
-              <Card className="border-amber-500/30">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-amber-700">
-                    <Gift className="w-5 h-5" />
-                    Venda Casada - Sugira para o Cliente!
+              <Card className="border-amber-300">
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="flex items-center gap-2 text-amber-700 text-sm">
+                    <Gift className="w-4 h-4" />
+                    Venda Casada
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <CardContent className="px-4 pb-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {getCrossSellProducts().map((crossProduct) => (
                       <Button
                         key={crossProduct.id}
@@ -2414,7 +2287,7 @@ export default function AddReceptivo() {
                         }}
                       >
                         <div className="text-left">
-                          <p className="font-medium">{crossProduct.name}</p>
+                          <p className="font-medium text-sm">{crossProduct.name}</p>
                           <p className="text-xs text-muted-foreground">{crossProduct.category}</p>
                         </div>
                       </Button>
@@ -2427,15 +2300,15 @@ export default function AddReceptivo() {
             {/* Order Summary */}
             {(currentUnitPrice > 0 || offerItems.length > 0) && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Resumo do Pedido</CardTitle>
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="text-sm">Resumo do Pedido</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="px-4 pb-3 space-y-2">
                   {offerItems.map((item, index) => {
                     const itemTotal = item.unitPriceCents * item.quantity;
                     const installmentValue = Math.round(itemTotal / 10);
                     return (
-                      <div key={index} className="p-3 bg-muted/30 rounded-lg">
+                      <div key={index} className="p-2 bg-muted/30 rounded-lg">
                         <div className="flex justify-between text-sm">
                           <span className="font-medium">{item.quantity}x {item.productName}</span>
                           <span className="font-bold">{formatPrice(itemTotal)}</span>
@@ -2449,7 +2322,7 @@ export default function AddReceptivo() {
                   })}
                   
                   {currentUnitPrice > 0 && currentProduct && (
-                    <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+                    <div className="p-2 bg-primary/5 rounded-lg border border-primary/20">
                       <div className="flex justify-between text-sm">
                         <span className="font-medium">{currentQuantity}x {currentProduct.name}</span>
                         <span className="font-bold">{formatPrice(currentProductSubtotal)}</span>
@@ -2468,22 +2341,22 @@ export default function AddReceptivo() {
                     </div>
                   )}
                   <Separator />
-                  <div className="flex justify-between font-bold text-xl">
+                  <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
                     <div className="text-right">
                       <span>{formatPrice(total)}</span>
-                      <p className="text-sm font-normal text-muted-foreground">
+                      <p className="text-xs font-normal text-muted-foreground">
                         ou 12x de {formatPrice(Math.round(total / 10))}
                       </p>
                     </div>
                   </div>
-                  <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 text-sm">
+                  <div className="p-2 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2">
                         <Coins className="w-4 h-4 text-green-600" />
                         Sua comissão total:
                       </span>
-                      <span className="font-bold text-lg text-green-600">
+                      <span className="font-bold text-green-600">
                         Ganhe {formatPrice(totalCommissionValue)}
                       </span>
                     </div>
@@ -2494,22 +2367,21 @@ export default function AddReceptivo() {
 
             {/* Non-Purchase Reasons */}
             <Card className="border-amber-500/30">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-amber-600">
-                  <ThumbsDown className="w-5 h-5" />
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="flex items-center gap-2 text-amber-600 text-sm">
+                  <ThumbsDown className="w-4 h-4" />
                   Não Fechou a Venda?
                 </CardTitle>
-                <CardDescription>Informe o potencial de compra e selecione o motivo</CardDescription>
+                <CardDescription className="text-xs">Informe o potencial e selecione o motivo</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Purchase Potential Input */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Coins className="w-4 h-4 text-amber-500" />
+              <CardContent className="px-4 pb-3 space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2 text-xs">
+                    <Coins className="w-3 h-3 text-amber-500" />
                     Potencial de Compra *
                   </Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium pointer-events-none">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium pointer-events-none text-sm">
                       R$
                     </span>
                     <Input
@@ -2528,12 +2400,9 @@ export default function AddReceptivo() {
                         setPurchasePotential(cents);
                       }}
                       onFocus={(e) => setTimeout(() => e.target.select(), 0)}
-                      className="pl-10 text-right"
+                      className="pl-10 text-right h-9"
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Este valor será adicionado ao "Valor Negociado" do lead
-                  </p>
                 </div>
 
                 <Separator />
@@ -2543,13 +2412,13 @@ export default function AddReceptivo() {
                   const pendingReason = nonPurchaseReasons.find(r => r.id === pendingReasonId);
                   if (!pendingReason) return null;
                   return (
-                    <div className="space-y-3 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="space-y-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-amber-800 dark:text-amber-200">
+                          <p className="font-medium text-amber-800 dark:text-amber-200 text-sm">
                             Motivo: {pendingReason.name}
                           </p>
-                          <p className="text-sm text-amber-700 dark:text-amber-300">
+                          <p className="text-xs text-amber-700 dark:text-amber-300">
                             Confirme a data/hora do follow-up
                           </p>
                         </div>
@@ -2577,48 +2446,47 @@ export default function AddReceptivo() {
                   );
                 })()}
 
-                {/* Show reason selection only when no pending reason */}
                 {!pendingReasonId && (
                   <>
-                    <p className="text-sm text-muted-foreground">Selecione o motivo para acompanhamento futuro</p>
+                    <p className="text-xs text-muted-foreground">Selecione o motivo para acompanhamento futuro</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {nonPurchaseReasons.slice(0, 4).map((reason) => (
                         <Button
                           key={reason.id}
                           variant="outline"
                           size="sm"
-                          className={`justify-start h-auto p-3 ${
+                          className={`justify-start h-auto p-2 ${
                             selectedReasonId === reason.id ? 'border-amber-500 bg-amber-500/10' : ''
                           }`}
                           onClick={() => handleSelectReason(reason.id)}
                           disabled={isSaving || purchasePotential <= 0}
                         >
                           <div className="flex-1 text-left">
-                            <p className="font-medium text-sm">{reason.name}</p>
+                            <p className="font-medium text-xs">{reason.name}</p>
                             {reason.followup_hours > 0 && (
-                              <Badge variant="secondary" className="text-xs mt-1">
-                                <Calendar className="w-3 h-3 mr-1" />
-                                Sugestão: {reason.followup_hours}h
+                              <Badge variant="secondary" className="text-[10px] mt-0.5">
+                                <Calendar className="w-2.5 h-2.5 mr-0.5" />
+                                {reason.followup_hours}h
                               </Badge>
                             )}
                           </div>
                           {isSaving && selectedReasonId === reason.id && (
-                            <Loader2 className="w-4 h-4 animate-spin ml-2" />
+                            <Loader2 className="w-3 h-3 animate-spin ml-1" />
                           )}
                         </Button>
                       ))}
                     </div>
                     {purchasePotential <= 0 && (
-                      <p className="text-xs text-red-500 text-center">Informe o potencial de compra para selecionar um motivo</p>
+                      <p className="text-[10px] text-destructive text-center">Informe o potencial de compra para selecionar um motivo</p>
                     )}
                     {nonPurchaseReasons.length > 4 && (
                       <Button
                         variant="ghost"
-                        className="w-full mt-2 text-amber-700"
+                        className="w-full text-xs text-amber-700"
                         onClick={() => setCurrentStep('sale_or_reason')}
                       >
                         Ver todos os followups ({nonPurchaseReasons.length})
-                        <ArrowRight className="w-4 h-4 ml-2" />
+                        <ArrowRight className="w-3 h-3 ml-1" />
                       </Button>
                     )}
                   </>
@@ -2635,285 +2503,215 @@ export default function AddReceptivo() {
               </Button>
             </div>
           </div>
-        )}
+        );
 
-        {/* Address/Delivery Step */}
-        {currentStep === 'address' && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+      case 'address':
+        return (
+          <div className="p-4 space-y-4">
+            <Card>
+              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Truck className="w-5 h-5" />
                   Entrega
                 </CardTitle>
-                <SpyButtons />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {renderNavButtons(() => setCurrentStep('offer'), handleGoToPayment)}
-              <Separator />
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {renderNavButtons(() => setCurrentStep('offer'), handleGoToPayment)}
+                <Separator />
 
-              {/* FIRST: Address selection - select address before delivery type */}
-              {leadData.id ? (
-                <AddressSelector
-                  leadId={leadData.id}
-                  value={selectedAddressId}
-                  onChange={handleAddressChange}
-                />
-              ) : (
-                <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-amber-800 dark:text-amber-400">
-                      Lead não salvo
-                    </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-500">
-                      Volte à etapa anterior para salvar os dados do lead e poder gerenciar endereços.
-                    </p>
+                {leadData.id ? (
+                  <AddressSelector
+                    leadId={leadData.id}
+                    value={selectedAddressId}
+                    onChange={handleAddressChange}
+                  />
+                ) : (
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-400">Lead não salvo</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-500">
+                        Volte à etapa anterior para salvar os dados do lead e poder gerenciar endereços.
+                      </p>
+                    </div>
                   </div>
+                )}
+
+                <Separator />
+
+                <DeliveryTypeSelector
+                  value={deliveryConfig}
+                  onChange={setDeliveryConfig}
+                  leadRegionId={selectedAddress?.delivery_region_id || leadData.delivery_region_id || null}
+                  leadCpfCnpj={leadData.cpf_cnpj}
+                  leadCep={selectedAddress?.cep || leadData.cep || null}
+                  hasValidAddress={!!(selectedAddress?.cep && selectedAddress?.street && selectedAddress?.city && selectedAddress?.state)}
+                  onUpdateCpf={(cpf) => setLeadData(prev => ({ ...prev, cpf_cnpj: cpf }))}
+                />
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Observação para Entrega
+                  </Label>
+                  <Textarea
+                    value={deliveryObservation}
+                    onChange={(e) => setDeliveryObservation(e.target.value)}
+                    placeholder="Ex: Colocar em embalagem de presente, será recebido pelo filho..."
+                    className="min-h-[80px]"
+                  />
                 </div>
-              )}
 
-              <Separator />
+                {leadData.id && (
+                  <LeadProfilePrompt
+                    leadId={leadData.id}
+                    leadName={leadData.name}
+                    currentBirthDate={leadData.birth_date}
+                    currentGender={leadData.gender}
+                    currentFavoriteTeam={leadData.favorite_team}
+                    onUpdate={async (updates) => {
+                      await updateLead.mutateAsync({ id: leadData.id!, ...updates });
+                      setLeadData(prev => ({ ...prev, ...updates }));
+                    }}
+                  />
+                )}
 
-              {/* THEN: Delivery Type Selection - uses region from selected address */}
-              <DeliveryTypeSelector
-                value={deliveryConfig}
-                onChange={setDeliveryConfig}
-                leadRegionId={selectedAddress?.delivery_region_id || leadData.delivery_region_id || null}
-                leadCpfCnpj={leadData.cpf_cnpj}
-                leadCep={selectedAddress?.cep || leadData.cep || null}
-                hasValidAddress={!!(selectedAddress?.cep && selectedAddress?.street && selectedAddress?.city && selectedAddress?.state)}
-                onUpdateCpf={(cpf) => setLeadData(prev => ({ ...prev, cpf_cnpj: cpf }))}
-              />
+                <Separator />
+                {renderNavButtons(() => setCurrentStep('offer'), handleGoToPayment)}
+              </CardContent>
+            </Card>
+          </div>
+        );
 
-              {/* Delivery Observation Field */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Observação para Entrega
-                </Label>
-                <Textarea
-                  value={deliveryObservation}
-                  onChange={(e) => setDeliveryObservation(e.target.value)}
-                  placeholder="Ex: Colocar em embalagem de presente, será recebido pelo filho, campainha não funciona - buzinar, dividir em duas sacolas..."
-                  className="min-h-[80px]"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Essa informação aparecerá no romaneio e para o entregador.
-                </p>
-              </div>
-
-              {/* Profile Prompt - for missing birth_date, gender, favorite_team */}
-              {leadData.id && (
-                <LeadProfilePrompt
-                  leadId={leadData.id}
-                  leadName={leadData.name}
-                  currentBirthDate={leadData.birth_date}
-                  currentGender={leadData.gender}
-                  currentFavoriteTeam={leadData.favorite_team}
-                  onUpdate={async (updates) => {
-                    await updateLead.mutateAsync({ id: leadData.id!, ...updates });
-                    setLeadData(prev => ({ ...prev, ...updates }));
-                  }}
-                />
-              )}
-
-              <Separator />
-              {renderNavButtons(() => setCurrentStep('offer'), handleGoToPayment)}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Payment Step */}
-        {currentStep === 'payment' && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+      case 'payment':
+        return (
+          <div className="p-4 space-y-4">
+            <Card>
+              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5" />
                   Pagamento
                 </CardTitle>
-                <SpyButtons />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {renderNavButtons(() => setCurrentStep('address'), handleGoToSaleOrReason)}
-              <Separator />
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {renderNavButtons(() => setCurrentStep('address'), handleGoToSaleOrReason)}
+                <Separator />
 
-              {/* Seller Selection */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <UserCheck className="w-4 h-4" />
-                  Vendedor responsável
-                </Label>
-                <Select value={sellerUserId || ''} onValueChange={setSellerUserId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o vendedor..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map((u) => (
-                      <SelectItem key={u.user_id} value={u.user_id}>
-                        {u.first_name} {u.last_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Separator />
-
-              {/* Payment Method */}
-              <div className="space-y-2">
-                <Label>Forma de Pagamento</Label>
-                <Select value={selectedPaymentMethodId || ''} onValueChange={setSelectedPaymentMethodId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((pm) => (
-                      <SelectItem key={pm.id} value={pm.id}>
-                        {pm.name} ({PAYMENT_TIMING_LABELS[pm.payment_timing]})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Installments */}
-              {selectedPaymentMethod?.payment_timing === 'installments' && (
                 <div className="space-y-2">
-                  <Label>Parcelas</Label>
-                  <Select 
-                    value={selectedInstallments.toString()} 
-                    onValueChange={(v) => setSelectedInstallments(parseInt(v))}
-                  >
+                  <Label className="flex items-center gap-2">
+                    <UserCheck className="w-4 h-4" />
+                    Vendedor responsável
+                  </Label>
+                  <Select value={sellerUserId || ''} onValueChange={setSellerUserId}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Selecione o vendedor..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {getAvailableInstallments().map((n) => (
-                        <SelectItem key={n} value={n.toString()}>
-                          {n}x de {formatPrice(Math.ceil(total / n))}
+                      {users.map((u) => (
+                        <SelectItem key={u.user_id} value={u.user_id}>
+                          {u.first_name} {u.last_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-              )}
 
-              {/* Payment Status */}
-              <div className="space-y-2">
-                <Label>Status do Pagamento</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <Button
-                    type="button"
-                    variant={paymentStatus === 'not_paid' ? 'default' : 'outline'}
-                    onClick={() => setPaymentStatus('not_paid')}
-                    className="justify-start"
-                  >
-                    <Clock className="w-4 h-4 mr-2" />
-                    Não pago
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={paymentStatus === 'will_pay_before' ? 'default' : 'outline'}
-                    onClick={() => setPaymentStatus('will_pay_before')}
-                    className="justify-start"
-                  >
-                    <AlertTriangle className="w-4 h-4 mr-2" />
-                    Vai pagar antes
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={paymentStatus === 'paid_now' ? 'default' : 'outline'}
-                    onClick={() => setPaymentStatus('paid_now')}
-                    className="justify-start"
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Já pagou
-                  </Button>
-                </div>
-              </div>
+                <Separator />
 
-              {/* Payment Proof Upload - Only when "Já pagou" */}
-              {paymentStatus === 'paid_now' && (
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    Comprovante de Pagamento
-                  </Label>
-                  <Input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setPaymentProofFile(file);
-                      }
-                    }}
-                    className="cursor-pointer"
-                  />
-                  {paymentProofFile && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      {paymentProofFile.name}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Anexe uma foto ou PDF do comprovante (opcional)
-                  </p>
+                  <Label>Forma de Pagamento</Label>
+                  <Select value={selectedPaymentMethodId || ''} onValueChange={setSelectedPaymentMethodId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {paymentMethods.map((pm) => (
+                        <SelectItem key={pm.id} value={pm.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{pm.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {PAYMENT_TIMING_LABELS[pm.payment_timing] || pm.payment_timing}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
 
-              {/* Order Summary */}
-              <div className="p-4 rounded-lg bg-primary/10 space-y-2">
-                <h4 className="font-semibold text-lg">Total a Pagar</h4>
-                <div className="flex justify-between text-2xl font-bold">
-                  <span>Total</span>
-                  <span className="text-primary">{formatPrice(total)}</span>
-                </div>
-                {shippingCost > 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    (inclui {formatPrice(shippingCost)} de frete)
-                  </p>
+                {selectedPaymentMethod?.payment_timing === 'installments' && (
+                  <div className="space-y-2">
+                    <Label>Parcelas</Label>
+                    <Select value={String(selectedInstallments)} onValueChange={(v) => setSelectedInstallments(Number(v))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getAvailableInstallments().map((n) => (
+                          <SelectItem key={n} value={String(n)}>
+                            {n}x de {formatPrice(Math.round(total / n))}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 )}
-              </div>
 
-              {/* Payment Actions - Generate Link or Telesales */}
-              {total > 0 && (
-                <PaymentActionsBar
-                  amountCents={total}
-                  customerName={leadData.name || 'Cliente'}
-                  customerDocument={leadData.cpf_cnpj}
-                  customerPhone={leadData.whatsapp}
-                  customerEmail={leadData.email}
-                  leadId={leadData.id}
-                  productName={currentProduct?.name || offerItems[0]?.productName}
-                  onPaymentSuccess={(transactionId) => {
-                    toast({ 
-                      title: 'Pagamento aprovado!', 
-                      description: `Transação ${transactionId} confirmada` 
-                    });
-                    setPaymentStatus('paid_now');
-                  }}
-                />
-              )}
+                <Separator />
 
-              <Separator />
-              {renderNavButtons(() => setCurrentStep('address'), handleGoToSaleOrReason)}
-            </CardContent>
-          </Card>
-        )}
+                <div className="space-y-2">
+                  <Label>Status do Pagamento</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: 'not_paid', label: 'Não pagou' },
+                      { value: 'will_pay_before', label: 'Pagará antes da entrega' },
+                      { value: 'paid_now', label: 'Pagou agora' },
+                    ].map((opt) => (
+                      <Button
+                        key={opt.value}
+                        variant={paymentStatus === opt.value ? 'default' : 'outline'}
+                        className="text-xs h-auto py-2"
+                        onClick={() => setPaymentStatus(opt.value as typeof paymentStatus)}
+                      >
+                        {opt.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
 
-        {/* Sale or Reason Step */}
-        {currentStep === 'sale_or_reason' && (
-          <div className="space-y-6">
-            {/* Spy Buttons */}
-            <div className="flex justify-end">
-              <SpyButtons />
-            </div>
+                {paymentStatus === 'paid_now' && (
+                  <div className="space-y-2">
+                    <Label>Comprovante de Pagamento</Label>
+                    <Input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setPaymentProofFile(e.target.files?.[0] || null)}
+                    />
+                  </div>
+                )}
 
+                {/* Payment Actions Bar */}
+                {selectedPaymentMethodId && leadData.id && total > 0 && (
+                  <PaymentActionsBar
+                    amountCents={total}
+                    customerName={leadData.name}
+                    customerPhone={leadData.whatsapp}
+                    customerEmail={leadData.email}
+                    customerDocument={leadData.cpf_cnpj}
+                    leadId={leadData.id}
+                  />
+                )}
+
+                <Separator />
+                {renderNavButtons(() => setCurrentStep('address'), handleGoToSaleOrReason)}
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'sale_or_reason':
+        return (
+          <div className="p-4 space-y-4">
             {/* Create Sale */}
             <Card className="border-green-500/30">
               <CardHeader>
@@ -3129,7 +2927,6 @@ export default function AddReceptivo() {
                 <CardDescription>Informe o potencial de compra e selecione o motivo</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Purchase Potential Input */}
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Coins className="w-4 h-4 text-amber-500" />
@@ -3165,7 +2962,6 @@ export default function AddReceptivo() {
 
                 <Separator />
 
-                {/* Show FollowupDateTimeEditor if a reason with followup is pending */}
                 {pendingReasonId && (() => {
                   const pendingReason = nonPurchaseReasons.find(r => r.id === pendingReasonId);
                   if (!pendingReason) return null;
@@ -3204,7 +3000,6 @@ export default function AddReceptivo() {
                   );
                 })()}
 
-                {/* Show reason list only when no pending reason */}
                 {!pendingReasonId && (
                   <div className="space-y-3">
                     {nonPurchaseReasons.map((reason) => (
@@ -3246,6 +3041,172 @@ export default function AddReceptivo() {
               Voltar
             </Button>
           </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <>
+      <div className="h-screen flex flex-col bg-background">
+        {/* Top Bar - Compact Header */}
+        <header className="flex items-center justify-between px-4 py-2 border-b shrink-0">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Voltar
+            </Button>
+            <h1 className="text-lg font-bold hidden sm:block">Add Receptivo</h1>
+          </div>
+          <div className="flex items-center gap-3 overflow-x-auto">
+            {renderStepIndicator()}
+          </div>
+          {/* Sem Interesse - Big Red Button, always visible after phone step */}
+          {currentStep !== 'phone' && (
+            <Button 
+              variant="destructive" 
+              size="lg"
+              className="font-bold px-6 text-base shrink-0"
+              onClick={() => setShowQuickFollowupDialog(true)}
+              disabled={!leadData.name.trim() || isSaving}
+            >
+              <XCircle className="w-5 h-5 mr-2" />
+              SEM INTERESSE
+            </Button>
+          )}
+        </header>
+
+        {/* Main Content */}
+        {currentStep === 'phone' ? (
+          /* Phone Step - Full Width */
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-2xl mx-auto space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Phone className="w-5 h-5" />
+                    Telefone do Cliente
+                  </CardTitle>
+                  <CardDescription>Digite o DDD + número do cliente</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <Input
+                      type="tel"
+                      placeholder="5551999999999"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ''))}
+                      onKeyDown={(e) => e.key === 'Enter' && handlePhoneSearch()}
+                      className="text-lg font-mono"
+                    />
+                    <Button onClick={handlePhoneSearch} disabled={searchLead.isPending}>
+                      {searchLead.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Formato: 55 (DDI) + DDD + Número. Ex: 5551999887766
+                  </p>
+                  
+                  <Separator className="my-4" />
+                  
+                  {/* Name Search */}
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="flex items-center gap-2 text-sm font-medium mb-2">
+                        <User className="w-4 h-4" />
+                        Ou buscar por nome
+                      </Label>
+                      <Input
+                        type="text"
+                        placeholder="Digite o nome do cliente..."
+                        value={nameSearchInput}
+                        onChange={(e) => setNameSearchInput(e.target.value)}
+                        className="text-base"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Digite pelo menos 2 caracteres para buscar
+                      </p>
+                    </div>
+                    
+                    {nameSearchInput.length >= 2 && (
+                      <div className="border rounded-lg overflow-hidden">
+                        {isSearchingByName ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                            <span className="ml-2 text-sm text-muted-foreground">Buscando...</span>
+                          </div>
+                        ) : nameSearchResults.length === 0 ? (
+                          <div className="py-4 text-center text-sm text-muted-foreground">
+                            Nenhum cliente encontrado com esse nome
+                          </div>
+                        ) : (
+                          <ScrollArea className="max-h-60">
+                            <div className="divide-y">
+                              {nameSearchResults.map((lead) => (
+                                <div
+                                  key={lead.id}
+                                  className="flex items-center gap-3 p-3 hover:bg-accent cursor-pointer transition-colors"
+                                  onClick={() => handleSelectLeadFromNameSearch(lead.id)}
+                                >
+                                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <span className="text-primary font-semibold text-sm">
+                                      {lead.name.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium truncate">{lead.name}</p>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <Phone className="w-3 h-3" />
+                                      <span className="font-mono">{lead.whatsapp}</span>
+                                      {lead.city && (
+                                        <>
+                                          <span>•</span>
+                                          <span>{lead.city}/{lead.state}</span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    {Array.from({ length: 5 }).map((_, i) => (
+                                      <Star 
+                                        key={i} 
+                                        className={`w-3 h-3 ${i < lead.stars ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground/30'}`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        ) : (
+          /* Split Layout - Left: Client Data | Right: Actions */
+          <ResizablePanelGroup direction="horizontal" className="flex-1 overflow-hidden">
+            {/* Left Panel - Client Data & History */}
+            <ResizablePanel defaultSize={40} minSize={25}>
+              <ScrollArea className="h-full">
+                {renderLeftPanel()}
+              </ScrollArea>
+            </ResizablePanel>
+            
+            <ResizableHandle withHandle />
+            
+            {/* Right Panel - Action Steps */}
+            <ResizablePanel defaultSize={60} minSize={30}>
+              <ScrollArea className="h-full">
+                {renderRightPanel()}
+              </ScrollArea>
+            </ResizablePanel>
+          </ResizablePanelGroup>
         )}
       </div>
 
@@ -3264,7 +3225,6 @@ export default function AddReceptivo() {
         onOpenChange={setShowQuickFollowupDialog}
         reasons={nonPurchaseReasons}
         onSelectReason={async (reasonId, followupDate) => {
-          // Set a default purchase potential if none is set
           if (purchasePotential <= 0) {
             setPurchasePotential(0);
           }
@@ -3272,6 +3232,6 @@ export default function AddReceptivo() {
         }}
         isSaving={isSaving}
       />
-    </Layout>
+    </>
   );
 }
