@@ -294,6 +294,9 @@ export function TransactionsTab() {
           transaction={{
             id: selectedTransaction.id,
             amount_cents: selectedTransaction.amount_cents,
+            base_amount_cents: (selectedTransaction as any).base_amount_cents,
+            interest_amount_cents: (selectedTransaction as any).interest_amount_cents,
+            payment_link_id: selectedTransaction.payment_link_id,
             customer_name: selectedTransaction.customer_name,
           }}
         />

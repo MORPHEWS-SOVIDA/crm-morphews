@@ -44,6 +44,8 @@ export interface PaymentLinkTransaction {
   customer_phone: string | null;
   customer_document: string | null;
   amount_cents: number;
+  base_amount_cents: number | null;
+  interest_amount_cents: number | null;
   fee_cents: number;
   net_amount_cents: number;
   payment_method: string;

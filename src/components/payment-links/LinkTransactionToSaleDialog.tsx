@@ -47,6 +47,9 @@ interface Props {
   transaction: {
     id: string;
     amount_cents: number;
+    base_amount_cents?: number | null;
+    interest_amount_cents?: number | null;
+    payment_link_id?: string | null;
     customer_name: string | null;
   };
 }
@@ -111,14 +114,34 @@ export function LinkTransactionToSaleDialog({ open, onOpenChange, transaction }:
       
       if (txError) throw txError;
 
-      // Update the sale payment status
+      // Determine if we need to adjust sale value based on interest bearer
+      let saleUpdateData: Record<string, any> = {
+        payment_status: 'paid',
+        payment_confirmed_at: new Date().toISOString(),
+        payment_notes: `Vinculado à transação #${transactionId.slice(0, 8)}`,
+      };
+
+      // If company absorbs interest, update sale total to base amount (without interest)
+      const interestAmount = transaction.interest_amount_cents || 0;
+      if (interestAmount > 0 && transaction.payment_link_id) {
+        const { data: linkData } = await supabase
+          .from('payment_links')
+          .select('interest_bearer')
+          .eq('id', transaction.payment_link_id)
+          .single();
+
+        if (linkData?.interest_bearer === 'seller') {
+          // Company pays interest: sale value = base amount (what we actually receive)
+          const baseAmount = transaction.base_amount_cents || (transaction.amount_cents - interestAmount);
+          saleUpdateData.total_cents = baseAmount;
+          saleUpdateData.payment_notes = `Vinculado à transação #${transactionId.slice(0, 8)} | Juros absorvidos pela empresa: ${formatCurrency(interestAmount)}`;
+        }
+        // If client pays interest: sale value stays the same (interest goes to bank, not revenue)
+      }
+
       const { error: saleError } = await supabase
         .from('sales')
-        .update({
-          payment_status: 'paid',
-          payment_confirmed_at: new Date().toISOString(),
-          payment_notes: `Vinculado à transação #${transactionId.slice(0, 8)}`,
-        })
+        .update(saleUpdateData)
         .eq('id', saleId);
       
       if (saleError) throw saleError;
