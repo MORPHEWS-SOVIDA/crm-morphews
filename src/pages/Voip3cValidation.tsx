@@ -98,22 +98,25 @@ export default function Voip3cValidation() {
   // Initialize config text when data loads
   useEffect(() => {
     if (config) {
-      setBlacklistText(config.blacklist_numbers.join('\n'));
-      setCnpjText(config.cnpj_numbers.join('\n'));
+      setBlacklistText(config.blacklist_numbers?.join('\n') || '');
+      setCnpjText(config.cnpj_numbers?.join('\n') || '');
     }
   }, [config]);
   
+  const parseNumbers = (text: string, minLen = 8) =>
+    text.split('\n').map(n => n.replace(/\D/g, '')).filter(n => n.length >= minLen);
+
   const handleSaveConfig = () => {
-    const blacklist = blacklistText
-      .split('\n')
-      .map(n => n.replace(/\D/g, ''))
-      .filter(n => n.length >= 8);
-    const cnpj = cnpjText
-      .split('\n')
-      .map(n => n.replace(/\D/g, ''))
-      .filter(n => n.length >= 11);
+    const blacklist = parseNumbers(blacklistText, 8);
+    const cnpj = parseNumbers(cnpjText, 8);
     
-    saveConfig({ blacklist_numbers: blacklist, cnpj_numbers: cnpj });
+    saveConfig({ blacklist_numbers: blacklist, cnpj_numbers: cnpj }, {
+      onSuccess: () => {
+        // Update local text to cleaned values so user sees what was saved
+        setBlacklistText(blacklist.join('\n'));
+        setCnpjText(cnpj.join('\n'));
+      },
+    });
   };
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -553,32 +556,52 @@ export default function Voip3cValidation() {
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <Ban className="w-4 h-4 text-destructive" />
-                      Números Blacklist (1 por linha)
+                      Números Bloqueados — Blacklist (1 por linha)
                     </Label>
                     <Textarea
-                      placeholder="Ex: 11999999999&#10;11888888888"
+                      placeholder="Ex: 5132477800&#10;11988887777"
                       value={blacklistText}
                       onChange={(e) => setBlacklistText(e.target.value)}
-                      rows={5}
+                      rows={4}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Números que não devem aparecer nos relatórios (ex: concorrentes)
+                      Telemarketing, concorrentes ou call centers que ligam para vocês. Serão ignorados nos relatórios.
                     </p>
+                    {(config?.blacklist_numbers?.length ?? 0) > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">Salvos ({config!.blacklist_numbers.length}):</p>
+                        <div className="flex flex-wrap gap-1">
+                          {config!.blacklist_numbers.map(n => (
+                            <Badge key={n} variant="destructive" className="text-xs font-mono">{n}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-blue-500" />
-                      Números CNPJ (1 por linha)
+                      <Building2 className="w-4 h-4 text-muted-foreground" />
+                      Números de Empresas (1 por linha)
                     </Label>
                     <Textarea
-                      placeholder="Ex: 11333333333&#10;11444444444"
+                      placeholder="Ex: 5133224455&#10;11444444444"
                       value={cnpjText}
                       onChange={(e) => setCnpjText(e.target.value)}
-                      rows={5}
+                      rows={4}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Números de empresas/CNPJ que não precisam de follow-up
+                      Fornecedores, parceiros ou empresas que ligam com frequência mas não são leads. Não precisam de follow-up.
                     </p>
+                    {(config?.cnpj_numbers?.length ?? 0) > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">Salvos ({config!.cnpj_numbers.length}):</p>
+                        <div className="flex flex-wrap gap-1">
+                          {config!.cnpj_numbers.map(n => (
+                            <Badge key={n} variant="secondary" className="text-xs font-mono">{n}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <Button onClick={handleSaveConfig} disabled={savingConfig}>
