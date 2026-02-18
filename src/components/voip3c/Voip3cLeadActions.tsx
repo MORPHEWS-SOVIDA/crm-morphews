@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ArrowRight, UserPlus, CalendarPlus, ExternalLink } from 'lucide-react';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { Button } from '@/components/ui/button';
@@ -9,13 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
-import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useCreateFollowup } from '@/hooks/useLeadFollowups';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useAuth } from '@/hooks/useAuth';
 import { useLogVoip3cAction } from '@/hooks/useVoip3cActionLogs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 import type { FunnelStage } from '@/types/lead';
 
 interface Voip3cLeadActionsProps {
@@ -31,7 +31,36 @@ interface Voip3cLeadActionsProps {
 export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, leadPhone, validationId, compact }: Voip3cLeadActionsProps) {
   const { profile, user } = useAuth();
   const { data: stages } = useFunnelStages();
-  const { data: members } = useTeamMembers();
+
+  // Fetch active org members directly (more reliable than useTeamMembers in dialog context)
+  const orgId = profile?.organization_id;
+  const { data: orgMembers } = useQuery({
+    queryKey: ['org-active-members', orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const { data, error } = await supabase
+        .from('organization_members')
+        .select('user_id, role, is_active, profiles!inner(first_name, last_name)')
+        .eq('organization_id', orgId)
+        .eq('is_active', true);
+      if (error) throw error;
+      return (data || []).map((m: any) => ({
+        user_id: m.user_id,
+        role: m.role,
+        full_name: `${m.profiles?.first_name || ''} ${m.profiles?.last_name || ''}`.trim() || 'Sem nome',
+      }));
+    },
+    enabled: !!orgId,
+    staleTime: 60_000,
+  });
+
+  // Filter to only sellers/managers/admins/owners (exclude delivery, shipping, etc.)
+  const assignableMembers = useMemo(() => {
+    return (orgMembers || []).filter(m => 
+      ['seller', 'manager', 'admin', 'owner', 'member'].includes(m.role)
+    ).sort((a, b) => a.full_name.localeCompare(b.full_name));
+  }, [orgMembers]);
+
   const createFollowup = useCreateFollowup();
   const logAction = useLogVoip3cAction();
   const addStageHistory = useAddStageHistory();
@@ -96,7 +125,7 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, l
         .update({ assigned_to: selectedUserId })
         .eq('id', leadId);
       if (error) throw error;
-      const member = members?.find(m => m.user_id === selectedUserId);
+      const member = assignableMembers?.find(m => m.user_id === selectedUserId);
       toast.success(`Lead atribuído a ${member?.full_name || 'vendedor'}`);
       if (validationId) {
         logAction.mutate({ validation_id: validationId, lead_id: leadId, lead_name: leadName, lead_phone: leadPhone || leadWhatsapp, action_type: 'assigned_seller', action_details: { seller_name: member?.full_name || 'vendedor', seller_user_id: selectedUserId } });
@@ -241,7 +270,7 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, l
                 <SelectValue placeholder="Selecione o vendedor" />
               </SelectTrigger>
               <SelectContent>
-                {(members || []).map(m => (
+                {assignableMembers.map(m => (
                   <SelectItem key={m.user_id} value={m.user_id}>{m.full_name}</SelectItem>
                 ))}
               </SelectContent>
