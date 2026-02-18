@@ -227,6 +227,7 @@ export default function AddReceptivo() {
   const [conversationMode, setConversationMode] = useState('');
   const [selectedSourceId, setSelectedSourceId] = useState('');
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
+  const [attendanceStartedAt, setAttendanceStartedAt] = useState<string | null>(null);
   const [selectedReasonId, setSelectedReasonId] = useState('');
   const [pendingReasonId, setPendingReasonId] = useState<string | null>(null); // Reason selected but not confirmed
   const [customFollowupDate, setCustomFollowupDate] = useState<Date | null>(null);
@@ -747,6 +748,9 @@ export default function AddReceptivo() {
       }
 
       // Lead doesn't exist for another user, proceed with normal search
+      // Record when the seller started searching (for duration tracking)
+      setAttendanceStartedAt(new Date().toISOString());
+
       const result = await searchLead.mutateAsync(normalizedPhone);
       
       if (result.lead) {
@@ -1027,6 +1031,8 @@ export default function AddReceptivo() {
           non_purchase_reason_id: null,
           purchase_potential_cents: null,
           completed: false,
+          started_at: attendanceStartedAt || new Date().toISOString(),
+          completed_at: null,
         });
         setAttendanceId(result.id);
       } catch (error) {
@@ -1440,6 +1446,7 @@ export default function AddReceptivo() {
             product_answers: Object.keys(currentAnswers).length > 0 ? currentAnswers : null,
             sale_id: sale.id,
             completed: true,
+            completed_at: new Date().toISOString(),
           },
         });
       }
@@ -1616,6 +1623,8 @@ export default function AddReceptivo() {
             non_purchase_reason_id: reasonId,
             purchase_potential_cents: purchasePotential,
             completed: true,
+            started_at: attendanceStartedAt || new Date().toISOString(),
+            completed_at: new Date().toISOString(),
           });
           finalAttendanceId = result.id;
           setAttendanceId(result.id);
@@ -1632,6 +1641,7 @@ export default function AddReceptivo() {
             non_purchase_reason_id: reasonId,
             purchase_potential_cents: purchasePotential,
             completed: true,
+            completed_at: new Date().toISOString(),
           },
         });
       }
