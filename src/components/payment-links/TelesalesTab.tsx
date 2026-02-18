@@ -27,6 +27,7 @@ import {
   Receipt
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { InterestBearerSelector } from './InterestBearerSelector';
 
 interface Lead {
   id: string;
@@ -69,6 +70,8 @@ export function TelesalesTab() {
   
   // Payment
   const [installments, setInstallments] = useState(1);
+  const [interestBearer, setInterestBearer] = useState<'customer' | 'seller'>('customer');
+  const [maxFreeInstallments, setMaxFreeInstallments] = useState(12);
   
   // Card data
   const [cardNumber, setCardNumber] = useState('');
@@ -151,9 +154,13 @@ export function TelesalesTab() {
       let hasInterest = false;
       
       if (i > 1 && passToCustomer && fees) {
-        const feePercent = fees[i.toString()] || 2.69;
-        totalValue = Math.round(amountCents * (1 + feePercent / 100));
-        hasInterest = true;
+        if (interestBearer === 'seller' && i <= maxFreeInstallments) {
+          hasInterest = false;
+        } else {
+          const feePercent = fees[i.toString()] || 2.69;
+          totalValue = Math.round(amountCents * (1 + feePercent / 100));
+          hasInterest = true;
+        }
       }
       
       options.push({
@@ -165,7 +172,7 @@ export function TelesalesTab() {
     });
   }
   return options;
-}, [selectedSale?.total_cents, tenantFees]);
+}, [selectedSale?.total_cents, tenantFees, interestBearer, maxFreeInstallments]);
 
   const handleLeadChange = (id: string | null, lead: Lead | null) => {
     setLeadId(id);
@@ -488,6 +495,16 @@ export function TelesalesTab() {
                   <h3 className="font-medium">Dados do Pagamento</h3>
                 </div>
                 
+                {/* Interest Bearer */}
+                <InterestBearerSelector
+                  bearer={interestBearer}
+                  onBearerChange={setInterestBearer}
+                  maxFreeInstallments={maxFreeInstallments}
+                  onMaxFreeInstallmentsChange={setMaxFreeInstallments}
+                  amountCents={selectedSale.total_cents}
+                  cardEnabled={true}
+                />
+
                 {/* Amount summary */}
                 <div className="p-4 bg-muted rounded-lg">
                   <div className="flex items-center justify-between mb-2">

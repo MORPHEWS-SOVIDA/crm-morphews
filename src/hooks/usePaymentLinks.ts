@@ -27,6 +27,8 @@ export interface PaymentLink {
   lead_id: string | null;
   external_reference: string | null;
   notes: string | null;
+  interest_bearer: string;
+  max_interest_free_installments: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -160,6 +162,8 @@ export interface CreatePaymentLinkInput {
   lead_id?: string;
   external_reference?: string;
   notes?: string;
+  interest_bearer?: string;
+  max_interest_free_installments?: number;
 }
 
 export function useCreatePaymentLink() {
@@ -215,6 +219,8 @@ export function useCreatePaymentLink() {
           lead_id: input.lead_id,
           external_reference: input.external_reference,
           notes: input.notes,
+          interest_bearer: input.interest_bearer ?? 'customer',
+          max_interest_free_installments: input.max_interest_free_installments,
         })
         .select()
         .single();

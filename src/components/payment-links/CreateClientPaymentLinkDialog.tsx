@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { LeadSearchSelect } from '@/components/sales/LeadSearchSelect';
 import { useCreatePaymentLink } from '@/hooks/usePaymentLinks';
 import { User, MapPin } from 'lucide-react';
+import { InterestBearerSelector } from './InterestBearerSelector';
 
 interface Lead {
   id: string;
@@ -50,6 +51,8 @@ export function CreateClientPaymentLinkDialog({ open, onOpenChange }: Props) {
   const [boletoEnabled, setBoletoEnabled] = useState(true);
   const [cardEnabled, setCardEnabled] = useState(true);
   const [maxInstallments, setMaxInstallments] = useState(12);
+  const [interestBearer, setInterestBearer] = useState<'customer' | 'seller'>('customer');
+  const [maxFreeInstallments, setMaxFreeInstallments] = useState(12);
 
   // Reset form when dialog closes
   useEffect(() => {
@@ -63,6 +66,8 @@ export function CreateClientPaymentLinkDialog({ open, onOpenChange }: Props) {
       setBoletoEnabled(true);
       setCardEnabled(true);
       setMaxInstallments(12);
+      setInterestBearer('customer');
+      setMaxFreeInstallments(12);
     }
   }, [open]);
 
@@ -96,6 +101,8 @@ export function CreateClientPaymentLinkDialog({ open, onOpenChange }: Props) {
       boleto_enabled: boletoEnabled,
       card_enabled: cardEnabled,
       max_installments: maxInstallments,
+      interest_bearer: interestBearer,
+      max_interest_free_installments: interestBearer === 'seller' ? maxFreeInstallments : undefined,
       // Client-specific data
       lead_id: leadId,
       customer_name: selectedLead.name,
@@ -234,6 +241,16 @@ export function CreateClientPaymentLinkDialog({ open, onOpenChange }: Props) {
               />
             </div>
           )}
+
+          {/* Interest Bearer */}
+          <InterestBearerSelector
+            bearer={interestBearer}
+            onBearerChange={setInterestBearer}
+            maxFreeInstallments={maxFreeInstallments}
+            onMaxFreeInstallmentsChange={setMaxFreeInstallments}
+            amountCents={amountCents}
+            cardEnabled={cardEnabled}
+          />
 
           {selectedLead && !hasCompleteAddress(selectedLead) && (
             <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-200">
