@@ -782,7 +782,7 @@ export default function AddReceptivo() {
         toast({ title: 'Novo lead', description: 'Cliente não encontrado no sistema' });
       }
       
-      setCurrentStep('lead_info');
+      setCurrentStep('conversation');
     } catch (error: unknown) {
       toast({ title: 'Erro na busca', description: getErrorMessage(error), variant: 'destructive' });
     }
@@ -836,7 +836,7 @@ export default function AddReceptivo() {
         setPhoneInput(leadFromDb.whatsapp || '55');
         setNameSearchInput('');
         toast({ title: 'Lead encontrado!', description: leadFromDb.name });
-        setCurrentStep('lead_info');
+        setCurrentStep('conversation');
       }
     } catch (error: unknown) {
       toast({ title: 'Erro ao buscar lead', description: getErrorMessage(error), variant: 'destructive' });
@@ -894,7 +894,7 @@ export default function AddReceptivo() {
         });
         setSelectedSourceId(leadFromDb.lead_source || '');
         toast({ title: 'Lead assumido!', description: `Você agora é responsável por ${leadFromDb.name}` });
-        setCurrentStep('lead_info');
+        setCurrentStep('conversation');
       }
     } catch (error: unknown) {
       toast({ title: 'Erro ao carregar lead', description: getErrorMessage(error), variant: 'destructive' });
@@ -2019,7 +2019,7 @@ export default function AddReceptivo() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {renderNavButtons(() => setCurrentStep('lead_info'), handleGoToProduct, !conversationMode)}
+                {renderNavButtons(() => setCurrentStep('phone'), handleGoToProduct, !conversationMode)}
                 <Separator />
 
                 <div className="space-y-2">
@@ -2079,7 +2079,7 @@ export default function AddReceptivo() {
                 </div>
 
                 <Separator />
-                {renderNavButtons(() => setCurrentStep('lead_info'), handleGoToProduct, !conversationMode)}
+                {renderNavButtons(() => setCurrentStep('phone'), handleGoToProduct, !conversationMode)}
               </CardContent>
             </Card>
           </div>
