@@ -168,11 +168,14 @@ export function useSaveVoip3cValidation() {
         validation_data: JSON.parse(JSON.stringify(validation.validation_data)),
       };
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('voip_3c_validations')
-        .insert([insertData]);
+        .insert([insertData])
+        .select('id')
+        .single();
       
       if (error) throw error;
+      return data.id as string;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voip-3c-validations'] });

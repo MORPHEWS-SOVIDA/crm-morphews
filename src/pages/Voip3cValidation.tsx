@@ -57,6 +57,7 @@ import {
   type Voip3cValidation as Voip3cValidationType,
 } from '@/hooks/useVoip3cValidation';
 import { Voip3cLeadActions } from '@/components/voip3c/Voip3cLeadActions';
+import { useVoip3cActionLogs, getActionLabel } from '@/hooks/useVoip3cActionLogs';
 
 export default function Voip3cValidation() {
   const { profile, user } = useAuth();
@@ -65,6 +66,7 @@ export default function Voip3cValidation() {
   const { data: validations } = useVoip3cValidations();
   const { mutate: saveValidation, isPending: savingValidation } = useSaveVoip3cValidation();
   const [activeValidationId, setActiveValidationId] = useState<string | null>(null);
+  const { data: actionLogs } = useVoip3cActionLogs(activeValidationId);
   
   const [configOpen, setConfigOpen] = useState(false);
   const [blacklistText, setBlacklistText] = useState('');
@@ -379,6 +381,10 @@ export default function Voip3cValidation() {
         calls_without_record: callsWithoutRecord.length,
         calls_with_record_no_sale: callsWithRecordNoSale.length,
         validation_data: validationResult,
+      }, {
+        onSuccess: (newId: string) => {
+          setActiveValidationId(newId);
+        },
       });
       
     } catch (error) {
@@ -1056,6 +1062,8 @@ export default function Voip3cValidation() {
                                 leadName={call.lead_name}
                                 leadWhatsapp={call.lead_whatsapp || call.number}
                                 leadStage={call.lead_stage}
+                                leadPhone={call.number}
+                                validationId={activeValidationId}
                               />
                             </TableCell>
                           </TableRow>
@@ -1181,6 +1189,79 @@ export default function Voip3cValidation() {
           </Card>
         )}
         
+        {/* Action Logs Section */}
+        {activeValidationId && actionLogs && actionLogs.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" />
+                Log de Ações deste Relatório
+              </CardTitle>
+              <CardDescription>
+                Ações realizadas pelos usuários neste relatório ({actionLogs.length} ações)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg overflow-auto max-h-[400px]">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background">
+                    <TableRow>
+                      <TableHead>Data/Hora</TableHead>
+                      <TableHead>Usuário</TableHead>
+                      <TableHead>Ação</TableHead>
+                      <TableHead>Lead</TableHead>
+                      <TableHead>Telefone</TableHead>
+                      <TableHead>Detalhes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {actionLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {format(new Date(log.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <div className="flex items-center gap-1">
+                            <User className="w-3 h-3 text-muted-foreground" />
+                            {log.user_name}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            log.action_type === 'whatsapp_sent' ? 'default' :
+                            log.action_type === 'stage_changed' ? 'secondary' :
+                            log.action_type === 'assigned_seller' ? 'outline' :
+                            'default'
+                          } className="text-xs">
+                            {getActionLabel(log.action_type)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {log.lead_name || '-'}
+                          {log.lead_id && (
+                            <a href={`/leads/${log.lead_id}`} target="_blank" rel="noopener noreferrer" className="ml-1 inline-block">
+                              <ExternalLink className="w-3 h-3 text-primary hover:text-primary/80" />
+                            </a>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{log.lead_phone || '-'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                          {log.action_details ? (
+                            log.action_type === 'stage_changed' ? `${log.action_details.from_stage} → ${log.action_details.to_stage}` :
+                            log.action_type === 'assigned_seller' ? `Para: ${log.action_details.seller_name}` :
+                            log.action_type === 'followup_created' ? `${log.action_details.reason} em ${log.action_details.date ? format(new Date(log.action_details.date), "dd/MM HH:mm", { locale: ptBR }) : '-'}` :
+                            '-'
+                          ) : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* History Section */}
         {validations && validations.length > 0 && (
           <Card>

@@ -19927,6 +19927,60 @@ export type Database = {
           },
         ]
       }
+      voip_3c_action_logs: {
+        Row: {
+          action_details: Json | null
+          action_type: string
+          created_at: string
+          id: string
+          lead_id: string | null
+          lead_name: string | null
+          lead_phone: string | null
+          organization_id: string
+          user_id: string
+          validation_id: string
+        }
+        Insert: {
+          action_details?: Json | null
+          action_type: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          organization_id: string
+          user_id: string
+          validation_id: string
+        }
+        Update: {
+          action_details?: Json | null
+          action_type?: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          lead_name?: string | null
+          lead_phone?: string | null
+          organization_id?: string
+          user_id?: string
+          validation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voip_3c_action_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voip_3c_action_logs_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "voip_3c_validations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voip_3c_config: {
         Row: {
           blacklist_numbers: string[]

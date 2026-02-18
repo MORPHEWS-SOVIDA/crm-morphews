@@ -6,14 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useFunnelStages, type FunnelStageCustom } from '@/hooks/useFunnelStages';
+import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useCreateFollowup } from '@/hooks/useLeadFollowups';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useAuth } from '@/hooks/useAuth';
+import { useLogVoip3cAction } from '@/hooks/useVoip3cActionLogs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { FunnelStage } from '@/types/lead';
@@ -23,14 +23,17 @@ interface Voip3cLeadActionsProps {
   leadName: string;
   leadWhatsapp: string;
   leadStage: string;
+  leadPhone?: string;
+  validationId?: string | null;
   compact?: boolean;
 }
 
-export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, compact }: Voip3cLeadActionsProps) {
+export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, leadPhone, validationId, compact }: Voip3cLeadActionsProps) {
   const { profile, user } = useAuth();
   const { data: stages } = useFunnelStages();
   const { data: members } = useTeamMembers();
   const createFollowup = useCreateFollowup();
+  const logAction = useLogVoip3cAction();
   const addStageHistory = useAddStageHistory();
   
   const [stageDialogOpen, setStageDialogOpen] = useState(false);
@@ -73,6 +76,9 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, c
       });
 
       toast.success(`Lead movido para "${stage.name}"`);
+      if (validationId) {
+        logAction.mutate({ validation_id: validationId, lead_id: leadId, lead_name: leadName, lead_phone: leadPhone || leadWhatsapp, action_type: 'stage_changed', action_details: { from_stage: leadStage, to_stage: stage.name } });
+      }
       setStageDialogOpen(false);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao mover lead');
@@ -92,6 +98,9 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, c
       if (error) throw error;
       const member = members?.find(m => m.user_id === selectedUserId);
       toast.success(`Lead atribuído a ${member?.full_name || 'vendedor'}`);
+      if (validationId) {
+        logAction.mutate({ validation_id: validationId, lead_id: leadId, lead_name: leadName, lead_phone: leadPhone || leadWhatsapp, action_type: 'assigned_seller', action_details: { seller_name: member?.full_name || 'vendedor', seller_user_id: selectedUserId } });
+      }
       setAssignDialogOpen(false);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao atribuir lead');
@@ -110,6 +119,9 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, c
     }, {
       onSuccess: () => {
         toast.success('Follow-up criado!');
+        if (validationId) {
+          logAction.mutate({ validation_id: validationId, lead_id: leadId, lead_name: leadName, lead_phone: leadPhone || leadWhatsapp, action_type: 'followup_created', action_details: { date: followupDate, reason: followupReason || 'Follow-up 3C+' } });
+        }
         setFollowupDialogOpen(false);
         setFollowupDate('');
         setFollowupReason('');
@@ -122,13 +134,19 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, c
       <div className="flex items-center gap-1">
         {/* WhatsApp - internal dialog */}
         {leadWhatsapp && (
-          <WhatsAppButton
-            phone={leadWhatsapp}
-            variant="icon"
-            leadId={leadId}
-            leadName={leadName}
-            className="h-7 w-7 !rounded-md"
-          />
+          <span onClick={() => {
+              if (validationId) {
+                logAction.mutate({ validation_id: validationId, lead_id: leadId, lead_name: leadName, lead_phone: leadPhone || leadWhatsapp, action_type: 'whatsapp_sent' });
+              }
+            }}>
+            <WhatsAppButton
+              phone={leadWhatsapp}
+              variant="icon"
+              leadId={leadId}
+              leadName={leadName}
+              className="h-7 w-7 !rounded-md"
+            />
+          </span>
         )}
 
         {/* Change Stage */}
