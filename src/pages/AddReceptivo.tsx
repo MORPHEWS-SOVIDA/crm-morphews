@@ -2134,7 +2134,10 @@ export default function AddReceptivo() {
 
       case 'offer':
         return (
-          <div className="p-4 space-y-4">
+          <div className="h-full flex flex-col">
+            {/* Top: Product Configuration */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="p-4 space-y-4">
             {/* Already added products */}
             {offerItems.length > 0 && (
               <Card className="border-green-500/30">
@@ -2296,7 +2299,13 @@ export default function AddReceptivo() {
                 </CardContent>
               </Card>
             )}
-
+              </div>
+            </div>
+            {/* ─── Divider ─── */}
+            <div className="h-1 bg-border shrink-0 shadow-sm" />
+            {/* Bottom: Summary & Conditions */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="p-4 space-y-4">
             {/* Order Summary */}
             {(currentUnitPrice > 0 || offerItems.length > 0) && (
               <Card>
@@ -2501,6 +2510,8 @@ export default function AddReceptivo() {
                 Continuar para Entrega
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
+            </div>
+              </div>
             </div>
           </div>
         );
@@ -3202,9 +3213,14 @@ export default function AddReceptivo() {
             
             {/* Right Panel - Action Steps */}
             <ResizablePanel defaultSize={60} minSize={30}>
-              <ScrollArea className="h-full">
-                {renderRightPanel()}
-              </ScrollArea>
+              {currentStep === 'offer' ? (
+                /* Offer step handles its own dual-scroll layout */
+                renderRightPanel()
+              ) : (
+                <ScrollArea className="h-full">
+                  {renderRightPanel()}
+                </ScrollArea>
+              )}
             </ResizablePanel>
           </ResizablePanelGroup>
         )}
@@ -3224,10 +3240,9 @@ export default function AddReceptivo() {
         open={showQuickFollowupDialog}
         onOpenChange={setShowQuickFollowupDialog}
         reasons={nonPurchaseReasons}
+        purchasePotential={purchasePotential}
+        onPurchasePotentialChange={setPurchasePotential}
         onSelectReason={async (reasonId, followupDate) => {
-          if (purchasePotential <= 0) {
-            setPurchasePotential(0);
-          }
           await confirmReasonSelection(reasonId, followupDate || null);
         }}
         isSaving={isSaving}
