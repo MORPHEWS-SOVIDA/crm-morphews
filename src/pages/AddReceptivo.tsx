@@ -2701,16 +2701,20 @@ export default function AddReceptivo() {
                   </div>
                 )}
 
-                {/* Payment Actions Bar */}
-                {selectedPaymentMethodId && leadData.id && total > 0 && (
-                  <PaymentActionsBar
-                    amountCents={total}
-                    customerName={leadData.name}
-                    customerPhone={leadData.whatsapp}
-                    customerEmail={leadData.email}
-                    customerDocument={leadData.cpf_cnpj}
-                    leadId={leadData.id}
-                  />
+                {/* Payment Actions Bar - Always visible to encourage digital payments */}
+                {leadData.id && total > 0 && (
+                  <>
+                    <Separator />
+                    <PaymentActionsBar
+                      amountCents={total}
+                      customerName={leadData.name}
+                      customerPhone={leadData.whatsapp}
+                      customerEmail={leadData.email}
+                      customerDocument={leadData.cpf_cnpj}
+                      leadId={leadData.id}
+                      productName={offerItems.length > 0 ? offerItems.map(i => i.productName).join(', ') : currentProduct?.name}
+                    />
+                  </>
                 )}
 
                 <Separator />
