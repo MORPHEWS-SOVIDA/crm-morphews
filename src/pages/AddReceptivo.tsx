@@ -2135,382 +2135,382 @@ export default function AddReceptivo() {
       case 'offer':
         return (
           <div className="h-full flex flex-col">
-            {/* Top: Product Configuration */}
+            {/* Top: Product photo, FAQ, composition, questions, script */}
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="p-4 space-y-4">
-            {/* Already added products */}
-            {offerItems.length > 0 && (
-              <Card className="border-green-500/30">
-                <CardHeader className="py-3 px-4">
-                  <CardTitle className="flex items-center gap-2 text-green-700 text-sm">
-                    <Package className="w-4 h-4" />
-                    Produtos Confirmados ({offerItems.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-3 space-y-3">
-                  {offerItems.map((item, index) => {
-                    const itemTotal = item.unitPriceCents * item.quantity;
-                    const installmentValue = Math.round(itemTotal / 10);
-                    return (
-                      <div key={index} className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <p className="font-semibold">{item.productName}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline" className="text-xs">{item.quantity} un</Badge>
-                              {item.requisitionNumber && (
-                                <Badge variant="secondary" className="text-xs">Req: {item.requisitionNumber}</Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-green-700">{formatPrice(itemTotal)}</p>
-                            <p className="text-xs text-muted-foreground">12x {formatPrice(installmentValue)}</p>
-                          </div>
-                        </div>
-                        <div className="flex justify-between mt-2 text-xs">
-                          <span className="text-green-600">Comissão: {formatPrice(item.commissionCents)}</span>
-                          <Button variant="ghost" size="sm" className="h-6 text-destructive" onClick={() => handleRemoveFromOffer(index)}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Current Product Offer Card */}
-            {currentProduct && (
-              <ProductOfferCard
-                product={currentProduct}
-                sortedKits={sortedKits}
-                currentKitId={currentKitId}
-                currentPriceType={currentPriceType}
-                currentRejectedKitIds={currentRejectedKitIds}
-                showPromo2={showPromo2}
-                showMinimum={showMinimum}
-                currentAnswers={currentAnswers}
-                dynamicAnswers={dynamicAnswers}
-                defaultCommission={myCommission?.commissionPercentage || 0}
-                requisitionNumber={requisitionNumber}
-                manipuladoPrice={manipuladoPrice}
-                manipuladoQuantity={manipuladoQuantity}
-                leadId={leadData.id}
-                showRejectionInput={showRejectionInput}
-                rejectionReason={rejectionReason}
-                isRejecting={createKitRejection.isPending}
-                negotiatedPriceCents={negotiatedPriceCents}
-                negotiatedInstallments={negotiatedInstallments}
-                negotiatedCommission={negotiatedCommission}
-                onNegotiate={(price, installments, commission) => {
-                  setNegotiatedPriceCents(price);
-                  setNegotiatedInstallments(installments);
-                  setNegotiatedCommission(commission);
-                }}
-                onKitSelect={(kitId, priceType) => {
-                  setCurrentKitId(kitId);
-                  setCurrentPriceType(priceType);
-                  setNegotiatedPriceCents(undefined);
-                  setNegotiatedInstallments(12);
-                  setNegotiatedCommission(undefined);
-                }}
-                onRevealPromo2={() => setShowPromo2(true)}
-                onRevealMinimum={() => setShowMinimum(true)}
-                onAnswersChange={setCurrentAnswers}
-                onDynamicAnswersChange={setDynamicAnswers}
-                onRequisitionChange={setRequisitionNumber}
-                onManipuladoPriceChange={setManipuladoPrice}
-                onManipuladoQuantityChange={setManipuladoQuantity}
-                onShowRejectionInput={setShowRejectionInput}
-                onRejectionReasonChange={setRejectionReason}
-                onRejectKit={handleRejectKit}
-                onAddProduct={handleAddProductToOffer}
-                onResetProduct={resetCurrentProduct}
-                currentUnitPrice={currentUnitPrice}
-                currentQuantity={currentQuantity}
-                currentCommission={currentCommission}
-              />
-            )}
-
-            {/* Add another product button */}
-            {!currentProduct && showAddProduct && offerItems.length > 0 && (
-              <Card className="border-dashed">
-                <CardContent className="py-4">
-                  <ProductSelectorForSale
-                    products={products}
-                    isLoading={false}
-                    onSelect={(product) => {
-                      setCurrentProductId(product.id);
-                      setCurrentKitId(null);
-                      setCurrentRejectedKitIds([]);
-                      setShowPromo2(false);
-                      setShowMinimum(false);
-                      setShowAddProduct(false);
+                {/* Current Product Offer Card (photo, script, FAQ, questions) */}
+                {currentProduct && (
+                  <ProductOfferCard
+                    product={currentProduct}
+                    sortedKits={sortedKits}
+                    currentKitId={currentKitId}
+                    currentPriceType={currentPriceType}
+                    currentRejectedKitIds={currentRejectedKitIds}
+                    showPromo2={showPromo2}
+                    showMinimum={showMinimum}
+                    currentAnswers={currentAnswers}
+                    dynamicAnswers={dynamicAnswers}
+                    defaultCommission={myCommission?.commissionPercentage || 0}
+                    requisitionNumber={requisitionNumber}
+                    manipuladoPrice={manipuladoPrice}
+                    manipuladoQuantity={manipuladoQuantity}
+                    leadId={leadData.id}
+                    showRejectionInput={showRejectionInput}
+                    rejectionReason={rejectionReason}
+                    isRejecting={createKitRejection.isPending}
+                    negotiatedPriceCents={negotiatedPriceCents}
+                    negotiatedInstallments={negotiatedInstallments}
+                    negotiatedCommission={negotiatedCommission}
+                    onNegotiate={(price, installments, commission) => {
+                      setNegotiatedPriceCents(price);
+                      setNegotiatedInstallments(installments);
+                      setNegotiatedCommission(commission);
                     }}
-                    placeholder="Adicionar outro produto..."
+                    onKitSelect={(kitId, priceType) => {
+                      setCurrentKitId(kitId);
+                      setCurrentPriceType(priceType);
+                      setNegotiatedPriceCents(undefined);
+                      setNegotiatedInstallments(12);
+                      setNegotiatedCommission(undefined);
+                    }}
+                    onRevealPromo2={() => setShowPromo2(true)}
+                    onRevealMinimum={() => setShowMinimum(true)}
+                    onAnswersChange={setCurrentAnswers}
+                    onDynamicAnswersChange={setDynamicAnswers}
+                    onRequisitionChange={setRequisitionNumber}
+                    onManipuladoPriceChange={setManipuladoPrice}
+                    onManipuladoQuantityChange={setManipuladoQuantity}
+                    onShowRejectionInput={setShowRejectionInput}
+                    onRejectionReasonChange={setRejectionReason}
+                    onRejectKit={handleRejectKit}
+                    onAddProduct={handleAddProductToOffer}
+                    onResetProduct={resetCurrentProduct}
+                    currentUnitPrice={currentUnitPrice}
+                    currentQuantity={currentQuantity}
+                    currentCommission={currentCommission}
                   />
-                </CardContent>
-              </Card>
-            )}
+                )}
 
-            {!currentProduct && !showAddProduct && offerItems.length > 0 && (
-              <Button variant="outline" onClick={() => setShowAddProduct(true)} className="w-full">
-                <Plus className="w-4 h-4 mr-2" />
-                Adicionar Produto
-              </Button>
-            )}
-
-            {/* Cross-sell */}
-            {getCrossSellProducts().length > 0 && (
-              <Card className="border-amber-300">
-                <CardHeader className="py-3 px-4">
-                  <CardTitle className="flex items-center gap-2 text-amber-700 text-sm">
-                    <Gift className="w-4 h-4" />
-                    Venda Casada
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    {getCrossSellProducts().map((crossProduct) => (
-                      <Button
-                        key={crossProduct.id}
-                        variant="outline"
-                        className="justify-start h-auto p-3 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                        onClick={() => {
-                          if (currentUnitPrice > 0) {
-                            handleAddProductToOffer();
-                          }
-                          setCurrentProductId(crossProduct.id);
+                {/* Add another product button */}
+                {!currentProduct && showAddProduct && offerItems.length > 0 && (
+                  <Card className="border-dashed">
+                    <CardContent className="py-4">
+                      <ProductSelectorForSale
+                        products={products}
+                        isLoading={false}
+                        onSelect={(product) => {
+                          setCurrentProductId(product.id);
                           setCurrentKitId(null);
                           setCurrentRejectedKitIds([]);
                           setShowPromo2(false);
                           setShowMinimum(false);
+                          setShowAddProduct(false);
                         }}
-                      >
-                        <div className="text-left">
-                          <p className="font-medium text-sm">{crossProduct.name}</p>
-                          <p className="text-xs text-muted-foreground">{crossProduct.category}</p>
-                        </div>
-                      </Button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                        placeholder="Adicionar outro produto..."
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!currentProduct && !showAddProduct && offerItems.length > 0 && (
+                  <Button variant="outline" onClick={() => setShowAddProduct(true)} className="w-full">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Produto
+                  </Button>
+                )}
               </div>
             </div>
             {/* ─── Divider ─── */}
             <div className="h-1 bg-border shrink-0 shadow-sm" />
-            {/* Bottom: Summary & Conditions */}
+            {/* Bottom: Values, confirmed products, summary, decision */}
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="p-4 space-y-4">
-            {/* Order Summary */}
-            {(currentUnitPrice > 0 || offerItems.length > 0) && (
-              <Card>
-                <CardHeader className="py-3 px-4">
-                  <CardTitle className="text-sm">Resumo do Pedido</CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-3 space-y-2">
-                  {offerItems.map((item, index) => {
-                    const itemTotal = item.unitPriceCents * item.quantity;
-                    const installmentValue = Math.round(itemTotal / 10);
-                    return (
-                      <div key={index} className="p-2 bg-muted/30 rounded-lg">
-                        <div className="flex justify-between text-sm">
-                          <span className="font-medium">{item.quantity}x {item.productName}</span>
-                          <span className="font-bold">{formatPrice(itemTotal)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                          <span>ou 12x de {formatPrice(installmentValue)}</span>
-                          <span className="text-green-600">Ganhe {formatPrice(item.commissionCents)}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  
-                  {currentUnitPrice > 0 && currentProduct && (
-                    <div className="p-2 bg-primary/5 rounded-lg border border-primary/20">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{currentQuantity}x {currentProduct.name}</span>
-                        <span className="font-bold">{formatPrice(currentProductSubtotal)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                        <span>ou 12x de {formatPrice(Math.round(currentProductSubtotal / 10))}</span>
-                        <span className="text-green-600">Ganhe {formatPrice(currentCommissionValue)}</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {totalDiscount > 0 && (
-                    <div className="flex justify-between text-sm text-green-600">
-                      <span>Desconto</span>
-                      <span>-{formatPrice(totalDiscount)}</span>
-                    </div>
-                  )}
-                  <Separator />
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Total</span>
-                    <div className="text-right">
-                      <span>{formatPrice(total)}</span>
-                      <p className="text-xs font-normal text-muted-foreground">
-                        ou 12x de {formatPrice(Math.round(total / 10))}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="p-2 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2">
-                        <Coins className="w-4 h-4 text-green-600" />
-                        Sua comissão total:
-                      </span>
-                      <span className="font-bold text-green-600">
-                        Ganhe {formatPrice(totalCommissionValue)}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Non-Purchase Reasons */}
-            <Card className="border-amber-500/30">
-              <CardHeader className="py-3 px-4">
-                <CardTitle className="flex items-center gap-2 text-amber-600 text-sm">
-                  <ThumbsDown className="w-4 h-4" />
-                  Não Fechou a Venda?
-                </CardTitle>
-                <CardDescription className="text-xs">Informe o potencial e selecione o motivo</CardDescription>
-              </CardHeader>
-              <CardContent className="px-4 pb-3 space-y-3">
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-2 text-xs">
-                    <Coins className="w-3 h-3 text-amber-500" />
-                    Potencial de Compra *
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium pointer-events-none text-sm">
-                      R$
-                    </span>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="0,00"
-                      value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2).replace('.', ',') : ''}
-                      onChange={(e) => {
-                        const rawValue = e.target.value;
-                        if (!rawValue.trim()) {
-                          setPurchasePotential(0);
-                          return;
-                        }
-                        const onlyDigits = rawValue.replace(/\D/g, '');
-                        const cents = parseInt(onlyDigits || '0', 10);
-                        setPurchasePotential(cents);
-                      }}
-                      onFocus={(e) => setTimeout(() => e.target.select(), 0)}
-                      className="pl-10 text-right h-9"
-                    />
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Show FollowupDateTimeEditor if a reason with followup is pending */}
-                {pendingReasonId && (() => {
-                  const pendingReason = nonPurchaseReasons.find(r => r.id === pendingReasonId);
-                  if (!pendingReason) return null;
-                  return (
-                    <div className="space-y-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-amber-800 dark:text-amber-200 text-sm">
-                            Motivo: {pendingReason.name}
-                          </p>
-                          <p className="text-xs text-amber-700 dark:text-amber-300">
-                            Confirme a data/hora do follow-up
-                          </p>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={handleCancelPendingReason}
-                          disabled={isSaving}
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <FollowupDateTimeEditor
-                        suggestedHours={pendingReason.followup_hours}
-                        onConfirm={handleFollowupConfirm}
-                        disabled={isSaving}
-                      />
-                      {pendingReason.exclusivity_hours > 0 && (
-                        <p className="text-xs text-amber-600 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Você terá {pendingReason.exclusivity_hours}h de exclusividade após o follow-up
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {!pendingReasonId && (
-                  <>
-                    <p className="text-xs text-muted-foreground">Selecione o motivo para acompanhamento futuro</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {nonPurchaseReasons.slice(0, 4).map((reason) => (
-                        <Button
-                          key={reason.id}
-                          variant="outline"
-                          size="sm"
-                          className={`justify-start h-auto p-2 ${
-                            selectedReasonId === reason.id ? 'border-amber-500 bg-amber-500/10' : ''
-                          }`}
-                          onClick={() => handleSelectReason(reason.id)}
-                          disabled={isSaving || purchasePotential <= 0}
-                        >
-                          <div className="flex-1 text-left">
-                            <p className="font-medium text-xs">{reason.name}</p>
-                            {reason.followup_hours > 0 && (
-                              <Badge variant="secondary" className="text-[10px] mt-0.5">
-                                <Calendar className="w-2.5 h-2.5 mr-0.5" />
-                                {reason.followup_hours}h
-                              </Badge>
-                            )}
+                {/* Already added products */}
+                {offerItems.length > 0 && (
+                  <Card className="border-green-500/30">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="flex items-center gap-2 text-green-700 text-sm">
+                        <Package className="w-4 h-4" />
+                        Produtos Confirmados ({offerItems.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 space-y-3">
+                      {offerItems.map((item, index) => {
+                        const itemTotal = item.unitPriceCents * item.quantity;
+                        const installmentValue = Math.round(itemTotal / 10);
+                        return (
+                          <div key={index} className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="font-semibold">{item.productName}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant="outline" className="text-xs">{item.quantity} un</Badge>
+                                  {item.requisitionNumber && (
+                                    <Badge variant="secondary" className="text-xs">Req: {item.requisitionNumber}</Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-green-700">{formatPrice(itemTotal)}</p>
+                                <p className="text-xs text-muted-foreground">12x {formatPrice(installmentValue)}</p>
+                              </div>
+                            </div>
+                            <div className="flex justify-between mt-2 text-xs">
+                              <span className="text-green-600">Comissão: {formatPrice(item.commissionCents)}</span>
+                              <Button variant="ghost" size="sm" className="h-6 text-destructive" onClick={() => handleRemoveFromOffer(index)}>
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
-                          {isSaving && selectedReasonId === reason.id && (
-                            <Loader2 className="w-3 h-3 animate-spin ml-1" />
-                          )}
-                        </Button>
-                      ))}
-                    </div>
-                    {purchasePotential <= 0 && (
-                      <p className="text-[10px] text-destructive text-center">Informe o potencial de compra para selecionar um motivo</p>
-                    )}
-                    {nonPurchaseReasons.length > 4 && (
-                      <Button
-                        variant="ghost"
-                        className="w-full text-xs text-amber-700"
-                        onClick={() => setCurrentStep('sale_or_reason')}
-                      >
-                        Ver todos os followups ({nonPurchaseReasons.length})
-                        <ArrowRight className="w-3 h-3 ml-1" />
-                      </Button>
-                    )}
-                  </>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
 
-            {/* Navigation */}
-            <div className="flex justify-between gap-2">
-              <Button variant="outline" onClick={() => setCurrentStep('product')}>Voltar</Button>
-              <Button onClick={handleGoToAddress} disabled={!(currentProductId || offerItems.length > 0)}>
-                Continuar para Entrega
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
+                {/* Cross-sell */}
+                {getCrossSellProducts().length > 0 && (
+                  <Card className="border-amber-300">
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="flex items-center gap-2 text-amber-700 text-sm">
+                        <Gift className="w-4 h-4" />
+                        Venda Casada
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        {getCrossSellProducts().map((crossProduct) => (
+                          <Button
+                            key={crossProduct.id}
+                            variant="outline"
+                            className="justify-start h-auto p-3 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                            onClick={() => {
+                              if (currentUnitPrice > 0) {
+                                handleAddProductToOffer();
+                              }
+                              setCurrentProductId(crossProduct.id);
+                              setCurrentKitId(null);
+                              setCurrentRejectedKitIds([]);
+                              setShowPromo2(false);
+                              setShowMinimum(false);
+                            }}
+                          >
+                            <div className="text-left">
+                              <p className="font-medium text-sm">{crossProduct.name}</p>
+                              <p className="text-xs text-muted-foreground">{crossProduct.category}</p>
+                            </div>
+                          </Button>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Order Summary */}
+                {(currentUnitPrice > 0 || offerItems.length > 0) && (
+                  <Card>
+                    <CardHeader className="py-3 px-4">
+                      <CardTitle className="text-sm">Resumo do Pedido</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 space-y-2">
+                      {offerItems.map((item, index) => {
+                        const itemTotal = item.unitPriceCents * item.quantity;
+                        const installmentValue = Math.round(itemTotal / 10);
+                        return (
+                          <div key={index} className="p-2 bg-muted/30 rounded-lg">
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium">{item.quantity}x {item.productName}</span>
+                              <span className="font-bold">{formatPrice(itemTotal)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                              <span>ou 12x de {formatPrice(installmentValue)}</span>
+                              <span className="text-green-600">Ganhe {formatPrice(item.commissionCents)}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      
+                      {currentUnitPrice > 0 && currentProduct && (
+                        <div className="p-2 bg-primary/5 rounded-lg border border-primary/20">
+                          <div className="flex justify-between text-sm">
+                            <span className="font-medium">{currentQuantity}x {currentProduct.name}</span>
+                            <span className="font-bold">{formatPrice(currentProductSubtotal)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                            <span>ou 12x de {formatPrice(Math.round(currentProductSubtotal / 10))}</span>
+                            <span className="text-green-600">Ganhe {formatPrice(currentCommissionValue)}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {totalDiscount > 0 && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Desconto</span>
+                          <span>-{formatPrice(totalDiscount)}</span>
+                        </div>
+                      )}
+                      <Separator />
+                      <div className="flex justify-between font-bold text-lg">
+                        <span>Total</span>
+                        <div className="text-right">
+                          <span>{formatPrice(total)}</span>
+                          <p className="text-xs font-normal text-muted-foreground">
+                            ou 12x de {formatPrice(Math.round(total / 10))}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="p-2 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-2">
+                            <Coins className="w-4 h-4 text-green-600" />
+                            Sua comissão total:
+                          </span>
+                          <span className="font-bold text-green-600">
+                            Ganhe {formatPrice(totalCommissionValue)}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Non-Purchase Reasons */}
+                <Card className="border-amber-500/30">
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="flex items-center gap-2 text-amber-600 text-sm">
+                      <ThumbsDown className="w-4 h-4" />
+                      Não Fechou a Venda?
+                    </CardTitle>
+                    <CardDescription className="text-xs">Informe o potencial e selecione o motivo</CardDescription>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-3 space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="flex items-center gap-2 text-xs">
+                        <Coins className="w-3 h-3 text-amber-500" />
+                        Potencial de Compra *
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium pointer-events-none text-sm">
+                          R$
+                        </span>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="0,00"
+                          value={purchasePotential > 0 ? (purchasePotential / 100).toFixed(2).replace('.', ',') : ''}
+                          onChange={(e) => {
+                            const rawValue = e.target.value;
+                            if (!rawValue.trim()) {
+                              setPurchasePotential(0);
+                              return;
+                            }
+                            const onlyDigits = rawValue.replace(/\D/g, '');
+                            const cents = parseInt(onlyDigits || '0', 10);
+                            setPurchasePotential(cents);
+                          }}
+                          onFocus={(e) => setTimeout(() => e.target.select(), 0)}
+                          className="pl-10 text-right h-9"
+                        />
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Show FollowupDateTimeEditor if a reason with followup is pending */}
+                    {pendingReasonId && (() => {
+                      const pendingReason = nonPurchaseReasons.find(r => r.id === pendingReasonId);
+                      if (!pendingReason) return null;
+                      return (
+                        <div className="space-y-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-amber-800 dark:text-amber-200 text-sm">
+                                Motivo: {pendingReason.name}
+                              </p>
+                              <p className="text-xs text-amber-700 dark:text-amber-300">
+                                Confirme a data/hora do follow-up
+                              </p>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={handleCancelPendingReason}
+                              disabled={isSaving}
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <FollowupDateTimeEditor
+                            suggestedHours={pendingReason.followup_hours}
+                            onConfirm={handleFollowupConfirm}
+                            disabled={isSaving}
+                          />
+                          {pendingReason.exclusivity_hours > 0 && (
+                            <p className="text-xs text-amber-600 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              Você terá {pendingReason.exclusivity_hours}h de exclusividade após o follow-up
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {!pendingReasonId && (
+                      <>
+                        <p className="text-xs text-muted-foreground">Selecione o motivo para acompanhamento futuro</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {nonPurchaseReasons.slice(0, 4).map((reason) => (
+                            <Button
+                              key={reason.id}
+                              variant="outline"
+                              size="sm"
+                              className={`justify-start h-auto p-2 ${
+                                selectedReasonId === reason.id ? 'border-amber-500 bg-amber-500/10' : ''
+                              }`}
+                              onClick={() => handleSelectReason(reason.id)}
+                              disabled={isSaving || purchasePotential <= 0}
+                            >
+                              <div className="flex-1 text-left">
+                                <p className="font-medium text-xs">{reason.name}</p>
+                                {reason.followup_hours > 0 && (
+                                  <Badge variant="secondary" className="text-[10px] mt-0.5">
+                                    <Calendar className="w-2.5 h-2.5 mr-0.5" />
+                                    {reason.followup_hours}h
+                                  </Badge>
+                                )}
+                              </div>
+                              {isSaving && selectedReasonId === reason.id && (
+                                <Loader2 className="w-3 h-3 animate-spin ml-1" />
+                              )}
+                            </Button>
+                          ))}
+                        </div>
+                        {purchasePotential <= 0 && (
+                          <p className="text-[10px] text-destructive text-center">Informe o potencial de compra para selecionar um motivo</p>
+                        )}
+                        {nonPurchaseReasons.length > 4 && (
+                          <Button
+                            variant="ghost"
+                            className="w-full text-xs text-amber-700"
+                            onClick={() => setCurrentStep('sale_or_reason')}
+                          >
+                            Ver todos os followups ({nonPurchaseReasons.length})
+                            <ArrowRight className="w-3 h-3 ml-1" />
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Navigation */}
+                <div className="flex justify-between gap-2">
+                  <Button variant="outline" onClick={() => setCurrentStep('product')}>Voltar</Button>
+                  <Button onClick={handleGoToAddress} disabled={!(currentProductId || offerItems.length > 0)}>
+                    Continuar para Entrega
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
