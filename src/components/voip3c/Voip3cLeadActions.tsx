@@ -4,15 +4,17 @@ import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
-import { useCreateFollowup } from '@/hooks/useLeadFollowups';
+
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useAuth } from '@/hooks/useAuth';
 import { useLogVoip3cAction } from '@/hooks/useVoip3cActionLogs';
+import { useScheduleMessages } from '@/hooks/useScheduleMessages';
+import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
@@ -61,17 +63,18 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, l
     ).sort((a, b) => a.full_name.localeCompare(b.full_name));
   }, [orgMembers]);
 
-  const createFollowup = useCreateFollowup();
+  
   const logAction = useLogVoip3cAction();
   const addStageHistory = useAddStageHistory();
+  const { scheduleMessagesForReason } = useScheduleMessages();
+  const { data: nonPurchaseReasons } = useNonPurchaseReasons();
   
   const [stageDialogOpen, setStageDialogOpen] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [followupDialogOpen, setFollowupDialogOpen] = useState(false);
   const [selectedStageId, setSelectedStageId] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [followupDate, setFollowupDate] = useState('');
-  const [followupReason, setFollowupReason] = useState('');
+  const [selectedReasonId, setSelectedReasonId] = useState('');
   const [saving, setSaving] = useState(false);
 
   const funnelStages = (stages || []).filter(s => s.stage_type === 'funnel');
@@ -138,24 +141,39 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, l
     }
   };
 
-  const handleCreateFollowup = async () => {
-    if (!followupDate) return;
-    createFollowup.mutate({
-      lead_id: leadId,
-      scheduled_at: new Date(followupDate),
-      reason: followupReason || 'Follow-up 3C+',
-      source_type: 'voip_3c',
-    }, {
-      onSuccess: () => {
-        toast.success('Follow-up criado!');
-        if (validationId) {
-          logAction.mutate({ validation_id: validationId, lead_id: leadId, lead_name: leadName, lead_phone: leadPhone || leadWhatsapp, action_type: 'followup_created', action_details: { date: followupDate, reason: followupReason || 'Follow-up 3C+' } });
-        }
-        setFollowupDialogOpen(false);
-        setFollowupDate('');
-        setFollowupReason('');
-      },
-    });
+  const handleActivateFollowup = async () => {
+    if (!selectedReasonId) return;
+    setSaving(true);
+    try {
+      const reason = nonPurchaseReasons?.find(r => r.id === selectedReasonId);
+      
+      // Update lead with non_purchase_reason_id and move to target stage if configured
+      const updateData: any = { non_purchase_reason_id: selectedReasonId };
+      if (reason?.target_stage_id) {
+        updateData.funnel_stage_id = reason.target_stage_id;
+      }
+      await supabase.from('leads').update(updateData).eq('id', leadId);
+
+      // Schedule automated messages
+      const result = await scheduleMessagesForReason({
+        leadId,
+        leadName,
+        leadWhatsapp,
+        reasonId: selectedReasonId,
+        sellerName: profile?.first_name || '',
+      });
+
+      toast.success(`Follow-up "${reason?.name}" ativado! ${result.scheduled} mensagem(ns) agendada(s).`);
+      if (validationId) {
+        logAction.mutate({ validation_id: validationId, lead_id: leadId, lead_name: leadName, lead_phone: leadPhone || leadWhatsapp, action_type: 'followup_created', action_details: { reason_id: selectedReasonId, reason_name: reason?.name, messages_scheduled: result.scheduled } });
+      }
+      setFollowupDialogOpen(false);
+      setSelectedReasonId('');
+    } catch (err) {
+      toast.error('Erro ao ativar follow-up');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -288,28 +306,46 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, l
       <Dialog open={followupDialogOpen} onOpenChange={setFollowupDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Criar Follow-up</DialogTitle>
+            <DialogTitle>Ativar Follow-up Automático</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Lead: <strong>{leadName}</strong>
             </p>
             <div className="space-y-1.5">
-              <Label>Data/Hora</Label>
-              <Input type="datetime-local" value={followupDate} onChange={e => setFollowupDate(e.target.value)} />
+              <Label>Motivo de Follow-up</Label>
+              <Select value={selectedReasonId} onValueChange={setSelectedReasonId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o motivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(nonPurchaseReasons || []).map(r => (
+                    <SelectItem key={r.id} value={r.id}>
+                      <div className="flex items-center gap-2">
+                        {r.is_featured && <span className="text-amber-500">⭐</span>}
+                        <span>{r.name}</span>
+                        {r.followup_hours > 0 && (
+                          <Badge variant="outline" className="text-[10px] ml-1">⏱ {r.followup_hours}h</Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Motivo</Label>
-              <Input 
-                placeholder="Ex: Retorno 3C+" 
-                value={followupReason} 
-                onChange={e => setFollowupReason(e.target.value)} 
-              />
-            </div>
+            {selectedReasonId && (() => {
+              const reason = nonPurchaseReasons?.find(r => r.id === selectedReasonId);
+              return reason ? (
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2 space-y-0.5">
+                  <p>Visibilidade: <strong>{reason.lead_visibility === 'all_sellers' ? 'Todos' : 'Vendedor'}</strong></p>
+                  {reason.target_stage_id && <p>Move para etapa configurada automaticamente</p>}
+                </div>
+              ) : null;
+            })()}
           </div>
           <DialogFooter>
-            <Button onClick={handleCreateFollowup} disabled={createFollowup.isPending || !followupDate}>
-              {createFollowup.isPending ? 'Criando...' : 'Criar Follow-up'}
+            <Button onClick={handleActivateFollowup} disabled={saving || !selectedReasonId}>
+              {saving ? 'Ativando...' : 'Ativar Follow-up'}
             </Button>
           </DialogFooter>
         </DialogContent>
