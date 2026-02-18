@@ -71,7 +71,8 @@ import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
-import { PaymentConfirmationDialog } from '@/components/sales/PaymentConfirmationDialog';
+import { PaymentConfirmationDialog, PaymentConfirmationData } from '@/components/sales/PaymentConfirmationDialog';
+import { useSaveSalePayments, useSalePayments } from '@/hooks/useSalePayments';
 import { useSalePostSaleSurvey, useCreatePostSaleSurvey, useUpdatePostSaleSurvey, PostSaleSurveyStatus } from '@/hooks/usePostSaleSurveys';
 import { MedicationAutocomplete } from '@/components/post-sale/MedicationAutocomplete';
 import { useActivePostSaleQuestions, useSurveyResponses, useSavePostSaleResponses } from '@/hooks/usePostSaleQuestions';
@@ -661,6 +662,9 @@ export default function SaleDetail() {
   const { profile } = useAuth();
   const { data: permissions } = useMyPermissions();
   
+  // Split payment lines
+  const { data: salePaymentLines } = useSalePayments(sale?.id);
+
   // Post-sale survey hooks
   const { data: postSaleSurvey, isLoading: isLoadingSurvey } = useSalePostSaleSurvey(id);
   const createPostSaleSurvey = useCreatePostSaleSurvey();
@@ -873,19 +877,14 @@ export default function SaleDetail() {
     }
   };
 
+  const saveSalePayments = useSaveSalePayments();
+
   // Confirm payment with conciliation data
-  const handleConfirmPayment = async (data: {
-    payment_method_id: string;
-    payment_method_name: string;
-    payment_notes?: string;
-    transaction_date?: Date;
-    card_brand?: string;
-    transaction_type?: string;
-    nsu_cv?: string;
-    acquirer_id?: string;
-    installments?: number;
-  }) => {
+  const handleConfirmPayment = async (data: PaymentConfirmationData) => {
     if (!sale) return;
+
+    // If total was adjusted
+    const finalTotal = data.adjusted_total_cents || sale.total_cents;
 
     await updateSale.mutateAsync({
       id: sale.id,
@@ -894,8 +893,22 @@ export default function SaleDetail() {
         payment_method: data.payment_method_name,
         payment_method_id: data.payment_method_id,
         payment_notes: data.payment_notes || null,
+        ...(data.adjusted_total_cents ? { total_cents: data.adjusted_total_cents } : {}),
       }
     });
+
+    // Save split payment lines
+    if (data.payment_lines && data.payment_lines.length > 0) {
+      await saveSalePayments.mutateAsync({
+        saleId: sale.id,
+        organizationId: sale.organization_id,
+        payments: data.payment_lines.map((l) => ({
+          payment_method_id: l.payment_method_id,
+          payment_method_name: l.payment_method_name,
+          amount_cents: l.amount_cents,
+        })),
+      });
+    }
     
     // Check if installments exist for this sale
     const { data: existingInstallments } = await supabase
@@ -1391,6 +1404,21 @@ export default function SaleDetail() {
                             </span>
                           )}
                         </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Split Payment Lines */}
+                  {salePaymentLines && salePaymentLines.length > 1 && (
+                    <div className="col-span-full">
+                      <p className="text-xs text-muted-foreground mb-1">Pagamento Dividido</p>
+                      <div className="space-y-1">
+                        {salePaymentLines.map((sp) => (
+                          <div key={sp.id} className="flex items-center justify-between text-sm p-1.5 rounded bg-muted/50">
+                            <span>{sp.payment_method_name}</span>
+                            <span className="font-medium">{formatCurrency(sp.amount_cents)}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -2079,6 +2107,7 @@ export default function SaleDetail() {
         onConfirm={handleConfirmPayment}
         totalCents={sale?.total_cents || 0}
         existingPaymentMethodId={sale?.payment_method_id}
+        allowTotalEdit={true}
       />
 
       {/* Cancel Dialog */}

@@ -100,6 +100,8 @@ import { useUpdateLead } from '@/hooks/useLeads';
 import { FollowupDateTimeEditor } from '@/components/leads/FollowupDateTimeEditor';
 import { QuickFollowupDialog } from '@/components/receptive/QuickFollowupDialog';
 import { PaymentActionsBar } from '@/components/payment-links/PaymentActionsBar';
+import { SplitPaymentEditor, PaymentLine } from '@/components/sales/SplitPaymentEditor';
+import { useSaveSalePayments } from '@/hooks/useSalePayments';
 
 type FlowStep = 'phone' | 'lead_info' | 'conversation' | 'product' | 'questions' | 'offer' | 'address' | 'payment' | 'sale_or_reason';
 
@@ -287,6 +289,9 @@ export default function AddReceptivo() {
   const [sellerUserId, setSellerUserId] = useState<string | null>(null);
   const [purchasePotential, setPurchasePotential] = useState<number>(0);
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+  const [useSplitPayment, setUseSplitPayment] = useState(false);
+  const [splitPaymentLines, setSplitPaymentLines] = useState<PaymentLine[]>([]);
+  const saveSalePayments = useSaveSalePayments();
   
   // Delivery observation
   const [deliveryObservation, setDeliveryObservation] = useState('');
@@ -1404,12 +1409,27 @@ export default function AddReceptivo() {
         shipping_cost_cents: deliveryConfig.shippingCost,
         shipping_cost_real_cents: deliveryConfig.shippingCostReal || deliveryConfig.shippingCost, // Real cost for free shipping tracking
         shipping_address_id: selectedAddressId, // Include selected address
-        payment_method_id: selectedPaymentMethodId,
+        payment_method_id: useSplitPayment && splitPaymentLines.length > 0
+          ? splitPaymentLines.reduce((a, b) => b.amount_cents > a.amount_cents ? b : a, splitPaymentLines[0]).payment_method_id
+          : selectedPaymentMethodId,
         payment_installments: selectedInstallments,
         payment_status: paymentStatus,
         payment_proof_url: uploadedProofUrl,
         observation_1: deliveryObservation || null,
       });
+
+      // Save split payment lines if used
+      if (useSplitPayment && splitPaymentLines.length > 0) {
+        await saveSalePayments.mutateAsync({
+          saleId: sale.id,
+          organizationId: sale.organization_id,
+          payments: splitPaymentLines.map((l) => ({
+            payment_method_id: l.payment_method_id,
+            payment_method_name: l.payment_method_name,
+            amount_cents: l.amount_cents,
+          })),
+        });
+      }
 
       if (attendanceId) {
         await updateAttendance.mutateAsync({
@@ -2629,44 +2649,81 @@ export default function AddReceptivo() {
 
                 <Separator />
 
-                <div className="space-y-2">
-                  <Label>Forma de Pagamento</Label>
-                  <Select value={selectedPaymentMethodId || ''} onValueChange={setSelectedPaymentMethodId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {paymentMethods.map((pm) => (
-                        <SelectItem key={pm.id} value={pm.id}>
-                          <div className="flex items-center gap-2">
-                            <span>{pm.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {PAYMENT_TIMING_LABELS[pm.payment_timing] || pm.payment_timing}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedPaymentMethod?.payment_timing === 'installments' && (
-                  <div className="space-y-2">
-                    <Label>Parcelas</Label>
-                    <Select value={String(selectedInstallments)} onValueChange={(v) => setSelectedInstallments(Number(v))}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getAvailableInstallments().map((n) => (
-                          <SelectItem key={n} value={String(n)}>
-                            {n}x de {formatPrice(Math.round(total / n))}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Forma de Pagamento</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7"
+                      onClick={() => {
+                        setUseSplitPayment(!useSplitPayment);
+                        if (!useSplitPayment) {
+                          // Initialize split with current method if selected
+                          if (selectedPaymentMethodId) {
+                            const pm = paymentMethods.find(m => m.id === selectedPaymentMethodId);
+                            setSplitPaymentLines([{
+                              id: `split_init_${Date.now()}`,
+                              payment_method_id: selectedPaymentMethodId,
+                              payment_method_name: pm?.name || '',
+                              amount_cents: total,
+                            }]);
+                          } else {
+                            setSplitPaymentLines([]);
+                          }
+                        }
+                      }}
+                    >
+                      {useSplitPayment ? 'Pagamento único' : '💳 Dividir pagamento'}
+                    </Button>
                   </div>
-                )}
+
+                  {useSplitPayment ? (
+                    <SplitPaymentEditor
+                      totalCents={total}
+                      lines={splitPaymentLines}
+                      onChange={setSplitPaymentLines}
+                    />
+                  ) : (
+                    <>
+                      <Select value={selectedPaymentMethodId || ''} onValueChange={setSelectedPaymentMethodId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {paymentMethods.map((pm) => (
+                            <SelectItem key={pm.id} value={pm.id}>
+                              <div className="flex items-center gap-2">
+                                <span>{pm.name}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {PAYMENT_TIMING_LABELS[pm.payment_timing] || pm.payment_timing}
+                                </Badge>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {selectedPaymentMethod?.payment_timing === 'installments' && (
+                        <div className="space-y-2">
+                          <Label>Parcelas</Label>
+                          <Select value={String(selectedInstallments)} onValueChange={(v) => setSelectedInstallments(Number(v))}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getAvailableInstallments().map((n) => (
+                                <SelectItem key={n} value={String(n)}>
+                                  {n}x de {formatPrice(Math.round(total / n))}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
 
                 <Separator />
 
