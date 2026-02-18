@@ -166,7 +166,9 @@ export default function Voip3cValidation() {
       
       if (dateFrom && dateTo) {
         queryMinDate = dateFrom;
-        queryMaxDate = format(new Date(new Date(dateTo).getTime() + 86400000), 'yyyy-MM-dd');
+        // Parse dateTo as local time to avoid UTC/local timezone mismatch
+        const [y, m, d] = dateTo.split('-').map(Number);
+        queryMaxDate = format(new Date(y, m - 1, d + 1), 'yyyy-MM-dd');
       } else {
         // Fallback to call dates
         const dates = filteredCalls
