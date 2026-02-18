@@ -10890,10 +10890,12 @@ export type Database = {
           expires_at: string | null
           external_reference: string | null
           id: string
+          interest_bearer: string
           is_active: boolean | null
           lead_id: string | null
           max_amount_cents: number | null
           max_installments: number | null
+          max_interest_free_installments: number | null
           max_uses: number | null
           min_amount_cents: number | null
           notes: string | null
@@ -10926,10 +10928,12 @@ export type Database = {
           expires_at?: string | null
           external_reference?: string | null
           id?: string
+          interest_bearer?: string
           is_active?: boolean | null
           lead_id?: string | null
           max_amount_cents?: number | null
           max_installments?: number | null
+          max_interest_free_installments?: number | null
           max_uses?: number | null
           min_amount_cents?: number | null
           notes?: string | null
@@ -10962,10 +10966,12 @@ export type Database = {
           expires_at?: string | null
           external_reference?: string | null
           id?: string
+          interest_bearer?: string
           is_active?: boolean | null
           lead_id?: string | null
           max_amount_cents?: number | null
           max_installments?: number | null
+          max_interest_free_installments?: number | null
           max_uses?: number | null
           min_amount_cents?: number | null
           notes?: string | null

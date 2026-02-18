@@ -25,6 +25,7 @@ import {
   Phone
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { InterestBearerSelector } from './InterestBearerSelector';
 
 interface InlineTelesalesFormProps {
   amountCents: number;
@@ -95,6 +96,8 @@ export function InlineTelesalesForm({
   const [cardHolder, setCardHolder] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
+  const [interestBearer, setInterestBearer] = useState<'customer' | 'seller'>('customer');
+  const [maxFreeInstallments, setMaxFreeInstallments] = useState(12);
 
   // Check permissions
   const canTelesales = isAdmin || permissions?.telesales_manage;
@@ -112,10 +115,14 @@ export function InlineTelesalesForm({
       let hasInterest = false;
       
       if (i > 1 && passToCustomer && fees) {
-        const feePercent = fees[i.toString()] || 2.69;
-        // Aplicar juros simples sobre o valor (como na config do Super Admin)
-        totalValue = Math.round(amountCents * (1 + feePercent / 100));
-        hasInterest = true;
+        // If seller absorbs interest, no interest up to maxFreeInstallments
+        if (interestBearer === 'seller' && i <= maxFreeInstallments) {
+          hasInterest = false;
+        } else {
+          const feePercent = fees[i.toString()] || 2.69;
+          totalValue = Math.round(amountCents * (1 + feePercent / 100));
+          hasInterest = true;
+        }
       }
       
       options.push({
@@ -127,7 +134,7 @@ export function InlineTelesalesForm({
       });
     }
     return options;
-  }, [amountCents, tenantFees]);
+  }, [amountCents, tenantFees, interestBearer, maxFreeInstallments]);
 
   // Valor selecionado atual (com juros se aplicável)
   const selectedOption = installmentOptions.find(o => o.installments === installments) || installmentOptions[0];
@@ -138,6 +145,8 @@ export function InlineTelesalesForm({
     setCardExpiry('');
     setCardCvv('');
     setInstallments(1);
+    setInterestBearer('customer');
+    setMaxFreeInstallments(12);
     setStep('form');
     setResult(null);
   };
@@ -304,6 +313,16 @@ export function InlineTelesalesForm({
                 placeholder="000.000.000-00"
               />
             </div>
+
+            {/* Interest Bearer */}
+            <InterestBearerSelector
+              bearer={interestBearer}
+              onBearerChange={setInterestBearer}
+              maxFreeInstallments={maxFreeInstallments}
+              onMaxFreeInstallmentsChange={setMaxFreeInstallments}
+              amountCents={amountCents}
+              cardEnabled={true}
+            />
 
             {/* Installments */}
             <div>

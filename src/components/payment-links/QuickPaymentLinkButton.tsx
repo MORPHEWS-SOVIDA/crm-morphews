@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Link2, Copy, QrCode, ExternalLink, Loader2 } from 'lucide-react';
 import { useCreatePaymentLink } from '@/hooks/usePaymentLinks';
+import { InterestBearerSelector } from './InterestBearerSelector';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
@@ -68,6 +69,8 @@ export function QuickPaymentLinkButton({
   const [pixEnabled, setPixEnabled] = useState(true);
   const [cardEnabled, setCardEnabled] = useState(true);
   const [boletoEnabled, setBoletoEnabled] = useState(true);
+  const [interestBearer, setInterestBearer] = useState<'customer' | 'seller'>('customer');
+  const [maxFreeInstallments, setMaxFreeInstallments] = useState(12);
 
   // Check permissions
   const canCreateLinks = isAdmin || permissions?.payment_links_create;
@@ -84,6 +87,8 @@ export function QuickPaymentLinkButton({
     setPixEnabled(true);
     setCardEnabled(true);
     setBoletoEnabled(true);
+    setInterestBearer('customer');
+    setMaxFreeInstallments(12);
     setCreatedLink(null);
     setShowQR(false);
   };
@@ -116,6 +121,8 @@ export function QuickPaymentLinkButton({
       customer_name: leadName,
       customer_email: leadEmail,
       customer_phone: leadPhone,
+      interest_bearer: interestBearer,
+      max_interest_free_installments: interestBearer === 'seller' ? maxFreeInstallments : undefined,
     });
 
     if (result) {
@@ -258,6 +265,16 @@ export function QuickPaymentLinkButton({
                     <Switch checked={boletoEnabled} onCheckedChange={setBoletoEnabled} />
                   </div>
                 </div>
+
+                {/* Interest Bearer */}
+                <InterestBearerSelector
+                  bearer={interestBearer}
+                  onBearerChange={setInterestBearer}
+                  maxFreeInstallments={maxFreeInstallments}
+                  onMaxFreeInstallmentsChange={setMaxFreeInstallments}
+                  amountCents={amountCents}
+                  cardEnabled={cardEnabled}
+                />
 
                 {leadName && (
                   <div className="p-3 bg-muted rounded-lg text-sm">
