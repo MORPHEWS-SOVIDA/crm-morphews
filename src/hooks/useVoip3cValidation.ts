@@ -38,6 +38,9 @@ export interface MatchedAttendance {
   reason_name: string;
   completed: boolean;
   attendance_created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  attendance_duration_seconds: number | null;
 }
 
 export interface LeadOnlyMatch {

@@ -18,6 +18,8 @@ export interface ReceptiveAttendance {
   non_purchase_reason_id: string | null;
   purchase_potential_cents: number | null;
   completed: boolean;
+  started_at: string | null;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
 }

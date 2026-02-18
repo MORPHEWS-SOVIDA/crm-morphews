@@ -196,7 +196,7 @@ export default function Voip3cValidation() {
       while (true) {
         let q = supabase
           .from('receptive_attendances')
-          .select('id, phone_searched, user_id, sale_id, non_purchase_reason_id, created_at, conversation_mode, lead_id, product_id, completed, lead_existed')
+          .select('id, phone_searched, user_id, sale_id, non_purchase_reason_id, created_at, conversation_mode, lead_id, product_id, completed, lead_existed, started_at, completed_at')
           .eq('organization_id', profile.organization_id)
           .gte('created_at', queryMinDate)
           .lte('created_at', queryMaxDate);
@@ -321,6 +321,13 @@ export default function Voip3cValidation() {
           const lead = matchedAtt.lead_id ? leadMap.get(matchedAtt.lead_id) : null;
           const sale = matchedAtt.sale_id ? saleMap.get(matchedAtt.sale_id) : null;
           
+          const startedAt = matchedAtt.started_at || null;
+          const completedAt = matchedAtt.completed_at || null;
+          let attendanceDuration: number | null = null;
+          if (startedAt && completedAt) {
+            attendanceDuration = Math.round((new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 1000);
+          }
+
           const enriched: Call3cData & MatchedAttendance = {
             ...call,
             receptive_id: matchedAtt.id,
@@ -336,6 +343,9 @@ export default function Voip3cValidation() {
             reason_name: matchedAtt.non_purchase_reason_id ? reasonMap.get(matchedAtt.non_purchase_reason_id) || '' : '',
             completed: matchedAtt.completed || false,
             attendance_created_at: matchedAtt.created_at,
+            started_at: startedAt,
+            completed_at: completedAt,
+            attendance_duration_seconds: attendanceDuration,
           };
           
           if (matchedAtt.sale_id) {
@@ -768,18 +778,19 @@ export default function Voip3cValidation() {
                       <TableHeader className="sticky top-0 bg-background">
                         <TableRow>
                           <TableHead>Telefone</TableHead>
-                          <TableHead>Lead</TableHead>
-                          <TableHead>Vendedor</TableHead>
-                          <TableHead>Modo</TableHead>
-                          <TableHead>Produto</TableHead>
-                          <TableHead>Interesse 3C+</TableHead>
-                          <TableHead>Valor Venda</TableHead>
-                          <TableHead>Queue</TableHead>
-                          <TableHead>Atendente 3C+</TableHead>
-                          <TableHead><div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo</div></TableHead>
-                          <TableHead>Hora 3C+</TableHead>
-                          <TableHead>Hora Registro</TableHead>
-                          <TableHead>Completo</TableHead>
+                          <TableHead><div className="flex flex-col"><span>Lead</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Vendedor</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Modo</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Produto</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Interesse</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Valor Venda</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Queue</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Atendente</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo Chamada</div><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>⏱ Tempo Registro</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Hora Chamada</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Hora Registro</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Completo</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -841,6 +852,19 @@ export default function Voip3cValidation() {
                                 <span className={`text-xs font-mono ${call.speaking_time_seconds >= 120 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
                                   {formatSpeakingTime(call.speaking_time_seconds)}
                                 </span>
+                              </TableCell>
+                              <TableCell>
+                                {call.attendance_duration_seconds != null ? (
+                                  <span className={`text-xs font-mono ${
+                                    call.speaking_time_seconds > 0 && call.attendance_duration_seconds < call.speaking_time_seconds * 0.5
+                                      ? 'text-destructive font-bold'
+                                      : 'text-muted-foreground'
+                                  }`}>
+                                    {formatSpeakingTime(call.attendance_duration_seconds)}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
                               </TableCell>
                               <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
                               <TableCell className="text-xs text-muted-foreground">
@@ -929,23 +953,24 @@ export default function Voip3cValidation() {
                       <TableHeader className="sticky top-0 bg-background">
                         <TableRow>
                           <TableHead>Telefone</TableHead>
-                          <TableHead>Lead</TableHead>
-                          <TableHead>Vendedor</TableHead>
-                          <TableHead>Modo</TableHead>
-                          <TableHead>Produto</TableHead>
-                          <TableHead>Motivo</TableHead>
-                          <TableHead>Queue</TableHead>
-                          <TableHead>Atendente 3C+</TableHead>
-                          <TableHead className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo</TableHead>
-                          <TableHead>Hora 3C+</TableHead>
-                          <TableHead>Hora Registro</TableHead>
-                          <TableHead>Completo</TableHead>
+                          <TableHead><div className="flex flex-col"><span>Lead</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Vendedor</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Modo</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Produto</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Motivo</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Queue</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Atendente</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo Chamada</div><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>⏱ Tempo Registro</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Hora Chamada</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Hora Registro</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Completo</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredNoSale.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={14} className="text-center text-muted-foreground py-8">
                               {motivoFilter !== 'all' || svQueueFilter !== 'all' || svAgentFilter !== 'all' || svMinTime !== 'all'
                                 ? 'Nenhum registro com estes filtros'
                                 : 'Todos os registros têm venda! 🎉'}
@@ -1012,6 +1037,19 @@ export default function Voip3cValidation() {
                                     {formatSpeakingTime(call.speaking_time_seconds)}
                                   </span>
                                 </TableCell>
+                                <TableCell>
+                                  {call.attendance_duration_seconds != null ? (
+                                    <span className={`text-xs font-mono ${
+                                      call.speaking_time_seconds > 0 && call.attendance_duration_seconds < call.speaking_time_seconds * 0.5
+                                        ? 'text-destructive font-bold'
+                                        : 'text-muted-foreground'
+                                    }`}>
+                                      {formatSpeakingTime(call.attendance_duration_seconds)}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">-</span>
+                                  )}
+                                </TableCell>
                                 <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
                                 <TableCell className="text-xs text-muted-foreground">
                                   {format(new Date(call.attendance_created_at), "dd/MM HH:mm", { locale: ptBR })}
@@ -1039,13 +1077,13 @@ export default function Voip3cValidation() {
                       <TableHeader className="sticky top-0 bg-background">
                         <TableRow>
                           <TableHead>Telefone</TableHead>
-                          <TableHead>Lead</TableHead>
-                          <TableHead>Etapa Funil</TableHead>
-                          <TableHead>Responsável</TableHead>
-                          <TableHead>Follow-up</TableHead>
-                          <TableHead>Hora 3C+</TableHead>
-                          <TableHead>Atendente 3C+</TableHead>
-                          <TableHead><div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo</div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Lead</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Etapa Funil</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Responsável</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Follow-up</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Hora Chamada</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Atendente</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo</div><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
                           <TableHead>Ações</TableHead>
                         </TableRow>
                       </TableHeader>

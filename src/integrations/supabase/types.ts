@@ -13560,6 +13560,7 @@ export type Database = {
           call_quality_score: Json | null
           call_recording_url: string | null
           completed: boolean
+          completed_at: string | null
           conversation_mode: string
           created_at: string
           id: string
@@ -13574,6 +13575,7 @@ export type Database = {
           purchase_potential_cents: number | null
           recording_storage_path: string | null
           sale_id: string | null
+          started_at: string | null
           transcription: string | null
           transcription_status: string | null
           updated_at: string
@@ -13583,6 +13585,7 @@ export type Database = {
           call_quality_score?: Json | null
           call_recording_url?: string | null
           completed?: boolean
+          completed_at?: string | null
           conversation_mode: string
           created_at?: string
           id?: string
@@ -13597,6 +13600,7 @@ export type Database = {
           purchase_potential_cents?: number | null
           recording_storage_path?: string | null
           sale_id?: string | null
+          started_at?: string | null
           transcription?: string | null
           transcription_status?: string | null
           updated_at?: string
@@ -13606,6 +13610,7 @@ export type Database = {
           call_quality_score?: Json | null
           call_recording_url?: string | null
           completed?: boolean
+          completed_at?: string | null
           conversation_mode?: string
           created_at?: string
           id?: string
@@ -13620,6 +13625,7 @@ export type Database = {
           purchase_potential_cents?: number | null
           recording_storage_path?: string | null
           sale_id?: string | null
+          started_at?: string | null
           transcription?: string | null
           transcription_status?: string | null
           updated_at?: string
