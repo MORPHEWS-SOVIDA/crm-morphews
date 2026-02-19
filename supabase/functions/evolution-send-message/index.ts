@@ -40,7 +40,16 @@ async function getAdminWhatsAppConfig(): Promise<AdminConfig | null> {
 function normalizeWhatsApp(phone: string): string {
   let clean = (phone || "").replace(/\D/g, "");
   if (!clean) return "";
+  
+  // Se o número já tem um código de país diferente de 55 (internacional)
+  // e tem >= 10 dígitos, preservar como está
+  if (!clean.startsWith("55") && clean.length >= 10) {
+    return clean; // número internacional - não adicionar 55
+  }
+  
+  // Número brasileiro: garantir prefixo 55
   if (!clean.startsWith("55")) clean = `55${clean}`;
+  // Se tem 12 dígitos (55 + DD + 8), adiciona o 9 (celular)
   if (clean.length === 12 && clean.startsWith("55")) {
     clean = clean.slice(0, 4) + "9" + clean.slice(4);
   }
