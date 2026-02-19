@@ -253,18 +253,18 @@ export default function Expedition() {
     // Tab filter
     switch (activeTab) {
       case 'todo':
-        // A FAZER: RASCUNHO + PAGO ONLINE + IMPRESSO + DESPACHADO + CORREIOS
+        // A FAZER: RASCUNHO + PAGO ONLINE (sem entrega) + IMPRESSO + DESPACHADO + CORREIOS
         filtered = filtered.filter(s => 
           s.status === 'draft' || 
-          s.status === 'payment_confirmed' ||
+          (s.status === 'payment_confirmed' && !s.delivered_at) ||
           s.status === 'pending_expedition' || 
           s.status === 'dispatched' ||
-          (s.delivery_type === 'carrier' && s.status !== 'cancelled' && s.status !== 'delivered')
+          (s.delivery_type === 'carrier' && s.status !== 'cancelled' && s.status !== 'delivered' && !(s.status === 'payment_confirmed' && s.delivered_at))
         );
         break;
       case 'draft':
-        // Rascunho inclui vendas pagas online (precisam ser impressas)
-        filtered = filtered.filter(s => s.status === 'draft' || s.status === 'payment_confirmed');
+        // Rascunho inclui vendas pagas online que ainda não foram entregues (precisam ser impressas)
+        filtered = filtered.filter(s => s.status === 'draft' || (s.status === 'payment_confirmed' && !s.delivered_at));
         break;
       case 'printed':
         filtered = filtered.filter(s => s.status === 'pending_expedition');
@@ -498,28 +498,31 @@ export default function Expedition() {
         data: updateData,
       });
 
-      // Ensure checkpoint "Despachado" is checked in SaleDetail
+      // Ensure checkpoints "Separado" + "Despachado" are checked (backfill missing steps)
       if (user?.id) {
-        const { data: existing } = await supabase
-          .from('sale_checkpoints')
-          .select('id')
-          .eq('sale_id', saleId)
-          .eq('checkpoint_type', 'dispatched')
-          .maybeSingle();
-
-        if (existing?.id) {
-          await supabase
+        const checkpointsToEnsure = ['separated', 'dispatched'];
+        for (const cpType of checkpointsToEnsure) {
+          const { data: existing } = await supabase
             .from('sale_checkpoints')
-            .update({ completed_at: new Date().toISOString(), completed_by: user.id })
-            .eq('id', existing.id);
-        } else if (organizationId) {
-          await supabase.from('sale_checkpoints').insert({
-            sale_id: saleId,
-            organization_id: organizationId,
-            checkpoint_type: 'dispatched',
-            completed_at: new Date().toISOString(),
-            completed_by: user.id,
-          });
+            .select('id, completed_at')
+            .eq('sale_id', saleId)
+            .eq('checkpoint_type', cpType)
+            .maybeSingle();
+
+          if (existing?.id && !existing.completed_at) {
+            await supabase
+              .from('sale_checkpoints')
+              .update({ completed_at: new Date().toISOString(), completed_by: user.id })
+              .eq('id', existing.id);
+          } else if (!existing && organizationId) {
+            await supabase.from('sale_checkpoints').insert({
+              sale_id: saleId,
+              organization_id: organizationId,
+              checkpoint_type: cpType,
+              completed_at: new Date().toISOString(),
+              completed_by: user.id,
+            });
+          }
         }
         
         // Record in history whether conference was skipped
@@ -636,28 +639,31 @@ export default function Expedition() {
         data: { status: newStatus as any },
       });
 
-      // Keep checkpoints in sync for "Entregue"
+      // Keep checkpoints in sync - backfill all prior steps for "Entregue"
       if (newStatus === 'delivered' && user?.id) {
-        const { data: existing } = await supabase
-          .from('sale_checkpoints')
-          .select('id')
-          .eq('sale_id', saleId)
-          .eq('checkpoint_type', 'delivered')
-          .maybeSingle();
-
-        if (existing?.id) {
-          await supabase
+        const checkpointsToEnsure = ['separated', 'dispatched', 'delivered'];
+        for (const cpType of checkpointsToEnsure) {
+          const { data: existing } = await supabase
             .from('sale_checkpoints')
-            .update({ completed_at: new Date().toISOString(), completed_by: user.id })
-            .eq('id', existing.id);
-        } else if (organizationId) {
-          await supabase.from('sale_checkpoints').insert({
-            sale_id: saleId,
-            organization_id: organizationId,
-            checkpoint_type: 'delivered',
-            completed_at: new Date().toISOString(),
-            completed_by: user.id,
-          });
+            .select('id, completed_at')
+            .eq('sale_id', saleId)
+            .eq('checkpoint_type', cpType)
+            .maybeSingle();
+
+          if (existing?.id && !existing.completed_at) {
+            await supabase
+              .from('sale_checkpoints')
+              .update({ completed_at: new Date().toISOString(), completed_by: user.id })
+              .eq('id', existing.id);
+          } else if (!existing && organizationId) {
+            await supabase.from('sale_checkpoints').insert({
+              sale_id: saleId,
+              organization_id: organizationId,
+              checkpoint_type: cpType,
+              completed_at: new Date().toISOString(),
+              completed_by: user.id,
+            });
+          }
         }
 
         queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', saleId] });
