@@ -164,10 +164,19 @@ export function NewConversationDialog({
     onOpenChange(false);
   };
 
-  // Normalizar telefone brasileiro para SEMPRE ter 55 + DD + 9 + 8 dígitos
+  // Normalizar telefone: suporta números brasileiros (55) e internacionais
   const normalizePhone = (phone: string) => {
     let clean = phone.replace(/\D/g, "");
     if (!clean) return "";
+    
+    // Se o número já tem um código de país que NÃO é 55 (ex: 57 Colombia, 1 EUA, etc.)
+    // e tem mais de 10 dígitos, manter como está (já é internacional)
+    // Heurística: se não começa com 55 e tem >= 10 dígitos, provavelmente já tem DDI
+    if (!clean.startsWith("55") && clean.length >= 10) {
+      return clean; // número internacional - não adicionar 55
+    }
+    
+    // Número brasileiro: garantir prefixo 55
     if (!clean.startsWith("55")) clean = `55${clean}`;
     // Se tem 12 dígitos (55 + DD + 8), adiciona o 9 (celular)
     if (clean.length === 12 && clean.startsWith("55")) {
