@@ -170,10 +170,18 @@ async function extractNPSRating(text: string): Promise<{
   return { rating: null, source: "none", reasoning: null };
 }
 
-// Normaliza telefone brasileiro para SEMPRE ter 55 + DD + 9 + 8 dígitos (para celular)
+// Normaliza telefone: suporta brasileiros (55 + DD + 9) e internacionais
 function normalizeWhatsApp(phone: string): string {
   let clean = (phone || "").replace(/\D/g, "");
   if (!clean) return "";
+  
+  // Números internacionais: se não começa com 55 e tem >= 10 dígitos,
+  // preservar como está (já tem código de país próprio, ex: 57 Colômbia, 1 EUA, 44 UK)
+  if (!clean.startsWith("55") && clean.length >= 10) {
+    return clean;
+  }
+  
+  // Número brasileiro: garantir prefixo 55
   if (!clean.startsWith("55")) clean = `55${clean}`;
   // Se tem 12 dígitos (55 + DD + 8), adiciona o 9 (celular)
   if (clean.length === 12 && clean.startsWith("55")) {
