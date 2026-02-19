@@ -233,16 +233,20 @@ export function useCreatePickupClosing() {
       if (closingError) throw closingError;
 
       // Insert all sales into the closing
-      const closingSales = sales.map(sale => ({
-        closing_id: closing.id,
-        sale_id: sale.id,
-        organization_id: tenantId,
-        sale_number: sale.romaneio_number ? String(sale.romaneio_number) : null,
-        lead_name: sale.lead?.name || null,
-        total_cents: sale.total_cents || null,
-        payment_method: sale.payment_method || null,
-        delivered_at: sale.delivered_at || null,
-      }));
+      const closingSales = sales.map(sale => {
+        // Resolve payment method name: prefer payment_method_rel (new system) over legacy text field
+        const resolvedPaymentMethod = (sale as any).payment_method_rel?.name || sale.payment_method || null;
+        return {
+          closing_id: closing.id,
+          sale_id: sale.id,
+          organization_id: tenantId,
+          sale_number: sale.romaneio_number ? String(sale.romaneio_number) : null,
+          lead_name: sale.lead?.name || null,
+          total_cents: sale.total_cents || null,
+          payment_method: resolvedPaymentMethod,
+          delivered_at: sale.delivered_at || null,
+        };
+      });
 
       const { error: salesError } = await supabase
         .from('pickup_closing_sales')
