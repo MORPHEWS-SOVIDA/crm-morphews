@@ -283,7 +283,7 @@ export default function Voip3cValidation() {
         allLeadIds.length > 0
           ? supabase
               .from('receptive_attendances')
-              .select('lead_id, created_at, user_id')
+              .select('lead_id, created_at, user_id, sale_id, non_purchase_reason_id, product_id')
               .eq('organization_id', profile.organization_id)
               .in('lead_id', allLeadIds)
               .order('created_at', { ascending: false })
@@ -297,11 +297,11 @@ export default function Voip3cValidation() {
         }
       }
       
-      // Build last attendance map (first occurrence per lead since ordered desc)
-      const lastAttMap = new Map<string, { at: string; user_id: string }>();
+      // Build last attendance map with enriched data
+      const lastAttMap = new Map<string, { at: string; user_id: string; sale_id: string | null; reason_id: string | null; product_id: string | null }>();
       for (const a of lastAttsRes.data || []) {
         if (a.lead_id && !lastAttMap.has(a.lead_id)) {
-          lastAttMap.set(a.lead_id, { at: a.created_at, user_id: a.user_id });
+          lastAttMap.set(a.lead_id, { at: a.created_at, user_id: a.user_id, sale_id: a.sale_id, reason_id: a.non_purchase_reason_id, product_id: a.product_id });
         }
       }
       
@@ -400,6 +400,8 @@ export default function Voip3cValidation() {
             responsible_name: matchedLead.assigned_to ? responsibleMap.get(matchedLead.assigned_to) || null : null,
             last_attendance_at: lastAtt?.at || null,
             last_attendance_user: lastAtt?.user_id ? responsibleMap.get(lastAtt.user_id) || null : null,
+            last_attendance_result: lastAtt?.sale_id ? 'Venda' : lastAtt?.reason_id ? (reasonMap.get(lastAtt.reason_id) || 'Sem venda') : lastAtt ? 'Registro' : null,
+            last_attendance_product: lastAtt?.product_id ? (productMap.get(lastAtt.product_id) || null) : null,
           });
           continue;
         }
@@ -1183,10 +1185,18 @@ export default function Voip3cValidation() {
                             </TableCell>
                             <TableCell>
                               {call.last_attendance_at ? (
-                                <div className="flex flex-col">
+                                <div className="flex flex-col gap-0.5">
                                   <span className="text-xs">{format(new Date(call.last_attendance_at), "dd/MM/yy HH:mm", { locale: ptBR })}</span>
+                                  {call.last_attendance_result && (
+                                    <Badge variant={call.last_attendance_result === 'Venda' ? 'default' : 'outline'} className={`text-[10px] w-fit ${call.last_attendance_result === 'Venda' ? 'bg-green-600' : ''}`}>
+                                      {call.last_attendance_result}
+                                    </Badge>
+                                  )}
+                                  {call.last_attendance_product && (
+                                    <span className="text-[10px] text-muted-foreground">🛒 {call.last_attendance_product}</span>
+                                  )}
                                   {call.last_attendance_user && (
-                                    <span className="text-[10px] text-muted-foreground">{call.last_attendance_user}</span>
+                                    <span className="text-[10px] text-muted-foreground">👤 {call.last_attendance_user}</span>
                                   )}
                                 </div>
                               ) : (
