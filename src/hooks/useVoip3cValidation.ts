@@ -53,6 +53,8 @@ export interface LeadOnlyMatch {
   responsible_name: string | null;
   last_attendance_at: string | null;
   last_attendance_user: string | null;
+  last_attendance_result: string | null;
+  last_attendance_product: string | null;
 }
 
 export interface ValidationResult {
