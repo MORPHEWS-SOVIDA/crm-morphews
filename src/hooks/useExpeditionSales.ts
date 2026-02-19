@@ -134,7 +134,10 @@ export function useExpeditionStats(sales: Sale[]) {
         stats.cancelled++;
         break;
       case 'payment_confirmed':
-        stats.payment_confirmed++;
+        // Only count payment_confirmed that haven't been delivered yet
+        if (!(sale as any).delivered_at) {
+          stats.payment_confirmed++;
+        }
         break;
     }
 
