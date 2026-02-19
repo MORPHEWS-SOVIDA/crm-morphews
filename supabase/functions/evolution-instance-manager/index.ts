@@ -304,14 +304,50 @@ serve(async (req) => {
         throw new Error("Instância não está configurada no Evolution");
       }
 
-      // Buscar QR Code
-      const qrResponse = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instance.evolution_instance_id}`, {
+      // Buscar QR Code - primeira tentativa
+      let qrResponse = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instance.evolution_instance_id}`, {
         method: "GET",
         headers: { "apikey": EVOLUTION_API_KEY },
       });
 
-      const qrResult = await qrResponse.json().catch(() => ({}));
-      console.log("QR Code response:", { status: qrResponse.status, hasBase64: !!qrResult?.base64, hasPairingCode: !!qrResult?.pairingCode });
+      let qrResult = await qrResponse.json().catch(() => ({}));
+      console.log("QR Code response (1st attempt):", { status: qrResponse.status, hasBase64: !!qrResult?.base64, hasPairingCode: !!qrResult?.pairingCode });
+
+      // Se não retornou QR, tentar reiniciar a instância e buscar novamente
+      if (!qrResult?.base64 && !qrResult?.pairingCode) {
+        console.log("No QR returned, attempting instance restart...");
+        
+        // Tentar restart da instância
+        try {
+          const restartResponse = await fetch(`${EVOLUTION_API_URL}/instance/restart/${instance.evolution_instance_id}`, {
+            method: "PUT",
+            headers: { "apikey": EVOLUTION_API_KEY },
+          });
+          const restartResult = await restartResponse.json().catch(() => ({}));
+          console.log("Restart response:", { status: restartResponse.status, result: restartResult });
+        } catch (e) {
+          console.warn("Restart failed, trying logout + connect:", e);
+          // Se restart falhar, tentar logout
+          try {
+            await fetch(`${EVOLUTION_API_URL}/instance/logout/${instance.evolution_instance_id}`, {
+              method: "DELETE",
+              headers: { "apikey": EVOLUTION_API_KEY },
+            });
+          } catch (_) {}
+        }
+
+        // Aguardar um momento para a instância reiniciar
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Segunda tentativa de buscar QR
+        qrResponse = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instance.evolution_instance_id}`, {
+          method: "GET",
+          headers: { "apikey": EVOLUTION_API_KEY },
+        });
+
+        qrResult = await qrResponse.json().catch(() => ({}));
+        console.log("QR Code response (2nd attempt):", { status: qrResponse.status, hasBase64: !!qrResult?.base64, hasPairingCode: !!qrResult?.pairingCode });
+      }
 
       // NÃO salvar QR code no banco - apenas retornar diretamente
       return new Response(JSON.stringify({
