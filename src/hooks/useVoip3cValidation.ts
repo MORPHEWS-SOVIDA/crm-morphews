@@ -51,6 +51,8 @@ export interface LeadOnlyMatch {
   followup_reason: string | null;
   followup_scheduled_at: string | null;
   responsible_name: string | null;
+  last_attendance_at: string | null;
+  last_attendance_user: string | null;
 }
 
 export interface ValidationResult {

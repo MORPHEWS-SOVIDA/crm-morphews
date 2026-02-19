@@ -88,6 +88,7 @@ export default function Voip3cValidation() {
   const [srStatusFilter, setSrStatusFilter] = useState('all');
   const [srAgentFilter, setSrAgentFilter] = useState('all');
   const [srMinTime, setSrMinTime] = useState('all');
+  const [srCategoryFilter, setSrCategoryFilter] = useState('all');
   
   // Sem Venda extra filters
   const [svQueueFilter, setSvQueueFilter] = useState('all');
@@ -270,18 +271,37 @@ export default function Voip3cValidation() {
       
       // Fetch followups for leads
       const allLeadIds = (allLeads || []).map(l => l.id);
-      const { data: followups } = allLeadIds.length > 0
-        ? await supabase
-            .from('lead_followups')
-            .select('lead_id, reason, scheduled_at')
-            .in('lead_id', allLeadIds)
-            .order('scheduled_at', { ascending: false })
-        : { data: [] };
+      const [followupsRes, lastAttsRes] = await Promise.all([
+        allLeadIds.length > 0
+          ? supabase
+              .from('lead_followups')
+              .select('lead_id, reason, scheduled_at')
+              .in('lead_id', allLeadIds)
+              .order('scheduled_at', { ascending: false })
+          : Promise.resolve({ data: [] }),
+        // Fetch last attendance per lead (across all time, not just date range)
+        allLeadIds.length > 0
+          ? supabase
+              .from('receptive_attendances')
+              .select('lead_id, created_at, user_id')
+              .eq('organization_id', profile.organization_id)
+              .in('lead_id', allLeadIds)
+              .order('created_at', { ascending: false })
+          : Promise.resolve({ data: [] }),
+      ]);
       
       const followupMap = new Map<string, { reason: string; scheduled_at: string }>();
-      for (const f of followups || []) {
+      for (const f of followupsRes.data || []) {
         if (!followupMap.has(f.lead_id)) {
           followupMap.set(f.lead_id, { reason: f.reason, scheduled_at: f.scheduled_at });
+        }
+      }
+      
+      // Build last attendance map (first occurrence per lead since ordered desc)
+      const lastAttMap = new Map<string, { at: string; user_id: string }>();
+      for (const a of lastAttsRes.data || []) {
+        if (a.lead_id && !lastAttMap.has(a.lead_id)) {
+          lastAttMap.set(a.lead_id, { at: a.created_at, user_id: a.user_id });
         }
       }
       
@@ -289,6 +309,10 @@ export default function Voip3cValidation() {
       const responsibleIds = new Set<string>();
       for (const l of allLeads || []) {
         if (l.assigned_to) responsibleIds.add(l.assigned_to);
+      }
+      // Also add last attendance user_ids for name resolution
+      for (const [, v] of lastAttMap) {
+        if (v.user_id) responsibleIds.add(v.user_id);
       }
       const { data: responsibles } = responsibleIds.size > 0
         ? await supabase.from('profiles').select('user_id, first_name, last_name').in('user_id', Array.from(responsibleIds))
@@ -364,6 +388,7 @@ export default function Voip3cValidation() {
         
         if (matchedLead) {
           const fu = followupMap.get(matchedLead.id);
+          const lastAtt = lastAttMap.get(matchedLead.id);
           callsWithLeadOnly.push({
             ...call,
             lead_id: matchedLead.id,
@@ -373,6 +398,8 @@ export default function Voip3cValidation() {
             followup_reason: fu?.reason || null,
             followup_scheduled_at: fu?.scheduled_at || null,
             responsible_name: matchedLead.assigned_to ? responsibleMap.get(matchedLead.assigned_to) || null : null,
+            last_attendance_at: lastAtt?.at || null,
+            last_attendance_user: lastAtt?.user_id ? responsibleMap.get(lastAtt.user_id) || null : null,
           });
           continue;
         }
@@ -469,16 +496,31 @@ export default function Voip3cValidation() {
     return { queues: Array.from(queues).sort(), statuses: Array.from(statuses).sort(), agents: Array.from(agents).sort() };
   }, [result]);
 
+  // Sem Registro sub-category helper
+  const getSrCategory = useCallback((call: Call3cData): 'curta' | 'novo' => {
+    if (call.speaking_time_seconds < 30) return 'curta';
+    return 'novo';
+  }, []);
+
+  // Sub-category counts
+  const srCategoryCounts = useMemo(() => {
+    if (!result) return { curta: 0, novo: 0 };
+    const counts = { curta: 0, novo: 0 };
+    result.callsWithoutRecord.forEach(c => { counts[getSrCategory(c)]++; });
+    return counts;
+  }, [result, getSrCategory]);
+
   // Filtered Sem Registro
   const filteredWithoutRecord = useMemo(() => {
     if (!result) return [];
     let data = result.callsWithoutRecord;
+    if (srCategoryFilter !== 'all') data = data.filter(c => getSrCategory(c) === srCategoryFilter);
     if (srQueueFilter !== 'all') data = data.filter(c => (c.source_queue_name || c.queue_name || '') === srQueueFilter);
     if (srStatusFilter !== 'all') data = data.filter(c => c.readable_status_text === srStatusFilter);
     if (srAgentFilter !== 'all') data = data.filter(c => c.agent_name === srAgentFilter);
     if (srMinTime !== 'all') data = data.filter(c => c.speaking_time_seconds >= parseInt(srMinTime));
     return data;
-  }, [result, srQueueFilter, srStatusFilter, srAgentFilter, srMinTime]);
+  }, [result, srCategoryFilter, srQueueFilter, srStatusFilter, srAgentFilter, srMinTime, getSrCategory]);
 
   // Helper: group records by phone number for consolidated view
   type GroupedCall<T> = { phone: string; records: T[] };
@@ -1081,6 +1123,7 @@ export default function Voip3cValidation() {
                           <TableHead><div className="flex flex-col"><span>Etapa Funil</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
                           <TableHead><div className="flex flex-col"><span>Responsável</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
                           <TableHead><div className="flex flex-col"><span>Follow-up</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead><div className="flex flex-col"><span>Último Atend.</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
                           <TableHead><div className="flex flex-col"><span>Hora Chamada</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
                           <TableHead><div className="flex flex-col"><span>Atendente</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
                           <TableHead><div className="flex flex-col"><div className="flex items-center gap-1"><Clock className="w-3 h-3" /> Tempo</div><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
@@ -1112,6 +1155,18 @@ export default function Voip3cValidation() {
                                 <span className="text-xs text-muted-foreground">Sem follow-up</span>
                               )}
                             </TableCell>
+                            <TableCell>
+                              {call.last_attendance_at ? (
+                                <div className="flex flex-col">
+                                  <span className="text-xs">{format(new Date(call.last_attendance_at), "dd/MM/yy HH:mm", { locale: ptBR })}</span>
+                                  {call.last_attendance_user && (
+                                    <span className="text-[10px] text-muted-foreground">{call.last_attendance_user}</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Nunca</span>
+                              )}
+                            </TableCell>
                             <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
                             <TableCell className="text-sm">{call.agent_name || '-'}</TableCell>
                             <TableCell>
@@ -1139,6 +1194,31 @@ export default function Voip3cValidation() {
                 {/* SEM REGISTRO - with filters + speaking time */}
                 <TabsContent value="without-record">
                   {/* Filters */}
+                  {/* Sub-category badges */}
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <Badge 
+                      variant={srCategoryFilter === 'all' ? 'default' : 'outline'} 
+                      className="cursor-pointer text-xs" 
+                      onClick={() => setSrCategoryFilter('all')}
+                    >
+                      Todos ({result.callsWithoutRecord.length})
+                    </Badge>
+                    <Badge 
+                      variant={srCategoryFilter === 'novo' ? 'default' : 'outline'} 
+                      className="cursor-pointer text-xs"
+                      onClick={() => setSrCategoryFilter('novo')}
+                    >
+                      📞 Possíveis leads ({srCategoryCounts.novo})
+                    </Badge>
+                    <Badge 
+                      variant={srCategoryFilter === 'curta' ? 'default' : 'outline'} 
+                      className="cursor-pointer text-xs"
+                      onClick={() => setSrCategoryFilter('curta')}
+                    >
+                      ⚡ Curtas &lt;30s ({srCategoryCounts.curta})
+                    </Badge>
+                  </div>
+
                   <div className="flex flex-wrap items-center gap-3 mb-3 p-3 border rounded-lg bg-muted/30">
                     <Label className="text-sm whitespace-nowrap font-medium flex items-center gap-1"><Filter className="w-3 h-3" /> Filtros:</Label>
                     <Select value={srQueueFilter} onValueChange={setSrQueueFilter}>
@@ -1192,6 +1272,7 @@ export default function Voip3cValidation() {
                       <TableHeader className="sticky top-0 bg-background">
                         <TableRow>
                           <TableHead>Telefone</TableHead>
+                          <TableHead>Categoria</TableHead>
                           <TableHead>Data/Hora</TableHead>
                           <TableHead>Queue (origem)</TableHead>
                           <TableHead>Status 3C+</TableHead>
@@ -1202,7 +1283,7 @@ export default function Voip3cValidation() {
                       <TableBody>
                         {filteredWithoutRecord.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                               {srQueueFilter !== 'all' || srStatusFilter !== 'all' || srAgentFilter !== 'all' || srMinTime !== 'all'
                                 ? 'Nenhum registro com estes filtros'
                                 : 'Todas as ligações têm registro! 🎉'}
@@ -1224,6 +1305,13 @@ export default function Voip3cValidation() {
                                     </div>
                                   ) : (
                                     <span className="text-muted-foreground text-xs">↳ {call.number}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {getSrCategory(call) === 'curta' ? (
+                                    <Badge variant="outline" className="text-[10px] bg-muted">⚡ Curta</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary">📞 Possível lead</Badge>
                                   )}
                                 </TableCell>
                                 <TableCell className="text-xs text-muted-foreground">{call.created_at}</TableCell>
