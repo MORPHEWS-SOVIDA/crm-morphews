@@ -94,13 +94,15 @@ export default function PickupClosingPrint() {
       // Enrich closing sales with payment info and delivery status from sales table
       return closingSalesData.map(cs => {
         const saleData = salesMap.get(cs.sale_id);
-        const paymentMethod = saleData?.payment_methods as { id: string; name: string; category: string } | null;
+        // payment_methods can come as object or array depending on Supabase join
+        const rawPm = saleData?.payment_methods;
+        const paymentMethod = (Array.isArray(rawPm) ? rawPm[0] : rawPm) as { id: string; name: string; category: string } | null;
         
         return {
           ...cs,
           romaneio_number: saleData?.romaneio_number || null,
           sale_created_at: saleData?.created_at || null,
-          payment_method: paymentMethod?.name || saleData?.payment_method || cs.payment_method,
+          payment_method: paymentMethod?.name || saleData?.payment_method || cs.payment_method || 'Não informado',
           payment_category: paymentMethod?.category || null,
           delivery_status: saleData?.delivery_status || null,
         };
