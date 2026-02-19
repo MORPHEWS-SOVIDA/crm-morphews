@@ -40,17 +40,33 @@ export function Voip3cLeadActions({ leadId, leadName, leadWhatsapp, leadStage, l
     queryKey: ['org-active-members', orgId],
     queryFn: async () => {
       if (!orgId) return [];
-      const { data, error } = await supabase
+      // Fetch members and profiles separately (no FK between tables)
+      const { data: members, error: membersErr } = await supabase
         .from('organization_members')
-        .select('user_id, role, is_active, profiles!inner(first_name, last_name)')
+        .select('user_id, role, is_active')
         .eq('organization_id', orgId)
         .eq('is_active', true);
-      if (error) throw error;
-      return (data || []).map((m: any) => ({
-        user_id: m.user_id,
-        role: m.role,
-        full_name: `${m.profiles?.first_name || ''} ${m.profiles?.last_name || ''}`.trim() || 'Sem nome',
-      }));
+      if (membersErr) throw membersErr;
+      
+      const userIds = (members || []).map(m => m.user_id);
+      if (userIds.length === 0) return [];
+      
+      const { data: profiles, error: profilesErr } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name')
+        .in('user_id', userIds);
+      if (profilesErr) throw profilesErr;
+      
+      const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+      
+      return (members || []).map((m: any) => {
+        const p = profileMap.get(m.user_id);
+        return {
+          user_id: m.user_id,
+          role: m.role,
+          full_name: `${p?.first_name || ''} ${p?.last_name || ''}`.trim() || 'Sem nome',
+        };
+      });
     },
     enabled: !!orgId,
     staleTime: 60_000,

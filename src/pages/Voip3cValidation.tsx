@@ -833,6 +833,7 @@ export default function Voip3cValidation() {
                           <TableHead><div className="flex flex-col"><span>Hora Chamada</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
                           <TableHead><div className="flex flex-col"><span>Hora Registro</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
                           <TableHead><div className="flex flex-col"><span>Completo</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead>Ações</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -917,6 +918,18 @@ export default function Voip3cValidation() {
                                   <CheckCircle2 className="w-4 h-4 text-green-500" />
                                 ) : (
                                   <AlertCircle className="w-4 h-4 text-yellow-500" />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {call.lead_id && (
+                                  <Voip3cLeadActions
+                                    leadId={call.lead_id}
+                                    leadName={call.lead_name}
+                                    leadWhatsapp={call.number}
+                                    leadStage={call.lead_stage}
+                                    leadPhone={call.number}
+                                    validationId={activeValidationId}
+                                  />
                                 )}
                               </TableCell>
                             </TableRow>
@@ -1007,12 +1020,13 @@ export default function Voip3cValidation() {
                           <TableHead><div className="flex flex-col"><span>Hora Chamada</span><span className="text-[10px] text-orange-500 font-normal">3C+</span></div></TableHead>
                           <TableHead><div className="flex flex-col"><span>Hora Registro</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
                           <TableHead><div className="flex flex-col"><span>Completo</span><span className="text-[10px] text-blue-500 font-normal">Morpheus</span></div></TableHead>
+                          <TableHead>Ações</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredNoSale.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={14} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={15} className="text-center text-muted-foreground py-8">
                               {motivoFilter !== 'all' || svQueueFilter !== 'all' || svAgentFilter !== 'all' || svMinTime !== 'all'
                                 ? 'Nenhum registro com estes filtros'
                                 : 'Todos os registros têm venda! 🎉'}
@@ -1101,6 +1115,18 @@ export default function Voip3cValidation() {
                                     <CheckCircle2 className="w-4 h-4 text-green-500" />
                                   ) : (
                                     <AlertCircle className="w-4 h-4 text-yellow-500" />
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {call.lead_id && (
+                                    <Voip3cLeadActions
+                                      leadId={call.lead_id}
+                                      leadName={call.lead_name}
+                                      leadWhatsapp={call.number}
+                                      leadStage={call.lead_stage}
+                                      leadPhone={call.number}
+                                      validationId={activeValidationId}
+                                    />
                                   )}
                                 </TableCell>
                               </TableRow>
