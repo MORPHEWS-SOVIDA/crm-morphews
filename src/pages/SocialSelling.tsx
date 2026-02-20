@@ -117,39 +117,44 @@ export default function SocialSelling() {
     enabled: !!orgId,
   });
 
-  // Compute metrics
-  const totalMessages = (activities || []).filter(a => a.activity_type === 'message_sent').length;
-  const totalReplies = (activities || []).filter(a => a.activity_type === 'reply_received').length;
-  const totalWhatsapp = (activities || []).filter(a => a.activity_type === 'whatsapp_shared').length;
-  const totalCallScheduled = (activities || []).filter(a => a.activity_type === 'call_scheduled').length;
-  const totalCallDone = (activities || []).filter(a => a.activity_type === 'call_done').length;
+  // Helper: count unique lead_ids for a given activity type
+  const uniqueCount = (acts: any[], type: string) =>
+    new Set(acts.filter(a => a.activity_type === type).map(a => a.lead_id)).size;
 
-  // Per seller metrics
+  // Compute metrics — únicos por lead_id
+  const totalMessages = uniqueCount(activities || [], 'message_sent');
+  const totalReplies = uniqueCount(activities || [], 'reply_received');
+  const totalWhatsapp = uniqueCount(activities || [], 'whatsapp_shared');
+  const totalCallScheduled = uniqueCount(activities || [], 'call_scheduled');
+  const totalCallDone = uniqueCount(activities || [], 'call_done');
+
+  // Per seller metrics — únicos por lead_id
   const sellerMetrics = (sellers || []).map(seller => {
-    const sellerActivities = (activities || []).filter(a => a.seller_id === seller.id);
+    const sa = (activities || []).filter(a => a.seller_id === seller.id);
     return {
       ...seller,
-      messages: sellerActivities.filter(a => a.activity_type === 'message_sent').length,
-      replies: sellerActivities.filter(a => a.activity_type === 'reply_received').length,
-      whatsapp: sellerActivities.filter(a => a.activity_type === 'whatsapp_shared').length,
-      callScheduled: sellerActivities.filter(a => a.activity_type === 'call_scheduled').length,
-      callDone: sellerActivities.filter(a => a.activity_type === 'call_done').length,
+      messages: uniqueCount(sa, 'message_sent'),
+      replies: uniqueCount(sa, 'reply_received'),
+      whatsapp: uniqueCount(sa, 'whatsapp_shared'),
+      callScheduled: uniqueCount(sa, 'call_scheduled'),
+      callDone: uniqueCount(sa, 'call_done'),
     };
   });
 
-  // Per profile metrics
+  // Per profile metrics — únicos por lead_id
   const profileMetrics = (igProfiles || []).map(p => {
-    const profileActivities = (activities || []).filter(a => a.profile_id === p.id);
+    const pa = (activities || []).filter(a => a.profile_id === p.id);
+    const msgs = uniqueCount(pa, 'message_sent');
+    const replies = uniqueCount(pa, 'reply_received');
     return {
       ...p,
-      messages: profileActivities.filter(a => a.activity_type === 'message_sent').length,
-      replies: profileActivities.filter(a => a.activity_type === 'reply_received').length,
-      whatsapp: profileActivities.filter(a => a.activity_type === 'whatsapp_shared').length,
-      callScheduled: profileActivities.filter(a => a.activity_type === 'call_scheduled').length,
-      callDone: profileActivities.filter(a => a.activity_type === 'call_done').length,
-      conversionRate: profileActivities.filter(a => a.activity_type === 'message_sent').length > 0
-        ? ((profileActivities.filter(a => a.activity_type === 'reply_received').length /
-            profileActivities.filter(a => a.activity_type === 'message_sent').length) * 100).toFixed(1)
+      messages: msgs,
+      replies,
+      whatsapp: uniqueCount(pa, 'whatsapp_shared'),
+      callScheduled: uniqueCount(pa, 'call_scheduled'),
+      callDone: uniqueCount(pa, 'call_done'),
+      conversionRate: msgs > 0
+        ? ((replies / msgs) * 100).toFixed(1)
         : '0',
     };
   });
