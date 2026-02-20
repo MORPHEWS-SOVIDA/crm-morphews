@@ -17,6 +17,116 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+async function extractUsernamesFromScreenshot(
+  url: string,
+  supabase: ReturnType<typeof createClient>,
+  LOVABLE_API_KEY: string
+): Promise<string[]> {
+  try {
+    const filePath = url.replace(/^.*social-selling-prints\//, "");
+    const { data: signedData } = await supabase.storage
+      .from("social-selling-prints")
+      .createSignedUrl(filePath, 3600);
+
+    if (!signedData?.signedUrl) return [];
+
+    const imgResponse = await fetch(signedData.signedUrl);
+    const imgBuffer = await imgResponse.arrayBuffer();
+    const base64 = uint8ArrayToBase64(new Uint8Array(imgBuffer));
+    const mimeType = imgResponse.headers.get("content-type") || "image/png";
+
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert Instagram DM screenshot analyzer. Extract EVERY Instagram USERNAME (handle) from the screenshot.
+
+CRITICAL DISTINCTION:
+- Instagram has TWO text fields per conversation row:
+  1. USERNAME (handle): below the profile picture, in smaller/lighter gray text. Contains ONLY letters, numbers, dots (.), underscores (_). Example: "dr.monteze", "nutri.maria123", "joao_silva"
+  2. DISPLAY NAME: the bold/larger text at top. May contain spaces and special characters. Example: "Dr. José Eduardo", "EVELYN REGLY". DO NOT return these.
+
+RULES:
+- Return ONLY the USERNAME/HANDLE field, NOT the display name
+- A valid Instagram username contains only: a-z, 0-9, dots (.), underscores (_)
+- NO spaces allowed in a valid username
+- NO special characters other than . and _
+- Count every visible row and return that many usernames
+- Include partially visible rows at the edges
+
+Return ONLY a valid JSON array. Example: ["dr.monteze", "nutri.maria", "joao_silva", "dra_carla99"]
+Return [] only if the image is completely unreadable.`
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: { url: `data:${mimeType};base64,${base64}` },
+              },
+              {
+                type: "text",
+                text: "Extract the Instagram username/handle (NOT the display name) from every conversation row in this DM list screenshot. Return ALL usernames as a JSON array."
+              }
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      console.error("AI error:", await aiResponse.text());
+      return [];
+    }
+
+    const aiData = await aiResponse.json();
+    const content = aiData.choices?.[0]?.message?.content || "[]";
+    const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    const parseUsernames = (raw: string): string[] => {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((u: string) => String(u).toLowerCase().trim())
+            .filter((u: string) => /^[a-z0-9._]{1,30}$/.test(u));
+        }
+      } catch {
+        const match = raw.match(/\[[\s\S]*\]/);
+        if (match) {
+          try {
+            const parsed = JSON.parse(match[0]);
+            if (Array.isArray(parsed)) {
+              return parsed
+                .map((u: string) => String(u).toLowerCase().trim())
+                .filter((u: string) => /^[a-z0-9._]{1,30}$/.test(u));
+            }
+          } catch {
+            console.warn("Failed to parse extracted JSON:", match[0]);
+          }
+        } else {
+          console.warn("Failed to parse AI response:", content.substring(0, 200));
+        }
+      }
+      return [];
+    };
+
+    const valid = parseUsernames(cleaned);
+    console.log(`Screenshot extracted ${valid.length} valid usernames`);
+    return valid;
+  } catch (err) {
+    console.error("Error processing screenshot:", err);
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -60,113 +170,18 @@ serve(async (req) => {
       .eq("id", import_id);
 
     const screenshotUrls = importRecord.screenshot_urls || [];
-    const allUsernames: string[] = [];
 
-    // Process each screenshot with Gemini Vision
-    for (const url of screenshotUrls) {
-      try {
-        const filePath = url.replace(/^.*social-selling-prints\//, "");
-        const { data: signedData } = await supabase.storage
-          .from("social-selling-prints")
-          .createSignedUrl(filePath, 3600);
+    // Process ALL screenshots in PARALLEL for speed
+    console.log(`Processing ${screenshotUrls.length} screenshots in parallel...`);
+    const results = await Promise.all(
+      screenshotUrls.map((url: string) =>
+        extractUsernamesFromScreenshot(url, supabase, LOVABLE_API_KEY)
+      )
+    );
 
-        if (!signedData?.signedUrl) continue;
-
-        const imgResponse = await fetch(signedData.signedUrl);
-        const imgBuffer = await imgResponse.arrayBuffer();
-        const base64 = uint8ArrayToBase64(new Uint8Array(imgBuffer));
-        const mimeType = imgResponse.headers.get("content-type") || "image/png";
-
-        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [
-              {
-                role: "system",
-                content: `You are an expert Instagram DM screenshot analyzer. Extract EVERY Instagram USERNAME (handle) from the screenshot.
-
-CRITICAL DISTINCTION:
-- Instagram has TWO text fields per conversation row:
-  1. USERNAME (handle): below the profile picture, in smaller/lighter gray text. Contains ONLY letters, numbers, dots (.), underscores (_). Example: "dr.monteze", "nutri.maria123", "joao_silva"
-  2. DISPLAY NAME: the bold/larger text at top. May contain spaces and special characters. Example: "Dr. José Eduardo", "EVELYN REGLY". DO NOT return these.
-
-RULES:
-- Return ONLY the USERNAME/HANDLE field, NOT the display name
-- A valid Instagram username contains only: a-z, 0-9, dots (.), underscores (_)
-- NO spaces allowed in a valid username
-- NO special characters other than . and _
-- Count every visible row and return that many usernames
-- Include partially visible rows at the edges
-
-Return ONLY a valid JSON array. Example: ["dr.monteze", "nutri.maria", "joao_silva", "dra_carla99"]
-Return [] only if the image is completely unreadable.`
-              },
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "image_url",
-                    image_url: { url: `data:${mimeType};base64,${base64}` },
-                  },
-                  {
-                    type: "text",
-                    text: "Extract the Instagram username/handle (NOT the display name) from every conversation row in this DM list screenshot. Return ALL usernames as a JSON array."
-                  }
-                ],
-              },
-            ],
-          }),
-        });
-
-        if (!aiResponse.ok) {
-          console.error("AI error:", await aiResponse.text());
-          continue;
-        }
-
-        const aiData = await aiResponse.json();
-        const content = aiData.choices?.[0]?.message?.content || "[]";
-        // Clean markdown code blocks
-        const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-        try {
-          const parsed = JSON.parse(cleaned);
-          if (Array.isArray(parsed)) {
-            // Filter: only valid Instagram usernames (letters, numbers, dots, underscores, no spaces)
-            const valid = parsed
-              .map((u: string) => String(u).toLowerCase().trim())
-              .filter((u: string) => /^[a-z0-9._]{1,30}$/.test(u));
-            console.log(`Screenshot extracted ${parsed.length} items, ${valid.length} valid usernames`);
-            allUsernames.push(...valid);
-          }
-        } catch {
-          // Try to extract JSON array from response even if there's extra text
-          const match = cleaned.match(/\[[\s\S]*\]/);
-          if (match) {
-            try {
-              const parsed = JSON.parse(match[0]);
-              if (Array.isArray(parsed)) {
-                const valid = parsed
-                  .map((u: string) => String(u).toLowerCase().trim())
-                  .filter((u: string) => /^[a-z0-9._]{1,30}$/.test(u));
-                allUsernames.push(...valid);
-              }
-            } catch {
-              console.warn("Failed to parse extracted JSON:", match[0]);
-            }
-          } else {
-            console.warn("Failed to parse AI response:", content.substring(0, 200));
-          }
-        }
-      } catch (err) {
-        console.error("Error processing screenshot:", err);
-      }
-    }
-
+    const allUsernames = results.flat();
     const uniqueUsernames = [...new Set(allUsernames.filter(u => u.length > 0))];
+    console.log(`Total unique usernames extracted: ${uniqueUsernames.length}`);
 
     // Get first funnel stage
     const { data: firstStage } = await supabase
@@ -181,9 +196,8 @@ Return [] only if the image is completely unreadable.`
     let leadsCreated = 0;
     let leadsSkipped = 0;
 
+    // Process leads sequentially to avoid race conditions on DB inserts
     for (const username of uniqueUsernames) {
-      // Check if this username was already imported by ANY previous import
-      // for the same seller + profile combo (deduplication across imports)
       const { data: existingActivity } = await supabase
         .from("social_selling_activities")
         .select("id")
@@ -200,8 +214,6 @@ Return [] only if the image is completely unreadable.`
         continue;
       }
 
-      // Check if lead exists - normalize: search with and without @, case-insensitive
-      // Use ilike for case-insensitive match, check both "username" and "@username"
       const { data: existingLead } = await supabase
         .from("leads")
         .select("id")
@@ -214,7 +226,6 @@ Return [] only if the image is completely unreadable.`
 
       if (existingLead) {
         leadId = existingLead.id;
-        // Lead already exists, don't count as new but still create activity
       } else {
         const { data: newLead, error: leadErr } = await supabase
           .from("leads")
@@ -237,7 +248,6 @@ Return [] only if the image is completely unreadable.`
         leadsCreated++;
       }
 
-      // Create activity record (only reaches here if no duplicate activity)
       await supabase
         .from("social_selling_activities")
         .insert({
@@ -251,7 +261,6 @@ Return [] only if the image is completely unreadable.`
         });
     }
 
-    // Update import record
     await supabase
       .from("social_selling_imports")
       .update({
@@ -261,6 +270,8 @@ Return [] only if the image is completely unreadable.`
         processed_at: new Date().toISOString(),
       })
       .eq("id", import_id);
+
+    console.log(`Done: ${leadsCreated} created, ${leadsSkipped} skipped`);
 
     return new Response(
       JSON.stringify({
