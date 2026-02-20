@@ -87,12 +87,27 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are an Instagram DM screenshot analyzer. Extract all Instagram usernames/handles visible in the screenshot. 
-These are screenshots of Instagram DM conversations where a sales person is sending outreach messages.
-Return ONLY a JSON array of usernames (without the @ symbol). 
-If you can't find any usernames, return an empty array [].
-Only return the JSON array, nothing else.
-Examples: ["username1", "dr.example", "john_doe"]`
+                content: `You are an expert Instagram DM screenshot analyzer. Your task is to extract EVERY SINGLE Instagram username visible in the screenshot.
+
+The screenshots show a LIST VIEW of Instagram DM conversations (inbox/direct messages). Each row in the list represents one conversation with one person.
+
+HOW TO FIND USERNAMES:
+- Each conversation row has the Instagram username/handle at the TOP of the row (usually in bold or slightly larger text)
+- Below the username there is usually a preview of the last message and a timestamp
+- Scroll through EVERY ROW in the image - do not miss any
+- Profile pictures (circular photos) appear on the left side of each row
+- The username is the text next to or below the profile picture
+
+IMPORTANT RULES:
+- Extract EVERY username you can see, even partially visible ones at the edges
+- Do NOT skip rows even if you're uncertain - include them all
+- Usernames may contain letters, numbers, dots, underscores
+- Do NOT include the @ symbol in your response
+- If there are 10 rows visible, you should return 10 usernames
+- Count the rows carefully before responding
+
+Return ONLY a JSON array of strings. Example: ["username1", "dr.example", "john_doe", "nutri.maria", "dra_carla"]
+Return [] only if the image is completely unreadable or has no DM conversations.`
               },
               {
                 role: "user",
@@ -103,7 +118,7 @@ Examples: ["username1", "dr.example", "john_doe"]`
                   },
                   {
                     type: "text",
-                    text: "Extract all Instagram usernames visible in this screenshot of Instagram DMs. Return only a JSON array of usernames."
+                    text: "Count every conversation row visible in this Instagram DM list screenshot and extract the username from each row. Return ALL usernames as a JSON array. Do not miss any row."
                   }
                 ],
               },
