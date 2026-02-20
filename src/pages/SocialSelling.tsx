@@ -186,6 +186,10 @@ export default function SocialSelling() {
               <TrendingUp className="h-4 w-4 mr-1" />
               Evolução
             </Button>
+            <Button variant="outline" onClick={() => navigate('/instagram/social-selling/relatorio')}>
+              <BarChart3 className="h-4 w-4 mr-1" />
+              Relatório
+            </Button>
             <Button onClick={() => navigate('/instagram/social-selling/importar-print')}>
               <Camera className="h-4 w-4 mr-1" />
               Importar Prints

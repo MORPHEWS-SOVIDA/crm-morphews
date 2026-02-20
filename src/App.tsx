@@ -106,6 +106,7 @@ const MessagingMetricsPage = lazy(() => import("./pages/MessagingMetricsPage"));
 const SocialSelling = lazy(() => import("./pages/SocialSelling"));
 const SocialSellingImport = lazy(() => import("./pages/SocialSellingImport"));
 const SocialSellingEvolution = lazy(() => import("./pages/SocialSellingEvolution"));
+const SocialSellingReport = lazy(() => import("./pages/SocialSellingReport"));
 
 // Team & Settings
 const Team = lazy(() => import("./pages/Team"));
@@ -403,6 +404,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['instagram_view']}>
                       <SocialSellingEvolution />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/instagram/social-selling/relatorio"
+                  element={
+                    <ProtectedRoute requiredPermissions={['instagram_view']}>
+                      <SocialSellingReport />
                     </ProtectedRoute>
                   }
                 />
