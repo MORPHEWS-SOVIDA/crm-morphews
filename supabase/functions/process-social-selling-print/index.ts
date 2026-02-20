@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
 function uint8ArrayToBase64(bytes: Uint8Array): string {
@@ -87,27 +88,23 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are an expert Instagram DM screenshot analyzer. Your task is to extract EVERY SINGLE Instagram username visible in the screenshot.
+                content: `You are an expert Instagram DM screenshot analyzer. Extract EVERY Instagram USERNAME (handle) from the screenshot.
 
-The screenshots show a LIST VIEW of Instagram DM conversations (inbox/direct messages). Each row in the list represents one conversation with one person.
+CRITICAL DISTINCTION:
+- Instagram has TWO text fields per conversation row:
+  1. USERNAME (handle): below the profile picture, in smaller/lighter gray text. Contains ONLY letters, numbers, dots (.), underscores (_). Example: "dr.monteze", "nutri.maria123", "joao_silva"
+  2. DISPLAY NAME: the bold/larger text at top. May contain spaces and special characters. Example: "Dr. José Eduardo", "EVELYN REGLY". DO NOT return these.
 
-HOW TO FIND USERNAMES:
-- Each conversation row has the Instagram username/handle at the TOP of the row (usually in bold or slightly larger text)
-- Below the username there is usually a preview of the last message and a timestamp
-- Scroll through EVERY ROW in the image - do not miss any
-- Profile pictures (circular photos) appear on the left side of each row
-- The username is the text next to or below the profile picture
+RULES:
+- Return ONLY the USERNAME/HANDLE field, NOT the display name
+- A valid Instagram username contains only: a-z, 0-9, dots (.), underscores (_)
+- NO spaces allowed in a valid username
+- NO special characters other than . and _
+- Count every visible row and return that many usernames
+- Include partially visible rows at the edges
 
-IMPORTANT RULES:
-- Extract EVERY username you can see, even partially visible ones at the edges
-- Do NOT skip rows even if you're uncertain - include them all
-- Usernames may contain letters, numbers, dots, underscores
-- Do NOT include the @ symbol in your response
-- If there are 10 rows visible, you should return 10 usernames
-- Count the rows carefully before responding
-
-Return ONLY a JSON array of strings. Example: ["username1", "dr.example", "john_doe", "nutri.maria", "dra_carla"]
-Return [] only if the image is completely unreadable or has no DM conversations.`
+Return ONLY a valid JSON array. Example: ["dr.monteze", "nutri.maria", "joao_silva", "dra_carla99"]
+Return [] only if the image is completely unreadable.`
               },
               {
                 role: "user",
@@ -118,7 +115,7 @@ Return [] only if the image is completely unreadable or has no DM conversations.
                   },
                   {
                     type: "text",
-                    text: "Count every conversation row visible in this Instagram DM list screenshot and extract the username from each row. Return ALL usernames as a JSON array. Do not miss any row."
+                    text: "Extract the Instagram username/handle (NOT the display name) from every conversation row in this DM list screenshot. Return ALL usernames as a JSON array."
                   }
                 ],
               },
@@ -133,14 +130,36 @@ Return [] only if the image is completely unreadable or has no DM conversations.
 
         const aiData = await aiResponse.json();
         const content = aiData.choices?.[0]?.message?.content || "[]";
-        const cleaned = content.replace(/```json\n?/g, "").replace(/```/g, "").trim();
+        // Clean markdown code blocks
+        const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
         try {
-          const usernames = JSON.parse(cleaned);
-          if (Array.isArray(usernames)) {
-            allUsernames.push(...usernames.map((u: string) => u.toLowerCase().trim()));
+          const parsed = JSON.parse(cleaned);
+          if (Array.isArray(parsed)) {
+            // Filter: only valid Instagram usernames (letters, numbers, dots, underscores, no spaces)
+            const valid = parsed
+              .map((u: string) => String(u).toLowerCase().trim())
+              .filter((u: string) => /^[a-z0-9._]{1,30}$/.test(u));
+            console.log(`Screenshot extracted ${parsed.length} items, ${valid.length} valid usernames`);
+            allUsernames.push(...valid);
           }
         } catch {
-          console.warn("Failed to parse AI response:", content);
+          // Try to extract JSON array from response even if there's extra text
+          const match = cleaned.match(/\[[\s\S]*\]/);
+          if (match) {
+            try {
+              const parsed = JSON.parse(match[0]);
+              if (Array.isArray(parsed)) {
+                const valid = parsed
+                  .map((u: string) => String(u).toLowerCase().trim())
+                  .filter((u: string) => /^[a-z0-9._]{1,30}$/.test(u));
+                allUsernames.push(...valid);
+              }
+            } catch {
+              console.warn("Failed to parse extracted JSON:", match[0]);
+            }
+          } else {
+            console.warn("Failed to parse AI response:", content.substring(0, 200));
+          }
         }
       } catch (err) {
         console.error("Error processing screenshot:", err);
