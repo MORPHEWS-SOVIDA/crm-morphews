@@ -90,13 +90,28 @@ Return [] only if the image is completely unreadable.`
     const content = aiData.choices?.[0]?.message?.content || "[]";
     const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
+    // STRICT validator: Instagram handles allow ONLY a-z, 0-9, dots and underscores
+    // NO spaces, NO pipes, NO accents, NO hyphens, NO special chars
+    const isValidHandle = (u: string) => /^[a-z0-9._]{1,30}$/.test(u);
+
+    const normalizeAndFilter = (arr: unknown[]): string[] => {
+      const results: string[] = [];
+      for (const item of arr) {
+        const raw = String(item).toLowerCase().trim().replace(/^@/, "");
+        if (isValidHandle(raw)) {
+          results.push(raw);
+        } else {
+          console.warn(`[REJECTED] Invalid handle (display name?): "${raw}"`);
+        }
+      }
+      return results;
+    };
+
     const parseUsernames = (raw: string): string[] => {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          return parsed
-            .map((u: string) => String(u).toLowerCase().trim())
-            .filter((u: string) => /^[a-z0-9._]{1,30}$/.test(u));
+          return normalizeAndFilter(parsed);
         }
       } catch {
         const match = raw.match(/\[[\s\S]*\]/);
@@ -104,9 +119,7 @@ Return [] only if the image is completely unreadable.`
           try {
             const parsed = JSON.parse(match[0]);
             if (Array.isArray(parsed)) {
-              return parsed
-                .map((u: string) => String(u).toLowerCase().trim())
-                .filter((u: string) => /^[a-z0-9._]{1,30}$/.test(u));
+              return normalizeAndFilter(parsed);
             }
           } catch {
             console.warn("Failed to parse extracted JSON:", match[0]);
