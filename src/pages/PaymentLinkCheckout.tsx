@@ -344,6 +344,13 @@ export default function PaymentLinkCheckout() {
         toast.error('Preencha todos os dados do cartão');
         return;
       }
+      // Billing address is mandatory for credit card (Pagar.me v5 requirement)
+      const cleanCep = cep.replace(/\D/g, '');
+      if (!cleanCep || cleanCep.length < 8 || !street || !streetNumber || !city || !state) {
+        setShowAddress(true);
+        toast.error('Endereço de cobrança é obrigatório para pagamento com cartão de crédito.');
+        return;
+      }
     }
 
     setIsProcessing(true);
@@ -737,23 +744,36 @@ export default function PaymentLinkCheckout() {
               </div>
             </div>
 
-            {/* Address Section - auto-shown for credit card, toggleable for others */}
-            {!paymentLink.lead_id && (
+            {/* Address Section - mandatory for credit card, toggleable for others */}
+            {(() => {
+              // Show address section if: no lead_id, OR lead_id but missing address and paying by card
+              const hasPrefilledAddress = !!(paymentLink.customer_cep && paymentLink.customer_street && paymentLink.customer_city);
+              const needsAddress = paymentMethod === 'credit_card' && !hasPrefilledAddress;
+              const canShowAddress = !paymentLink.lead_id || needsAddress;
+              if (!canShowAddress) return null;
+              
+              const isCardMethod = paymentMethod === 'credit_card';
+              const isExpanded = showAddress || isCardMethod;
+              
+              return (
               <div className="pt-2 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowAddress(!showAddress)}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <span>{showAddress || paymentMethod === 'credit_card' ? '▼' : '▶'}</span>
-                  <span>
-                    {paymentMethod === 'credit_card' 
-                      ? 'Endereço de cobrança (recomendado para aprovação)' 
-                      : 'Adicionar endereço (opcional)'}
-                  </span>
-                </button>
+                {isCardMethod ? (
+                  <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <span>📍</span>
+                    <span>Endereço de cobrança <span className="text-destructive">*</span></span>
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddress(!showAddress)}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span>{isExpanded ? '▼' : '▶'}</span>
+                    <span>Adicionar endereço (opcional)</span>
+                  </button>
+                )}
                 
-                {(showAddress || paymentMethod === 'credit_card') && (
+                {isExpanded && (
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div className="col-span-2 sm:col-span-1">
                       <Label>CEP</Label>
@@ -808,7 +828,8 @@ export default function PaymentLinkCheckout() {
                   </div>
                 )}
               </div>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
 
