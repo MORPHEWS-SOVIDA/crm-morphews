@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -108,6 +108,7 @@ export default function PaymentLinkCheckout() {
   const [boletoData, setBoletoData] = useState<{ barcode: string; pdf_url?: string } | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
+
   // Fetch payment link
   const { data: paymentLink, isLoading, error } = useQuery({
     queryKey: ['public-payment-link', slug],
@@ -191,6 +192,69 @@ export default function PaymentLinkCheckout() {
       else if (paymentLink.boleto_enabled) setPaymentMethod('boleto');
     }
   }, [paymentLink]);
+
+  // Progressive capture - track abandoned checkout attempts
+  const abandonedTxId = useRef<string | null>(null);
+  const syncTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const syncAbandonedData = useCallback(async () => {
+    if (!paymentLink) return;
+    if (!customerName && !customerEmail) return;
+
+    try {
+      if (abandonedTxId.current) {
+        await supabase
+          .from('payment_link_transactions')
+          .update({
+            customer_name: customerName || null,
+            customer_email: customerEmail || null,
+            customer_phone: customerPhone.replace(/\D/g, '') || null,
+            customer_document: customerDocument.replace(/\D/g, '') || null,
+            amount_cents: amount || paymentLink.amount_cents || 0,
+            payment_method: paymentMethod,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', abandonedTxId.current);
+      } else {
+        const { data } = await supabase
+          .from('payment_link_transactions')
+          .insert({
+            payment_link_id: paymentLink.id,
+            organization_id: paymentLink.organization_id,
+            lead_id: paymentLink.lead_id || null,
+            status: 'abandoned',
+            customer_name: customerName || null,
+            customer_email: customerEmail || null,
+            customer_phone: customerPhone.replace(/\D/g, '') || null,
+            customer_document: customerDocument.replace(/\D/g, '') || null,
+            amount_cents: amount || paymentLink.amount_cents || 0,
+            payment_method: paymentMethod,
+            origin_type: 'payment_link',
+          })
+          .select('id')
+          .single();
+
+        if (data) {
+          abandonedTxId.current = data.id;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to sync abandoned data:', err);
+    }
+  }, [paymentLink, customerName, customerEmail, customerPhone, customerDocument, amount, paymentMethod]);
+
+  const handleFieldBlur = useCallback(() => {
+    if (syncTimeout.current) clearTimeout(syncTimeout.current);
+    syncTimeout.current = setTimeout(syncAbandonedData, 500);
+  }, [syncAbandonedData]);
+
+  // Auto-capture when a client-specific link is opened (data pre-filled and readonly)
+  useEffect(() => {
+    if (paymentLink?.customer_name && paymentLink?.lead_id) {
+      const t = setTimeout(syncAbandonedData, 1500);
+      return () => clearTimeout(t);
+    }
+  }, [paymentLink?.customer_name, paymentLink?.lead_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const formatCurrency = (cents: number) => {
     return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -283,6 +347,15 @@ export default function PaymentLinkCheckout() {
     }
 
     setIsProcessing(true);
+
+    // Remove abandoned record since real transaction will be created
+    if (abandonedTxId.current) {
+      supabase
+        .from('payment_link_transactions')
+        .delete()
+        .eq('id', abandonedTxId.current)
+        .then(() => { abandonedTxId.current = null; });
+    }
     
     try {
       const selectedInstallment = getInstallmentOptions().find(o => o.installments === installments);
@@ -598,6 +671,7 @@ export default function PaymentLinkCheckout() {
                 <Input
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
+                  onBlur={handleFieldBlur}
                   placeholder="Seu nome"
                   readOnly={!!paymentLink.customer_name}
                   className={paymentLink.customer_name ? 'bg-muted' : ''}
@@ -609,6 +683,7 @@ export default function PaymentLinkCheckout() {
                   type="email"
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
+                  onBlur={handleFieldBlur}
                   placeholder="seu@email.com"
                   readOnly={!!paymentLink.customer_email}
                   className={paymentLink.customer_email ? 'bg-muted' : ''}
@@ -619,6 +694,7 @@ export default function PaymentLinkCheckout() {
                 <Input
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(formatPhone(e.target.value))}
+                  onBlur={handleFieldBlur}
                   placeholder="(00) 00000-0000"
                   maxLength={15}
                   readOnly={!!paymentLink.customer_phone}
@@ -630,6 +706,7 @@ export default function PaymentLinkCheckout() {
                 <Input
                   value={customerDocument}
                   onChange={(e) => setCustomerDocument(formatDocument(e.target.value))}
+                  onBlur={handleFieldBlur}
                   placeholder="000.000.000-00"
                   maxLength={18}
                   readOnly={!!paymentLink.customer_document}
