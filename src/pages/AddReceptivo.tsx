@@ -217,19 +217,34 @@ export default function AddReceptivo() {
   // Selected funnel stage for new leads
   const [selectedFunnelStageId, setSelectedFunnelStageId] = useState<string>('');
 
-  const [currentStep, setCurrentStep] = useState<FlowStep>('phone');
-  const [phoneInput, setPhoneInput] = useState('55');
+  // ========= SESSION STORAGE PERSISTENCE (survive F5) =========
+  const SESSION_KEY = 'add-receptivo-state';
+  const isRestoringRef = useRef(false);
+
+  // Helper to get initial state from sessionStorage
+  const getSessionState = () => {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  };
+
+  const savedSession = useRef(getSessionState());
+
+  const [currentStep, setCurrentStep] = useState<FlowStep>(() => savedSession.current?.currentStep || 'phone');
+  const [phoneInput, setPhoneInput] = useState(() => savedSession.current?.phoneInput || '55');
   const [nameSearchInput, setNameSearchInput] = useState('');
-  const [leadData, setLeadData] = useState<LeadData>(initialLeadData);
+  const [leadData, setLeadData] = useState<LeadData>(() => savedSession.current?.leadData || initialLeadData);
   
   // Name search results
   const { data: nameSearchResults = [], isLoading: isSearchingByName } = useSearchLeadByName(nameSearchInput);
-  const [conversationMode, setConversationMode] = useState('');
-  const [selectedSourceId, setSelectedSourceId] = useState('');
-  const [attendanceId, setAttendanceId] = useState<string | null>(null);
-  const [attendanceStartedAt, setAttendanceStartedAt] = useState<string | null>(null);
+  const [conversationMode, setConversationMode] = useState(() => savedSession.current?.conversationMode || '');
+  const [selectedSourceId, setSelectedSourceId] = useState(() => savedSession.current?.selectedSourceId || '');
+  const [attendanceId, setAttendanceId] = useState<string | null>(() => savedSession.current?.attendanceId || null);
+  const [attendanceStartedAt, setAttendanceStartedAt] = useState<string | null>(() => savedSession.current?.attendanceStartedAt || null);
   const [selectedReasonId, setSelectedReasonId] = useState('');
-  const [pendingReasonId, setPendingReasonId] = useState<string | null>(null); // Reason selected but not confirmed
+  const [pendingReasonId, setPendingReasonId] = useState<string | null>(null);
   const [customFollowupDate, setCustomFollowupDate] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingLead, setIsCreatingLead] = useState(false);
@@ -240,15 +255,15 @@ export default function AddReceptivo() {
   }>>([]);
 
   // Multi-product offer items (inline, not cart)
-  const [offerItems, setOfferItems] = useState<OfferItem[]>([]);
+  const [offerItems, setOfferItems] = useState<OfferItem[]>(() => savedSession.current?.offerItems || []);
   const [showAddProduct, setShowAddProduct] = useState(true);
 
   // Current product being configured
-  const [currentProductId, setCurrentProductId] = useState('');
-  const [currentKitId, setCurrentKitId] = useState<string | null>(null);
-  const [currentPriceType, setCurrentPriceType] = useState<'regular' | 'promotional' | 'promotional_2' | 'minimum' | 'negotiated'>('promotional');
+  const [currentProductId, setCurrentProductId] = useState(() => savedSession.current?.currentProductId || '');
+  const [currentKitId, setCurrentKitId] = useState<string | null>(() => savedSession.current?.currentKitId || null);
+  const [currentPriceType, setCurrentPriceType] = useState<'regular' | 'promotional' | 'promotional_2' | 'minimum' | 'negotiated'>(() => savedSession.current?.currentPriceType || 'promotional');
   const [currentCustomPrice, setCurrentCustomPrice] = useState<number>(0);
-  const [currentRejectedKitIds, setCurrentRejectedKitIds] = useState<string[]>([]);
+  const [currentRejectedKitIds, setCurrentRejectedKitIds] = useState<string[]>(() => savedSession.current?.currentRejectedKitIds || []);
   const [showPromo2, setShowPromo2] = useState(false);
   const [showMinimum, setShowMinimum] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -346,6 +361,39 @@ export default function AddReceptivo() {
   
   // Fetch existing standard question answers for the lead
   const { data: existingStandardAnswers = [], isLoading: loadingStandardAnswers } = useLeadStandardAnswers(leadData.id);
+
+  // ========= SAVE STATE TO SESSION STORAGE =========
+  useEffect(() => {
+    // Don't save if we're on the initial phone step with no data
+    if (currentStep === 'phone' && !leadData.id) return;
+    
+    const stateToSave = {
+      currentStep,
+      phoneInput,
+      leadData,
+      conversationMode,
+      selectedSourceId,
+      attendanceId,
+      attendanceStartedAt,
+      currentProductId,
+      currentKitId,
+      currentPriceType,
+      currentRejectedKitIds,
+      offerItems,
+    };
+    
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(stateToSave));
+    } catch {}
+  }, [currentStep, phoneInput, leadData, conversationMode, selectedSourceId, attendanceId, attendanceStartedAt, currentProductId, currentKitId, currentPriceType, currentRejectedKitIds, offerItems]);
+
+  // Clear session when navigating away (not on refresh)
+  useEffect(() => {
+    return () => {
+      // This fires on unmount (navigation away), not on F5
+      // We want to keep the data on F5 but clear on navigation
+    };
+  }, []);
 
   useEffect(() => {
     if (user?.id && !sellerUserId) {
@@ -459,10 +507,15 @@ export default function AddReceptivo() {
   ]);
 
 
-  // Load existing rejections
+  // Load existing rejections - merge with local state to avoid overwriting during same session
   useEffect(() => {
     if (existingRejections.length > 0) {
-      setCurrentRejectedKitIds(existingRejections.map(r => r.kit_id));
+      setCurrentRejectedKitIds(prev => {
+        const dbIds = existingRejections.map(r => r.kit_id);
+        // Merge: keep any local rejections that haven't synced to DB yet
+        const merged = [...new Set([...dbIds, ...prev])];
+        return merged;
+      });
     }
   }, [existingRejections]);
 
@@ -1229,7 +1282,15 @@ export default function AddReceptivo() {
     }
 
     const currentKit = sortedKits.find(k => k.id === currentKitId);
-    if (!currentKit || !leadData.id) return;
+    if (!currentKit) {
+      toast({ title: 'Erro', description: 'Kit não encontrado. Tente selecionar o kit novamente.', variant: 'destructive' });
+      return;
+    }
+    
+    if (!leadData.id) {
+      toast({ title: 'Erro', description: 'Lead não identificado. Volte e pesquise o cliente novamente.', variant: 'destructive' });
+      return;
+    }
 
     try {
       await createKitRejection.mutateAsync({
@@ -1260,7 +1321,8 @@ export default function AddReceptivo() {
       
       toast({ title: 'Kit rejeitado', description: nextKit ? 'Próxima oferta disponível' : 'Todas ofertas rejeitadas' });
     } catch (error: any) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      console.error('Kit rejection error:', error);
+      toast({ title: 'Erro ao rejeitar kit', description: error.message || 'Tente novamente', variant: 'destructive' });
     }
   };
 
@@ -1609,6 +1671,7 @@ export default function AddReceptivo() {
         description: `Romaneio #${sale.romaneio_number}` 
       });
       
+      sessionStorage.removeItem(SESSION_KEY);
       navigate(`/vendas/${sale.id}`);
     } catch (error: any) {
       toast({ title: 'Erro ao criar venda', description: error.message, variant: 'destructive' });
@@ -1806,6 +1869,7 @@ export default function AddReceptivo() {
       
       setPendingReasonId(null);
       setCustomFollowupDate(null);
+      sessionStorage.removeItem(SESSION_KEY);
       navigate('/');
     } catch (error: any) {
       toast({ title: 'Erro ao finalizar', description: error.message, variant: 'destructive' });
@@ -3289,7 +3353,7 @@ export default function AddReceptivo() {
         {/* Top Bar - Compact Header */}
         <header className="flex items-center justify-between px-4 py-2 border-b shrink-0">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+            <Button variant="ghost" size="sm" onClick={() => { sessionStorage.removeItem(SESSION_KEY); navigate('/'); }}>
               <ArrowLeft className="w-4 h-4 mr-1" />
               Voltar
             </Button>
