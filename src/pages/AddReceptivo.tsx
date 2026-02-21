@@ -1098,14 +1098,24 @@ export default function AddReceptivo() {
         rejection_reason: rejectionReason,
       });
 
-      setCurrentRejectedKitIds(prev => [...prev, currentKit.id]);
+      const newRejected = [...currentRejectedKitIds, currentKit.id];
+      setCurrentRejectedKitIds(newRejected);
       setRejectionReason('');
       setShowRejectionInput(false);
-      setCurrentKitId(null);
       setShowPromo2(false);
       setShowMinimum(false);
       
-      toast({ title: 'Kit rejeitado', description: 'Próxima oferta disponível' });
+      // Auto-select next available kit instead of null
+      const nextKit = sortedKits.find(k => !newRejected.includes(k.id));
+      if (nextKit) {
+        setCurrentKitId(nextKit.id);
+        // Auto-select promotional price if available, otherwise regular
+        setCurrentPriceType(nextKit.promotional_price_cents ? 'promotional' : 'regular');
+      } else {
+        setCurrentKitId(null);
+      }
+      
+      toast({ title: 'Kit rejeitado', description: nextKit ? 'Próxima oferta disponível' : 'Todas ofertas rejeitadas' });
     } catch (error: any) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     }
