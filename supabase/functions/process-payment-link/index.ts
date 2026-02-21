@@ -10,8 +10,8 @@ interface PaymentLinkRequest {
   paymentLinkId?: string;
   organizationId?: string;
   amount_cents: number;
-  base_amount_cents?: number; // Valor base SEM juros (para cálculo de comissões do tenant)
-  interest_amount_cents?: number; // Juros de parcelamento (receita da plataforma)
+  base_amount_cents?: number;
+  interest_amount_cents?: number;
   payment_method: "pix" | "boleto" | "credit_card";
   installments?: number;
   customer: {
@@ -19,6 +19,14 @@ interface PaymentLinkRequest {
     email: string;
     phone: string;
     document: string;
+  };
+  billing_address?: {
+    zip_code?: string;
+    street?: string;
+    street_number?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
   };
   card_data?: {
     number: string;
@@ -53,6 +61,7 @@ serve(async (req) => {
       payment_method, 
       installments = 1,
       customer, 
+      billing_address,
       card_data,
       origin_type = "payment_link",
       sale_id,
@@ -294,6 +303,32 @@ serve(async (req) => {
 
       const [expMonth, expYear] = card_data.expiration_date.split("/");
       
+      // Build billing address from request or payment link data or fallback
+      const addr = billing_address || {};
+      const linkAddr = paymentLink ? {
+        zip_code: paymentLink.customer_cep,
+        street: paymentLink.customer_street,
+        street_number: paymentLink.customer_street_number,
+        neighborhood: paymentLink.customer_neighborhood,
+        city: paymentLink.customer_city,
+        state: paymentLink.customer_state,
+      } : {};
+
+      const zipCode = (addr.zip_code || linkAddr.zip_code || "").replace(/\D/g, "");
+      const streetVal = addr.street || linkAddr.street || "";
+      const numberVal = addr.street_number || linkAddr.street_number || "S/N";
+      const neighborhoodVal = addr.neighborhood || linkAddr.neighborhood || "";
+      const cityVal = addr.city || linkAddr.city || "";
+      const stateVal = addr.state || linkAddr.state || "SP";
+
+      const billingAddress: Record<string, string> = {
+        line_1: `${numberVal}${streetVal ? `, ${streetVal}` : ""}${neighborhoodVal ? `, ${neighborhoodVal}` : ""}` || "N/A",
+        zip_code: zipCode || "00000000",
+        city: cityVal || "N/A",
+        state: stateVal,
+        country: "BR",
+      };
+
       (orderPayload.payments as unknown[]).push({
         payment_method: "credit_card",
         credit_card: {
@@ -304,13 +339,7 @@ serve(async (req) => {
             exp_month: parseInt(expMonth),
             exp_year: parseInt(expYear.length === 2 ? `20${expYear}` : expYear),
             cvv: card_data.cvv,
-            billing_address: {
-              line_1: "N/A",
-              zip_code: "00000000",
-              city: "N/A",
-              state: "SP",
-              country: "BR",
-            },
+            billing_address: billingAddress,
           },
         },
       });
