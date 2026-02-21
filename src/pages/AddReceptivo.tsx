@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
@@ -509,6 +509,111 @@ export default function AddReceptivo() {
     }
   };
 
+  // ========= SAFETY NET: Save attendance on tab close / navigation away =========
+  // Use refs so the beforeunload handler always sees fresh values
+  const attendanceIdRef = useRef(attendanceId);
+  const leadDataRef = useRef(leadData);
+  const currentStepRef = useRef(currentStep);
+  const conversationModeRef = useRef(conversationMode);
+  const attendanceStartedAtRef = useRef(attendanceStartedAt);
+  const currentProductIdRef = useRef(currentProductId);
+
+  useEffect(() => { attendanceIdRef.current = attendanceId; }, [attendanceId]);
+  useEffect(() => { leadDataRef.current = leadData; }, [leadData]);
+  useEffect(() => { currentStepRef.current = currentStep; }, [currentStep]);
+  useEffect(() => { conversationModeRef.current = conversationMode; }, [conversationMode]);
+  useEffect(() => { attendanceStartedAtRef.current = attendanceStartedAt; }, [attendanceStartedAt]);
+  useEffect(() => { currentProductIdRef.current = currentProductId; }, [currentProductId]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Only fire if we have a lead identified but the attendance wasn't completed
+      const ld = leadDataRef.current;
+      const aid = attendanceIdRef.current;
+      const step = currentStepRef.current;
+
+      if (step === 'phone') return; // Nothing started yet
+
+      if (!ld.id && !ld.whatsapp) return; // No lead identified
+
+      // Use sendBeacon for reliable fire-and-forget on tab close
+      const payload: Record<string, any> = {
+        organization_id: tenantId,
+        user_id: user?.id,
+        lead_id: ld.id || null,
+        phone_searched: ld.whatsapp || '',
+        lead_existed: ld.existed,
+        conversation_mode: conversationModeRef.current || 'receptive_call',
+        product_id: currentProductIdRef.current || null,
+        completed: false,
+        started_at: attendanceStartedAtRef.current || new Date().toISOString(),
+        step_abandoned: step,
+      };
+
+      if (aid) {
+        // Update existing attendance marking it as incomplete
+        payload.attendance_id = aid;
+      }
+
+      // sendBeacon with supabase REST API for reliability
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/receptive_attendances`;
+      const headers = {
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      };
+
+      if (aid) {
+        // Use PATCH via fetch (sendBeacon only supports POST)
+        // For updates, we use a simple fetch with keepalive
+        fetch(`${url}?id=eq.${aid}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ 
+            completed: false,
+            product_id: currentProductIdRef.current || null,
+          }),
+          keepalive: true,
+        }).catch(() => {});
+      } else if (tenantId && user?.id) {
+        // Create new attendance via sendBeacon
+        const blob = new Blob([JSON.stringify({
+          organization_id: tenantId,
+          user_id: user.id,
+          lead_id: ld.id || null,
+          phone_searched: ld.whatsapp || '',
+          lead_existed: ld.existed,
+          conversation_mode: conversationModeRef.current || 'receptive_call',
+          product_id: currentProductIdRef.current || null,
+          completed: false,
+          started_at: attendanceStartedAtRef.current || new Date().toISOString(),
+        })], { type: 'application/json' });
+        
+        // sendBeacon doesn't support custom headers, so we fall back to keepalive fetch
+        fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            organization_id: tenantId,
+            user_id: user.id,
+            lead_id: ld.id || null,
+            phone_searched: ld.whatsapp || '',
+            lead_existed: ld.existed,
+            conversation_mode: conversationModeRef.current || 'receptive_call',
+            product_id: currentProductIdRef.current || null,
+            completed: false,
+            started_at: attendanceStartedAtRef.current || new Date().toISOString(),
+          }),
+          keepalive: true,
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [tenantId, user?.id]);
+
   // Check access
   if (loadingAccess) {
     return (
@@ -1008,6 +1113,31 @@ export default function AddReceptivo() {
     }
     
     setCurrentStep('conversation');
+    
+    // Create attendance early so it's recorded even if seller exits
+    if (!attendanceId && tenantId && user) {
+      try {
+        const result = await createAttendance.mutateAsync({
+          organization_id: tenantId,
+          user_id: user.id,
+          lead_id: leadData.id || null,
+          phone_searched: leadData.whatsapp || phoneInput,
+          lead_existed: leadData.existed,
+          conversation_mode: conversationMode || null,
+          product_id: null,
+          product_answers: null,
+          sale_id: null,
+          non_purchase_reason_id: null,
+          purchase_potential_cents: null,
+          completed: false,
+          started_at: attendanceStartedAt || new Date().toISOString(),
+          completed_at: null,
+        });
+        setAttendanceId(result.id);
+      } catch (error) {
+        console.warn('Error creating early attendance:', error);
+      }
+    }
   };
 
   const handleGoToProduct = async () => {
@@ -1016,7 +1146,20 @@ export default function AddReceptivo() {
       return;
     }
 
-    if (!attendanceId && tenantId && user) {
+    // Update attendance with conversation mode if it was created early without it
+    if (attendanceId && conversationMode) {
+      try {
+        await updateAttendance.mutateAsync({
+          id: attendanceId,
+          updates: {
+            conversation_mode: conversationMode,
+            lead_id: leadData.id || null,
+          },
+        });
+      } catch (error) {
+        // Continue anyway
+      }
+    } else if (!attendanceId && tenantId && user) {
       try {
         const result = await createAttendance.mutateAsync({
           organization_id: tenantId,
