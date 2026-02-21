@@ -25,6 +25,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  abandoned: { label: 'Abandonado', color: 'bg-orange-500/10 text-orange-600', icon: AlertCircle },
   pending: { label: 'Pendente', color: 'bg-yellow-500/10 text-yellow-600', icon: Clock },
   paid: { label: 'Pago', color: 'bg-green-500/10 text-green-600', icon: CheckCircle2 },
   failed: { label: 'Falhou', color: 'bg-red-500/10 text-red-600', icon: XCircle },
@@ -153,6 +154,7 @@ export function TransactionsTab() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">Todos</SelectItem>
+            <SelectItem value="abandoned">Abandonado</SelectItem>
             <SelectItem value="pending">Pendente</SelectItem>
             <SelectItem value="paid">Pago</SelectItem>
             <SelectItem value="failed">Falhou</SelectItem>
