@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaymentLinksTab } from '@/components/payment-links/PaymentLinksTab';
@@ -9,9 +8,25 @@ import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { Link2, Receipt, Phone, Wallet } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+
+const TAB_SLUG_MAP: Record<string, string> = {
+  links: 'links',
+  transacoes: 'transactions',
+  televendas: 'telesales',
+  carteira: 'wallet',
+};
+const SLUG_FROM_TAB: Record<string, string> = {
+  links: 'links',
+  transactions: 'transacoes',
+  telesales: 'televendas',
+  wallet: 'carteira',
+};
 
 export default function Cobrar() {
-  const [activeTab, setActiveTab] = useState('links');
+  const { tab: urlTab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+  const mappedTab = urlTab ? TAB_SLUG_MAP[urlTab] || 'links' : 'links';
   const { isAdmin } = useAuth();
   const { data: permissions } = useMyPermissions();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
@@ -57,7 +72,7 @@ export default function Cobrar() {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue={getDefaultTab()}>
+        <Tabs value={mappedTab} onValueChange={(v) => navigate(`/cobrar/${SLUG_FROM_TAB[v] || v}`, { replace: true })} defaultValue={getDefaultTab()}>
           <TabsList className="grid w-full max-w-2xl grid-cols-4">
             {hasPaymentLinks && canCreateLinks && (
               <TabsTrigger value="links" className="flex items-center gap-2">

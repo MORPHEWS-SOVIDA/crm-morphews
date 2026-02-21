@@ -1042,6 +1042,14 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/cobrar/:tab"
+                  element={
+                    <ProtectedRoute>
+                      <Cobrar />
+                    </ProtectedRoute>
+                  }
+                />
                 
                 {/* Receptive - handled by its own module access hook but protected */}
                 <Route
