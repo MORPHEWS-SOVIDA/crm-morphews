@@ -304,6 +304,13 @@ serve(async (req) => {
             exp_month: parseInt(expMonth),
             exp_year: parseInt(expYear.length === 2 ? `20${expYear}` : expYear),
             cvv: card_data.cvv,
+            billing_address: {
+              line_1: "N/A",
+              zip_code: "00000000",
+              city: "N/A",
+              state: "SP",
+              country: "BR",
+            },
           },
         },
       });
