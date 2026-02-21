@@ -78,8 +78,10 @@ serve(async (req) => {
     // Find sale by ID or by notes containing the ID
     const saleRecord = await findSale(supabase, saleId);
     if (!saleRecord) {
-      console.log(`[PaymentWebhook] Sale not found: ${saleId}`);
-      return new Response(JSON.stringify({ received: true, message: "Sale not found" }), {
+      console.log(`[PaymentWebhook] Sale not found: ${saleId}, trying payment_link_transactions...`);
+      // Even without a sale, update payment_link_transactions if this is a payment link flow
+      await findAndUpdatePaymentLinkTransaction(supabase, saleId, paymentStatus, transactionId);
+      return new Response(JSON.stringify({ received: true, message: "Sale not found, payment_link_transaction updated if applicable" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -487,23 +489,82 @@ function mapStatus(rawStatus: string, gateway: string): StatusMapping {
 }
 
 async function findSale(supabase: SupabaseClient, saleId: string): Promise<Record<string, unknown> | null> {
-  // Try direct ID match
-  const { data: sale } = await supabase
+  // 1. Try direct UUID match on sales table
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(saleId)) {
+    const { data: sale } = await supabase
+      .from('sales')
+      .select('id, organization_id, lead_id, total_cents, status, payment_status')
+      .eq('id', saleId)
+      .maybeSingle();
+
+    if (sale) return sale;
+  }
+
+  // 2. Try finding by gateway_transaction_id on sales
+  const { data: salesByTxId } = await supabase
     .from('sales')
     .select('id, organization_id, lead_id, total_cents, status, payment_status')
-    .eq('id', saleId)
-    .maybeSingle();
-
-  if (sale) return sale;
-
-  // Try finding by notes containing the ID
-  const { data: salesByNote } = await supabase
-    .from('sales')
-    .select('id, organization_id, lead_id, total_cents, status, payment_status')
-    .ilike('notes', `%${saleId}%`)
+    .eq('gateway_transaction_id', saleId)
     .limit(1);
 
-  return salesByNote?.[0] || null;
+  if (salesByTxId?.[0]) return salesByTxId[0];
+
+  // 3. Try finding via payment_link_transactions (for payment link flows)
+  const { data: pltBySaleId } = await supabase
+    .from('payment_link_transactions')
+    .select('sale_id, organization_id')
+    .or(`gateway_order_id.eq.${saleId},gateway_charge_id.eq.${saleId}`)
+    .limit(1);
+
+  if (pltBySaleId?.[0]?.sale_id) {
+    // Found a payment_link_transaction, now get the linked sale
+    const { data: linkedSale } = await supabase
+      .from('sales')
+      .select('id, organization_id, lead_id, total_cents, status, payment_status')
+      .eq('id', pltBySaleId[0].sale_id)
+      .maybeSingle();
+    if (linkedSale) return linkedSale;
+  }
+
+  return null;
+}
+
+/**
+ * Find and update payment_link_transaction by Pagar.me order/charge ID.
+ * This handles payment link flows where the webhook saleId is the Pagar.me charge code.
+ */
+async function findAndUpdatePaymentLinkTransaction(
+  supabase: SupabaseClient,
+  saleId: string,
+  paymentStatus: string,
+  transactionId: string | null,
+): Promise<void> {
+  try {
+    const updateData: Record<string, unknown> = { status: paymentStatus };
+    if (paymentStatus === 'paid') {
+      updateData.paid_at = new Date().toISOString();
+    }
+    if (transactionId) {
+      updateData.gateway_transaction_id = transactionId;
+    }
+
+    // Try updating by gateway_order_id or gateway_charge_id or by the Pagar.me charge code
+    const { data: updated, error } = await supabase
+      .from('payment_link_transactions')
+      .update(updateData)
+      .or(`gateway_order_id.eq.${saleId},gateway_charge_id.eq.${saleId}`)
+      .select('id')
+      .maybeSingle();
+
+    if (updated) {
+      console.log(`[PaymentWebhook] Updated payment_link_transaction ${updated.id} -> ${paymentStatus}`);
+    } else if (error) {
+      console.error(`[PaymentWebhook] Error updating payment_link_transaction:`, error);
+    }
+  } catch (err) {
+    console.error(`[PaymentWebhook] findAndUpdatePaymentLinkTransaction error:`, err);
+  }
 }
 
 interface LogParams {
