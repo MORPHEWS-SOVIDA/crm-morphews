@@ -378,6 +378,18 @@ export default function PaymentLinkCheckout() {
         origin_type: 'payment_link',
       };
 
+      // Send billing address if available (critical for card approval on high-ticket sales)
+      if (cep || street || city || state) {
+        payload.billing_address = {
+          zip_code: cep.replace(/\D/g, ''),
+          street: street || undefined,
+          street_number: streetNumber || undefined,
+          neighborhood: neighborhood || undefined,
+          city: city || undefined,
+          state: state || undefined,
+        };
+      }
+
       if (paymentMethod === 'credit_card') {
         const [expMonth, expYear] = cardExpiry.split('/');
         payload.card_data = {
@@ -405,7 +417,17 @@ export default function PaymentLinkCheckout() {
       }
     } catch (err) {
       console.error('Payment error:', err);
-      toast.error(err instanceof Error ? err.message : 'Erro ao processar pagamento');
+      const errorMsg = err instanceof Error ? err.message : 'Erro ao processar pagamento';
+      // Translate common Pagar.me errors
+      if (errorMsg.includes('billing') && errorMsg.includes('required')) {
+        toast.error('Endereço de cobrança é obrigatório para pagamento com cartão. Preencha o endereço e tente novamente.');
+      } else if (errorMsg.includes('refused') || errorMsg.includes('denied') || errorMsg.includes('failed')) {
+        toast.error('Cartão recusado pelo emissor. Verifique os dados ou tente outro cartão.');
+      } else if (errorMsg.includes('validation_error')) {
+        toast.error('Dados inválidos. Verifique todos os campos e tente novamente.');
+      } else {
+        toast.error(errorMsg);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -715,7 +737,7 @@ export default function PaymentLinkCheckout() {
               </div>
             </div>
 
-            {/* Optional Address Section (for multi-use links only) */}
+            {/* Address Section - auto-shown for credit card, toggleable for others */}
             {!paymentLink.lead_id && (
               <div className="pt-2 border-t">
                 <button
@@ -723,11 +745,15 @@ export default function PaymentLinkCheckout() {
                   onClick={() => setShowAddress(!showAddress)}
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <span>{showAddress ? '▼' : '▶'}</span>
-                  <span>Adicionar endereço (opcional)</span>
+                  <span>{showAddress || paymentMethod === 'credit_card' ? '▼' : '▶'}</span>
+                  <span>
+                    {paymentMethod === 'credit_card' 
+                      ? 'Endereço de cobrança (recomendado para aprovação)' 
+                      : 'Adicionar endereço (opcional)'}
+                  </span>
                 </button>
                 
-                {showAddress && (
+                {(showAddress || paymentMethod === 'credit_card') && (
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div className="col-span-2 sm:col-span-1">
                       <Label>CEP</Label>
