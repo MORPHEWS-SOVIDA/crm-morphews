@@ -758,7 +758,7 @@ Deno.serve(async (req) => {
     const VALID_LEAD_COLUMNS = new Set([
       'name', 'email', 'whatsapp', 'observations', 'stage', 'stars', 
       'organization_id', 'assigned_to', 'webhook_data', 'created_at', 'updated_at',
-      'cpf_cnpj'
+      'cpf_cnpj', 'instagram', 'specialty', 'city', 'state', 'source'
     ]);
     
     // Build lead data from mappings
@@ -804,6 +804,24 @@ Deno.serve(async (req) => {
     // If no mappings configured, try auto-detection for common field names
     if (typedMappings.length === 0) {
       console.log('No mappings configured, attempting auto-detection...');
+
+      // Auto-detect custom_ prefixed fields from payload
+      for (const [key, value] of Object.entries(payload)) {
+        if (key.startsWith('custom_') && value !== null && value !== undefined && String(value).trim() !== '') {
+          const customFieldName = key.replace('custom_', '');
+          customFieldsData[customFieldName] = String(value).trim();
+          console.log(`Auto-detected custom field from payload: ${customFieldName} = ${value}`);
+        }
+      }
+
+      // Also detect instagram from payload directly
+      if (!leadData.instagram) {
+        const igValue = payload.instagram || payload.Instagram || payload.ig;
+        if (igValue && String(igValue).trim()) {
+          leadData.instagram = String(igValue).trim().replace(/^@/, '');
+          console.log(`Auto-detected instagram: ${leadData.instagram}`);
+        }
+      }
       
       // Common field name variations - ONLY for fields that exist in leads table
       const fieldAliases: Record<string, string[]> = {
