@@ -30,20 +30,28 @@ interface RomaneioItem {
 
 function formatRomaneioQuantity(item: RomaneioItem): { label: string; tooltip: string } {
   const kitQty = item.kit_quantity || 1;
-  const mult = item.multiplier || item.quantity;
-  const totalUnits = kitQty * mult;
+  // CRITICAL: Always use item.quantity as source of truth for display
+  // item.multiplier is metadata for kit system and may not reflect actual quantity
+  const qty = item.quantity;
   
   if (kitQty > 1) {
-    // Has kit: show "Kit X × Y" format
+    // Has kit: quantity already includes kit units (e.g., Kit 6 × 2 = quantity 12)
+    const numKits = Math.round(qty / kitQty);
+    if (numKits > 1) {
+      return {
+        label: `Kit ${kitQty}×${numKits}`,
+        tooltip: `${qty} frascos`,
+      };
+    }
     return {
-      label: mult > 1 ? `Kit ${kitQty}×${mult}` : `Kit ${kitQty}`,
-      tooltip: `${totalUnits} frascos`,
+      label: `Kit ${kitQty}`,
+      tooltip: `${qty} frascos`,
     };
   } else {
-    // No kit: just show quantity
+    // No kit: just show quantity directly
     return {
-      label: `${totalUnits}`,
-      tooltip: `${totalUnits} ${totalUnits === 1 ? 'unidade' : 'unidades'}`,
+      label: `${qty}`,
+      tooltip: `${qty} ${qty === 1 ? 'unidade' : 'unidades'}`,
     };
   }
 }
