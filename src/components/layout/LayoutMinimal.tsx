@@ -20,6 +20,8 @@ import {
   FileText,
 } from 'lucide-react';
 import logoMorphews from '@/assets/logo-morphews.png';
+import { useCombinedBranding } from '@/hooks/useDomainBranding';
+import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
 interface LayoutMinimalProps {
@@ -33,9 +35,17 @@ interface LayoutMinimalProps {
 export function LayoutMinimal({ children }: LayoutMinimalProps) {
   const { user, profile, signOut } = useAuth();
   const { data: permissions } = useMyPermissions();
+  const { data: wlBranding } = useCombinedBranding();
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  
+  const isDark = resolvedTheme === 'dark';
+  const displayLogo = wlBranding 
+    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
+    : logoMorphews;
+  const brandName = wlBranding?.brand_name || 'Morphews';
   
   const handleSignOut = async () => {
     await signOut();
@@ -116,7 +126,7 @@ export function LayoutMinimal({ children }: LayoutMinimalProps) {
       {/* Minimal Header for mobile users */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b">
         <div className="flex items-center justify-between p-3">
-          <img src={logoMorphews} alt="Morphews" className="h-6 w-auto" />
+          <img src={displayLogo} alt={brandName} className="h-6 w-auto" />
           
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
