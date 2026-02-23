@@ -1605,6 +1605,10 @@ export default function AddReceptivo() {
           requisition_number: item.requisitionNumber || null,
           commission_percentage: effectiveCommission,
           commission_cents: effectiveCommissionCents,
+          // Kit tracking: pass kit info so romaneio/expedition display correctly
+          kit_id: item.kitId || null,
+          kit_quantity: isKitBased ? item.quantity : 1,
+          multiplier: 1, // Always 1 kit per line item
         });
       }
 
@@ -1630,6 +1634,10 @@ export default function AddReceptivo() {
           requisition_number: currentProduct?.category === 'manipulado' ? requisitionNumber : null,
           commission_percentage: effectiveCommission,
           commission_cents: effectiveCommissionCents,
+          // Kit tracking: pass kit info so romaneio/expedition display correctly
+          kit_id: currentKitId || null,
+          kit_quantity: isCurrentKitBasedForSale ? currentQuantity : 1,
+          multiplier: 1, // Always 1 kit per line item
         });
       }
 

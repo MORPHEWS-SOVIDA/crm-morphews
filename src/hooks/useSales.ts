@@ -584,22 +584,30 @@ export function useCreateSale() {
       if (saleError) throw saleError;
 
       // Create sale items
-      const itemsToInsert = data.items.map(item => ({
-        sale_id: sale.id,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        quantity: item.quantity,
-        unit_price_cents: item.unit_price_cents,
-        discount_cents: item.discount_cents || 0,
-        total_cents: (item.unit_price_cents * item.quantity) - (item.discount_cents || 0),
-        requisition_number: item.requisition_number || null,
-        commission_percentage: item.commission_percentage || 0,
-        commission_cents: item.commission_cents || 0,
-        // Kit tracking for expedition/romaneio clarity
-        kit_id: item.kit_id || null,
-        kit_quantity: item.kit_quantity || 1,
-        multiplier: item.multiplier || item.quantity,
-      }));
+      const itemsToInsert = data.items.map(item => {
+        // Determine multiplier correctly:
+        // If kit_quantity is provided and > 1, multiplier = quantity / kit_quantity (number of kits)
+        // Otherwise use provided multiplier or default to 1
+        const kitQty = item.kit_quantity || 1;
+        const defaultMultiplier = kitQty > 1 ? Math.round(item.quantity / kitQty) : 1;
+        
+        return {
+          sale_id: sale.id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price_cents: item.unit_price_cents,
+          discount_cents: item.discount_cents || 0,
+          total_cents: (item.unit_price_cents * item.quantity) - (item.discount_cents || 0),
+          requisition_number: item.requisition_number || null,
+          commission_percentage: item.commission_percentage || 0,
+          commission_cents: item.commission_cents || 0,
+          // Kit tracking for expedition/romaneio clarity
+          kit_id: item.kit_id || null,
+          kit_quantity: kitQty,
+          multiplier: item.multiplier ?? defaultMultiplier,
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from('sale_items')
