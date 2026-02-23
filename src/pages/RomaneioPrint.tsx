@@ -122,11 +122,11 @@ export default function RomaneioPrint() {
         }
       }
 
-      // Fetch fallback address from lead_addresses if no shipping_address is linked
+      // ALWAYS fetch from lead_addresses as fallback - even if lead has legacy street field
+      // This ensures the most up-to-date address from lead_addresses is used
       const shippingAddr = (sale as any).shipping_address;
-      const leadHasAddress = sale.lead?.street;
       
-      if (!shippingAddr && !leadHasAddress && sale.lead_id) {
+      if (!shippingAddr && sale.lead_id) {
         const { data: primaryAddress } = await supabase
           .from('lead_addresses')
           .select('id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link')

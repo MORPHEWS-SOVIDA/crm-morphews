@@ -154,6 +154,32 @@ export default function RomaneioBatchPrint() {
             }
           }
 
+          // Fallback: fetch address from lead_addresses if no shipping_address linked
+          const shippingAddr = sale.shipping_address;
+          if (!shippingAddr && sale.lead_id) {
+            const { data: primaryAddress } = await supabase
+              .from('lead_addresses')
+              .select('id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link')
+              .eq('lead_id', sale.lead_id)
+              .eq('is_primary', true)
+              .maybeSingle();
+            
+            if (primaryAddress) {
+              (enriched as any).shipping_address = primaryAddress;
+            } else {
+              const { data: anyAddress } = await supabase
+                .from('lead_addresses')
+                .select('id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link')
+                .eq('lead_id', sale.lead_id)
+                .order('created_at', { ascending: true })
+                .limit(1)
+                .maybeSingle();
+              if (anyAddress) {
+                (enriched as any).shipping_address = anyAddress;
+              }
+            }
+          }
+
           return enriched;
         })
       );

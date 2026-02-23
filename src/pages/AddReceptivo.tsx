@@ -1629,7 +1629,7 @@ export default function AddReceptivo() {
         shipping_carrier_id: deliveryConfig.carrierId,
         shipping_cost_cents: deliveryConfig.shippingCost,
         shipping_cost_real_cents: deliveryConfig.shippingCostReal || deliveryConfig.shippingCost, // Real cost for free shipping tracking
-        shipping_address_id: selectedAddressId, // Include selected address
+        shipping_address_id: selectedAddressId || null, // Include selected address (auto-selected by AddressSelector)
         payment_method_id: useSplitPayment && splitPaymentLines.length > 0
           ? splitPaymentLines.reduce((a, b) => b.amount_cents > a.amount_cents ? b : a, splitPaymentLines[0]).payment_method_id
           : selectedPaymentMethodId,
