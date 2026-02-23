@@ -36,12 +36,12 @@ export default function Cobrar() {
   const hasTelesales = orgFeatures?.telesales ?? true;
   const hasVirtualWallet = orgFeatures?.virtual_wallet ?? true;
   
-  // Check permissions - using existing permission fields
-  const canCreateLinks = isAdmin || permissions?.payment_gateways_manage;
-  const canViewTransactions = isAdmin || permissions?.virtual_wallet_view;
-  const canTelesales = isAdmin || permissions?.telesales_manage;
-  const canManageBank = isAdmin || permissions?.virtual_wallet_view;
-  const canWithdraw = isAdmin || permissions?.virtual_wallet_view;
+  // Check permissions - using actual permission fields
+  const canCreateLinks = isAdmin || permissions?.payment_links_create;
+  const canViewTransactions = isAdmin || permissions?.payment_links_view_transactions;
+  const canTelesales = isAdmin || permissions?.telesales_charge_card;
+  const canManageBank = isAdmin || permissions?.withdrawal_request;
+  const canWithdraw = isAdmin || permissions?.withdrawal_request;
 
   if (featuresLoading) {
     return (
