@@ -1,6 +1,8 @@
  // Twilio ↔ ElevenLabs Media Stream Bridge
  // This edge function handles WebSocket connections from Twilio and bridges to ElevenLabs
  
+ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+ 
  const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
  
  const corsHeaders = {
@@ -28,7 +30,7 @@
    return data.signed_url;
  }
  
- Deno.serve(async (req) => {
+ serve(async (req) => {
    // Handle CORS
    if (req.method === "OPTIONS") {
      return new Response(null, { headers: corsHeaders });

@@ -33,6 +33,7 @@ export function VoiceAITestPanel({ agentId, organizationId }: VoiceAITestPanelPr
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
 
   const conversation = useConversation({
     onConnect: () => {
@@ -81,8 +82,9 @@ export function VoiceAITestPanel({ agentId, organizationId }: VoiceAITestPanelPr
     setMessages([]);
 
     try {
-      // Request microphone permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request microphone permission and store stream reference
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
 
       // Get token from edge function
       const { data, error } = await supabase.functions.invoke("elevenlabs-conversation-token", {
@@ -120,8 +122,14 @@ export function VoiceAITestPanel({ agentId, organizationId }: VoiceAITestPanelPr
   }, [conversation]);
 
   const toggleMute = useCallback(() => {
-    setIsMuted(!isMuted);
-    // Note: ElevenLabs SDK handles muting internally
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    // Toggle the actual microphone audio track
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !newMuted;
+      });
+    }
   }, [isMuted]);
 
   const handleVolumeChange = useCallback(async (newVolume: number) => {
