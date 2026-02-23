@@ -167,15 +167,6 @@ export default function Login() {
               {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
             </div>
 
-            <div className="flex justify-end">
-              <Link
-                to="/forgot-password"
-                className="text-sm text-primary hover:underline"
-              >
-                Esqueceu a senha?
-              </Link>
-            </div>
-
             <Button
               type="submit"
               className="w-full gap-2"
@@ -196,7 +187,7 @@ export default function Login() {
             to="/forgot-password"
             className="text-sm text-primary hover:underline block"
           >
-            Esqueceu a senha? Receber senha provisória
+            Esqueceu a senha?
           </Link>
           <p className="text-sm text-muted-foreground">
             Não tem acesso? Fale com o administrador.
