@@ -45,7 +45,7 @@ import { useIsManager } from '@/hooks/useDiscountAuthorization';
 import { useTenant } from '@/hooks/useTenant';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { useIsWhiteLabelOwner } from '@/hooks/useWhiteAdmin';
-import { useOrgWhiteLabelBranding } from '@/hooks/useOrgWhiteLabelBranding';
+import { useCombinedBranding } from '@/hooks/useDomainBranding';
 import { useTheme } from 'next-themes';
 import logoMorphews from '@/assets/logo-morphews.png';
 import morphewsAvatar from '@/assets/morphews-avatar.png';
@@ -80,7 +80,7 @@ export function Sidebar() {
   const { isAdmin: isTenantAdmin, isOwner, role } = useTenant();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
   const { data: isWhiteLabelOwner } = useIsWhiteLabelOwner();
-  const { data: wlBranding, isLoading: wlBrandingLoading } = useOrgWhiteLabelBranding();
+  const { data: wlBranding, isLoading: wlBrandingLoading } = useCombinedBranding();
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const [isDonnaOpen, setIsDonnaOpen] = useState(false);
