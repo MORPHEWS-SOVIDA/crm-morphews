@@ -200,7 +200,7 @@ export function Sidebar() {
     { icon: Link2, label: 'Cobrar', path: '/cobrar', visible: canSeePaymentLinks && hasFeature('payment_links') },
     
     // Fiscal Invoices (permission controlled)
-    { icon: FileText, label: 'Notas Fiscais', path: '/notas-fiscais', visible: canSeeFiscalInvoices && hasFeature('fiscal_invoices') },
+    { icon: FileText, label: 'Notas Fiscais', path: '/notas-fiscais', visible: canSeeFiscalInvoices && hasFeature('fiscal_notes') },
     
     // Reports
     { icon: FileText, label: 'Relatório Vendas', path: '/relatorios/vendas', visible: canSeeSalesReport && hasFeature('sales_report') },
