@@ -35,9 +35,12 @@ export function useImpersonation() {
 
       console.log('[Impersonation] Admin session found, calling edge function...');
 
-      // Call the impersonation edge function
+      // Call the impersonation edge function - explicitly pass auth header
       const { data, error } = await supabase.functions.invoke<ImpersonationResult>('admin-impersonate', {
         body: { targetUserId },
+        headers: {
+          Authorization: `Bearer ${adminSession.access_token}`,
+        },
       });
 
       console.log('[Impersonation] Edge function response:', { data, error });
