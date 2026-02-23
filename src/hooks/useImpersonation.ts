@@ -58,7 +58,7 @@ export function useImpersonation() {
       console.log('[Impersonation] Edge function response:', { status: response.status, data });
 
       if (!response.ok) {
-        throw new Error(data?.error || data?.details || 'Erro na função de impersonação');
+        throw new Error(data?.details || data?.error || 'Erro na função de impersonação');
       }
       
       if (!data?.success) {

@@ -35,16 +35,18 @@ Deno.serve(async (req) => {
     }
 
     // Create client with anon key for JWT validation
-    const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
+    const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: `Bearer ${jwtToken}` } },
+    });
 
-    // Validate token claims (signing-keys compatible)
-    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(jwtToken);
-    const userId = claimsData?.claims?.sub;
-    const userEmail = claimsData?.claims?.email;
+    // Validate token by fetching current user
+    const { data: userData, error: userError } = await supabaseUser.auth.getUser(jwtToken);
+    const userId = userData?.user?.id;
+    const userEmail = userData?.user?.email;
 
-    if (claimsError || !userId) {
+    if (userError || !userId) {
       return new Response(
-        JSON.stringify({ error: "Unauthorized", details: claimsError?.message || "Invalid token claims" }),
+        JSON.stringify({ error: "Unauthorized", details: userError?.message || "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
