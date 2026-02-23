@@ -188,6 +188,12 @@ export function DeliveryPaymentDialog({
         .eq('id', sale.id);
       
       if (updateError) throw updateError;
+
+      // Ensure delivered checkpoint is created for "Etapas da Venda" card
+      if (user?.id) {
+        const { ensureDeliveredCheckpoint } = await import('@/utils/ensureDeliveredCheckpoint');
+        await ensureDeliveredCheckpoint(sale.id, user.id);
+      }
       
       toast.success('Entrega confirmada!');
       handleClose();

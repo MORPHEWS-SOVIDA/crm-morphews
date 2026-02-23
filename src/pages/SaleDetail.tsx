@@ -869,6 +869,13 @@ export default function SaleDetail() {
         missing_payment_proof: markAsMissingProof,
       } as any
     });
+
+    // Ensure delivered checkpoint is created for "Etapas da Venda" card
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    if (currentUser?.id) {
+      const { ensureDeliveredCheckpoint } = await import('@/utils/ensureDeliveredCheckpoint');
+      await ensureDeliveredCheckpoint(sale.id, currentUser.id);
+    }
     
     if (markAsMissingProof) {
       toast.warning('Entrega registrada - Venda marcada como desconforme (sem comprovante)');
