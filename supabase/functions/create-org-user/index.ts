@@ -97,7 +97,7 @@ async function sendWelcomeWhatsApp(phone: string, firstName: string, tempPasswor
     return;
   }
 
-  const welcomeMessage = `🎉 *Bem-vindo ao Morphews CRM, ${firstName}!*
+  const welcomeMessage = `🎉 *Bem-vindo ao Atomic Sales, ${firstName}!*
 
 Você foi adicionado à equipe e já pode começar a usar o sistema.
 
@@ -107,7 +107,7 @@ Você foi adicionado à equipe e já pode começar a usar o sistema.
 
 ⚠️ No primeiro login, você deverá criar uma nova senha.
 
-🌐 Acesse: crm.morphews.com
+🌐 Acesse: atomic.ia.br
 
 ---
 
@@ -411,8 +411,17 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Error recording temp password reset:", tempResetError);
     }
 
+    // Assign user role
+    const { error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .insert({ user_id: userId, role: "user" });
+
+    if (roleError) {
+      console.error("Error assigning user role:", roleError);
+    }
+
     // Send welcome email with credentials
-    const loginUrl = "https://crm.morphews.com/login";
+    const loginUrl = "https://atomic.ia.br/login";
     const roleText = isAdditionalUser 
       ? `Você foi adicionado à equipe no ${planName}!`
       : `sua conta no plano ${planName} está pronta!`;
@@ -426,7 +435,7 @@ const handler = async (req: Request): Promise<Response> => {
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Bem-vindo ao Morphews CRM!</h1>
+          <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Bem-vindo ao Atomic Sales!</h1>
           <p style="color: rgba(255,255,255,0.9); margin-top: 10px;">Olá ${firstName}, ${roleText}</p>
         </div>
         
@@ -452,7 +461,7 @@ const handler = async (req: Request): Promise<Response> => {
             💡 <strong>Dica:</strong> Você pode atualizar seus leads via WhatsApp!<br>
             Basta enviar uma mensagem para <strong>555130760100</strong><br><br>
             Precisa de ajuda? Entre em contato pelo WhatsApp<br>
-            <strong>Morphews CRM</strong> - Transforme seus leads em clientes
+            <strong>Atomic Sales</strong> - Transforme seus leads em clientes
           </p>
         </div>
       </body>
@@ -466,9 +475,9 @@ const handler = async (req: Request): Promise<Response> => {
         Authorization: `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: "Morphews CRM <noreply@morphews.com>",
+        from: "Atomic Sales <noreply@atomic.ia.br>",
         to: [ownerEmail],
-        subject: "🎉 Bem-vindo ao Morphews CRM - Suas credenciais de acesso",
+        subject: "🎉 Bem-vindo ao Atomic Sales - Suas credenciais de acesso",
         html: emailHtml,
       }),
     });
@@ -481,8 +490,8 @@ const handler = async (req: Request): Promise<Response> => {
       console.log("Welcome email sent successfully:", emailData);
     }
 
-    // Send welcome WhatsApp message (only for additional users)
-    if (isAdditionalUser && ownerPhone) {
+    // Send welcome WhatsApp message
+    if (ownerPhone) {
       await sendWelcomeWhatsApp(ownerPhone, firstName, tempPassword, supabaseAdmin);
     }
 
