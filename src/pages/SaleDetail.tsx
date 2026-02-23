@@ -1158,6 +1158,11 @@ export default function SaleDetail() {
                     DESCONFORME
                   </Badge>
                 )}
+                {(sale as any).modified_at_closing && (
+                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">
+                    ⚠️ Alterada na baixa
+                  </Badge>
+                )}
               </div>
               <p className="text-muted-foreground">
                 Criada em {format(new Date(sale.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
@@ -1199,6 +1204,30 @@ export default function SaleDetail() {
             )}
           </div>
         </div>
+
+        {/* Closing modification banner */}
+        {(sale as any).modified_at_closing && (
+          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-amber-800 dark:text-amber-300 text-sm">
+                  Venda alterada durante a baixa
+                </p>
+                {(sale as any).closing_modification_reason && (
+                  <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                    <strong>Motivo:</strong> {(sale as any).closing_modification_reason}
+                  </p>
+                )}
+                {(sale as any).closing_modified_at && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
+                    Alterada em {format(new Date((sale as any).closing_modified_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Client & Products */}

@@ -262,6 +262,7 @@ export default function PickupClosing() {
                           showTracking={false}
                           showProofLink={true}
                           showEditPayment={true}
+                          showEditSale={!!permissions?.sales_report_view}
                         />
                       ))}
                     </div>

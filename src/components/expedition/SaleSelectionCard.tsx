@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getSignedStorageUrl } from '@/lib/storage-utils';
+import { EditSaleOnClosingDialog } from '@/components/expedition/EditSaleOnClosingDialog';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 
 // Tracking status labels for display
@@ -57,6 +58,7 @@ interface SaleSelectionCardProps {
     delivery_status?: string | null;
     tracking_code?: string | null;
     carrier_tracking_status?: string | null;
+    modified_at_closing?: boolean | null;
     melhor_envio_label?: {
       id: string;
       tracking_code: string | null;
@@ -74,6 +76,7 @@ interface SaleSelectionCardProps {
   showProofLink?: boolean;
   showEditPayment?: boolean;
   showTracking?: boolean;
+  showEditSale?: boolean;
   onPaymentCategoryChange?: (saleId: string, newCategory: PaymentCategory) => void;
 }
 
@@ -113,6 +116,7 @@ export function SaleSelectionCard({
   showProofLink = true,
   showEditPayment = true,
   showTracking = false,
+  showEditSale = false,
   onPaymentCategoryChange,
 }: SaleSelectionCardProps) {
   const queryClient = useQueryClient();
@@ -120,6 +124,7 @@ export function SaleSelectionCard({
   const categoryConfig = getCategoryConfig(sale.payment_category);
   const [isProofDialogOpen, setIsProofDialogOpen] = useState(false);
   const [isEditPaymentOpen, setIsEditPaymentOpen] = useState(false);
+  const [isEditSaleOpen, setIsEditSaleOpen] = useState(false);
   const [proofImageUrl, setProofImageUrl] = useState<string | null>(null);
   const [loadingProof, setLoadingProof] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -254,8 +259,28 @@ export function SaleSelectionCard({
               title="Ver venda em nova aba"
             >
               <Eye className="w-3 h-3 mr-1" />
-              Ver Venda
+            Ver Venda
             </Button>
+            {showEditSale && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-xs bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditSaleOpen(true);
+                }}
+                title="Editar venda na baixa"
+              >
+                <Pencil className="w-3 h-3 mr-1" />
+                Editar Venda
+              </Button>
+            )}
+            {(sale as any).modified_at_closing && (
+              <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">
+                ⚠️ Alterada na baixa
+              </Badge>
+            )}
           </div>
 
           {/* Line 2: Price + Sale Date + Delivery Date + Payment Method Name + Actions */}
@@ -490,6 +515,22 @@ export function SaleSelectionCard({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Sale on Closing Dialog */}
+      {showEditSale && (
+        <EditSaleOnClosingDialog
+          open={isEditSaleOpen}
+          onOpenChange={setIsEditSaleOpen}
+          saleId={sale.id}
+          saleTotalCents={sale.total_cents || 0}
+          romaneioNumber={sale.romaneio_number}
+          clientName={sale.lead?.name}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ['available-closing-sales'] });
+            queryClient.invalidateQueries({ queryKey: ['available-pickup-sales'] });
+          }}
+        />
+      )}
     </>
   );
 }

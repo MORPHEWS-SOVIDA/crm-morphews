@@ -451,6 +451,7 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                             showTracking={closingType === 'carrier'}
                             showProofLink={closingType === 'motoboy' || closingType === 'carrier'}
                             showEditPayment={closingType === 'motoboy' || closingType === 'carrier'}
+                            showEditSale={!!permissions?.sales_report_view}
                           />
                         ))}
                       </div>
