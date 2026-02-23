@@ -53,14 +53,33 @@ export default function Cobrar() {
     );
   }
 
-  // Determine the first available tab
-  const getDefaultTab = () => {
-    if (hasPaymentLinks && canCreateLinks) return 'links';
-    if (canViewTransactions) return 'transactions';
-    if (hasTelesales && canTelesales) return 'telesales';
-    if (hasVirtualWallet && (canManageBank || canWithdraw)) return 'wallet';
-    return 'links';
-  };
+  // Determine visible tabs
+  const visibleTabs = [
+    hasPaymentLinks && canCreateLinks && 'links',
+    canViewTransactions && 'transactions',
+    hasTelesales && canTelesales && 'telesales',
+    hasVirtualWallet && (canManageBank || canWithdraw) && 'wallet',
+  ].filter(Boolean);
+
+  const getDefaultTab = () => visibleTabs[0] as string || 'links';
+
+  if (visibleTabs.length === 0) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold">Cobranças</h1>
+            <p className="text-muted-foreground">
+              Crie links de pagamento, gerencie transações e realize cobranças
+            </p>
+          </div>
+          <div className="flex items-center justify-center min-h-[300px] text-muted-foreground">
+            <p>Você não possui permissões para acessar esta área. Solicite ao administrador.</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -73,7 +92,7 @@ export default function Cobrar() {
         </div>
 
         <Tabs value={mappedTab} onValueChange={(v) => navigate(`/cobrar/${SLUG_FROM_TAB[v] || v}`, { replace: true })} defaultValue={getDefaultTab()}>
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
+          <TabsList className={`grid w-full max-w-2xl`} style={{ gridTemplateColumns: `repeat(${visibleTabs.length}, minmax(0, 1fr))` }}>
             {hasPaymentLinks && canCreateLinks && (
               <TabsTrigger value="links" className="flex items-center gap-2">
                 <Link2 className="h-4 w-4" />
