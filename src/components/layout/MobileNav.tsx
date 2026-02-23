@@ -44,7 +44,7 @@ import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useNavigate } from 'react-router-dom';
-import { useOrgWhiteLabelBranding } from '@/hooks/useOrgWhiteLabelBranding';
+import { useCombinedBranding } from '@/hooks/useDomainBranding';
 import { useTheme } from 'next-themes';
 import logoMorphews from '@/assets/logo-morphews.png';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -74,7 +74,7 @@ export function MobileNav() {
   const { data: permissions } = useMyPermissions();
   const { data: isManager } = useIsManager();
   const { data: orgFeatures, isLoading: featuresLoading } = useOrgFeatures();
-  const { data: wlBranding, isLoading: wlBrandingLoading } = useOrgWhiteLabelBranding();
+  const { data: wlBranding, isLoading: wlBrandingLoading } = useCombinedBranding();
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
