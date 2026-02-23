@@ -154,7 +154,7 @@ serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              from: `Morphews <alertas@morphews.com.br>`,
+               from: `Atomic Sales <alertas@atomic.ia.br>`,
               to: [partner.email],
               subject: `⚠️ CHARGEBACK - Débito de ${debitedAmount} em sua conta`,
               html: getPartnerEmailTemplate({
@@ -226,7 +226,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: `Morphews <alertas@morphews.com.br>`,
+            from: `Atomic Sales <alertas@atomic.ia.br>`,
             to: [org.email],
             subject: `🚨 CHARGEBACK RECEBIDO - Pedido #${orderIdShort}`,
             html: getTenantEmailTemplate({
@@ -266,7 +266,7 @@ serve(async (req) => {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                from: `Morphews Sistema <sistema@morphews.com.br>`,
+                from: `Atomic Sales Sistema <sistema@atomic.ia.br>`,
                 to: [authUser.user.email],
                 subject: `🚨 [GATEWAY] CHARGEBACK - ${storeName} - ${chargebackAmount}`,
                 html: getAdminEmailTemplate({

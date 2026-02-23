@@ -298,22 +298,21 @@ serve(async (req) => {
               Authorization: `Bearer ${RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-              from: "Morphews CRM <noreply@morphews.com>",
+               from: "Atomic Sales <noreply@atomic.ia.br>",
               to: [email],
-              subject: "🎉 Bem-vindo ao Morphews CRM - Plano Grátis!",
+              subject: "🎉 Bem-vindo ao Atomic Sales - Plano Grátis!",
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <img src="https://crm.morphews.com/images/logo-morphews-email.png" alt="Morphews" style="max-width: 150px; margin-bottom: 20px;">
                   <h1 style="color: #10b981;">Parabéns, ${customerName?.split(' ')[0] || 'você'}! 🚀</h1>
-                  <p>Sua conta gratuita no Morphews CRM foi criada com sucesso!</p>
+                  <p>Sua conta gratuita no Atomic Sales foi criada com sucesso!</p>
                   <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
                     <p><strong>E-mail:</strong> ${email}</p>
                     <p><strong>Senha temporária:</strong> ${tempPassword}</p>
                   </div>
                   <p style="color: #ef4444;"><strong>⚠️ Por segurança, você deverá trocar sua senha no primeiro acesso.</strong></p>
                   <div style="margin: 30px 0;">
-                    <a href="https://crm.morphews.com/login" style="background: #10b981; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-                      Acessar Morphews CRM
+                    <a href="https://atomic.ia.br/login" style="background: #10b981; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                      Acessar Atomic Sales
                     </a>
                   </div>
                   <p>Seu plano gratuito inclui:</p>
@@ -324,7 +323,7 @@ serve(async (req) => {
                   </ul>
                   <p>Quando precisar de mais, é só fazer upgrade!</p>
                   <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-                  <p style="color: #6b7280; font-size: 12px;">Morphews CRM - Sua secretária comercial com IA</p>
+                  <p style="color: #6b7280; font-size: 12px;">Atomic Sales - Sua secretária comercial com IA</p>
                 </div>
               `,
             }),
@@ -479,13 +478,13 @@ serve(async (req) => {
               Authorization: `Bearer ${RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-              from: "Morphews CRM <noreply@morphews.com>",
+              from: "Atomic Sales <noreply@atomic.ia.br>",
               to: [email],
               subject: `🎁 Seu trial de ${plan.trial_days} dias começou - ${plan.name}!`,
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <img src="https://crm.morphews.com/images/logo-morphews-email.png" alt="Morphews" style="max-width: 150px; margin-bottom: 20px;">
-                  <h1 style="color: #8b5cf6;">Seu período de teste começou! 🚀</h1>
+                   <h1 style="color: #8b5cf6;">Seu período de teste começou! 🚀</h1>
+                  <p>Olá ${customerName?.split(' ')[0] || 'você'},</p>
                   <p>Olá ${customerName?.split(' ')[0] || 'você'},</p>
                   <p>Você tem <strong>${plan.trial_days} dias grátis</strong> para experimentar o plano <strong>${plan.name}</strong>!</p>
                   <div style="background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%); color: white; padding: 20px; border-radius: 12px; margin: 20px 0;">
@@ -498,13 +497,13 @@ serve(async (req) => {
                   </div>
                   <p style="color: #ef4444;"><strong>⚠️ Por segurança, você deverá trocar sua senha no primeiro acesso.</strong></p>
                   <div style="margin: 30px 0;">
-                    <a href="https://crm.morphews.com/login" style="background: #8b5cf6; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                     <a href="https://atomic.ia.br/login" style="background: #8b5cf6; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
                       Começar a Usar
                     </a>
                   </div>
                   <p style="color: #6b7280;">Após o período de teste, você precisará assinar para continuar usando todas as funcionalidades.</p>
                   <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-                  <p style="color: #6b7280; font-size: 12px;">Morphews CRM - Sua secretária comercial com IA</p>
+                  <p style="color: #6b7280; font-size: 12px;">Atomic Sales - Sua secretária comercial com IA</p>
                 </div>
               `,
             }),

@@ -293,7 +293,7 @@ async function sendEmailNotification(
             </div>
             
             <div class="cta">
-              <a href="https://crm.morphews.com/login">Acessar painel</a>
+              <a href="https://atomic.ia.br/login">Acessar painel</a>
             </div>
             
             <p style="color: #64748b; text-align: center; font-size: 14px;">
@@ -301,8 +301,8 @@ async function sendEmailNotification(
             </p>
           </div>
           <div class="footer">
-            <p>Este email foi enviado automaticamente pelo sistema Morphews.</p>
-            <p>© ${new Date().getFullYear()} Morphews. Todos os direitos reservados.</p>
+             <p>Este email foi enviado automaticamente pelo sistema Atomic Sales.</p>
+             <p>© ${new Date().getFullYear()} Atomic Sales. Todos os direitos reservados.</p>
           </div>
         </div>
       </body>
@@ -316,7 +316,7 @@ async function sendEmailNotification(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Morphews <vendas@morphews.com>",
+        from: "Atomic Sales <vendas@atomic.ia.br>",
         to: [notification.partnerEmail],
         subject,
         html: htmlContent,
@@ -384,7 +384,7 @@ Hora de comemorar! Saiu uma venda com seu link!
 👤 *Cliente:* ${notification.customerName}
 📦 *Tipo:* ${partnerTypeLabel}
 
-Acesse crm.morphews.com/login e confira os detalhes! 🚀`;
+Acesse atomic.ia.br/login e confira os detalhes! 🚀`;
 
       await sendWhatsAppNotification(supabase, whatsappConfig, notification.partnerPhone, whatsappMessage, notification);
     }

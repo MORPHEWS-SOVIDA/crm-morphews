@@ -53,7 +53,7 @@ async function sendEmail(
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Morphews CRM <noreply@morphews.com>",
+        from: "Atomic Sales <noreply@atomic.ia.br>",
         to: [to],
         subject,
         html: wrapEmailTemplate(htmlContent),
@@ -125,14 +125,14 @@ function wrapEmailTemplate(content: string): string {
 </head>
 <body>
   <div class="header">
-    <img src="https://crm.morphews.com/images/logo-morphews-email.png" alt="Morphews CRM" />
+    <img src="https://atomic.ia.br/images/logo-atomic-email.png" alt="Atomic Sales" />
   </div>
   <div class="content">
     ${content}
   </div>
   <div class="footer">
-    <p>© ${new Date().getFullYear()} Morphews CRM - Todos os direitos reservados</p>
-    <p>Você está recebendo este email porque se cadastrou no Morphews CRM.</p>
+     <p>© ${new Date().getFullYear()} Atomic Sales - Todos os direitos reservados</p>
+     <p>Você está recebendo este email porque se cadastrou no Atomic Sales.</p>
   </div>
 </body>
 </html>

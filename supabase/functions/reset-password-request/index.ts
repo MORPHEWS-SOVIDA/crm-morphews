@@ -174,9 +174,8 @@ Deno.serve(async (req) => {
             <td align="center">
               <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
                 <tr>
-                  <td style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 40px 40px; text-align: center;">
-                    <img src="https://hwbxvrewiapyhjceabvw.supabase.co/storage/v1/object/public/assets/logo-morphews-email.png" alt="Morphews CRM" style="height: 50px; margin-bottom: 10px;" onerror="this.style.display='none'">
-                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">Morphews CRM</h1>
+                  <td style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 40px 40px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">Atomic Sales</h1>
                   </td>
                 </tr>
                 <tr>
@@ -184,9 +183,9 @@ Deno.serve(async (req) => {
                     <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 24px;">Senha Provisória</h2>
                     <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">Olá ${firstName},</p>
                      <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">Você solicitou a recuperação de sua senha. Use a senha provisória abaixo para fazer login:</p>
-                     <div style="background-color: #fff7ed; border: 2px solid #f97316; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0;">
-                       <p style="color: #9a3412; font-size: 14px; margin: 0 0 10px 0; font-weight: 500;">Sua senha provisória (copie/cole sem espaços):</p>
-                       <p style="color: #c2410c; font-size: 28px; font-weight: 800; margin: 0; font-family: 'Courier New', monospace;">${tempPassword}</p>
+                     <div style="background-color: #f0f4ff; border: 2px solid #667eea; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0;">
+                       <p style="color: #3730a3; font-size: 14px; margin: 0 0 10px 0; font-weight: 500;">Sua senha provisória (copie/cole sem espaços):</p>
+                       <p style="color: #4f46e5; font-size: 28px; font-weight: 800; margin: 0; font-family: 'Courier New', monospace;">${tempPassword}</p>
                        <p style="color: #6b7280; font-size: 12px; margin: 12px 0 0 0;">Se ao colar aparecerem espaços entre letras, apague-os.</p>
                      </div>
                     <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;"><strong>Importante:</strong> Ao fazer login com esta senha, você será solicitado a criar uma nova senha segura.</p>
@@ -196,7 +195,7 @@ Deno.serve(async (req) => {
                 </tr>
                 <tr>
                   <td style="background-color: #f9fafb; padding: 20px 40px; text-align: center; border-top: 1px solid #e5e7eb;">
-                    <p style="color: #9ca3af; font-size: 12px; margin: 0;">© 2024 Morphews CRM. Todos os direitos reservados.</p>
+                    <p style="color: #9ca3af; font-size: 12px; margin: 0;">© 2024 Atomic Sales. Todos os direitos reservados.</p>
                   </td>
                 </tr>
               </table>
@@ -214,9 +213,9 @@ Deno.serve(async (req) => {
         "Authorization": `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: "Morphews CRM <contato@morphews.com>",
+        from: "Atomic Sales <noreply@atomic.ia.br>",
         to: [email],
-        subject: "Sua Senha Provisória - Morphews CRM",
+        subject: "Sua Senha Provisória - Atomic Sales",
         html: emailHtml,
       }),
     });

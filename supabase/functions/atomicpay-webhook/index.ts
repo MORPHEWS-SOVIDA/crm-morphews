@@ -274,21 +274,21 @@ serve(async (req) => {
               Authorization: `Bearer ${RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-              from: "Morphews CRM <noreply@morphews.com>",
+               from: "Atomic Sales <noreply@atomic.ia.br>",
               to: [email],
-              subject: "🎉 Bem-vindo ao Morphews CRM!",
+              subject: "🎉 Bem-vindo ao Atomic Sales!",
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h1>Bem-vindo ao Morphews CRM!</h1>
+                  <h1>Bem-vindo ao Atomic Sales!</h1>
                   <p>Olá ${name || ""},</p>
                   <p>Sua conta foi criada com sucesso! Aqui estão seus dados de acesso:</p>
                   <div style="background: #f4f4f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
                     <p><strong>Email:</strong> ${email}</p>
                     <p><strong>Senha temporária:</strong> ${tempPassword}</p>
                   </div>
-                  <p>Acesse agora: <a href="https://crm.morphews.com/login">https://crm.morphews.com/login</a></p>
+                  <p>Acesse agora: <a href="https://atomic.ia.br/login">https://atomic.ia.br/login</a></p>
                   <p>Você será solicitado a alterar sua senha no primeiro acesso.</p>
-                  <p>Atenciosamente,<br>Equipe Morphews</p>
+                  <p>Atenciosamente,<br>Equipe Atomic Sales</p>
                 </div>
               `,
             }),

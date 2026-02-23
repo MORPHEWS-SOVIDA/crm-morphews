@@ -18,7 +18,7 @@ const EMAIL_TEMPLATES = {
     subject: "⚠️ Ação necessária: Seu pagamento está pendente",
     content: `
       <h1>Olá {{nome}}!</h1>
-      <p>Notamos que o pagamento da sua assinatura do <strong>Morphews CRM</strong> não foi processado.</p>
+      <p>Notamos que o pagamento da sua assinatura do <strong>Atomic Sales</strong> não foi processado.</p>
       <p>Para evitar a interrupção do seu acesso, pedimos que regularize o pagamento o mais rápido possível.</p>
       
       <div style="background: #FEF3C7; border-left: 4px solid #F59E0B; padding: 16px; margin: 20px 0; border-radius: 4px;">
@@ -35,14 +35,14 @@ const EMAIL_TEMPLATES = {
       
       <p>Se precisar de ajuda, responda este email ou fale conosco pelo WhatsApp.</p>
       
-      <p>Atenciosamente,<br/><strong>Equipe Morphews</strong></p>
+      <p>Atenciosamente,<br/><strong>Equipe Atomic Sales</strong></p>
     `,
   },
   day_7: {
     subject: "🚨 Último aviso: Sua assinatura será suspensa",
     content: `
       <h1>Olá {{nome}}!</h1>
-      <p>Este é um <strong>aviso urgente</strong> sobre sua assinatura do Morphews CRM.</p>
+      <p>Este é um <strong>aviso urgente</strong> sobre sua assinatura do Atomic Sales.</p>
       
       <div style="background: #FEE2E2; border-left: 4px solid #EF4444; padding: 16px; margin: 20px 0; border-radius: 4px;">
         <strong>🚨 Atenção:</strong><br/>
@@ -59,21 +59,21 @@ const EMAIL_TEMPLATES = {
       
       <p><strong>Regularize agora para evitar a perda de acesso:</strong></p>
       <ol>
-        <li>Acesse o CRM: <a href="https://crm.morphews.com">crm.morphews.com</a></li>
+        <li>Acesse o CRM: <a href="https://atomic.ia.br">atomic.ia.br</a></li>
         <li>Vá em <strong>Minha Equipe</strong> → <strong>Minha Assinatura</strong></li>
         <li>Clique em <strong>"Gerenciar Assinatura"</strong></li>
       </ol>
       
       <p>Se você já regularizou o pagamento, por favor desconsidere este email.</p>
       
-      <p>Estamos à disposição para ajudar.<br/><strong>Equipe Morphews</strong></p>
+      <p>Estamos à disposição para ajudar.<br/><strong>Equipe Atomic Sales</strong></p>
     `,
   },
   day_14: {
     subject: "❌ Sua conta foi suspensa por falta de pagamento",
     content: `
       <h1>Olá {{nome}}!</h1>
-      <p>Infelizmente, sua conta no <strong>Morphews CRM</strong> foi suspensa por falta de pagamento.</p>
+      <p>Infelizmente, sua conta no <strong>Atomic Sales</strong> foi suspensa por falta de pagamento.</p>
       
       <div style="background: #FEE2E2; border-left: 4px solid #EF4444; padding: 16px; margin: 20px 0; border-radius: 4px;">
         <strong>❌ Conta Suspensa</strong><br/>
@@ -89,7 +89,7 @@ const EMAIL_TEMPLATES = {
       
       <p>Para reativar sua conta, entre em contato conosco pelo WhatsApp ou responda este email.</p>
       
-      <p>Sentimos sua falta!<br/><strong>Equipe Morphews</strong></p>
+      <p>Sentimos sua falta!<br/><strong>Equipe Atomic Sales</strong></p>
     `,
   },
 };
@@ -141,13 +141,13 @@ function wrapEmailTemplate(content: string): string {
 </head>
 <body>
   <div class="header">
-    <img src="https://crm.morphews.com/images/logo-morphews-email.png" alt="Morphews CRM" />
+    <img src="https://atomic.ia.br/images/logo-atomic-email.png" alt="Atomic Sales" />
   </div>
   <div class="content">
     ${content}
   </div>
   <div class="footer">
-    <p>© ${new Date().getFullYear()} Morphews CRM - Todos os direitos reservados</p>
+    <p>© ${new Date().getFullYear()} Atomic Sales - Todos os direitos reservados</p>
   </div>
 </body>
 </html>
@@ -183,7 +183,7 @@ async function sendEmail(
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Morphews CRM <noreply@morphews.com>",
+        from: "Atomic Sales <noreply@atomic.ia.br>",
         to: [to],
         subject,
         html: wrapEmailTemplate(htmlContent),

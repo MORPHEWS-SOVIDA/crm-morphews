@@ -95,7 +95,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: `${org?.name || 'Loja'} <noreply@morphews.com.br>`,
+            from: `${org?.name || 'Loja'} <noreply@atomic.ia.br>`,
             to: [lead.email],
             subject: templates.email.subject,
             html: templates.email.html,

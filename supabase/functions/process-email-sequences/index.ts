@@ -170,7 +170,7 @@ serve(async (req) => {
         }
 
         // Send email via Resend HTTP API
-        const fromEmail = settings?.from_email || 'noreply@morphews.com.br';
+        const fromEmail = settings?.from_email || 'noreply@atomic.ia.br';
         const fromName = settings?.from_name || 'Loja';
 
         const emailRes = await fetch("https://api.resend.com/emails", {
