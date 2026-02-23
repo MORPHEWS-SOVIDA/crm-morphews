@@ -54,19 +54,24 @@ Deno.serve(async (req) => {
     const INTERNAL_AUTH_SECRET = Deno.env.get("INTERNAL_AUTH_SECRET");
     const authHeader = req.headers.get("authorization");
     let isAuthorized = false;
-
     if (INTERNAL_AUTH_SECRET && internalSecret === INTERNAL_AUTH_SECRET) {
       isAuthorized = true;
     } else if (authHeader?.startsWith("Bearer ")) {
-      const supabaseAnon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
-        global: { headers: { authorization: authHeader } },
-      });
-      const { data: userRes, error: userErr } = await supabaseAnon.auth.getUser();
-      if (!userErr && userRes?.user) {
-        const { data: isMasterAdmin } = await supabaseAdmin.rpc("is_master_admin", {
-          _user_id: userRes.user.id,
+      // Try service role key first
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (serviceKey && authHeader === `Bearer ${serviceKey}`) {
+        isAuthorized = true;
+      } else {
+        const supabaseAnon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+          global: { headers: { authorization: authHeader } },
         });
-        if (isMasterAdmin) isAuthorized = true;
+        const { data: userRes, error: userErr } = await supabaseAnon.auth.getUser();
+        if (!userErr && userRes?.user) {
+          const { data: isMasterAdmin } = await supabaseAdmin.rpc("is_master_admin", {
+            _user_id: userRes.user.id,
+          });
+          if (isMasterAdmin) isAuthorized = true;
+        }
       }
     }
 

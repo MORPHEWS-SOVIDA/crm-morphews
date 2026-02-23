@@ -236,14 +236,27 @@ export function AllUsersTab() {
   const handleSendCredentials = async (user: FullProfile) => {
     try {
       setSendingCredentialsFor(user.user_id);
-      const { data, error } = await supabase.functions.invoke("admin-send-credentials", {
-        body: {
+      
+      // Use fetch direto para garantir envio do JWT no header Authorization
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão não encontrada');
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-send-credentials`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
           userId: user.user_id,
           sendEmail: true,
           sendWhatsapp: true,
-        },
+        }),
       });
-      if (error) throw error;
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Erro ao enviar credenciais');
       const results = [];
       if (data?.emailSent) results.push("📧 Email");
       if (data?.whatsappSent) results.push("📱 WhatsApp");
