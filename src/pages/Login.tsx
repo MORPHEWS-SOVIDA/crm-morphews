@@ -191,9 +191,17 @@ export default function Login() {
           </form>
         </div>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Não tem acesso? Fale com o administrador.
-        </p>
+        <div className="text-center mt-6 space-y-2">
+          <Link
+            to="/forgot-password"
+            className="text-sm text-primary hover:underline block"
+          >
+            Esqueceu a senha? Receber senha provisória
+          </Link>
+          <p className="text-sm text-muted-foreground">
+            Não tem acesso? Fale com o administrador.
+          </p>
+        </div>
       </div>
     </div>
   );
