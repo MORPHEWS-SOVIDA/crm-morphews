@@ -44,8 +44,8 @@ export function PaymentActionsBar({
   // Check features and permissions
   const hasPaymentLinks = orgFeatures?.payment_links !== false;
   const hasTelesales = orgFeatures?.telesales !== false;
-  const canCreateLinks = isAdmin || permissions?.payment_gateways_manage;
-  const canTelesales = isAdmin || permissions?.telesales_manage;
+  const canCreateLinks = isAdmin || permissions?.payment_links_create;
+  const canTelesales = isAdmin || permissions?.telesales_charge_card;
 
   // If no payment features available, don't render
   if ((!hasPaymentLinks || !canCreateLinks) && (!hasTelesales || !canTelesales)) {
