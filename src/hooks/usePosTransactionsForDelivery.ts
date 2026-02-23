@@ -122,6 +122,10 @@ export function useConfirmDeliveryPayment() {
         .eq('id', saleId);
       
       if (error) throw error;
+
+      // Ensure delivered checkpoint is created for "Etapas da Venda" card
+      const { ensureDeliveredCheckpoint } = await import('@/utils/ensureDeliveredCheckpoint');
+      await ensureDeliveredCheckpoint(saleId, user.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-deliveries'] });
