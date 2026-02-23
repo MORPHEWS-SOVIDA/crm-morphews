@@ -25,16 +25,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create client with user's token to verify they are admin
-    const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    // Get current user
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !user) {
+    // Extract and validate Bearer token
+    const jwtToken = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!jwtToken) {
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Malformed authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create client with anon key for JWT validation
+    const supabaseUser = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
+
+    // Validate token claims (signing-keys compatible)
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(jwtToken);
+    const userId = claimsData?.claims?.sub;
+    const userEmail = claimsData?.claims?.email;
+
+    if (claimsError || !userId) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized", details: claimsError?.message || "Invalid token claims" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -46,7 +56,7 @@ Deno.serve(async (req) => {
     const { data: isAdmin, error: adminError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("role", "admin")
       .maybeSingle();
 
@@ -114,7 +124,7 @@ Deno.serve(async (req) => {
       .eq("user_id", targetUserId || linkData.user.id)
       .maybeSingle();
 
-    console.log(`[admin-impersonate] Admin ${user.email} impersonating ${email}`);
+    console.log(`[admin-impersonate] Admin ${userEmail || userId} impersonating ${email}`);
 
     return new Response(
       JSON.stringify({
@@ -130,8 +140,8 @@ Deno.serve(async (req) => {
             : email,
         },
         adminUser: {
-          id: user.id,
-          email: user.email,
+          id: String(userId),
+          email: typeof userEmail === "string" ? userEmail : "",
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

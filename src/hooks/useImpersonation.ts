@@ -28,26 +28,37 @@ export function useImpersonation() {
       console.log('[Impersonation] Starting impersonation for user:', targetUserId);
       
       // Get current admin session to save for later
-      const { data: { session: adminSession } } = await supabase.auth.getSession();
-      if (!adminSession) {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession) {
         throw new Error('Você precisa estar logado como admin');
+      }
+
+      // Force-refresh token to avoid using a revoked/stale access token
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      const adminSession = refreshData.session ?? currentSession;
+      if (refreshError) {
+        console.warn('[Impersonation] Token refresh warning, proceeding with current session:', refreshError.message);
       }
 
       console.log('[Impersonation] Admin session found, calling edge function...');
 
-      // Call the impersonation edge function - explicitly pass auth header for custom domains
-      const { data, error } = await supabase.functions.invoke<ImpersonationResult>('admin-impersonate', {
-        body: { targetUserId },
+      // Call edge function directly to guarantee Authorization header forwarding on custom domains
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-impersonate`, {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           Authorization: `Bearer ${adminSession.access_token}`,
         },
+        body: JSON.stringify({ targetUserId }),
       });
 
-      console.log('[Impersonation] Edge function response:', { data, error });
+      const data = (await response.json()) as ImpersonationResult & { error?: string; details?: string };
 
-      if (error) {
-        console.error('[Impersonation] Edge function error:', error);
-        throw new Error(error.message || 'Erro na função de impersonação');
+      console.log('[Impersonation] Edge function response:', { status: response.status, data });
+
+      if (!response.ok) {
+        throw new Error(data?.error || data?.details || 'Erro na função de impersonação');
       }
       
       if (!data?.success) {
