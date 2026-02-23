@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Users, Loader2, Pencil, Trash2, Building2, Search, UserX, Mail, Phone, Eye, KeyRound } from "lucide-react";
+import { Users, Loader2, Pencil, Trash2, Building2, Search, UserX, Mail, Phone, Eye, KeyRound, Send } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useImpersonation } from "@/hooks/useImpersonation";
 
@@ -62,6 +62,7 @@ export function AllUsersTab() {
   const [userToDelete, setUserToDelete] = useState<FullProfile | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [sendingCredentialsFor, setSendingCredentialsFor] = useState<string | null>(null);
   const { impersonateUser, isLoading: isImpersonating } = useImpersonation();
 
   const { data: allProfiles, isLoading: profilesLoading } = useQuery({
@@ -231,6 +232,37 @@ export function AllUsersTab() {
       });
     },
   });
+
+  const handleSendCredentials = async (user: FullProfile) => {
+    try {
+      setSendingCredentialsFor(user.user_id);
+      const { data, error } = await supabase.functions.invoke("admin-send-credentials", {
+        body: {
+          userId: user.user_id,
+          sendEmail: true,
+          sendWhatsapp: true,
+        },
+      });
+      if (error) throw error;
+      const results = [];
+      if (data?.emailSent) results.push("📧 Email");
+      if (data?.whatsappSent) results.push("📱 WhatsApp");
+      toast({
+        title: "Credenciais enviadas!",
+        description: results.length > 0
+          ? `Enviado via: ${results.join(", ")}`
+          : `Senha provisória: ${data?.tempPassword || "gerada"}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao enviar credenciais",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingCredentialsFor(null);
+    }
+  };
 
   const openEditDialog = (user: FullProfile) => {
     setEditForm({
@@ -605,6 +637,20 @@ export function AllUsersTab() {
                               className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                             >
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Reenviar credenciais (email + WhatsApp)"
+                              onClick={() => handleSendCredentials(profile)}
+                              disabled={sendingCredentialsFor === profile.user_id}
+                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                            >
+                              {sendingCredentialsFor === profile.user_id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
                             </Button>
                             <Button
                               variant="ghost"
