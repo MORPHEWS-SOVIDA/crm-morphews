@@ -14669,6 +14669,9 @@ export type Database = {
           checkout_url: string | null
           closed_at: string | null
           closed_by: string | null
+          closing_modification_reason: string | null
+          closing_modified_at: string | null
+          closing_modified_by: string | null
           conference_completed_at: string | null
           conference_completed_by: string | null
           conversion_sent_at: string | null
@@ -14708,6 +14711,7 @@ export type Database = {
           invoice_xml_url: string | null
           lead_id: string
           missing_payment_proof: boolean | null
+          modified_at_closing: boolean | null
           motoboy_tracking_status:
             | Database["public"]["Enums"]["motoboy_tracking_status"]
             | null
@@ -14769,6 +14773,9 @@ export type Database = {
           checkout_url?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          closing_modification_reason?: string | null
+          closing_modified_at?: string | null
+          closing_modified_by?: string | null
           conference_completed_at?: string | null
           conference_completed_by?: string | null
           conversion_sent_at?: string | null
@@ -14810,6 +14817,7 @@ export type Database = {
           invoice_xml_url?: string | null
           lead_id: string
           missing_payment_proof?: boolean | null
+          modified_at_closing?: boolean | null
           motoboy_tracking_status?:
             | Database["public"]["Enums"]["motoboy_tracking_status"]
             | null
@@ -14871,6 +14879,9 @@ export type Database = {
           checkout_url?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          closing_modification_reason?: string | null
+          closing_modified_at?: string | null
+          closing_modified_by?: string | null
           conference_completed_at?: string | null
           conference_completed_by?: string | null
           conversion_sent_at?: string | null
@@ -14912,6 +14923,7 @@ export type Database = {
           invoice_xml_url?: string | null
           lead_id?: string
           missing_payment_proof?: boolean | null
+          modified_at_closing?: boolean | null
           motoboy_tracking_status?:
             | Database["public"]["Enums"]["motoboy_tracking_status"]
             | null
