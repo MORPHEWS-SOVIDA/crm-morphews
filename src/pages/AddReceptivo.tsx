@@ -1069,6 +1069,10 @@ export default function AddReceptivo() {
   };
 
   const handleGoToConversation = async () => {
+    // Track the lead ID locally so we can use it in the attendance creation below
+    // (React setState is async so leadData.id would be stale in the same function)
+    let resolvedLeadId = leadData.id;
+
     // For new leads, create the lead immediately so leadId is available for product questions
     if (!leadData.existed && !leadData.id && tenantId && user) {
       if (!leadData.name.trim()) {
@@ -1102,6 +1106,8 @@ export default function AddReceptivo() {
           .single();
 
         if (leadError) throw leadError;
+        
+        resolvedLeadId = newLead.id;
         
         // CRITICAL: Also create the lead_responsible entry so the user is tracked as responsible
         const { error: responsibleError } = await supabase
@@ -1168,12 +1174,13 @@ export default function AddReceptivo() {
     setCurrentStep('conversation');
     
     // Create attendance early so it's recorded even if seller exits
+    // Use resolvedLeadId instead of leadData.id to avoid stale closure value
     if (!attendanceId && tenantId && user) {
       try {
         const result = await createAttendance.mutateAsync({
           organization_id: tenantId,
           user_id: user.id,
-          lead_id: leadData.id || null,
+          lead_id: resolvedLeadId || null,
           phone_searched: leadData.whatsapp || phoneInput,
           lead_existed: leadData.existed,
           conversation_mode: conversationMode || null,
@@ -1197,6 +1204,26 @@ export default function AddReceptivo() {
     if (!conversationMode) {
       toast({ title: 'Selecione o modo de conversa', variant: 'destructive' });
       return;
+    }
+
+    // CRITICAL: Ensure lead exists in DB before proceeding to product step.
+    // handlePhoneSearch skips lead_info step, so handleGoToConversation (which creates the lead)
+    // may never be called. We must create the lead here if it doesn't exist yet.
+    if (!leadData.id && !leadData.existed && tenantId && user) {
+      if (!leadData.name.trim()) {
+        toast({ title: 'Informe o nome do cliente', variant: 'destructive' });
+        return;
+      }
+      try {
+        const leadId = await ensureLeadExists();
+        if (!leadId) {
+          toast({ title: 'Erro ao criar lead', description: 'Não foi possível salvar o cliente. Tente novamente.', variant: 'destructive' });
+          return;
+        }
+      } catch (error: unknown) {
+        toast({ title: 'Erro ao criar lead', description: getErrorMessage(error), variant: 'destructive' });
+        return;
+      }
     }
 
     // Update attendance with conversation mode if it was created early without it
@@ -1287,14 +1314,24 @@ export default function AddReceptivo() {
       return;
     }
     
-    if (!leadData.id) {
-      toast({ title: 'Erro', description: 'Lead não identificado. Volte e pesquise o cliente novamente.', variant: 'destructive' });
-      return;
+    // Fallback: ensure lead exists before rejecting kit
+    let leadIdForRejection = leadData.id;
+    if (!leadIdForRejection) {
+      try {
+        leadIdForRejection = await ensureLeadExists() || undefined;
+      } catch (error: unknown) {
+        toast({ title: 'Erro', description: 'Não foi possível criar o lead. Tente novamente.', variant: 'destructive' });
+        return;
+      }
+      if (!leadIdForRejection) {
+        toast({ title: 'Erro', description: 'Lead não identificado. Volte e pesquise o cliente novamente.', variant: 'destructive' });
+        return;
+      }
     }
 
     try {
       await createKitRejection.mutateAsync({
-        lead_id: leadData.id,
+        lead_id: leadIdForRejection,
         product_id: currentProductId,
         kit_id: currentKit.id,
         kit_quantity: currentKit.quantity,
