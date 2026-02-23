@@ -224,7 +224,12 @@ Deno.serve(async (req) => {
     
     if (!emailResponse.ok) {
       console.error("Resend error:", emailData);
-      throw new Error("Erro ao enviar email");
+      // Email failed but password was already changed - return success with temp password so admin can share it
+      console.log("EMAIL_FAILED_TEMP_PASSWORD:", tempPassword);
+      return new Response(
+        JSON.stringify({ success: true, message: "Email falhou, mas a senha foi alterada.", tempPassword }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     console.log("Email sent successfully:", emailData);
