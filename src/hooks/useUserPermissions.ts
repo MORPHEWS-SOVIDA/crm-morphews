@@ -404,10 +404,13 @@ export function useUpdateUserPermissions() {
     mutationFn: async ({ userId, permissions }: { userId: string; permissions: Partial<UserPermissions> }) => {
       if (!tenantId) throw new Error('Tenant não encontrado');
       
+      // Strip non-updatable fields to avoid 400 errors
+      const { id, organization_id, user_id, created_at, updated_at, ...updateData } = permissions as any;
+      
       const { error } = await supabase
         .from('user_permissions')
         .update({
-          ...permissions,
+          ...updateData,
           updated_at: new Date().toISOString(),
         })
         .eq('organization_id', tenantId)
