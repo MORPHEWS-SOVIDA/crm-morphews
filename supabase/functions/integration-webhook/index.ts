@@ -881,6 +881,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ========== NAME SAFETY CHECK ==========
+    // Ensure we're using customer name, not product name
+    // If payload has customer.name, always prefer it over whatever was mapped
+    const customerNameFromPayload = extractNestedValue(payload, 'customer.name') 
+      || extractNestedValue(payload, 'customer.nome');
+    if (customerNameFromPayload && typeof customerNameFromPayload === 'string' && customerNameFromPayload.trim()) {
+      const currentName = leadData.name;
+      // Check if current name looks like a product name (contains product-like keywords)
+      const productPatterns = /\b(frasco|frascos|combo|kit|ebook|cápsula|capsulas|unidade|unidades|pacote|dose|sachê|tablete)\b/i;
+      if (!currentName || productPatterns.test(currentName)) {
+        console.log(`[NAME SAFETY] Correcting name from "${currentName}" to customer name "${customerNameFromPayload}"`);
+        leadData.name = customerNameFromPayload.trim();
+      }
+    }
+
     // ========== ENHANCED WHATSAPP FALLBACK ==========
     // If no whatsapp found via mappings, try aggressive auto-detection
     if (!leadData.whatsapp) {
@@ -1025,7 +1040,22 @@ Deno.serve(async (req) => {
 
       // Update other fields if provided (name, email, cpf_cnpj, etc.) - don't overwrite with nulls
       if (leadData.name && leadData.name !== existingLead.name) {
-        updateData.name = leadData.name;
+        // Don't overwrite a real customer name with a product name
+        const productPatterns = /\b(frasco|frascos|combo|kit|ebook|cápsula|capsulas|unidade|unidades|pacote|dose|sachê|tablete)\b/i;
+        const newNameIsProduct = productPatterns.test(leadData.name);
+        const existingNameIsProduct = productPatterns.test(existingLead.name);
+        
+        if (!newNameIsProduct) {
+          // New name looks like a real name - always use it
+          updateData.name = leadData.name;
+          console.log(`Updating lead name: "${existingLead.name}" -> "${leadData.name}"`);
+        } else if (existingNameIsProduct) {
+          // Both look like product names - still use the new one (might be from a better source)
+          updateData.name = leadData.name;
+          console.log(`Both names look like products, updating anyway: "${existingLead.name}" -> "${leadData.name}"`);
+        } else {
+          console.log(`[NAME SAFETY] Skipping name update - new name "${leadData.name}" looks like a product name, keeping "${existingLead.name}"`);
+        }
       }
       if (leadData.email && !updateData.email) {
         updateData.email = leadData.email;
