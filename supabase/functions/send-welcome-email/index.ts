@@ -50,10 +50,10 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("RESEND_API_KEY is not configured");
     }
 
-    const loginUrl = "https://crm.morphews.com/login";
+    const loginUrl = "https://atomic.ia.br/login";
     
     // Use white label branding if provided, otherwise use Morphews defaults
-    const brandName = whiteLabelBranding?.brand_name || "Morphews CRM";
+    const brandName = whiteLabelBranding?.brand_name || "Atomic Sales";
     const primaryColor = whiteLabelBranding?.primary_color || "#667eea";
     const secondaryColor = "#764ba2";
     const fromName = whiteLabelBranding?.email_from_name || brandName;
@@ -115,7 +115,7 @@ const handler = async (req: Request): Promise<Response> => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: `${fromName} <noreply@morphews.com>`,
+        from: `${fromName} <noreply@atomic.ia.br>`,
         to: [email],
         subject: `🎉 Bem-vindo ao ${brandName} - Suas credenciais de acesso`,
         html: emailHtml,
