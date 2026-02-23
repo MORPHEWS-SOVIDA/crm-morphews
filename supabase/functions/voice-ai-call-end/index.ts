@@ -46,7 +46,7 @@ serve(async (req) => {
       throw new Error("Call ID is required");
     }
 
-    // Update call record
+    // Update call record in voice_ai_calls
     const { data: callRecord, error: updateError } = await supabase
       .from("voice_ai_calls")
       .update({
@@ -70,9 +70,33 @@ serve(async (req) => {
       throw new Error("Failed to update call record");
     }
 
+    // Also update voice_ai_call_logs if there's a matching record (syncs dashboard)
+    if (callRecord.organization_id) {
+      const minutesConsumed = durationSeconds ? Math.ceil(durationSeconds / 60) : 0;
+      
+      const { error: logUpdateError } = await supabase
+        .from("voice_ai_call_logs")
+        .update({
+          status: "completed",
+          ended_at: new Date().toISOString(),
+          duration_seconds: durationSeconds || 0,
+          minutes_consumed: minutesConsumed,
+          transcription: transcript,
+          transcription_summary: summary,
+          sentiment,
+          outcome,
+          outcome_notes: outcomeNotes,
+        })
+        .eq("twilio_call_sid", callId)
+        .eq("organization_id", callRecord.organization_id);
+
+      if (logUpdateError) {
+        console.warn("Could not update voice_ai_call_logs:", logUpdateError.message);
+      }
+    }
+
     // If there's a next action with a lead, create a follow-up task
     if (callRecord.lead_id && nextAction && nextActionDate) {
-      // Could create a task/reminder here in the future
       console.log("Next action scheduled:", nextAction, "for", nextActionDate);
     }
 
