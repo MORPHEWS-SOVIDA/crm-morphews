@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
         "Authorization": `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({
-        from: "Atomic Sales <onboarding@resend.dev>",
+        from: "Atomic Sales <noreply@updates.atomic.ia.br>",
         to: [email],
         subject: "Sua Senha Provisória - Atomic Sales",
         html: emailHtml,
