@@ -17,36 +17,7 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-async function extractUsernamesFromScreenshot(
-  url: string,
-  supabase: ReturnType<typeof createClient>,
-  LOVABLE_API_KEY: string
-): Promise<string[]> {
-  try {
-    const filePath = url.replace(/^.*social-selling-prints\//, "");
-    const { data: signedData } = await supabase.storage
-      .from("social-selling-prints")
-      .createSignedUrl(filePath, 3600);
-
-    if (!signedData?.signedUrl) return [];
-
-    const imgResponse = await fetch(signedData.signedUrl);
-    const imgBuffer = await imgResponse.arrayBuffer();
-    const base64 = uint8ArrayToBase64(new Uint8Array(imgBuffer));
-    const mimeType = imgResponse.headers.get("content-type") || "image/png";
-
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert Instagram DM screenshot analyzer. Extract EVERY Instagram USERNAME (handle) from the screenshot.
+const SYSTEM_PROMPT = `You are an expert Instagram DM screenshot analyzer. Extract EVERY Instagram USERNAME (handle) from the screenshot.
 
 CRITICAL DISTINCTION:
 - Instagram has TWO text fields per conversation row:
@@ -62,8 +33,102 @@ RULES:
 - Include partially visible rows at the edges
 
 Return ONLY a valid JSON array. Example: ["dr.monteze", "nutri.maria", "joao_silva", "dra_carla99"]
-Return [] only if the image is completely unreadable.`
-          },
+Return [] only if the image is completely unreadable.`;
+
+// STRICT validator: Instagram handles allow ONLY a-z, 0-9, dots and underscores
+const isValidHandle = (u: string) => /^[a-z0-9._]{1,30}$/.test(u);
+
+function normalizeAndFilter(arr: unknown[]): string[] {
+  const results: string[] = [];
+  for (const item of arr) {
+    const raw = String(item).toLowerCase().trim().replace(/^@/, "");
+    if (isValidHandle(raw)) {
+      results.push(raw);
+    } else {
+      console.warn(`[REJECTED] Invalid handle: "${raw}"`);
+    }
+  }
+  return results;
+}
+
+function parseUsernames(content: string): string[] {
+  const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (Array.isArray(parsed)) return normalizeAndFilter(parsed);
+  } catch {
+    const match = cleaned.match(/\[[\s\S]*\]/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (Array.isArray(parsed)) return normalizeAndFilter(parsed);
+      } catch {
+        console.warn("Failed to parse extracted JSON:", match[0].substring(0, 200));
+      }
+    } else {
+      console.warn("No JSON array found in AI response:", cleaned.substring(0, 200));
+    }
+  }
+  return [];
+}
+
+async function extractUsernamesFromScreenshot(
+  filePath: string,
+  supabase: ReturnType<typeof createClient>,
+  LOVABLE_API_KEY: string
+): Promise<string[]> {
+  console.log(`[EXTRACT] Processing file: ${filePath}`);
+  
+  try {
+    // Generate signed URL
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from("social-selling-prints")
+      .createSignedUrl(filePath, 3600);
+
+    if (signedError) {
+      console.error(`[EXTRACT] SignedUrl error for ${filePath}:`, signedError.message);
+      return [];
+    }
+
+    if (!signedData?.signedUrl) {
+      console.error(`[EXTRACT] No signed URL returned for ${filePath}`);
+      return [];
+    }
+
+    console.log(`[EXTRACT] Got signed URL, downloading image...`);
+
+    // Download image
+    const imgResponse = await fetch(signedData.signedUrl);
+    if (!imgResponse.ok) {
+      console.error(`[EXTRACT] Image download failed: ${imgResponse.status} ${imgResponse.statusText}`);
+      return [];
+    }
+
+    const imgBuffer = await imgResponse.arrayBuffer();
+    const imgSize = imgBuffer.byteLength;
+    console.log(`[EXTRACT] Image downloaded: ${imgSize} bytes`);
+
+    if (imgSize < 100) {
+      console.error(`[EXTRACT] Image too small (${imgSize} bytes), skipping`);
+      return [];
+    }
+
+    const base64 = uint8ArrayToBase64(new Uint8Array(imgBuffer));
+    const mimeType = imgResponse.headers.get("content-type") || "image/jpeg";
+
+    console.log(`[EXTRACT] Calling AI (mime: ${mimeType}, base64 length: ${base64.length})...`);
+
+    // Call AI
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
           {
             role: "user",
             content: [
@@ -82,60 +147,20 @@ Return [] only if the image is completely unreadable.`
     });
 
     if (!aiResponse.ok) {
-      console.error("AI error:", await aiResponse.text());
+      const errText = await aiResponse.text();
+      console.error(`[EXTRACT] AI error ${aiResponse.status}: ${errText.substring(0, 300)}`);
       return [];
     }
 
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || "[]";
-    const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    console.log(`[EXTRACT] AI response: ${content.substring(0, 300)}`);
 
-    // STRICT validator: Instagram handles allow ONLY a-z, 0-9, dots and underscores
-    // NO spaces, NO pipes, NO accents, NO hyphens, NO special chars
-    const isValidHandle = (u: string) => /^[a-z0-9._]{1,30}$/.test(u);
-
-    const normalizeAndFilter = (arr: unknown[]): string[] => {
-      const results: string[] = [];
-      for (const item of arr) {
-        const raw = String(item).toLowerCase().trim().replace(/^@/, "");
-        if (isValidHandle(raw)) {
-          results.push(raw);
-        } else {
-          console.warn(`[REJECTED] Invalid handle (display name?): "${raw}"`);
-        }
-      }
-      return results;
-    };
-
-    const parseUsernames = (raw: string): string[] => {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          return normalizeAndFilter(parsed);
-        }
-      } catch {
-        const match = raw.match(/\[[\s\S]*\]/);
-        if (match) {
-          try {
-            const parsed = JSON.parse(match[0]);
-            if (Array.isArray(parsed)) {
-              return normalizeAndFilter(parsed);
-            }
-          } catch {
-            console.warn("Failed to parse extracted JSON:", match[0]);
-          }
-        } else {
-          console.warn("Failed to parse AI response:", content.substring(0, 200));
-        }
-      }
-      return [];
-    };
-
-    const valid = parseUsernames(cleaned);
-    console.log(`Screenshot extracted ${valid.length} valid usernames`);
+    const valid = parseUsernames(content);
+    console.log(`[EXTRACT] File ${filePath} => ${valid.length} valid usernames: ${valid.join(", ")}`);
     return valid;
   } catch (err) {
-    console.error("Error processing screenshot:", err);
+    console.error(`[EXTRACT] Exception for ${filePath}:`, err);
     return [];
   }
 }
@@ -168,6 +193,8 @@ serve(async (req) => {
     const { import_id } = await req.json();
     if (!import_id) throw new Error("import_id required");
 
+    console.log(`[MAIN] Processing import: ${import_id}`);
+
     const { data: importRecord, error: importErr } = await supabase
       .from("social_selling_imports")
       .select("*, social_sellers(name), social_selling_profiles(instagram_username)")
@@ -175,26 +202,42 @@ serve(async (req) => {
       .eq("organization_id", profile.organization_id)
       .single();
 
-    if (importErr || !importRecord) throw new Error("Import not found");
+    if (importErr || !importRecord) {
+      console.error("[MAIN] Import not found:", importErr?.message);
+      throw new Error("Import not found");
+    }
 
     await supabase
       .from("social_selling_imports")
       .update({ status: "processing" })
       .eq("id", import_id);
 
-    const screenshotUrls = importRecord.screenshot_urls || [];
+    const screenshotUrls: string[] = importRecord.screenshot_urls || [];
+    console.log(`[MAIN] Found ${screenshotUrls.length} screenshots:`, screenshotUrls.slice(0, 3));
 
-    // Process ALL screenshots in PARALLEL for speed
-    console.log(`Processing ${screenshotUrls.length} screenshots in parallel...`);
-    const results = await Promise.all(
-      screenshotUrls.map((url: string) =>
-        extractUsernamesFromScreenshot(url, supabase, LOVABLE_API_KEY)
-      )
-    );
+    // Process screenshots in parallel (batches of 5 to avoid overload)
+    const batchSize = 5;
+    const allUsernames: string[] = [];
 
-    const allUsernames = results.flat();
+    for (let i = 0; i < screenshotUrls.length; i += batchSize) {
+      const batch = screenshotUrls.slice(i, i + batchSize);
+      console.log(`[MAIN] Processing batch ${i / batchSize + 1} (${batch.length} screenshots)...`);
+      
+      const results = await Promise.all(
+        batch.map((url: string) => {
+          // Clean the file path - remove any full URL prefix
+          const filePath = url.includes("social-selling-prints/")
+            ? url.replace(/^.*social-selling-prints\//, "")
+            : url;
+          return extractUsernamesFromScreenshot(filePath, supabase, LOVABLE_API_KEY);
+        })
+      );
+      
+      allUsernames.push(...results.flat());
+    }
+
     const uniqueUsernames = [...new Set(allUsernames.filter(u => u.length > 0))];
-    console.log(`Total unique usernames extracted: ${uniqueUsernames.length}`);
+    console.log(`[MAIN] Total unique usernames: ${uniqueUsernames.length}`);
 
     // Get first funnel stage
     const { data: firstStage } = await supabase
@@ -209,7 +252,6 @@ serve(async (req) => {
     let leadsCreated = 0;
     let leadsSkipped = 0;
 
-    // Process leads sequentially to avoid race conditions on DB inserts
     for (const username of uniqueUsernames) {
       const { data: existingActivity } = await supabase
         .from("social_selling_activities")
@@ -254,7 +296,7 @@ serve(async (req) => {
           .single();
 
         if (leadErr) {
-          console.error("Error creating lead:", leadErr);
+          console.error("[MAIN] Error creating lead:", leadErr);
           continue;
         }
         leadId = newLead.id;
@@ -284,7 +326,7 @@ serve(async (req) => {
       })
       .eq("id", import_id);
 
-    console.log(`Done: ${leadsCreated} created, ${leadsSkipped} skipped`);
+    console.log(`[MAIN] Done: ${leadsCreated} created, ${leadsSkipped} skipped, ${uniqueUsernames.length} total`);
 
     return new Response(
       JSON.stringify({
@@ -297,7 +339,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("Error:", err);
+    console.error("[MAIN] Error:", err);
     const msg = err instanceof Error ? err.message : "Unknown error";
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,
