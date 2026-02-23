@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapPin, Star, ChevronDown, Plus, Truck, AlertTriangle, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -70,13 +70,15 @@ export function AddressSelector({ leadId, value, onChange }: AddressSelectorProp
     setEditingAddress(address);
   };
 
-  // Auto-select primary address if none selected
-  if (!value && addresses.length > 0 && !isLoading) {
-    const primary = addresses.find(a => a.is_primary) || addresses[0];
-    if (primary) {
-      onChange(primary.id, primary);
+  // Auto-select primary address if none selected — use useEffect to avoid setState during render
+  useEffect(() => {
+    if (!value && addresses.length > 0 && !isLoading) {
+      const primary = addresses.find(a => a.is_primary) || addresses[0];
+      if (primary) {
+        onChange(primary.id, primary);
+      }
     }
-  }
+  }, [value, addresses, isLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading) {
     return (
