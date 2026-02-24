@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   CheckCircle,
   Bike,
+  CheckCheck,
   Truck,
   Lock,
   Banknote,
@@ -70,22 +71,27 @@ interface DeliveryClosingPageProps {
 
 export default function DeliveryClosingPage({ closingType }: DeliveryClosingPageProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { data: permissions } = useMyPermissions();
   const config = closingTypeConfig[closingType];
   const IconComponent = iconMap[config.icon as keyof typeof iconMap] || Store;
   
-  const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
+  const initialTab = searchParams.get('tab') === 'historico' ? 'history' : 'new';
+  const [activeTab, setActiveTab] = useState<'new' | 'history'>(initialTab);
   const [selectedSales, setSelectedSales] = useState<Set<string>>(new Set());
   const [viewingClosingId, setViewingClosingId] = useState<string | null>(null);
   const [cashConfirmDialogOpen, setCashConfirmDialogOpen] = useState(false);
   const [pendingCashClosingId, setPendingCashClosingId] = useState<string | null>(null);
   const [pendingCashAmount, setPendingCashAmount] = useState(0);
   
-  // Filters
+  // Filters for new tab
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sellerFilter, setSellerFilter] = useState<string>('all');
+  
+  // Filters for history tab
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<string>('all');
 
   const { data: availableSales = [], isLoading: loadingSales } = useAvailableClosingSales(closingType);
   const { data: closings = [], isLoading: loadingClosings } = useDeliveryClosings(closingType);
@@ -98,6 +104,28 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   const canConfirmAuxiliar = permissions?.reports_view === true;
   // Admin confirmation still uses email check
   const canConfirmAdmin = canUserConfirmAdmin(userEmail, closingType);
+
+  // Sync tab with URL
+  useEffect(() => {
+    const tabParam = activeTab === 'history' ? 'historico' : null;
+    if (tabParam) {
+      setSearchParams({ tab: tabParam }, { replace: true });
+    } else {
+      searchParams.delete('tab');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [activeTab]);
+
+  // Filter closings for history tab
+  const filteredClosings = useMemo(() => {
+    if (historyStatusFilter === 'all') return closings;
+    if (historyStatusFilter === 'pending') return closings.filter(c => c.status === 'pending');
+    if (historyStatusFilter === 'confirmed_auxiliar') return closings.filter(c => c.status === 'confirmed_auxiliar');
+    if (historyStatusFilter === 'confirmed_final') return closings.filter(c => c.status === 'confirmed_final');
+    return closings;
+  }, [closings, historyStatusFilter]);
+
+  const pendingClosingsCount = useMemo(() => closings.filter(c => c.status !== 'confirmed_final').length, [closings]);
 
   const toggleSale = (saleId: string) => {
     setSelectedSales(prev => {
@@ -219,6 +247,28 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
     }
   };
 
+  const handleCreateClosingAll = async () => {
+    if (availableSales.length === 0) {
+      toast.error('Nenhuma venda pendente');
+      return;
+    }
+
+    try {
+      const closing = await createClosing.mutateAsync({
+        closingType,
+        sales: availableSales,
+      });
+      
+      toast.success(`Fechamento #${closing.closing_number} criado com ${availableSales.length} vendas!`);
+      setSelectedSales(new Set());
+      setViewingClosingId(closing.id);
+      setActiveTab('history');
+    } catch (error) {
+      toast.error('Erro ao criar fechamento');
+      console.error(error);
+    }
+  };
+
   const handleConfirm = async (closingId: string, type: 'auxiliar' | 'admin') => {
     // Check permission
     if (type === 'auxiliar' && !canConfirmAuxiliar) {
@@ -317,13 +367,28 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
           <Button variant="ghost" size="icon" onClick={() => navigate('/expedicao')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <IconComponent className={`w-6 h-6 ${colors.text}`} />
               {config.title}
             </h1>
             <p className="text-muted-foreground">{config.subtitle}</p>
           </div>
+          {/* Quick link to pending history */}
+          {activeTab === 'new' && pendingClosingsCount > 0 && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setActiveTab('history');
+                setHistoryStatusFilter('pending');
+              }}
+              className="border-yellow-300 text-yellow-700 hover:bg-yellow-50"
+            >
+              <History className="w-4 h-4 mr-1" />
+              {pendingClosingsCount} não conferido(s)
+            </Button>
+          )}
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'new' | 'history')}>
@@ -418,7 +483,21 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                       <>{availableSales.length} venda(s) disponível(eis) • {selectedSales.size} selecionada(s)</>
                     )}
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={handleCreateClosingAll}
+                      disabled={createClosing.isPending || availableSales.length === 0}
+                      className={colors.button}
+                    >
+                      {createClosing.isPending ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <CheckCheck className="w-4 h-4 mr-1" />
+                      )}
+                      Baixar Todas ({availableSales.length})
+                    </Button>
                     <Button variant="outline" size="sm" onClick={selectAll}>
                       Selecionar {hasActiveFilters ? 'Filtradas' : 'Todas'}
                     </Button>
@@ -493,22 +572,58 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
           </TabsContent>
 
           <TabsContent value="history" className="mt-6">
+            {/* History filters */}
+            <Card className="bg-muted/30 mb-4">
+              <CardContent className="py-3">
+                <div className="flex flex-col md:flex-row gap-3 items-center">
+                  <Select value={historyStatusFilter} onValueChange={setHistoryStatusFilter}>
+                    <SelectTrigger className="w-full md:w-[220px]">
+                      <Filter className="w-4 h-4 mr-2" />
+                      <SelectValue placeholder="Filtrar por status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos ({closings.length})</SelectItem>
+                      <SelectItem value="pending">⏳ Pendente ({closings.filter(c => c.status === 'pending').length})</SelectItem>
+                      <SelectItem value="confirmed_auxiliar">✓ Auxiliar Confirmou ({closings.filter(c => c.status === 'confirmed_auxiliar').length})</SelectItem>
+                      <SelectItem value="confirmed_final">✅ Confirmado ({closings.filter(c => c.status === 'confirmed_final').length})</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-muted-foreground flex-1">
+                    {filteredClosings.length} fechamento(s)
+                  </p>
+                  {historyStatusFilter !== 'all' && (
+                    <Button variant="ghost" size="sm" onClick={() => setHistoryStatusFilter('all')}>
+                      <X className="w-4 h-4 mr-1" />
+                      Limpar filtro
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {loadingClosings ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
-            ) : closings.length === 0 ? (
+            ) : filteredClosings.length === 0 ? (
               <Card>
                 <CardContent className="py-16 text-center text-muted-foreground">
                   <History className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                  <p className="text-lg font-medium">Nenhum fechamento realizado ainda</p>
+                  <p className="text-lg font-medium">
+                    {historyStatusFilter !== 'all' ? 'Nenhum fechamento com este status' : 'Nenhum fechamento realizado ainda'}
+                  </p>
+                  {historyStatusFilter !== 'all' && (
+                    <Button variant="link" onClick={() => setHistoryStatusFilter('all')} className="mt-2">
+                      Ver todos
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-4">
-                {closings.map(closing => (
+                {filteredClosings.map(closing => (
                   <Card 
-                    key={closing.id} 
+                    key={closing.id}
                     className={`transition-all ${viewingClosingId === closing.id ? `ring-2 ${colors.ring}` : ''}`}
                   >
                     <CardHeader className="pb-3">
