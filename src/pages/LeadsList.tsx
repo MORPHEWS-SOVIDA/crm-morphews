@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { normalizeInstagramHandle } from '@/lib/instagram';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
@@ -49,14 +50,19 @@ export default function LeadsList() {
 
     // Text search
     if (search) {
-      const searchLower = search.toLowerCase();
+      const searchLower = search.toLowerCase().replace(/^@/, '');
       filtered = filtered.filter(
-        (lead) =>
-          lead.name?.toLowerCase().includes(searchLower) ||
-          lead.specialty?.toLowerCase().includes(searchLower) ||
-          lead.instagram?.toLowerCase().includes(searchLower) ||
-          lead.email?.toLowerCase().includes(searchLower) ||
-          lead.whatsapp?.toLowerCase().includes(searchLower)
+        (lead) => {
+          const normalizedInsta = normalizeInstagramHandle(lead.instagram)?.toLowerCase() || '';
+          return (
+            lead.name?.toLowerCase().includes(searchLower) ||
+            lead.specialty?.toLowerCase().includes(searchLower) ||
+            normalizedInsta.includes(searchLower) ||
+            lead.instagram?.toLowerCase().includes(searchLower) ||
+            lead.email?.toLowerCase().includes(searchLower) ||
+            lead.whatsapp?.toLowerCase().includes(searchLower)
+          );
+        }
       );
     }
 
