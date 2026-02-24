@@ -148,13 +148,22 @@ export default function SocialSellingImport() {
       setIsProcessing(true);
 
       // Call edge function to process with AI
+      console.log('[Import] Calling edge function with import_id:', importRecord.id);
       const { data: processResult, error: processError } = await supabase.functions
         .invoke('process-social-selling-print', {
           body: { import_id: importRecord.id },
         });
 
+      console.log('[Import] Response:', JSON.stringify({ processResult, processError }));
+
       if (processError) {
-        toast.error('Erro ao processar prints com IA');
+        toast.error(`Erro ao processar: ${processError.message || 'erro desconhecido'}`);
+        setIsProcessing(false);
+        return;
+      }
+
+      if (processResult?.error) {
+        toast.error(`Erro: ${processResult.error}`);
         setIsProcessing(false);
         return;
       }
