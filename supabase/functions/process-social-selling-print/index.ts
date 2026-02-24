@@ -7,16 +7,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-  return btoa(binary);
-}
-
 const SYSTEM_PROMPT = `You are an expert Instagram DM screenshot analyzer. Extract EVERY Instagram USERNAME (handle) from the screenshot.
 
 CRITICAL DISTINCTION:
@@ -80,45 +70,58 @@ async function extractUsernamesFromScreenshot(
   console.log(`[EXTRACT] Processing file: ${filePath}`);
   
   try {
-    // Generate signed URL
+    // Generate a signed URL (valid 1 hour) - pass this directly to the AI
     const { data: signedData, error: signedError } = await supabase.storage
       .from("social-selling-prints")
       .createSignedUrl(filePath, 3600);
 
-    if (signedError) {
-      console.error(`[EXTRACT] SignedUrl error for ${filePath}:`, signedError.message);
+    if (signedError || !signedData?.signedUrl) {
+      console.error(`[EXTRACT] SignedUrl error for ${filePath}:`, signedError?.message || "No URL returned");
       return [];
     }
 
-    if (!signedData?.signedUrl) {
-      console.error(`[EXTRACT] No signed URL returned for ${filePath}`);
-      return [];
-    }
+    const signedUrl = signedData.signedUrl;
+    console.log(`[EXTRACT] Got signed URL for ${filePath}: ${signedUrl.substring(0, 80)}...`);
 
-    console.log(`[EXTRACT] Got signed URL, downloading image...`);
-
-    // Download image
-    const imgResponse = await fetch(signedData.signedUrl);
+    // Download the image to get base64 (AI gateway needs base64 for reliable processing)
+    const imgResponse = await fetch(signedUrl);
     if (!imgResponse.ok) {
-      console.error(`[EXTRACT] Image download failed: ${imgResponse.status} ${imgResponse.statusText}`);
+      console.error(`[EXTRACT] Image download FAILED for ${filePath}: ${imgResponse.status} ${imgResponse.statusText}`);
       return [];
     }
 
     const imgBuffer = await imgResponse.arrayBuffer();
-    const imgSize = imgBuffer.byteLength;
+    const imgBytes = new Uint8Array(imgBuffer);
+    const imgSize = imgBytes.length;
     console.log(`[EXTRACT] Image downloaded: ${imgSize} bytes`);
 
-    if (imgSize < 100) {
-      console.error(`[EXTRACT] Image too small (${imgSize} bytes), skipping`);
+    if (imgSize < 500) {
+      console.error(`[EXTRACT] Image too small (${imgSize} bytes), likely invalid. Skipping.`);
       return [];
     }
 
-    const base64 = uint8ArrayToBase64(new Uint8Array(imgBuffer));
-    const mimeType = imgResponse.headers.get("content-type") || "image/jpeg";
+    // Convert to base64 using chunked approach to avoid stack overflow
+    let binary = "";
+    const chunkSize = 8192;
+    for (let i = 0; i < imgBytes.length; i += chunkSize) {
+      const chunk = imgBytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64 = btoa(binary);
 
-    console.log(`[EXTRACT] Calling AI (mime: ${mimeType}, base64 length: ${base64.length})...`);
+    // Detect mime type from content-type header or file extension
+    let mimeType = imgResponse.headers.get("content-type") || "";
+    if (!mimeType || mimeType === "application/octet-stream") {
+      const ext = filePath.toLowerCase().split('.').pop();
+      if (ext === "png") mimeType = "image/png";
+      else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+      else if (ext === "webp") mimeType = "image/webp";
+      else mimeType = "image/jpeg"; // fallback
+    }
 
-    // Call AI
+    console.log(`[EXTRACT] Calling AI for ${filePath} (mime: ${mimeType}, base64 length: ${base64.length})...`);
+
+    // Call AI with base64 image
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -148,13 +151,13 @@ async function extractUsernamesFromScreenshot(
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      console.error(`[EXTRACT] AI error ${aiResponse.status}: ${errText.substring(0, 300)}`);
+      console.error(`[EXTRACT] AI API error ${aiResponse.status} for ${filePath}: ${errText.substring(0, 500)}`);
       return [];
     }
 
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || "[]";
-    console.log(`[EXTRACT] AI response: ${content.substring(0, 300)}`);
+    console.log(`[EXTRACT] AI response for ${filePath}: ${content.substring(0, 500)}`);
 
     const valid = parseUsernames(content);
     console.log(`[EXTRACT] File ${filePath} => ${valid.length} valid usernames: ${valid.join(", ")}`);
@@ -213,27 +216,24 @@ serve(async (req) => {
       .eq("id", import_id);
 
     const screenshotUrls: string[] = importRecord.screenshot_urls || [];
-    console.log(`[MAIN] Found ${screenshotUrls.length} screenshots:`, screenshotUrls.slice(0, 3));
+    console.log(`[MAIN] Found ${screenshotUrls.length} screenshots`);
 
-    // Process screenshots in parallel (batches of 5 to avoid overload)
-    const batchSize = 5;
+    // Process screenshots sequentially to avoid timeout and memory issues
     const allUsernames: string[] = [];
 
-    for (let i = 0; i < screenshotUrls.length; i += batchSize) {
-      const batch = screenshotUrls.slice(i, i + batchSize);
-      console.log(`[MAIN] Processing batch ${i / batchSize + 1} (${batch.length} screenshots)...`);
+    for (let i = 0; i < screenshotUrls.length; i++) {
+      const url = screenshotUrls[i];
+      // Clean the file path - remove any full URL prefix
+      const filePath = url.includes("social-selling-prints/")
+        ? url.replace(/^.*social-selling-prints\//, "")
+        : url;
       
-      const results = await Promise.all(
-        batch.map((url: string) => {
-          // Clean the file path - remove any full URL prefix
-          const filePath = url.includes("social-selling-prints/")
-            ? url.replace(/^.*social-selling-prints\//, "")
-            : url;
-          return extractUsernamesFromScreenshot(filePath, supabase, LOVABLE_API_KEY);
-        })
-      );
+      console.log(`[MAIN] Processing screenshot ${i + 1}/${screenshotUrls.length}: ${filePath}`);
       
-      allUsernames.push(...results.flat());
+      const usernames = await extractUsernamesFromScreenshot(filePath, supabase, LOVABLE_API_KEY);
+      allUsernames.push(...usernames);
+      
+      console.log(`[MAIN] Screenshot ${i + 1} extracted ${usernames.length} usernames. Running total: ${allUsernames.length}`);
     }
 
     const uniqueUsernames = [...new Set(allUsernames.filter(u => u.length > 0))];
