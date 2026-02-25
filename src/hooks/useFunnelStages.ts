@@ -23,6 +23,8 @@ export interface FunnelStageCustom {
   capi_custom_event: string | null; // Custom event name if using non-standard events
   // Add Receptivo automation
   is_receptivo_destination: boolean; // When true, leads are moved here after Add Receptivo sales
+  // Auto lead source assignment
+  default_lead_source_id: string | null; // When set, leads entering this stage get this source automatically
   created_at: string;
   updated_at: string;
 }

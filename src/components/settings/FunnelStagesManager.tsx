@@ -18,13 +18,14 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useFunnelStages, useUpdateFunnelStage, useCreateFunnelStage, useDeleteFunnelStage, useReorderFunnelStages, FunnelStageCustom, CapiEventName } from '@/hooks/useFunnelStages';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
+import { useLeadSources } from '@/hooks/useConfigOptions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send, ShoppingCart } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send, ShoppingCart, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -142,9 +143,13 @@ function StageEditForm({
   );
   // Add Receptivo destination
   const [isReceptivoDestination, setIsReceptivoDestination] = useState(stage?.is_receptivo_destination || false);
+  // Auto lead source assignment
+  const [defaultLeadSourceId, setDefaultLeadSourceId] = useState<string | null>(stage?.default_lead_source_id || null);
 
   // Fetch non-purchase reasons for followup selector
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
+  // Fetch lead sources for auto-assignment selector
+  const { data: leadSources = [] } = useLeadSources();
 
   const selectedColorInfo = STAGE_COLORS.find(c => c.value === color);
 
@@ -171,6 +176,8 @@ function StageEditForm({
       capi_event_name: capiEventName === 'none' ? null : capiEventName,
       // Add Receptivo destination
       is_receptivo_destination: isReceptivoDestination,
+      // Auto lead source
+      default_lead_source_id: defaultLeadSourceId,
     };
 
     if (isNew) {
@@ -426,6 +433,45 @@ function StageEditForm({
             <span>Evento <strong>{capiEventName}</strong> será enviado ao Meta Ads quando lead entrar nesta etapa</span>
           </div>
         )}
+      </div>
+
+      {/* Auto Lead Source Assignment */}
+      <div className="space-y-2 p-3 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-violet-600" />
+          <Label className="text-sm font-medium">Origem Automática do Lead</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Quando um lead entrar nesta etapa, a origem dele será automaticamente definida para a opção escolhida aqui.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <Select 
+          value={defaultLeadSourceId || 'none'} 
+          onValueChange={(v) => setDefaultLeadSourceId(v === 'none' ? null : v)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Nenhuma origem automática" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">
+              <span className="text-muted-foreground">Nenhuma (não alterar origem)</span>
+            </SelectItem>
+            {leadSources.map((source: any) => (
+              <SelectItem key={source.id} value={source.id}>
+                {source.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Ao mover um lead para esta etapa, a origem será automaticamente configurada
+        </p>
       </div>
 
       <div className="space-y-2">

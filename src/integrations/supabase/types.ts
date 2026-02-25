@@ -9395,6 +9395,7 @@ export type Database = {
           color: string
           created_at: string
           default_followup_reason_id: string | null
+          default_lead_source_id: string | null
           enum_value: Database["public"]["Enums"]["funnel_stage"] | null
           id: string
           is_default: boolean
@@ -9413,6 +9414,7 @@ export type Database = {
           color?: string
           created_at?: string
           default_followup_reason_id?: string | null
+          default_lead_source_id?: string | null
           enum_value?: Database["public"]["Enums"]["funnel_stage"] | null
           id?: string
           is_default?: boolean
@@ -9431,6 +9433,7 @@ export type Database = {
           color?: string
           created_at?: string
           default_followup_reason_id?: string | null
+          default_lead_source_id?: string | null
           enum_value?: Database["public"]["Enums"]["funnel_stage"] | null
           id?: string
           is_default?: boolean
@@ -9449,6 +9452,13 @@ export type Database = {
             columns: ["default_followup_reason_id"]
             isOneToOne: false
             referencedRelation: "non_purchase_reasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_funnel_stages_default_lead_source_id_fkey"
+            columns: ["default_lead_source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
             referencedColumns: ["id"]
           },
           {
