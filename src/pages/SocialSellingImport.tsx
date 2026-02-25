@@ -157,13 +157,16 @@ export default function SocialSellingImport() {
       console.log('[Import] Response:', JSON.stringify({ processResult, processError }));
 
       if (processError) {
-        toast.error(`Erro ao processar: ${processError.message || 'erro desconhecido'}`);
+        // Check if the response body contains a specific error message (402/429)
+        const errorBody = processResult || {};
+        const errorMsg = errorBody?.error || processError.message || 'Erro desconhecido';
+        toast.error(errorMsg);
         setIsProcessing(false);
         return;
       }
 
       if (processResult?.error) {
-        toast.error(`Erro: ${processResult.error}`);
+        toast.error(processResult.error);
         setIsProcessing(false);
         return;
       }
