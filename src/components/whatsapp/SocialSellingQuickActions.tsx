@@ -102,10 +102,12 @@ export function SocialSellingQuickActions({ leadId, leadInstagram }: SocialSelli
         await moveLeadToFunnelStage('Respondeu Prospecção Ativa');
       } else if (type === 'whatsapp_shared') {
         await moveLeadToFunnelStage('Lead não entrou no grupo');
+      } else if (type === 'call_scheduled') {
+        await moveLeadToFunnelStage('[TONY] Call Agendada');
       }
     },
     onSuccess: (_, type) => {
-      const msg = (type === 'reply_received' || type === 'whatsapp_shared')
+      const msg = (type === 'reply_received' || type === 'whatsapp_shared' || type === 'call_scheduled')
         ? 'Evolução registrada! Lead movido para o funil.'
         : 'Evolução registrada!';
       toast.success(msg);
