@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { useFunnelStages, getStageEnumValue } from "@/hooks/useFunnelStages";
 
 type ActivityType = 'reply_received' | 'whatsapp_shared' | 'call_scheduled' | 'call_done';
 
@@ -25,6 +26,7 @@ export function SocialSellingQuickActions({ leadId, leadInstagram }: SocialSelli
   const { profile } = useAuth();
   const queryClient = useQueryClient();
   const [pendingType, setPendingType] = useState<string | null>(null);
+  const { data: funnelStages } = useFunnelStages();
 
   // Fetch existing activities for this lead
   const { data: existingActivities } = useQuery({
@@ -42,6 +44,42 @@ export function SocialSellingQuickActions({ leadId, leadInstagram }: SocialSelli
   const doneTypes = new Set((existingActivities || []).map((a: any) => a.activity_type));
   const meta = existingActivities?.[0]; // get seller_id/profile_id from first activity
 
+  const moveLeadToFunnelStage = async (stageName: string) => {
+    if (!funnelStages || !profile) return;
+    
+    const targetStage = funnelStages.find(s => s.name === stageName);
+    if (!targetStage) {
+      console.warn(`Funnel stage "${stageName}" not found`);
+      return;
+    }
+
+    const enumValue = getStageEnumValue(targetStage);
+    
+    // Update lead's funnel stage
+    await supabase
+      .from('leads')
+      .update({ 
+        funnel_stage_id: targetStage.id,
+        stage: enumValue,
+      })
+      .eq('id', leadId);
+
+    // Record stage history
+    const { data: { user } } = await supabase.auth.getUser();
+    await (supabase as any).from('lead_stage_history').insert({
+      lead_id: leadId,
+      organization_id: profile.organization_id,
+      funnel_stage_id: targetStage.id,
+      stage: enumValue,
+      changed_by: user?.id || null,
+      source: 'social_selling',
+    });
+
+    // Invalidate lead queries
+    queryClient.invalidateQueries({ queryKey: ['leads'] });
+    queryClient.invalidateQueries({ queryKey: ['kanban-leads'] });
+  };
+
   const logActivity = useMutation({
     mutationFn: async (type: ActivityType) => {
       if (!meta) throw new Error('Lead sem atividade de social selling');
@@ -58,9 +96,17 @@ export function SocialSellingQuickActions({ leadId, leadInstagram }: SocialSelli
           instagram_username: leadInstagram?.replace(/^@/, '') || null,
         });
       if (error) throw error;
+
+      // When "Respondeu" is marked, move lead to funnel stage
+      if (type === 'reply_received') {
+        await moveLeadToFunnelStage('Respondeu Prospecção Ativa');
+      }
     },
-    onSuccess: () => {
-      toast.success('Evolução registrada!');
+    onSuccess: (_, type) => {
+      const msg = type === 'reply_received' 
+        ? 'Evolução registrada! Lead movido para o funil.'
+        : 'Evolução registrada!';
+      toast.success(msg);
       queryClient.invalidateQueries({ queryKey: ['social-selling-lead-activities', leadId] });
       queryClient.invalidateQueries({ queryKey: ['social-selling-all-activities'] });
       queryClient.invalidateQueries({ queryKey: ['social-selling-activities'] });
