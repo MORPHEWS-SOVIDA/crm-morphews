@@ -33,7 +33,7 @@ import { FUNNEL_STAGE_BEHAVIORS, type FunnelStage } from '@/types/lead';
 import { toast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-const MAX_STAGES = 25;
+const MAX_STAGES = 999;
 
 // TracZAP - CAPI Event options for Meta Ads integration
 const CAPI_EVENTS: { value: CapiEventName | 'none'; label: string; description: string }[] = [
