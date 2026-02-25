@@ -1,4 +1,4 @@
-import { useLocation, Routes, Route } from 'react-router-dom';
+import { useLocation, Routes, Route, Link } from 'react-router-dom';
 import { lazy, Suspense, useState, useEffect, createContext, useContext } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCustomDomainDetection } from '@/hooks/useCustomDomainDetection';
@@ -416,6 +416,16 @@ function WhiteLabelLoginPage({ slug }: { slug: string }) {
                 </button>
               </div>
               {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+            </div>
+
+            <div className="flex justify-end">
+              <Link
+                to="/forgot-password"
+                className="text-sm hover:underline"
+                style={{ color: primaryColor }}
+              >
+                Esqueceu a senha?
+              </Link>
             </div>
 
             <Button
