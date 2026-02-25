@@ -244,11 +244,12 @@ export default function WhatsAppDMs() {
           ...prev,
           [instance.id]: data.qr_code_base64
         }));
-        toast({ title: "QR Code atualizado!", description: "Escaneie com seu WhatsApp" });
+        toast({ title: "QR Code gerado!", description: "Escaneie com seu WhatsApp" });
       } else {
         toast({ 
-          title: "Aguarde", 
-          description: "QR Code está sendo gerado...",
+          title: "QR Code não disponível", 
+          description: data?.message || "A API não retornou o QR Code. Tente novamente em alguns segundos.",
+          variant: "destructive",
         });
       }
 
