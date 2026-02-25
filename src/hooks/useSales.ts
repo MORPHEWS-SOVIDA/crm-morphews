@@ -392,6 +392,7 @@ export function useSale(id: string | undefined) {
 
   return useQuery({
     queryKey: ['sale', id, organizationId],
+    enabled: !!id && !!organizationId,
     queryFn: async () => {
       if (!id || !organizationId) return null;
 
@@ -486,7 +487,6 @@ export function useSale(id: string | undefined) {
         return_reason: sale.return_reason
       } as Sale;
     },
-    enabled: !!id && !!organizationId,
   });
 }
 
