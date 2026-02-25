@@ -16,7 +16,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTeamMembers } from '@/hooks/useTeamMembers';
 import { useCurrentMember } from '@/hooks/useCurrentMember';
 import { FunnelStage, Lead } from '@/types/lead';
-import { Loader2, Columns3, Truck } from 'lucide-react';
+import { Loader2, Columns3, Truck, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { normalizeText } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -34,6 +36,7 @@ export default function DashboardKanban() {
   const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
   const [selectedManager, setSelectedManager] = useState<string | null>(null);
   const [selectedInactivityDays, setSelectedInactivityDays] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [hasAutoSelectedSellers, setHasAutoSelectedSellers] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -135,6 +138,12 @@ export default function DashboardKanban() {
       console.log('[DashboardKanban] After filtering:', result.length, 'leads');
     }
     
+    // Filter by search term (lead name)
+    if (searchTerm.trim().length >= 2) {
+      const normalized = normalizeText(searchTerm.trim());
+      result = result.filter(lead => normalizeText(lead.name || '').includes(normalized));
+    }
+
     // Filter by inactivity (days without update)
     if (selectedInactivityDays) {
       const cutoffDate = new Date();
@@ -146,9 +155,9 @@ export default function DashboardKanban() {
     }
     
     return result;
-  }, [leads, selectedSellers, selectedInactivityDays, teamMembers, selectedManager]);
+  }, [leads, selectedSellers, selectedInactivityDays, teamMembers, selectedManager, searchTerm]);
 
-  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedManager !== null || selectedInactivityDays !== null;
+  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedManager !== null || selectedInactivityDays !== null || searchTerm.trim().length > 0;
 
   // Handler para seleção de gerente - atualiza vendedores automaticamente
   const handleManagerSelect = (managerId: string | null, memberIds: string[]) => {
@@ -280,6 +289,7 @@ export default function DashboardKanban() {
                   setSelectedSellers([]);
                   setSelectedManager(null);
                   setSelectedInactivityDays(null);
+                  setSearchTerm('');
                 }}
                 className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
               >
@@ -297,6 +307,23 @@ export default function DashboardKanban() {
           <div className="flex flex-col gap-4 mb-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-foreground">Kanban</h3>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar lead por nome..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-8 h-9"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
               {!isMobile && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <StarsFilter
