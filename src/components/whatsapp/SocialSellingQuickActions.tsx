@@ -97,13 +97,15 @@ export function SocialSellingQuickActions({ leadId, leadInstagram }: SocialSelli
         });
       if (error) throw error;
 
-      // When "Respondeu" is marked, move lead to funnel stage
+      // Move lead to appropriate funnel stage based on activity type
       if (type === 'reply_received') {
         await moveLeadToFunnelStage('Respondeu Prospecção Ativa');
+      } else if (type === 'whatsapp_shared') {
+        await moveLeadToFunnelStage('Lead não entrou no grupo');
       }
     },
     onSuccess: (_, type) => {
-      const msg = type === 'reply_received' 
+      const msg = (type === 'reply_received' || type === 'whatsapp_shared')
         ? 'Evolução registrada! Lead movido para o funil.'
         : 'Evolução registrada!';
       toast.success(msg);
