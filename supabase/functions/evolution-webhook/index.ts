@@ -1024,7 +1024,7 @@ serve(async (req) => {
           
           console.log(`📊 NPS Response detected! Rating: ${extractedRating} (source: ${ratingSource}, reasoning: ${ratingReasoning}) Response: ${messageContent.substring(0, 50)}`);
           
-          if (extractedRating !== null || ratingSource !== "none" || messageContent.length < 100) {
+          if (extractedRating !== null || (ratingSource !== "none" && ratingSource !== undefined)) {
             // É uma resposta NPS válida - processar automaticamente
             isNPSResponse = true;
             
