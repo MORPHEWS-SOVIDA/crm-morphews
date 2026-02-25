@@ -161,6 +161,15 @@ async function extractNPSRating(text: string): Promise<{
     return { rating: null, source: "none", reasoning: null };
   }
 
+  // Filtrar mensagens que são apenas pontuação, símbolos, emojis ou caracteres repetidos
+  // Exemplos: "????", "...", "!!!", "???", emojis soltos
+  const cleanedForFilter = text.trim().replace(/[\s]/g, '');
+  const nonAlphaRatio = (cleanedForFilter.replace(/[a-záàâãéèêíïóôõöúçñ0-9]/gi, '').length) / cleanedForFilter.length;
+  if (nonAlphaRatio >= 0.8 && cleanedForFilter.length < 20) {
+    console.log(`📊 NPS skipped - message is mostly punctuation/symbols: "${text.substring(0, 30)}"`);
+    return { rating: null, source: "none", reasoning: "Mensagem contém apenas pontuação ou símbolos" };
+  }
+
   // Usa IA para classificar respostas textuais
   const aiResult = await classifyNPSWithAI(text);
   if (aiResult.rating !== null && aiResult.confidence !== "error") {
