@@ -62,11 +62,17 @@ function parseUsernames(content: string): string[] {
   return [];
 }
 
+interface ExtractionResult {
+  usernames: string[];
+  error?: string;
+  errorCode?: number;
+}
+
 async function extractUsernamesFromScreenshot(
   filePath: string,
   supabase: ReturnType<typeof createClient>,
   LOVABLE_API_KEY: string
-): Promise<string[]> {
+): Promise<ExtractionResult> {
   console.log(`[EXTRACT] Processing file: ${filePath}`);
   
   try {
@@ -77,7 +83,7 @@ async function extractUsernamesFromScreenshot(
 
     if (signedError || !signedData?.signedUrl) {
       console.error(`[EXTRACT] SignedUrl error for ${filePath}:`, signedError?.message || "No URL returned");
-      return [];
+      return { usernames: [] };
     }
 
     const signedUrl = signedData.signedUrl;
@@ -87,7 +93,7 @@ async function extractUsernamesFromScreenshot(
     const imgResponse = await fetch(signedUrl);
     if (!imgResponse.ok) {
       console.error(`[EXTRACT] Image download FAILED for ${filePath}: ${imgResponse.status} ${imgResponse.statusText}`);
-      return [];
+      return { usernames: [] };
     }
 
     const imgBuffer = await imgResponse.arrayBuffer();
@@ -97,7 +103,7 @@ async function extractUsernamesFromScreenshot(
 
     if (imgSize < 500) {
       console.error(`[EXTRACT] Image too small (${imgSize} bytes), likely invalid. Skipping.`);
-      return [];
+      return { usernames: [] };
     }
 
     // Convert to base64 using chunked approach to avoid stack overflow
@@ -152,7 +158,13 @@ async function extractUsernamesFromScreenshot(
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
       console.error(`[EXTRACT] AI API error ${aiResponse.status} for ${filePath}: ${errText.substring(0, 500)}`);
-      return [];
+      if (aiResponse.status === 402) {
+        return { usernames: [], error: "Créditos de IA insuficientes. Recarregue seus créditos no painel do workspace.", errorCode: 402 };
+      }
+      if (aiResponse.status === 429) {
+        return { usernames: [], error: "Limite de requisições de IA excedido. Tente novamente em alguns minutos.", errorCode: 429 };
+      }
+      return { usernames: [], error: `Erro na API de IA: ${aiResponse.status}` };
     }
 
     const aiData = await aiResponse.json();
@@ -161,10 +173,10 @@ async function extractUsernamesFromScreenshot(
 
     const valid = parseUsernames(content);
     console.log(`[EXTRACT] File ${filePath} => ${valid.length} valid usernames: ${valid.join(", ")}`);
-    return valid;
+    return { usernames: valid };
   } catch (err) {
     console.error(`[EXTRACT] Exception for ${filePath}:`, err);
-    return [];
+    return { usernames: [] };
   }
 }
 
@@ -230,10 +242,24 @@ serve(async (req) => {
       
       console.log(`[MAIN] Processing screenshot ${i + 1}/${screenshotUrls.length}: ${filePath}`);
       
-      const usernames = await extractUsernamesFromScreenshot(filePath, supabase, LOVABLE_API_KEY);
-      allUsernames.push(...usernames);
+      const result = await extractUsernamesFromScreenshot(filePath, supabase, LOVABLE_API_KEY);
       
-      console.log(`[MAIN] Screenshot ${i + 1} extracted ${usernames.length} usernames. Running total: ${allUsernames.length}`);
+      // If we hit a payment/rate limit error, stop immediately and return error
+      if (result.error && (result.errorCode === 402 || result.errorCode === 429)) {
+        await supabase
+          .from("social_selling_imports")
+          .update({ status: "error" })
+          .eq("id", import_id);
+
+        return new Response(
+          JSON.stringify({ error: result.error }),
+          { status: result.errorCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      allUsernames.push(...result.usernames);
+      
+      console.log(`[MAIN] Screenshot ${i + 1} extracted ${result.usernames.length} usernames. Running total: ${allUsernames.length}`);
     }
 
     const uniqueUsernames = [...new Set(allUsernames.filter(u => u.length > 0))];
