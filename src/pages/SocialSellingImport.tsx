@@ -149,24 +149,33 @@ export default function SocialSellingImport() {
 
       // Call edge function to process with AI
       console.log('[Import] Calling edge function with import_id:', importRecord.id);
-      const { data: processResult, error: processError } = await supabase.functions
-        .invoke('process-social-selling-print', {
-          body: { import_id: importRecord.id },
-        });
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      const edgeResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-social-selling-print`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ import_id: importRecord.id }),
+        }
+      );
 
-      console.log('[Import] Response:', JSON.stringify({ processResult, processError }));
+      const processResult = await edgeResponse.json();
+      console.log('[Import] Response:', JSON.stringify({ status: edgeResponse.status, processResult }));
 
-      if (processError) {
-        // Check if the response body contains a specific error message (402/429)
-        const errorBody = processResult || {};
-        const errorMsg = errorBody?.error || processError.message || 'Erro desconhecido';
-        toast.error(errorMsg);
-        setIsProcessing(false);
-        return;
-      }
-
-      if (processResult?.error) {
-        toast.error(processResult.error);
+      if (!edgeResponse.ok || processResult?.error) {
+        const errorMsg = processResult?.error || 'Erro ao processar prints';
+        if (edgeResponse.status === 402) {
+          toast.error('Créditos de IA insuficientes. Recarregue seus créditos no painel de Usage.');
+        } else if (edgeResponse.status === 429) {
+          toast.error('Limite de requisições atingido. Tente novamente em alguns minutos.');
+        } else {
+          toast.error(errorMsg);
+        }
         setIsProcessing(false);
         return;
       }
