@@ -25,7 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send, ShoppingCart, MapPin } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send, ShoppingCart, MapPin, ChevronsUpDown, Check, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,6 +33,8 @@ import { Badge } from '@/components/ui/badge';
 import { FUNNEL_STAGE_BEHAVIORS, type FunnelStage } from '@/types/lead';
 import { toast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 const MAX_STAGES = 999;
 
@@ -253,53 +255,71 @@ function StageEditForm({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Select value={enumValue} onValueChange={(v) => setEnumValue(v as FunnelStage | 'none')}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione um comportamento (opcional)" />
-          </SelectTrigger>
-          <SelectContent className="max-h-80">
-            <SelectItem value="none">
-              <div className="flex flex-col">
-                <span>Sem comportamento especial</span>
-                <span className="text-xs text-muted-foreground">Etapa customizada sem lógica do sistema</span>
-              </div>
-            </SelectItem>
-            {BEHAVIOR_GROUPS.map((group) => {
-              const groupBehaviors = group.behaviors.filter(b => availableBehaviors.includes(b) || b === currentEnumValue);
-              if (groupBehaviors.length === 0) return null;
-              
-              return (
-                <div key={group.label}>
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
-                    {group.label}
-                  </div>
-                  {groupBehaviors.map((behavior) => {
-                    const info = FUNNEL_STAGE_BEHAVIORS[behavior];
-                    const isUsed = usedEnumValues.includes(behavior) && behavior !== currentEnumValue;
-                    
-                    return (
-                      <SelectItem 
-                        key={behavior} 
-                        value={behavior}
-                        disabled={isUsed}
-                      >
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-2">
-                            <span>{info.label}</span>
-                            {isUsed && (
-                              <Badge variant="secondary" className="text-xs">Em uso</Badge>
-                            )}
-                          </div>
-                          <span className="text-xs text-muted-foreground">{info.description}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </SelectContent>
-        </Select>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+              {enumValue === 'none' 
+                ? 'Selecione um comportamento (opcional)' 
+                : FUNNEL_STAGE_BEHAVIORS[enumValue]?.label || enumValue}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Pesquisar comportamento..." />
+              <CommandList className="max-h-64">
+                <CommandEmpty>Nenhum comportamento encontrado.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="Sem comportamento especial"
+                    onSelect={() => setEnumValue('none')}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", enumValue === 'none' ? "opacity-100" : "opacity-0")} />
+                    <div className="flex flex-col">
+                      <span>Sem comportamento especial</span>
+                      <span className="text-xs text-muted-foreground">Etapa customizada sem lógica do sistema</span>
+                    </div>
+                  </CommandItem>
+                </CommandGroup>
+                {BEHAVIOR_GROUPS.map((group) => {
+                  const groupBehaviors = group.behaviors.filter(b => availableBehaviors.includes(b) || b === currentEnumValue);
+                  if (groupBehaviors.length === 0) return null;
+                  
+                  return (
+                    <CommandGroup key={group.label} heading={group.label}>
+                      {groupBehaviors.map((behavior) => {
+                        const info = FUNNEL_STAGE_BEHAVIORS[behavior];
+                        const isUsed = usedEnumValues.includes(behavior) && behavior !== currentEnumValue;
+                        
+                        return (
+                          <CommandItem
+                            key={behavior}
+                            value={`${info.label} ${info.description}`}
+                            disabled={isUsed}
+                            onSelect={() => {
+                              if (!isUsed) setEnumValue(behavior as FunnelStage);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", enumValue === behavior ? "opacity-100" : "opacity-0")} />
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <span>{info.label}</span>
+                                {isUsed && (
+                                  <Badge variant="secondary" className="text-xs">Em uso</Badge>
+                                )}
+                              </div>
+                              <span className="text-xs text-muted-foreground">{info.description}</span>
+                            </div>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  );
+                })}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
         {enumValue !== 'none' && (
           <p className="text-xs text-muted-foreground">
             Comportamento: {FUNNEL_STAGE_BEHAVIORS[enumValue]?.description}
