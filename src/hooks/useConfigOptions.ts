@@ -62,6 +62,26 @@ export function useCreateLeadSource() {
         throw new Error('Organização não encontrada');
       }
       
+      // Try to reactivate a soft-deleted record first
+      const { data: existing } = await supabase
+        .from('lead_sources')
+        .select('*')
+        .eq('name', name)
+        .eq('organization_id', profile.organization_id)
+        .eq('is_active', false)
+        .maybeSingle();
+
+      if (existing) {
+        const { data, error } = await supabase
+          .from('lead_sources')
+          .update({ is_active: true })
+          .eq('id', existing.id)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      }
+
       const { data, error } = await supabase
         .from('lead_sources')
         .insert({ 
@@ -149,6 +169,26 @@ export function useCreateLeadProduct() {
         throw new Error('Organização não encontrada');
       }
       
+      // Try to reactivate a soft-deleted record first
+      const { data: existing } = await supabase
+        .from('lead_products')
+        .select('*')
+        .eq('name', name)
+        .eq('organization_id', profile.organization_id)
+        .eq('is_active', false)
+        .maybeSingle();
+
+      if (existing) {
+        const { data, error } = await supabase
+          .from('lead_products')
+          .update({ is_active: true })
+          .eq('id', existing.id)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      }
+
       const { data, error } = await supabase
         .from('lead_products')
         .insert({ 
