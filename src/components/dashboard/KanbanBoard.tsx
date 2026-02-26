@@ -363,10 +363,11 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     setIsUpdating(true);
     
     try {
-      // Update the lead stage
+      // Update the lead stage AND funnel_stage_id (critical for persistence)
       await updateLead.mutateAsync({
         id: pendingChange.leadId,
         stage: pendingChange.newStage,
+        funnel_stage_id: pendingChange.targetStageId,
       });
 
       // Record in stage history
