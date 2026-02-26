@@ -13086,6 +13086,62 @@ export type Database = {
           },
         ]
       }
+      quick_messages: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          media_filename: string | null
+          media_type: string | null
+          media_url: string | null
+          message_text: string | null
+          organization_id: string
+          position: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          media_filename?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_text?: string | null
+          organization_id: string
+          position?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          media_filename?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_text?: string | null
+          organization_id?: string
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quiz_answers: {
         Row: {
           answered_at: string

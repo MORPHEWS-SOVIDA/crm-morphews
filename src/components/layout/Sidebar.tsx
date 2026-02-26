@@ -35,6 +35,7 @@ import {
   Link2,
   Building2,
   Phone,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -214,6 +215,7 @@ export function Sidebar() {
     
     // WhatsApp 1.0 (DMs)
     { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
+    { icon: Zap, label: 'Mensagens Rápidas', path: '/whatsapp/mensagens-rapidas', visible: canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_v1') },
     { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_manage') },
     
     // AI Bots (permission controlled)

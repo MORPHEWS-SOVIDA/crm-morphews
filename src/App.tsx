@@ -99,6 +99,7 @@ const WhatsAppDMs = lazy(() => import("./pages/WhatsAppDMs"));
 const WhatsAppChat = lazy(() => import("./pages/WhatsAppChat"));
 const WhatsAppNPS = lazy(() => import("./pages/WhatsAppNPS"));
 const WhatsAppGlobalConfig = lazy(() => import("./pages/WhatsAppGlobalConfig"));
+const WhatsAppQuickMessages = lazy(() => import("./pages/WhatsAppQuickMessages"));
 
 // Instagram
 const InstagramDMs = lazy(() => import("./pages/InstagramDMs"));
@@ -438,6 +439,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['whatsapp_view']}>
                       <WhatsAppNPS />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/whatsapp/mensagens-rapidas"
+                  element={
+                    <ProtectedRoute requiredPermissions={['whatsapp_view']}>
+                      <WhatsAppQuickMessages />
                     </ProtectedRoute>
                   }
                 />
