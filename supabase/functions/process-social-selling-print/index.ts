@@ -271,16 +271,22 @@ serve(async (req) => {
     const uniqueUsernames = [...new Set(allUsernames.filter(u => u.length > 0))];
     console.log(`[MAIN] Total unique usernames: ${uniqueUsernames.length}`);
 
-    // Get first funnel stage
-    const { data: firstStage } = await supabase
+    // Find "Prospecção Ativa Instagram" stage specifically
+    const { data: allStages } = await supabase
       .from("organization_funnel_stages")
-      .select("id, enum_value")
+      .select("id, name, enum_value, position")
       .eq("organization_id", profile.organization_id)
-      .order("position", { ascending: true })
-      .limit(1)
-      .single();
+      .order("position", { ascending: true });
 
-    const stageEnum = firstStage?.enum_value || "no_contact";
+    // Try exact match first, then partial match
+    const targetStage = (allStages || []).find((s: any) => 
+      s.name.toLowerCase().includes("prospecção ativa instagram") ||
+      s.name.toLowerCase().includes("prospeccao ativa instagram")
+    ) || (allStages || [])[0]; // fallback to first stage only if not found
+
+    const stageEnum = targetStage?.enum_value || "no_contact";
+    const targetFunnelStageId = targetStage?.id || null;
+    console.log(`[MAIN] Target stage: "${targetStage?.name}" (id: ${targetFunnelStageId}, enum: ${stageEnum})`);
     let leadsCreated = 0;
     let leadsSkipped = 0;
 
@@ -321,6 +327,7 @@ serve(async (req) => {
             name: `@${username}`,
             instagram: username,
             stage: stageEnum,
+            funnel_stage_id: targetFunnelStageId,
             source: "social_selling",
             assigned_to: user.id,
           })
