@@ -82,7 +82,7 @@ export function LinkTransactionToSaleDialog({ open, onOpenChange, transaction }:
         `)
         .eq('organization_id', profile.organization_id)
         .eq('lead_id', leadId)
-        .in('payment_status', ['pending', 'not_paid'])
+        .in('payment_status', ['pending', 'not_paid', 'paid_now', 'will_pay_before'])
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
       
@@ -247,7 +247,9 @@ export function LinkTransactionToSaleDialog({ open, onOpenChange, transaction }:
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">
-                            {sale.payment_status === 'not_paid' ? 'Não pago' : 'Pendente'}
+                            {sale.payment_status === 'not_paid' ? 'Não pago' : 
+                             sale.payment_status === 'paid_now' ? 'Pago na hora' :
+                             sale.payment_status === 'will_pay_before' ? 'Pagará antes' : 'Pendente'}
                           </Badge>
                           {selectedSaleId === sale.id && (
                             <CheckCircle2 className="h-4 w-4 text-primary" />
