@@ -46,6 +46,7 @@ import { LeadWebhookDataSection } from '@/components/leads/LeadWebhookDataSectio
 import { LeadCustomFieldsSection } from '@/components/leads/LeadCustomFieldsSection';
 import { LeadFiscalRegistrationSection } from '@/components/leads/LeadFiscalRegistrationSection';
 import { LeadWebhookHistorySection } from '@/components/leads/LeadWebhookHistorySection';
+import { LeadSocialSellingSection } from '@/components/leads/LeadSocialSellingSection';
 import { SectionErrorBoundary } from '@/components/SectionErrorBoundary';
 import { LeadProfilePrompt } from '@/components/leads/LeadProfilePrompt';
 import { ResponsibleBadge } from '@/components/ResponsibleBadge';
@@ -730,6 +731,13 @@ export default function LeadDetail() {
             {orgFeatures?.receptive !== false && (
               <SectionErrorBoundary title="Histórico Receptivo">
                 <LeadReceptiveHistorySection leadId={id!} />
+              </SectionErrorBoundary>
+            )}
+
+            {/* Social Selling Info */}
+            {lead.source === 'social_selling' && (
+              <SectionErrorBoundary title="Social Selling">
+                <LeadSocialSellingSection leadId={id!} />
               </SectionErrorBoundary>
             )}
 
