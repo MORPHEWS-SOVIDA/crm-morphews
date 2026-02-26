@@ -34,6 +34,7 @@ const STAGE_MAP: Partial<Record<ActivityType, string>> = {
   reply_received: 'Respondeu Prospecção Ativa',
   whatsapp_shared: 'Lead não entrou no grupo',
   call_scheduled: '[TONY] Call Agendada',
+  call_done: '[TONY] Call Feita - Agendar com Lincoln',
 };
 
 export default function SocialSellingEvolution() {
@@ -246,7 +247,7 @@ export default function SocialSellingEvolution() {
         reply_received: 'Resposta registrada! Lead movido para "Respondeu Prospecção Ativa"',
         whatsapp_shared: 'WhatsApp salvo! Lead movido para "Lead não entrou no grupo"',
         call_scheduled: 'Call agendada! Lead movido para "[TONY] Call Agendada"',
-        call_done: 'Call feita registrada!',
+        call_done: 'Call feita! Lead movido para "[TONY] Call Feita - Agendar com Lincoln"',
       };
       toast.success(labels[activityType] || 'Registrado!');
       queryClient.invalidateQueries({ queryKey: ['social-selling-all-activities'] });
