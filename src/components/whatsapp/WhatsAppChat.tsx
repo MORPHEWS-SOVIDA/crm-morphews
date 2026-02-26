@@ -652,7 +652,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     }
   };
 
-
+  const handleSendAudio = async (base64: string, mimeType: string) => {
     if (!activeConversation) return;
     if (!profile?.organization_id) {
       toast({
