@@ -449,11 +449,45 @@ export function NewConversationDialog({
             <Label htmlFor="message">Mensagem a enviar</Label>
             <textarea
               id="message"
-              placeholder="Digite sua mensagem (opcional)"
+              placeholder="Digite sua mensagem (opcional). Cole textos formatados do Word normalmente."
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
-              className="w-full min-h-[80px] p-3 text-sm rounded-lg border border-input bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+              onPaste={(e) => {
+                let pastedText = e.clipboardData.getData('text/plain');
+                if (pastedText && !pastedText.includes('\n')) {
+                  const html = e.clipboardData.getData('text/html');
+                  if (html && (html.includes('<br') || html.includes('<p') || html.includes('<li') || html.includes('<div'))) {
+                    const temp = document.createElement('div');
+                    temp.innerHTML = html;
+                    temp.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+                    temp.querySelectorAll('p, div, li').forEach(el => {
+                      el.prepend(document.createTextNode('\n'));
+                    });
+                    const extracted = temp.textContent || temp.innerText || '';
+                    if (extracted.includes('\n')) {
+                      pastedText = extracted.replace(/^\n/, '');
+                    }
+                  }
+                }
+                if (pastedText) {
+                  pastedText = pastedText.replace(/\*\*([^*\n]+?)\*\*/g, '*$1*');
+                }
+                if (pastedText && (pastedText.includes('\n') || pastedText !== e.clipboardData.getData('text/plain'))) {
+                  e.preventDefault();
+                  const textarea = e.currentTarget;
+                  const start = textarea.selectionStart;
+                  const end = textarea.selectionEnd;
+                  const newValue = messageText.substring(0, start) + pastedText + messageText.substring(end);
+                  setMessageText(newValue);
+                  requestAnimationFrame(() => {
+                    const newPos = start + pastedText.length;
+                    textarea.selectionStart = textarea.selectionEnd = newPos;
+                  });
+                }
+              }}
+              className="w-full min-h-[200px] max-h-[400px] p-3 text-sm rounded-lg border border-input bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring leading-relaxed"
             />
+            <p className="text-[11px] text-muted-foreground">Suporta formatação WhatsApp: *negrito* _itálico_ ~tachado~</p>
           </div>
         </div>
 
