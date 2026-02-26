@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Phone, MessageSquare, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Phone, MessageSquare, Loader2, RefreshCw, AlertTriangle, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,6 +185,47 @@ export function NewConversationDialog({
     return clean;
   };
 
+  // Validação em tempo real do número
+  const phoneValidation = useMemo(() => {
+    const raw = phone.replace(/\D/g, "");
+    if (!raw) return { status: 'empty' as const, message: '' };
+    
+    if (raw.length < 8) {
+      return { status: 'error' as const, message: `Número muito curto (${raw.length} dígitos). Mínimo 8 dígitos.` };
+    }
+
+    // Número brasileiro
+    if (raw.startsWith("55") || raw.length <= 11) {
+      const withCountry = raw.startsWith("55") ? raw : `55${raw}`;
+      if (withCountry.length < 12) {
+        return { status: 'error' as const, message: `Faltam dígitos. Número brasileiro precisa de 55 + DDD + número (12-13 dígitos). Atual: ${withCountry.length}` };
+      }
+      if (withCountry.length > 13) {
+        return { status: 'error' as const, message: `Dígitos demais (${withCountry.length}). Número brasileiro tem no máximo 13 dígitos (55 + DDD + 9 dígitos).` };
+      }
+      // Validar DDD (2 dígitos após 55, entre 11 e 99)
+      const ddd = parseInt(withCountry.substring(2, 4));
+      if (ddd < 11 || ddd > 99) {
+        return { status: 'warning' as const, message: `DDD "${withCountry.substring(2, 4)}" parece inválido. Verifique o código de área.` };
+      }
+      if (withCountry.length === 12) {
+        return { status: 'warning' as const, message: `Celular sem o 9° dígito? O sistema adicionará automaticamente. Confira se está correto.` };
+      }
+      return { status: 'valid' as const, message: `✓ Número brasileiro válido: +${withCountry}` };
+    }
+
+    // Internacional
+    if (raw.length >= 10 && raw.length <= 15) {
+      return { status: 'valid' as const, message: `✓ Número internacional: +${raw}` };
+    }
+    
+    if (raw.length > 15) {
+      return { status: 'error' as const, message: `Dígitos demais (${raw.length}). Máximo 15 dígitos para números internacionais.` };
+    }
+
+    return { status: 'warning' as const, message: `Verifique o número (${raw.length} dígitos).` };
+  }, [phone]);
+
   // Iniciar conversa
   const handleStartConversation = async () => {
     const cleanPhone = normalizePhone(phone);
@@ -193,6 +234,15 @@ export function NewConversationDialog({
       toast({
         title: "Digite o número",
         description: "Informe o número de WhatsApp para iniciar a conversa",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (phoneValidation.status === 'error') {
+      toast({
+        title: "Número inválido",
+        description: phoneValidation.message,
         variant: "destructive",
       });
       return;
@@ -359,12 +409,41 @@ export function NewConversationDialog({
                 placeholder="5511999999999"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="pl-10"
+                className={`pl-10 pr-10 ${
+                  phoneValidation.status === 'error' ? 'border-red-500 focus-visible:ring-red-500' :
+                  phoneValidation.status === 'warning' ? 'border-amber-500 focus-visible:ring-amber-500' :
+                  phoneValidation.status === 'valid' ? 'border-green-500 focus-visible:ring-green-500' : ''
+                }`}
               />
+              {phoneValidation.status === 'error' && (
+                <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />
+              )}
+              {phoneValidation.status === 'warning' && (
+                <AlertTriangle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500" />
+              )}
+              {phoneValidation.status === 'valid' && (
+                <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-500" />
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Digite o número com código do país (ex: 5511999999999)
-            </p>
+            {phoneValidation.status === 'empty' ? (
+              <p className="text-xs text-muted-foreground">
+                Digite o número com código do país (ex: 5511999999999)
+              </p>
+            ) : phoneValidation.status === 'error' ? (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                {phoneValidation.message}
+              </p>
+            ) : phoneValidation.status === 'warning' ? (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                {phoneValidation.message}
+              </p>
+            ) : (
+              <p className="text-xs text-green-600">
+                {phoneValidation.message}
+              </p>
+            )}
           </div>
 
           {/* Seletor de Instância */}
@@ -497,7 +576,7 @@ export function NewConversationDialog({
           </Button>
           <Button 
             onClick={handleStartConversation}
-            disabled={!phone || !selectedInstanceId || isSending || instances.length === 0}
+            disabled={!phone || !selectedInstanceId || isSending || instances.length === 0 || phoneValidation.status === 'error'}
             className="bg-green-600 hover:bg-green-700"
           >
             {isSending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
