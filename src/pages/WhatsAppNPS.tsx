@@ -98,12 +98,13 @@ export default function WhatsAppNPS() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
+  const KEEP_CURRENT_RATING = "keep-current";
   const [daysFilter, setDaysFilter] = useState("30");
   const [userFilter, setUserFilter] = useState<string>("all");
   const [ratingFilter, setRatingFilter] = useState<string>("all");
   const [selectedReview, setSelectedReview] = useState<SatisfactionRating | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
-  const [manualRating, setManualRating] = useState<string>("");
+  const [manualRating, setManualRating] = useState<string>(KEEP_CURRENT_RATING);
 
   // Buscar métricas NPS da organização
   const { data: metrics, isLoading: metricsLoading } = useQuery({
@@ -245,7 +246,7 @@ export default function WhatsAppNPS() {
       toast.success("Avaliação revisada com sucesso");
       setSelectedReview(null);
       setReviewNotes("");
-      setManualRating("");
+      setManualRating(KEEP_CURRENT_RATING);
       queryClient.invalidateQueries({ queryKey: ["satisfaction-ratings-full"] });
       queryClient.invalidateQueries({ queryKey: ["org-nps-metrics-full"] });
       queryClient.invalidateQueries({ queryKey: ["nps-review-requests"] });
@@ -290,6 +291,7 @@ export default function WhatsAppNPS() {
   const detractorPercent = metrics && metrics.total_responses > 0 
     ? (metrics.detractors / metrics.total_responses) * 100 
     : 0;
+  const hasManualRatingChange = manualRating !== KEEP_CURRENT_RATING;
 
   return (
     <Layout>
@@ -496,6 +498,7 @@ export default function WhatsAppNPS() {
                       onClick={() => {
                         setSelectedReview(rating);
                         setReviewNotes(rating.review_notes || "");
+                        setManualRating(KEEP_CURRENT_RATING);
                       }}
                     >
                       <div className="flex items-center justify-between">
@@ -536,8 +539,11 @@ export default function WhatsAppNPS() {
                           
                           <div>
                             <p className="font-medium">
-                              {rating.leads?.name || rating.leads?.whatsapp || "Cliente desconhecido"}
+                              {rating.leads?.name || "Cliente desconhecido"}
                             </p>
+                            {rating.leads?.whatsapp && (
+                              <p className="text-xs text-muted-foreground">{rating.leads.whatsapp}</p>
+                            )}
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <span>{format(new Date(rating.closed_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span>
                               {rating.profiles && (
@@ -705,9 +711,11 @@ export default function WhatsAppNPS() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground">Cliente:</p>
-                    <p className="font-medium">
-                      {selectedReview.leads?.name || selectedReview.leads?.whatsapp || "–"}
-                    </p>
+                    <p className="font-medium">{selectedReview.leads?.name || "Cliente desconhecido"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">WhatsApp:</p>
+                    <p className="font-medium">{selectedReview.leads?.whatsapp || "–"}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Vendedor:</p>
@@ -740,7 +748,7 @@ export default function WhatsAppNPS() {
                         <SelectValue placeholder="Manter nota atual" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Manter nota atual</SelectItem>
+                        <SelectItem value={KEEP_CURRENT_RATING}>Manter nota atual</SelectItem>
                         {[10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map(n => (
                           <SelectItem key={n} value={n.toString()}>
                             {n} - {n >= 9 ? "Promotor" : n >= 7 ? "Neutro" : "Detrator"}
@@ -774,12 +782,12 @@ export default function WhatsAppNPS() {
                     onClick={() => markAsReviewed.mutate({ 
                       ratingId: selectedReview.id, 
                       notes: reviewNotes,
-                      newRating: manualRating ? parseInt(manualRating) : undefined
+                      newRating: hasManualRatingChange ? parseInt(manualRating, 10) : undefined
                     })}
                     disabled={markAsReviewed.isPending}
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    {manualRating ? `Salvar (Nota: ${manualRating})` : "Marcar como Revisado"}
+                    {hasManualRatingChange ? `Salvar (Nota: ${manualRating})` : "Marcar como Revisado"}
                   </Button>
                 </div>
               </div>
