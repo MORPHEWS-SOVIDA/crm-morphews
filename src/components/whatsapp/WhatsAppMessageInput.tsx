@@ -122,7 +122,34 @@ export function WhatsAppMessageInput({
   };
 
   const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    const pastedText = e.clipboardData.getData('text/plain');
+    // Try text/plain first, fall back to extracting from text/html
+    let pastedText = e.clipboardData.getData('text/plain');
+    
+    // If text/plain has no newlines, try extracting from HTML (some sources strip newlines from plain text)
+    if (pastedText && !pastedText.includes('\n')) {
+      const html = e.clipboardData.getData('text/html');
+      if (html && (html.includes('<br') || html.includes('<p') || html.includes('<li') || html.includes('<div'))) {
+        // Convert HTML to plain text preserving line breaks
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        // Replace block elements with newlines
+        temp.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+        temp.querySelectorAll('p, div, li').forEach(el => {
+          el.prepend(document.createTextNode('\n'));
+        });
+        const extracted = temp.textContent || temp.innerText || '';
+        // Only use HTML-extracted text if it has newlines
+        if (extracted.includes('\n')) {
+          pastedText = extracted.replace(/^\n/, ''); // remove leading newline
+        }
+      }
+    }
+
+    // Convert markdown **bold** to WhatsApp *bold* format
+    if (pastedText) {
+      pastedText = pastedText.replace(/\*\*([^*\n]+?)\*\*/g, '*$1*');
+    }
+
     if (pastedText && pastedText.includes('\n')) {
       e.preventDefault();
       const textarea = e.currentTarget;
@@ -134,6 +161,21 @@ export function WhatsAppMessageInput({
         const newPos = start + pastedText.length;
         textarea.selectionStart = textarea.selectionEnd = newPos;
       });
+    } else if (pastedText) {
+      // Even single-line paste: convert markdown bold
+      const original = e.clipboardData.getData('text/plain');
+      if (original !== pastedText) {
+        e.preventDefault();
+        const textarea = e.currentTarget;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const newValue = value.substring(0, start) + pastedText + value.substring(end);
+        onChange(newValue);
+        requestAnimationFrame(() => {
+          const newPos = start + pastedText.length;
+          textarea.selectionStart = textarea.selectionEnd = newPos;
+        });
+      }
     }
   };
 
