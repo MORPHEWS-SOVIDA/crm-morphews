@@ -33,6 +33,7 @@ const ACTIVITY_BUTTONS: { type: ActivityType; label: string; icon: React.ReactNo
 const STAGE_MAP: Partial<Record<ActivityType, string>> = {
   reply_received: 'Respondeu Prospecção Ativa',
   whatsapp_shared: 'Lead não entrou no grupo',
+  call_scheduled: '[TONY] Call Agendada',
 };
 
 export default function SocialSellingEvolution() {
@@ -244,7 +245,7 @@ export default function SocialSellingEvolution() {
       const labels: Record<string, string> = {
         reply_received: 'Resposta registrada! Lead movido para "Respondeu Prospecção Ativa"',
         whatsapp_shared: 'WhatsApp salvo! Lead movido para "Lead não entrou no grupo"',
-        call_scheduled: 'Call agendada registrada!',
+        call_scheduled: 'Call agendada! Lead movido para "[TONY] Call Agendada"',
         call_done: 'Call feita registrada!',
       };
       toast.success(labels[activityType] || 'Registrado!');
