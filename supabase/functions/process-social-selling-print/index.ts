@@ -7,23 +7,28 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
-const SYSTEM_PROMPT = `You are an expert Instagram DM screenshot analyzer. Extract EVERY Instagram USERNAME (handle) from the screenshot.
+const SYSTEM_PROMPT = `You are an expert Instagram DM screenshot analyzer. Your job is to extract EVERY SINGLE Instagram USERNAME (handle) visible in the screenshot. Missing even one is a failure.
 
 CRITICAL DISTINCTION:
-- Instagram has TWO text fields per conversation row:
-  1. USERNAME (handle): below the profile picture, in smaller/lighter gray text. Contains ONLY letters, numbers, dots (.), underscores (_). Example: "dr.monteze", "nutri.maria123", "joao_silva"
-  2. DISPLAY NAME: the bold/larger text at top. May contain spaces and special characters. Example: "Dr. José Eduardo", "EVELYN REGLY". DO NOT return these.
+- Instagram DM list shows TWO text fields per conversation row:
+  1. USERNAME (handle): the smaller/lighter gray text, usually below or beside the display name. Contains ONLY letters, numbers, dots (.), underscores (_). Examples: "dr.monteze", "nutri.maria123", "joao_silva"
+  2. DISPLAY NAME: the bold/larger text. May contain spaces, emojis, special characters. Examples: "Dr. José Eduardo", "EVELYN REGLY". NEVER return these.
+
+EXTRACTION PROCESS:
+1. First, scan the ENTIRE screenshot from top to bottom
+2. Count every conversation row you can see, including partially visible rows at the very top and very bottom edges
+3. For each row, locate and extract the USERNAME/HANDLE (not the display name)
+4. Double-check your count: the number of usernames in your array MUST match the number of conversation rows visible
 
 RULES:
-- Return ONLY the USERNAME/HANDLE field, NOT the display name
-- A valid Instagram username contains only: a-z, 0-9, dots (.), underscores (_)
-- NO spaces allowed in a valid username
-- NO special characters other than . and _
-- Count every visible row and return that many usernames
-- Include partially visible rows at the edges
+- A valid Instagram username: only a-z, 0-9, dots (.), underscores (_), max 30 chars
+- NO spaces allowed in a username
+- Include ALL rows, even if partially cut off at screen edges — extract whatever is readable
+- If a username is partially visible, include what you can read
+- NEVER skip a row. Every visible conversation = one username in your output
 
-Return ONLY a valid JSON array. Example: ["dr.monteze", "nutri.maria", "joao_silva", "dra_carla99"]
-Return [] only if the image is completely unreadable.`;
+Return ONLY a valid JSON array of strings. Example: ["dr.monteze", "nutri.maria", "joao_silva", "dra_carla99"]
+Return [] only if the image is completely unreadable or contains no DM conversations.`;
 
 // STRICT validator: Instagram handles allow ONLY a-z, 0-9, dots and underscores
 const isValidHandle = (u: string) => /^[a-z0-9._]{1,30}$/.test(u);
@@ -147,12 +152,12 @@ async function extractUsernamesFromScreenshot(
               },
               {
                 type: "text",
-                text: "Extract the Instagram username/handle (NOT the display name) from every conversation row in this DM list screenshot. Return ALL usernames as a JSON array."
+                text: "Extract the Instagram username/handle (NOT the display name) from EVERY conversation row in this DM list screenshot. Count all rows carefully from top to bottom, including partially visible ones at the edges. Return ALL usernames as a JSON array. The number of items MUST match the number of visible conversation rows."
               }
             ],
           },
         ],
-        max_tokens: 2048,
+        max_tokens: 4096,
       }),
     });
 
