@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -45,7 +46,9 @@ import { cn, normalizeText } from '@/lib/utils';
 import { EmojiPicker } from '@/components/whatsapp/EmojiPicker';
 import { ImageUpload } from '@/components/whatsapp/ImageUpload';
 import { AudioRecorder } from '@/components/whatsapp/AudioRecorder';
+import { QuickMessagesPicker } from '@/components/whatsapp/QuickMessagesPicker';
 import { MessageBubble } from '@/components/whatsapp/MessageBubble';
+import type { QuickMessage } from '@/hooks/useQuickMessages';
 import { ConversationItem } from '@/components/whatsapp/ConversationItem';
 import { ConversationStatusTabs } from '@/components/whatsapp/ConversationStatusTabs';
 import { ConversationTransferDialog } from '@/components/whatsapp/ConversationTransferDialog';
@@ -195,7 +198,7 @@ export default function WhatsAppChat() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const isUserScrollingRef = useRef(false);
   const lastConversationIdRef = useRef<string | null>(null);
@@ -792,9 +795,68 @@ export default function WhatsAppChat() {
     }
   };
 
+  const handleComposerKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
   const handleEmojiSelect = (emoji: string) => {
     setNewMessage(prev => prev + emoji);
     inputRef.current?.focus();
+  };
+
+  const handleQuickMessageText = (text: string) => {
+    setNewMessage(prev => (prev.trim() ? `${prev}\n${text}` : text));
+    inputRef.current?.focus();
+  };
+
+  const handleQuickMessageMedia = async (msg: QuickMessage) => {
+    if (!selectedConversation || !profile?.organization_id) return;
+
+    const conversationInstanceId = activeInstanceId ?? selectedConversation.instance_id;
+    if (!conversationInstanceId) {
+      toast.error('Instância da conversa não encontrada');
+      return;
+    }
+
+    const isInstagram = (selectedConversation as any).channel_type === 'instagram';
+    if (isInstagram) {
+      toast.error('Mídia de mensagem rápida disponível apenas no WhatsApp');
+      return;
+    }
+
+    if (msg.message_text?.trim()) {
+      setNewMessage(msg.message_text);
+    }
+
+    if (!msg.media_type || !msg.media_url) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('whatsapp-send-message', {
+        body: {
+          organizationId: profile.organization_id,
+          instanceId: conversationInstanceId,
+          conversationId: selectedConversation.id,
+          chatId: selectedConversation.chat_id || null,
+          phone: selectedConversation.phone_number,
+          messageType: msg.media_type === 'audio' ? 'ptt' : msg.media_type,
+          content: msg.message_text || '',
+          mediaUrl: msg.media_url,
+          senderUserId: user?.id,
+        },
+      });
+
+      if (error || data?.error || (!data?.success && !data?.ok)) {
+        throw new Error(data?.error || error?.message || 'Falha ao enviar mensagem rápida');
+      }
+
+      await fetchMessages();
+      toast.success('Mensagem rápida enviada');
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao enviar mensagem rápida');
+    }
   };
 
   const handleImageSelect = (base64: string, mimeType: string) => {
@@ -1612,20 +1674,21 @@ export default function WhatsAppChat() {
                       isRecording={isRecordingAudio}
                       setIsRecording={setIsRecordingAudio}
                     />
+
+                    <QuickMessagesPicker
+                      onSelectText={handleQuickMessageText}
+                      onSelectMedia={handleQuickMessageMedia}
+                      disabled={isSending || isRecordingAudio}
+                    />
                     
                     {/* Input */}
-                    <Input
+                    <Textarea
                       ref={inputRef}
-                      placeholder="Mensagem..."
+                      placeholder="Digite sua mensagem..."
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          sendMessage();
-                        }
-                      }}
-                      className="flex-1 rounded-full h-10 text-sm"
+                      onKeyDown={handleComposerKeyDown}
+                      className="flex-1 min-h-[88px] max-h-[180px] resize-none rounded-2xl text-sm leading-relaxed"
                       disabled={isSending || isRecordingAudio}
                     />
                     
@@ -2201,19 +2264,19 @@ export default function WhatsAppChat() {
                         isRecording={isRecordingAudio}
                         setIsRecording={setIsRecordingAudio}
                       />
-                      <Input
+                      <QuickMessagesPicker
+                        onSelectText={handleQuickMessageText}
+                        onSelectMedia={handleQuickMessageMedia}
+                        disabled={isSending || isRecordingAudio}
+                      />
+                      <Textarea
                         ref={inputRef}
                         placeholder="Digite sua mensagem..."
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            sendMessage();
-                          }
-                        }}
+                        onKeyDown={handleComposerKeyDown}
                         disabled={isSending || isRecordingAudio}
-                        className="flex-1 bg-background"
+                        className="flex-1 min-h-[96px] max-h-[220px] resize-none bg-background leading-relaxed"
                       />
                       <Button 
                         onClick={sendMessage} 
