@@ -29,10 +29,10 @@ const ACTIVITY_BUTTONS: { type: ActivityType; label: string; icon: React.ReactNo
   { type: 'call_done', label: 'Call Feita', icon: <PhoneCall className="h-3.5 w-3.5" />, color: 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400' },
 ];
 
-// Map activity types to funnel stage enum_values for automatic progression
+// Map activity types to funnel stage NAMES for automatic progression
 const STAGE_MAP: Partial<Record<ActivityType, string>> = {
-  reply_received: 'Mensagem com Alguma Resposta',
-  whatsapp_shared: 'Lead Enviou seu WhatsApp',
+  reply_received: 'Respondeu Prospecção Ativa',
+  whatsapp_shared: 'Lead não entrou no grupo',
 };
 
 export default function SocialSellingEvolution() {
@@ -84,7 +84,7 @@ export default function SocialSellingEvolution() {
     queryFn: async () => {
       const { data } = await supabase
         .from('organization_funnel_stages')
-        .select('id, name, position')
+        .select('id, name, position, enum_value')
         .eq('organization_id', orgId!)
         .order('position', { ascending: true });
       return data || [];
@@ -214,14 +214,20 @@ export default function SocialSellingEvolution() {
         });
       if (error) throw error;
 
-      // Update lead stage if mapped
+      // Update lead funnel stage if mapped
       const targetStageName = STAGE_MAP[activityType];
       if (targetStageName) {
-        const stageId = findStageId(targetStageName);
-        if (stageId) {
+        const targetStage = (funnelStages || []).find((s: any) => 
+          s.name.toLowerCase() === targetStageName.toLowerCase()
+        );
+        if (targetStage) {
+          const updateData: any = { funnel_stage_id: targetStage.id };
+          if (targetStage.enum_value) {
+            updateData.stage = targetStage.enum_value;
+          }
           await supabase
             .from('leads')
-            .update({ stage: stageId } as any)
+            .update(updateData)
             .eq('id', leadId);
         }
       }
@@ -236,8 +242,8 @@ export default function SocialSellingEvolution() {
     },
     onSuccess: (_, { activityType }) => {
       const labels: Record<string, string> = {
-        reply_received: 'Resposta registrada! Lead movido para "Mensagem com Alguma Resposta"',
-        whatsapp_shared: 'WhatsApp salvo! Lead movido para "Lead Enviou seu WhatsApp"',
+        reply_received: 'Resposta registrada! Lead movido para "Respondeu Prospecção Ativa"',
+        whatsapp_shared: 'WhatsApp salvo! Lead movido para "Lead não entrou no grupo"',
         call_scheduled: 'Call agendada registrada!',
         call_done: 'Call feita registrada!',
       };
