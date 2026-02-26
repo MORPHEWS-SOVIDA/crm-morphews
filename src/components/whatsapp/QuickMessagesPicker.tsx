@@ -27,7 +27,7 @@ export function QuickMessagesPicker({ onSelectText, onSelectMedia, disabled }: Q
     setOpen(false);
   };
 
-  if (!messages?.length && !isLoading) return null;
+  const hasMessages = !!messages?.length;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -48,6 +48,11 @@ export function QuickMessagesPicker({ onSelectText, onSelectMedia, disabled }: Q
         </div>
         {isLoading ? (
           <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        ) : !hasMessages ? (
+          <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+            Nenhuma mensagem rápida cadastrada.<br />
+            <span className="text-xs">Crie em Mensagens Rápidas no menu.</span>
+          </div>
         ) : (
           <ScrollArea className="max-h-64">
             <div className="p-1">
