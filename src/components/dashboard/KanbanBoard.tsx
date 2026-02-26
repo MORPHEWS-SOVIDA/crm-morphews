@@ -339,10 +339,10 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
 
     if (!overStage) return;
 
-    // Check if lead is actually changing stages
-    const isChangingStage = lead.funnel_stage_id 
-      ? lead.funnel_stage_id !== overStage.id
-      : lead.stage !== getStageEnumValue(overStage);
+    // Check if lead is actually changing stages using the visual stage assignment
+    // This handles both funnel_stage_id and legacy enum-based leads correctly
+    const currentVisualStage = findLeadStage(lead, sortedStages);
+    const isChangingStage = !currentVisualStage || currentVisualStage.id !== overStage.id;
     
     if (isChangingStage) {
       const newStageEnum = getStageEnumValue(overStage) as FunnelStage;
@@ -363,14 +363,22 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     setIsUpdating(true);
     
     try {
-      // Update the lead stage AND funnel_stage_id (critical for persistence)
+      console.log('[Kanban] Updating lead stage:', {
+        leadId: pendingChange.leadId,
+        newStage: pendingChange.newStage,
+        targetStageId: pendingChange.targetStageId,
+      });
+
+      // Update the lead stage AND funnel_stage_id (both are critical for persistence)
       await updateLead.mutateAsync({
         id: pendingChange.leadId,
         stage: pendingChange.newStage,
         funnel_stage_id: pendingChange.targetStageId,
       });
 
-      // Record in stage history
+      console.log('[Kanban] Lead updated successfully');
+
+      // Record in stage history (include to_stage_id for TracZAP CAPI events)
       await addStageHistory.mutateAsync({
         lead_id: pendingChange.leadId,
         organization_id: profile.organization_id,
@@ -378,6 +386,8 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
         previous_stage: pendingChange.previousStage,
         reason: result.reason,
         changed_by: user?.id || null,
+        to_stage_id: pendingChange.targetStageId,
+        source: 'manual',
       });
 
       // Schedule follow-up if selected
@@ -398,7 +408,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
           : "O lead foi movido e o histórico foi registrado.",
       });
     } catch (error: any) {
-      console.error("Error updating stage:", error);
+      console.error("[Kanban] Error updating stage:", error);
       toast({
         title: "Erro ao atualizar",
         description: error.message,
