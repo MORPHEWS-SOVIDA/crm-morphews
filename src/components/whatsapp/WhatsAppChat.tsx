@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock, Star, Instagram, MessageSquareMore, Video } from "lucide-react";
+import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock, Star, Instagram, MessageSquareMore, Video, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { WhatsAppMessageInput } from "./WhatsAppMessageInput";
@@ -27,6 +27,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useFunnelStages } from "@/hooks/useFunnelStages";
 import { useCrossInstanceConversations, getOtherInstanceConversations } from "@/hooks/useCrossInstanceConversations";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { QuickMessagesPicker } from "./QuickMessagesPicker";
+import { QuickMessage } from "@/hooks/useQuickMessages";
 
 interface WhatsAppChatProps {
   instanceId?: string; // Agora opcional - se não passar, busca todas da org
@@ -600,7 +602,57 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     sendMessage.mutate(messageText);
   };
 
-  const handleSendAudio = async (base64: string, mimeType: string) => {
+  const handleQuickMessageText = (text: string) => {
+    setMessageText(text);
+  };
+
+  const handleQuickMessageMedia = async (msg: QuickMessage) => {
+    if (!activeConversation || !profile?.organization_id) return;
+    if (isActiveInstanceOffline) {
+      toast({ title: "Instância desconectada", variant: "destructive" });
+      return;
+    }
+    const now = Date.now();
+    if (now - lastSendAt < SEND_COOLDOWN_MS) {
+      toast({ title: "Aguarde um pouco", description: "Envie no máximo 1 mensagem a cada 5 segundos.", variant: "destructive" });
+      return;
+    }
+    setLastSendAt(now);
+
+    // If it has text, send text first
+    if (msg.message_text?.trim()) {
+      sendMessage.mutate(msg.message_text);
+    }
+
+    // If it has media, send media via edge function
+    if (msg.media_type && msg.media_url) {
+      try {
+        const { data, error } = await supabase.functions.invoke("whatsapp-send-message", {
+          body: {
+            organizationId: profile.organization_id,
+            conversationId: activeConversation.id,
+            instanceId: activeConversation.instance_id,
+            chatId: activeConversation.chat_id || null,
+            phone: activeConversation.phone_number,
+            content: "",
+            messageType: msg.media_type === "audio" ? "ptt" : msg.media_type,
+            mediaUrl: msg.media_url,
+            senderUserId: profile.user_id,
+          },
+        });
+        if (error || data?.error || !data?.success) {
+          throw new Error(data?.error || error?.message || "Falha ao enviar mídia");
+        }
+        queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
+        queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+        toast({ title: "Mensagem rápida enviada!" });
+      } catch (err: any) {
+        toast({ title: "Erro ao enviar mídia", description: err.message, variant: "destructive" });
+      }
+    }
+  };
+
+
     if (!activeConversation) return;
     if (!profile?.organization_id) {
       toast({
@@ -2019,6 +2071,11 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                         >
                           <Mic className="h-5 w-5 text-muted-foreground" />
                         </Button>
+                        <QuickMessagesPicker
+                          onSelectText={handleQuickMessageText}
+                          onSelectMedia={handleQuickMessageMedia}
+                          disabled={isActiveInstanceOffline}
+                        />
                       </div>
 
                       {/* Video Preview */}
