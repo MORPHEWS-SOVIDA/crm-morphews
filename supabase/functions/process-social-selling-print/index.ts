@@ -71,7 +71,7 @@ interface ExtractionResult {
 async function extractUsernamesFromScreenshot(
   filePath: string,
   supabase: ReturnType<typeof createClient>,
-  LOVABLE_API_KEY: string
+  GROQ_API_KEY: string
 ): Promise<ExtractionResult> {
   console.log(`[EXTRACT] Processing file: ${filePath}`);
   
@@ -125,17 +125,17 @@ async function extractUsernamesFromScreenshot(
       else mimeType = "image/jpeg"; // fallback
     }
 
-    console.log(`[EXTRACT] Calling AI for ${filePath} (mime: ${mimeType}, base64 length: ${base64.length})...`);
+    console.log(`[EXTRACT] Calling Groq Vision API for ${filePath} (mime: ${mimeType}, base64 length: ${base64.length})...`);
 
-    // Call AI with base64 image
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call Groq Vision API with llama-4-scout (fast + cheap vision model)
+    const aiResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GROQ_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
@@ -152,6 +152,7 @@ async function extractUsernamesFromScreenshot(
             ],
           },
         ],
+        max_tokens: 2048,
       }),
     });
 
@@ -159,12 +160,12 @@ async function extractUsernamesFromScreenshot(
       const errText = await aiResponse.text();
       console.error(`[EXTRACT] AI API error ${aiResponse.status} for ${filePath}: ${errText.substring(0, 500)}`);
       if (aiResponse.status === 402) {
-        return { usernames: [], error: "Créditos de IA insuficientes. Recarregue seus créditos no painel do workspace.", errorCode: 402 };
+        return { usernames: [], error: "Créditos Groq esgotados.", errorCode: 402 };
       }
       if (aiResponse.status === 429) {
-        return { usernames: [], error: "Limite de requisições de IA excedido. Tente novamente em alguns minutos.", errorCode: 429 };
+        return { usernames: [], error: "Limite de requisições Groq excedido. Tente novamente em alguns minutos.", errorCode: 429 };
       }
-      return { usernames: [], error: `Erro na API de IA: ${aiResponse.status}` };
+      return { usernames: [], error: `Erro na API Groq: ${aiResponse.status}` };
     }
 
     const aiData = await aiResponse.json();
@@ -184,8 +185,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -242,7 +243,7 @@ serve(async (req) => {
       
       console.log(`[MAIN] Processing screenshot ${i + 1}/${screenshotUrls.length}: ${filePath}`);
       
-      const result = await extractUsernamesFromScreenshot(filePath, supabase, LOVABLE_API_KEY);
+      const result = await extractUsernamesFromScreenshot(filePath, supabase, GROQ_API_KEY);
       
       // If we hit a payment/rate limit error, stop immediately and return error
       if (result.error && (result.errorCode === 402 || result.errorCode === 429)) {
