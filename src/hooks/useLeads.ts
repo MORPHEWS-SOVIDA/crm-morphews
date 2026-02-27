@@ -239,9 +239,7 @@ export function useDeleteLead() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('leads')
-        .delete()
-        .eq('id', id);
+        .rpc('delete_lead_cascade', { p_lead_id: id });
 
       if (error) {
         console.error('Error deleting lead:', error);

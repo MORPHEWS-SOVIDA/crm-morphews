@@ -22368,6 +22368,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      delete_lead_cascade: { Args: { p_lead_id: string }; Returns: undefined }
       enqueue_onboarding_emails: {
         Args: {
           _email: string
