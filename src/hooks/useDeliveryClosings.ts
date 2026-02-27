@@ -76,17 +76,26 @@ export function useAvailableClosingSales(closingType: ClosingType) {
       if (!tenantId) return [];
 
       // Get all sale_ids that are already in a closing of this type
-      const { data: usedSales, error: usedError } = await supabase
-        .from('pickup_closing_sales')
-        .select('sale_id')
-        .eq('organization_id', tenantId)
-        .eq('closing_type', closingType);
+      // Paginate to avoid missing records (default limit is 1000)
+      const usedSaleIds = new Set<string>();
+      let from = 0;
+      const PAGE_SIZE = 1000;
+      while (true) {
+        const { data: usedSales, error: usedError } = await supabase
+          .from('pickup_closing_sales')
+          .select('sale_id')
+          .eq('organization_id', tenantId)
+          .eq('closing_type', closingType)
+          .range(from, from + PAGE_SIZE - 1);
 
-      if (usedError) throw usedError;
+        if (usedError) throw usedError;
+        if (!usedSales || usedSales.length === 0) break;
+        usedSales.forEach(s => usedSaleIds.add(s.sale_id));
+        if (usedSales.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
 
-      const usedSaleIds = (usedSales || []).map(s => s.sale_id);
-
-      // Fetch ALL sales of this delivery type that are NOT in any closing
+      // Fetch ALL sales of this delivery type (filter used ones client-side to avoid URL length limits)
       const deliveryTypeValue = deliveryTypeMap[closingType];
       let query = supabase
         .from('sales')
@@ -116,14 +125,12 @@ export function useAvailableClosingSales(closingType: ClosingType) {
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
-      // Exclude sales already in closings
-      if (usedSaleIds.length > 0) {
-        query = query.not('id', 'in', `(${usedSaleIds.join(',')})`);
-      }
-
-      const { data, error } = await query;
+      const { data: rawData, error } = await query;
 
       if (error) throw error;
+
+      // Filter out sales already in closings (client-side to avoid URL length limits with large not.in lists)
+      const data = (rawData || []).filter(sale => !usedSaleIds.has(sale.id));
 
       // Fetch profiles for motoboys and sellers
       const userIds = new Set<string>();
