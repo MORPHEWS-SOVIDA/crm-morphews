@@ -10,8 +10,24 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
 const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
+
+// Map Lovable/OpenAI model names to Groq equivalents
+function mapModelToGroq(model: string): string {
+  const groqModelMap: Record<string, string> = {
+    'google/gemini-3-flash-preview': 'llama-3.3-70b-versatile',
+    'google/gemini-2.5-flash': 'llama-3.3-70b-versatile',
+    'google/gemini-2.5-flash-lite': 'llama-3.1-8b-instant',
+    'google/gemini-2.5-pro': 'llama-3.3-70b-versatile',
+    'google/gemini-3-pro-preview': 'llama-3.3-70b-versatile',
+    'openai/gpt-5': 'llama-3.3-70b-versatile',
+    'openai/gpt-5-mini': 'llama-3.3-70b-versatile',
+    'openai/gpt-5-nano': 'llama-3.1-8b-instant',
+  };
+  return groqModelMap[model] || 'llama-3.3-70b-versatile';
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -1203,29 +1219,31 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
     messagesCount: messages.length
   });
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  // Use Groq as primary AI provider for chat (much cheaper, no Lovable AI credits consumed)
+  const groqModel = mapModelToGroq(modelToUse);
+  
+  console.log('🤖 Calling Groq model:', groqModel, '(mapped from:', modelToUse, ')');
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: modelToUse,
+      model: groqModel,
       messages,
       max_tokens: 600,
-      temperature: 0.85, // Mais natural e variado
+      temperature: 0.85,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('❌ Lovable AI error:', response.status, errorText);
+    console.error('❌ Groq AI error:', response.status, errorText);
     
     if (response.status === 429) {
       throw new Error('RATE_LIMITED');
-    }
-    if (response.status === 402) {
-      throw new Error('PAYMENT_REQUIRED');
     }
     throw new Error(`AI_ERROR: ${response.status}`);
   }
@@ -1234,9 +1252,9 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
   const aiResponse = data.choices?.[0]?.message?.content || '';
   const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
 
-  console.log('✅ AI Response generated with', modelToUse, ':', aiResponse.substring(0, 100) + '...');
+  console.log('✅ AI Response generated with Groq', groqModel, ':', aiResponse.substring(0, 100) + '...');
   
-  return { response: aiResponse, tokensUsed, modelUsed: modelToUse };
+  return { response: aiResponse, tokensUsed, modelUsed: `groq/${groqModel}` };
 }
 
 // ============================================================================
