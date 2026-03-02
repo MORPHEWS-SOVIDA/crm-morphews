@@ -843,12 +843,12 @@ serve(async (req) => {
   try {
     const { message, conversationId, organizationId, userId } = await req.json();
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GROQ_API_KEY_DONNA = Deno.env.get("GROQ_API_KEY_DONNA");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GROQ_API_KEY_DONNA) {
+      throw new Error("GROQ_API_KEY_DONNA is not configured");
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -992,15 +992,15 @@ serve(async (req) => {
       })),
     ];
 
-    // Chamar API de IA com modelo mais capaz
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Chamar Groq API (key separada da Donna, sem consumir créditos Lovable)
+    const aiResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GROQ_API_KEY_DONNA}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "llama-3.3-70b-versatile",
         messages,
         max_tokens: 1500,
         temperature: 0.7,
