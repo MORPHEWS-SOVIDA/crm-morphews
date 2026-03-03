@@ -1957,6 +1957,84 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ========================================================================
+    // AUTO-MESSAGE: Send automatic WhatsApp message if configured
+    // ========================================================================
+    let autoMessageSent = false;
+    let autoMessageError: string | null = null;
+    
+    try {
+      const autoEnabled = integration.auto_message_enabled;
+      const autoText = integration.auto_message_text;
+      const autoInstanceIds: string[] = integration.auto_message_instance_ids || [];
+      const autoRotation = integration.auto_message_rotation_enabled;
+      
+      if (autoEnabled && autoText && autoInstanceIds.length > 0 && leadData.whatsapp) {
+        console.log(`📨 Auto-message enabled for integration ${integration.name}, sending to ${leadData.whatsapp}`);
+        
+        // Replace variables in message template
+        let messageText = autoText;
+        messageText = messageText.replace(/\{\{nome\}\}/gi, leadData.name || 'Cliente');
+        messageText = messageText.replace(/\{\{email\}\}/gi, leadData.email || '');
+        messageText = messageText.replace(/\{\{produto\}\}/gi, leadData.product_name || '');
+        messageText = messageText.replace(/\{\{whatsapp\}\}/gi, leadData.whatsapp || '');
+        
+        // Select instance: rotation or first available
+        let selectedInstanceId: string;
+        if (autoRotation && autoInstanceIds.length > 1) {
+          const rotationIndex = Date.now() % autoInstanceIds.length;
+          selectedInstanceId = autoInstanceIds[rotationIndex];
+        } else {
+          selectedInstanceId = autoInstanceIds[0];
+        }
+        
+        // Try to send, with fallback to other instances
+        const instancesToTry = [selectedInstanceId, ...autoInstanceIds.filter(id => id !== selectedInstanceId)];
+        
+        for (const instId of instancesToTry) {
+          const { data: inst } = await supabase
+            .from('whatsapp_instances')
+            .select('id, name, provider, evolution_instance_id, is_connected')
+            .eq('id', instId)
+            .maybeSingle();
+          
+          if (!inst || !inst.is_connected || inst.provider !== 'evolution' || !inst.evolution_instance_id) {
+            console.warn(`⚠️ Auto-message: Skipping instance ${inst?.name || instId} (disconnected or unsupported)`);
+            continue;
+          }
+          
+          const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') || '';
+          const EVOLUTION_API_KEY_VAL = Deno.env.get('EVOLUTION_API_KEY') || '';
+          const number = leadData.whatsapp.replace(/\D/g, '');
+          
+          const response = await fetch(`${EVOLUTION_API_URL}/message/sendText/${inst.evolution_instance_id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY_VAL },
+            body: JSON.stringify({ number, text: messageText }),
+          });
+          const result = await response.json();
+          
+          if (response.ok) {
+            autoMessageSent = true;
+            autoMessageError = null;
+            console.log(`✅ Auto-message sent via ${inst.name} to ${number}`);
+            break;
+          } else {
+            autoMessageError = JSON.stringify(result);
+            console.error(`❌ Auto-message failed on ${inst.name}:`, result);
+            // Continue to next instance
+          }
+        }
+        
+        if (!autoMessageSent && autoMessageError) {
+          console.error(`❌ Auto-message: All instances failed`);
+        }
+      }
+    } catch (autoMsgErr) {
+      console.error('Auto-message error (non-fatal):', autoMsgErr);
+      autoMessageError = String(autoMsgErr);
+    }
+
     // Log success
     let eventType = 'lead_created';
     if (sacTicketId) {
@@ -1974,7 +2052,7 @@ Deno.serve(async (req) => {
       status: 'success',
       event_type: eventType,
       request_payload: payload,
-      response_payload: { lead_id: leadId, sale_id: saleId, sac_ticket_id: sacTicketId, action },
+      response_payload: { lead_id: leadId, sale_id: saleId, sac_ticket_id: sacTicketId, action, auto_message_sent: autoMessageSent, auto_message_error: autoMessageError },
       lead_id: leadId,
       processing_time_ms: Date.now() - startTime,
     });
