@@ -42,6 +42,11 @@ export interface Integration {
   is_paused: boolean;
   paused_at: string | null;
   pause_reason: string | null;
+  // Auto-message fields
+  auto_message_enabled: boolean;
+  auto_message_text: string | null;
+  auto_message_instance_ids: string[];
+  auto_message_rotation_enabled: boolean;
 }
 
 export interface IntegrationFieldMapping {

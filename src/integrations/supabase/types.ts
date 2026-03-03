@@ -6197,6 +6197,10 @@ export type Database = {
         Row: {
           auth_token: string
           auto_followup_days: number | null
+          auto_message_enabled: boolean
+          auto_message_instance_ids: string[] | null
+          auto_message_rotation_enabled: boolean
+          auto_message_text: string | null
           consecutive_failures: number
           created_at: string
           created_by: string | null
@@ -6229,6 +6233,10 @@ export type Database = {
         Insert: {
           auth_token?: string
           auto_followup_days?: number | null
+          auto_message_enabled?: boolean
+          auto_message_instance_ids?: string[] | null
+          auto_message_rotation_enabled?: boolean
+          auto_message_text?: string | null
           consecutive_failures?: number
           created_at?: string
           created_by?: string | null
@@ -6261,6 +6269,10 @@ export type Database = {
         Update: {
           auth_token?: string
           auto_followup_days?: number | null
+          auto_message_enabled?: boolean
+          auto_message_instance_ids?: string[] | null
+          auto_message_rotation_enabled?: boolean
+          auto_message_text?: string | null
           consecutive_failures?: number
           created_at?: string
           created_by?: string | null

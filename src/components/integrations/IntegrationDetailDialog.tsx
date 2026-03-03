@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
+import {
   Copy, 
   Plus, 
   Trash2, 
@@ -41,7 +41,9 @@ import {
   ArrowRight,
   Play,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  MessageSquare,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -67,6 +69,9 @@ import { useUsers } from '@/hooks/useUsers';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { useFunnelStages, getStageEnumValue } from '@/hooks/useFunnelStages';
 import { FUNNEL_STAGES } from '@/types/lead';
+import { useWhatsAppInstances } from '@/hooks/useWhatsAppInstances';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface IntegrationDetailDialogProps {
   integration: Integration;
@@ -154,6 +159,23 @@ export function IntegrationDetailDialog({
     integration.trigger_rules_logic || 'AND'
   );
   
+  // Auto-message state
+  const [autoMessageEnabled, setAutoMessageEnabled] = useState(
+    (integration as any).auto_message_enabled || false
+  );
+  const [autoMessageText, setAutoMessageText] = useState(
+    (integration as any).auto_message_text || ''
+  );
+  const [autoMessageInstanceIds, setAutoMessageInstanceIds] = useState<string[]>(
+    (integration as any).auto_message_instance_ids || []
+  );
+  const [autoMessageRotationEnabled, setAutoMessageRotationEnabled] = useState(
+    (integration as any).auto_message_rotation_enabled || false
+  );
+
+  // WhatsApp instances for auto-message
+  const { data: whatsappInstances } = useWhatsAppInstances();
+
   const [mappings, setMappings] = useState<FieldMappingRow[]>([]);
   const [showPayloadViewer, setShowPayloadViewer] = useState(false);
   const [detectedFields, setDetectedFields] = useState<DetectedField[]>([]);
@@ -472,6 +494,10 @@ export function IntegrationDetailDialog({
       default_seller_id: defaultSellerId || null,
       trigger_rules: triggerRules.length > 0 ? triggerRules : null,
       trigger_rules_logic: triggerRulesLogic,
+      auto_message_enabled: autoMessageEnabled,
+      auto_message_text: autoMessageText || null,
+      auto_message_instance_ids: autoMessageInstanceIds,
+      auto_message_rotation_enabled: autoMessageRotationEnabled,
     } as any);
     toast.success('Configurações salvas!');
   };
@@ -629,32 +655,34 @@ export function IntegrationDetailDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
-          <TabsList className="grid w-full grid-cols-6 flex-shrink-0">
-            <TabsTrigger value="config" className="gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Configuração</span>
-              <span className="sm:hidden">Config</span>
+          <TabsList className="grid w-full grid-cols-7 flex-shrink-0">
+            <TabsTrigger value="config" className="gap-1 text-xs">
+              <Settings className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Config</span>
             </TabsTrigger>
-            <TabsTrigger value="mappings" className="gap-2">
-              <MapPin className="h-4 w-4" />
-              <span className="hidden sm:inline">Mapeamento</span>
-              <span className="sm:hidden">Map</span>
+            <TabsTrigger value="mappings" className="gap-1 text-xs">
+              <MapPin className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Map</span>
             </TabsTrigger>
-            <TabsTrigger value="lead" className="gap-2">
-              <Users className="h-4 w-4" />
+            <TabsTrigger value="lead" className="gap-1 text-xs">
+              <Users className="h-3.5 w-3.5" />
               Lead
             </TabsTrigger>
-            <TabsTrigger value="sales" className="gap-2">
-              <ShoppingCart className="h-4 w-4" />
+            <TabsTrigger value="sales" className="gap-1 text-xs">
+              <ShoppingCart className="h-3.5 w-3.5" />
               Vendas
             </TabsTrigger>
-            <TabsTrigger value="rules" className="gap-2">
-              <AlertCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Regras</span>
-              <span className="sm:hidden">Regras</span>
+            <TabsTrigger value="auto_message" className="gap-1 text-xs">
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Msg Auto</span>
+              <span className="sm:hidden">Msg</span>
             </TabsTrigger>
-            <TabsTrigger value="logs" className="gap-2">
-              <Activity className="h-4 w-4" />
+            <TabsTrigger value="rules" className="gap-1 text-xs">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Regras</span>
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="gap-1 text-xs">
+              <Activity className="h-3.5 w-3.5" />
               Logs
             </TabsTrigger>
           </TabsList>
@@ -1483,6 +1511,143 @@ export function IntegrationDetailDialog({
                       </div>
                     </>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Auto Message Tab */}
+            <TabsContent value="auto_message" className="space-y-4 mt-4 pb-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Mensagem Automática
+                  </CardTitle>
+                  <CardDescription>
+                    Configure uma mensagem automática para enviar via WhatsApp quando um lead entrar por esta integração
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Enable toggle */}
+                  <div className="flex items-center justify-between p-4 rounded-lg border">
+                    <div>
+                      <Label className="text-base font-medium">Ativar Mensagem Automática</Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Enviar automaticamente uma mensagem quando o lead for cadastrado
+                      </p>
+                    </div>
+                    <Switch
+                      checked={autoMessageEnabled}
+                      onCheckedChange={setAutoMessageEnabled}
+                    />
+                  </div>
+
+                  {autoMessageEnabled && (
+                    <>
+                      {/* Message text */}
+                      <div className="space-y-2">
+                        <Label>Mensagem</Label>
+                        <Textarea
+                          value={autoMessageText}
+                          onChange={(e) => setAutoMessageText(e.target.value)}
+                          placeholder="Olá {{nome}}! Obrigado pelo seu interesse..."
+                          rows={5}
+                          className="min-h-[120px]"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Variáveis disponíveis: <code className="bg-muted px-1 rounded">{'{{nome}}'}</code>, <code className="bg-muted px-1 rounded">{'{{email}}'}</code>, <code className="bg-muted px-1 rounded">{'{{produto}}'}</code>
+                        </p>
+                      </div>
+
+                      {/* Instance selection */}
+                      <div className="space-y-3">
+                        <Label>Instâncias de WhatsApp</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Selecione as instâncias que serão usadas para enviar a mensagem
+                        </p>
+                        
+                        {!whatsappInstances || whatsappInstances.length === 0 ? (
+                          <div className="p-4 border rounded-lg text-center text-muted-foreground">
+                            <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">Nenhuma instância de WhatsApp ativa</p>
+                            <p className="text-xs">Conecte uma instância em Configurações → WhatsApp</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {whatsappInstances.map((instance) => (
+                              <div 
+                                key={instance.id}
+                                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                  autoMessageInstanceIds.includes(instance.id)
+                                    ? 'border-primary bg-primary/5'
+                                    : 'border-border hover:border-primary/50'
+                                }`}
+                                onClick={() => {
+                                  setAutoMessageInstanceIds(prev =>
+                                    prev.includes(instance.id)
+                                      ? prev.filter(id => id !== instance.id)
+                                      : [...prev, instance.id]
+                                  );
+                                }}
+                              >
+                                <Checkbox
+                                  checked={autoMessageInstanceIds.includes(instance.id)}
+                                  onCheckedChange={(checked) => {
+                                    setAutoMessageInstanceIds(prev =>
+                                      checked
+                                        ? [...prev, instance.id]
+                                        : prev.filter(id => id !== instance.id)
+                                    );
+                                  }}
+                                />
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">{instance.name}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {instance.phone_number || 'Sem número'}
+                                    {' • '}
+                                    <span className={instance.is_connected ? 'text-green-600' : 'text-red-500'}>
+                                      {instance.is_connected ? '🟢 Conectada' : '🔴 Desconectada'}
+                                    </span>
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Rotation toggle */}
+                      {autoMessageInstanceIds.length > 1 && (
+                        <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+                          <div className="flex items-center gap-3">
+                            <RefreshCw className="h-5 w-5 text-primary" />
+                            <div>
+                              <Label className="text-base font-medium">Rotação de Instâncias</Label>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Alternar entre as instâncias selecionadas para distribuir o envio e reduzir a chance de queda dos chips
+                              </p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={autoMessageRotationEnabled}
+                            onCheckedChange={setAutoMessageRotationEnabled}
+                          />
+                        </div>
+                      )}
+
+                      {autoMessageInstanceIds.length === 0 && (
+                        <div className="p-3 rounded-lg border border-yellow-500/50 bg-yellow-500/5 text-sm text-yellow-700 dark:text-yellow-400">
+                          ⚠️ Selecione pelo menos uma instância para enviar mensagens automáticas
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  <div className="flex justify-end pt-2">
+                    <Button onClick={handleSaveConfig} disabled={updateIntegration.isPending}>
+                      {updateIntegration.isPending ? 'Salvando...' : 'Salvar Configurações'}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
