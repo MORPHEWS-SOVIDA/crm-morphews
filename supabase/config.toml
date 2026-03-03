@@ -173,3 +173,6 @@ verify_jwt = false
 
 [functions.admin-send-credentials]
 verify_jwt = false
+
+[functions.admin-reset-password]
+verify_jwt = false
