@@ -427,7 +427,7 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
               )}
             </TabsContent>
 
-            <TabsContent value="combos" className="mt-4 flex-1 overflow-auto min-h-[300px]">
+            <TabsContent value="combos" className="mt-4 flex-1 overflow-auto min-h-0 max-h-[50vh]">
               {availableCombos.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Layers className="h-8 w-8 text-muted-foreground mb-2" />
