@@ -198,6 +198,7 @@ export function TransactionsTab() {
                   <TableHead>Taxa</TableHead>
                   <TableHead>Liberação</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Vínculo</TableHead>
                   <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -241,24 +242,22 @@ export function TransactionsTab() {
                         }
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge className={status.color}>
-                            <StatusIcon className="h-3 w-3 mr-1" />
-                            {status.label}
+                        <Badge className={status.color}>
+                          <StatusIcon className="h-3 w-3 mr-1" />
+                          {status.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {tx.sale_id ? (
+                          <Badge variant="outline" className="text-xs border-green-300 text-green-700 bg-green-50 dark:border-green-700 dark:text-green-400 dark:bg-green-950/30">
+                            <ShoppingBag className="h-3 w-3 mr-1" />
+                            Vinculado
                           </Badge>
-                          {tx.sale_id && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <ShoppingBag className="h-3.5 w-3.5 text-green-600" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Vinculado a uma venda</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
+                        ) : tx.status === 'paid' ? (
+                          <span className="text-xs text-muted-foreground">Não vinculado</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {canLink && (
