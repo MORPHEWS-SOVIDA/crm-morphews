@@ -209,7 +209,7 @@ export function TransactionsTab() {
                   const canLink = tx.status === 'paid' && !tx.sale_id;
 
                   return (
-                    <TableRow key={tx.id}>
+                    <TableRow key={tx.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setDetailTransaction(tx)}>
                       <TableCell className="text-sm">
                         {format(new Date(tx.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                       </TableCell>
