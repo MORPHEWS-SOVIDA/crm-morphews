@@ -64,15 +64,34 @@ Deno.serve(async (req) => {
         isAuthorized = true;
         console.log("Auth: service role key matched");
       } else {
-        console.log("Auth: trying JWT validation via getClaims...");
+        console.log("Auth: trying JWT validation...");
         const token = authHeader.replace("Bearer ", "");
         const supabaseAnon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
           global: { headers: { Authorization: authHeader } },
         });
-        const { data: claimsData, error: claimsErr } = await supabaseAnon.auth.getClaims(token);
-        console.log("Auth getClaims result:", claimsData?.claims?.sub, "error:", claimsErr?.message);
-        if (!claimsErr && claimsData?.claims?.sub) {
-          const userId = claimsData.claims.sub;
+
+        let userId: string | null = null;
+        const authAny = supabaseAnon.auth as any;
+
+        // Newer SDKs
+        if (typeof authAny.getClaims === "function") {
+          const { data: claimsData, error: claimsErr } = await authAny.getClaims(token);
+          console.log("Auth getClaims result:", claimsData?.claims?.sub, "error:", claimsErr?.message);
+          if (!claimsErr && claimsData?.claims?.sub) {
+            userId = claimsData.claims.sub;
+          }
+        }
+
+        // Older SDK fallback (v2.45 in this function runtime)
+        if (!userId) {
+          const { data: userData, error: userErr } = await supabaseAnon.auth.getUser(token);
+          console.log("Auth getUser fallback:", userData?.user?.id, "error:", userErr?.message);
+          if (!userErr && userData?.user?.id) {
+            userId = userData.user.id;
+          }
+        }
+
+        if (userId) {
           const { data: isMasterAdmin, error: rpcErr } = await supabaseAdmin.rpc("is_master_admin", {
             _user_id: userId,
           });
