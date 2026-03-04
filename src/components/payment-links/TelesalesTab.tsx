@@ -68,6 +68,10 @@ export function TelesalesTab() {
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   
+  // Manual amount mode (no sale linked)
+  const [useManualAmount, setUseManualAmount] = useState(false);
+  const [manualAmountStr, setManualAmountStr] = useState('');
+  
   // Payment
   const [installments, setInstallments] = useState(1);
   const [interestBearer, setInterestBearer] = useState<'customer' | 'seller'>('customer');
@@ -78,6 +82,16 @@ export function TelesalesTab() {
   const [cardHolder, setCardHolder] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
+
+  // Parse manual amount to cents
+  const manualAmountCents = useMemo(() => {
+    const cleaned = manualAmountStr.replace(/[^\d,]/g, '').replace(',', '.');
+    const value = parseFloat(cleaned);
+    return isNaN(value) ? 0 : Math.round(value * 100);
+  }, [manualAmountStr]);
+
+  // The effective amount (from sale or manual)
+  const effectiveAmountCents = selectedSale?.total_cents || manualAmountCents;
 
   // Fetch unpaid sales for the selected lead
   const { data: unpaidSales, isLoading: loadingSales } = useQuery({
@@ -99,8 +113,8 @@ export function TelesalesTab() {
         `)
         .eq('organization_id', profile.organization_id)
         .eq('lead_id', leadId)
-        .in('payment_status', ['pending', 'not_paid'])
-        .neq('status', 'cancelled')
+        .in('payment_status', ['not_paid', 'will_pay_before'])
+        .not('status', 'in', '("cancelled","returned")')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
