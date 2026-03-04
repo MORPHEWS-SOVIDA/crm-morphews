@@ -305,6 +305,13 @@ export function TransactionsTab() {
           }}
         />
       )}
+
+      {/* Transaction Detail Dialog */}
+      <TransactionDetailDialog
+        open={!!detailTransaction}
+        onOpenChange={(open) => !open && setDetailTransaction(null)}
+        transaction={detailTransaction}
+      />
     </div>
   );
 }
