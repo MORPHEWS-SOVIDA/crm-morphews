@@ -104,7 +104,7 @@ export function AffiliatesManager() {
         .insert({
           organization_id: profile.organization_id,
           account_type: 'affiliate',
-          user_id: input.user_id || null, // Link to Morphews user
+          user_id: input.user_id || null, // Link to Atomic Sales user
           holder_name: input.name,
           holder_email: input.email,
           holder_document: input.document,
@@ -303,7 +303,7 @@ export function AffiliatesManager() {
                     {affiliate.virtual_account?.user_id && (
                       <Badge variant="secondary" className="gap-1">
                         <UserCheck className="h-3 w-3" />
-                        Usuário Morphews
+                        Usuário Atomic Sales
                       </Badge>
                     )}
                     {!affiliate.is_active && (
@@ -365,13 +365,13 @@ export function AffiliatesManager() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Vincular a Usuário Morphews (Recomendado)</Label>
+              <Label>Vincular a Usuário Atomic Sales (Recomendado)</Label>
               <AffiliateUserSelector
                 value={formData.user_id}
                 onChange={handleUserSelect}
               />
               <p className="text-xs text-muted-foreground">
-                O afiliado precisa ter conta na Morphews para poder solicitar saques
+                O afiliado precisa ter conta no Atomic Sales para poder solicitar saques
               </p>
             </div>
 

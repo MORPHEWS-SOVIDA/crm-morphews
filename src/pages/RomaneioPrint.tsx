@@ -201,7 +201,7 @@ export default function RomaneioPrint() {
   }
 
   // Use production URL for QR code so it works when scanned
-  const saleQrData = `https://sales.morphews.com/vendas/${sale.id}`;
+  const saleQrData = `https://atomic.ia.br/vendas/${sale.id}`;
   
   // Use shipping_address if available, then fallback address from lead_addresses, then legacy lead address
   const shippingAddress = (sale as any).shipping_address;

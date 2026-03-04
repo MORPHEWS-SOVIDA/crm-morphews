@@ -46,7 +46,7 @@ async function createStripeCheckoutSession(
   params.append('line_items[0][price_data][product_data][name]', 'Pedido #' + request.sale_id.slice(0, 8));
   
   // Success and cancel URLs
-  const baseUrl = Deno.env.get('SITE_URL') || 'https://sales.morphews.com';
+  const baseUrl = Deno.env.get('SITE_URL') || 'https://atomic.ia.br';
   params.append('success_url', `${baseUrl}/pagamento-sucesso?sale=${request.sale_id}&session_id={CHECKOUT_SESSION_ID}`);
   params.append('cancel_url', `${baseUrl}/pagamento-cancelado?sale=${request.sale_id}`);
   

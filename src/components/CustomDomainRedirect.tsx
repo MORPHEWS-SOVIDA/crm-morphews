@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import logoMorphews from '@/assets/logo-morphews.png';
+import logoAtomicLight from '@/assets/logo-atomic-light.png';
+import logoAtomicDark from '@/assets/logo-atomic-dark.png';
+import { useTheme } from 'next-themes';
 import { loginSchema } from '@/lib/validations';
 import { supabase } from '@/integrations/supabase/client';
 import { useWhiteLabelBySlug } from '@/hooks/useWhiteLabel';
@@ -56,7 +58,7 @@ export function CustomDomainRedirect({ children }: { children: React.ReactNode }
 
   // Redirect sales.morphews.com to main login
   useEffect(() => {
-    if (window.location.hostname === 'sales.morphews.com') {
+    if (window.location.hostname === 'sales.morphews.com' || window.location.hostname === 'morphews.com') {
       window.location.href = 'https://atomic.ia.br/login';
     }
   }, []);
@@ -67,7 +69,7 @@ export function CustomDomainRedirect({ children }: { children: React.ReactNode }
   }
 
   // Block render if redirecting from sales.morphews.com
-  if (window.location.hostname === 'sales.morphews.com') {
+  if (window.location.hostname === 'sales.morphews.com' || window.location.hostname === 'morphews.com') {
     return <PageLoader />;
   }
 
@@ -355,7 +357,7 @@ function WhiteLabelLoginPage({ slug }: { slug: string }) {
     );
   }
 
-  const logoUrl = config.logo_url || logoMorphews;
+  const logoUrl = config.logo_url || logoAtomicLight;
   const brandName = config.brand_name || 'CRM';
   const primaryColor = config.primary_color || '#9b87f5';
   const backgroundImage = config.login_background_url;

@@ -61,7 +61,7 @@ export function StepPageConfig({ pageConfig, onConfigChange }: StepPageConfigPro
             </Label>
             <div className="flex items-center gap-1">
               <span className="text-sm text-muted-foreground whitespace-nowrap bg-muted px-2 py-2 rounded-l-md border border-r-0">
-                sales.morphews.com/lp/
+                atomic.ia.br/lp/
               </span>
               <Input
                 id="slug"

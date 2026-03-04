@@ -6,10 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import logoAtomicSales from "@/assets/logo-morphews.png";
+import logoAtomicLight from '@/assets/logo-atomic-light.png';
+import logoAtomicDark from '@/assets/logo-atomic-dark.png';
+import { useTheme } from 'next-themes';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
+  const { resolvedTheme } = useTheme();
+  const displayLogo = resolvedTheme === 'dark' ? logoAtomicDark : logoAtomicLight;
   const [searchParams] = useSearchParams();
   const { updatePassword } = useAuth();
   const [password, setPassword] = useState('');
@@ -40,7 +44,7 @@ export default function ResetPassword() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
         <div className="w-full max-w-md text-center space-y-8">
           <div className="flex justify-center">
-            <img src={logoAtomicSales} alt="Atomic Sales" className="h-16 w-auto" />
+            <img src={displayLogo} alt="Atomic Sales" className="h-16 w-auto" />
           </div>
 
           <div className="flex justify-center">
@@ -131,7 +135,7 @@ export default function ResetPassword() {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <img src={logoAtomicSales} alt="Atomic Sales" className="h-12 w-auto" />
+              <img src={displayLogo} alt="Atomic Sales" className="h-12 w-auto" />
             </div>
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-primary" />

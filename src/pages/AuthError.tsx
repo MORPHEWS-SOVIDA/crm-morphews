@@ -1,9 +1,13 @@
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Home, RefreshCw, Mail } from "lucide-react";
-import logoAtomicSales from "@/assets/logo-morphews.png";
+import logoAtomicLight from '@/assets/logo-atomic-light.png';
+import logoAtomicDark from '@/assets/logo-atomic-dark.png';
+import { useTheme } from 'next-themes';
 
 const AuthError = () => {
+  const { resolvedTheme } = useTheme();
+  const displayLogo = resolvedTheme === 'dark' ? logoAtomicDark : logoAtomicLight;
   const [searchParams] = useSearchParams();
   const error = searchParams.get('error');
   const errorDescription = searchParams.get('error_description');
@@ -40,7 +44,7 @@ const AuthError = () => {
         {/* Logo */}
         <div className="flex justify-center">
           <img 
-            src={logoAtomicSales} 
+            src={displayLogo} 
             alt="Atomic Sales" 
             className="h-16 w-auto"
           />

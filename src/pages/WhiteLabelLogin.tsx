@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import logoAtomicSales from '@/assets/logo-morphews.png';
+import logoAtomicLight from '@/assets/logo-atomic-light.png';
+import logoAtomicDark from '@/assets/logo-atomic-dark.png';
+import { useTheme } from 'next-themes';
 import { loginSchema } from '@/lib/validations';
 import { supabase } from '@/integrations/supabase/client';
 import { useWhiteLabelBySlug } from '@/hooks/useWhiteLabel';
@@ -182,7 +184,7 @@ export default function WhiteLabelLogin() {
   }
 
   // Determine styles based on config
-  const logoUrl = config?.logo_url || logoAtomicSales;
+  const logoUrl = config?.logo_url || logoAtomicLight;
   const brandName = config?.brand_name || 'Atomic Sales';
   const primaryColor = config?.primary_color || '#9b87f5';
   const backgroundImage = config?.login_background_url;

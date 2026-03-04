@@ -347,7 +347,7 @@ export default function NicheLandingPage({ config }: { config: NicheConfig }) {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <Badge variant="outline" className="mb-4">A Solução</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">Com o Morphews você terá</h2>
+            <h2 className="text-3xl md:text-4xl font-bold">Com o Atomic Sales você terá</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {config.benefits.map(({ icon: Icon, title, description }, i) => (
@@ -441,7 +441,7 @@ export default function NicheLandingPage({ config }: { config: NicheConfig }) {
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
               Quanto custa um lead esquecido? Uma venda perdida por falta de follow-up?
-              O Morphews custa menos que um café por dia.
+              O Atomic Sales custa menos que um café por dia.
             </p>
 
             {/* Annual/Monthly Toggle */}
@@ -611,10 +611,10 @@ export default function NicheLandingPage({ config }: { config: NicheConfig }) {
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link to="/legal?section=termos" className="hover:text-foreground transition-colors">Termos de Uso</Link>
               <Link to="/legal?section=privacidade" className="hover:text-foreground transition-colors">Privacidade</Link>
-              <a href="mailto:contato@morphews.com" className="hover:text-foreground transition-colors">Contato</a>
+              <a href="mailto:contato@atomic.ia.br" className="hover:text-foreground transition-colors">Contato</a>
             </div>
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Morphews. Todos os direitos reservados.
+              © {new Date().getFullYear()} Atomic Sales. Todos os direitos reservados.
             </p>
           </div>
         </div>

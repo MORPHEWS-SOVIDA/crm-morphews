@@ -2,9 +2,13 @@ import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Home, ArrowLeft } from "lucide-react";
-import logoAtomicSales from "@/assets/logo-morphews.png";
+import logoAtomicLight from '@/assets/logo-atomic-light.png';
+import logoAtomicDark from '@/assets/logo-atomic-dark.png';
+import { useTheme } from 'next-themes';
 
 const NotFound = () => {
+  const { resolvedTheme } = useTheme();
+  const displayLogo = resolvedTheme === 'dark' ? logoAtomicDark : logoAtomicLight;
   const location = useLocation();
 
   useEffect(() => {
@@ -27,7 +31,7 @@ const NotFound = () => {
         {/* Logo */}
         <div className="flex justify-center">
           <img 
-            src={logoAtomicSales} 
+            src={displayLogo} 
             alt="Atomic Sales" 
             className="h-16 w-auto"
           />

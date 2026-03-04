@@ -1,39 +1,25 @@
 
 
-## Rebranding: Substituir logo Morphews pelo logo Atomic Sales
+## Rebranding Morphews → Atomic Sales — CONCLUÍDO ✅
 
-### O que será feito
+### O que foi feito
 
-1. **Copiar os 2 logos enviados** para `src/assets/`:
-   - `atomic-sales-2.png` → `src/assets/logo-atomic-dark.png` (logo claro, para tema escuro)
-   - `Design_sem_nome_26-2.png` → `src/assets/logo-atomic-light.png` (logo escuro, para tema claro)
+**~40 arquivos atualizados** com as seguintes mudanças:
 
-2. **Substituir imports em ~10 arquivos** que hoje importam `logo-morphews.png`:
-   - `Login.tsx`, `ResetPassword.tsx`, `AuthError.tsx`, `NotFound.tsx`, `ForcePasswordChange.tsx`, `WhiteLabelLogin.tsx` — trocar import para `logo-atomic-light.png`
-   - `Sidebar.tsx`, `MobileNav.tsx`, `LayoutMinimal.tsx`, `CustomDomainRedirect.tsx` — trocar import para `logo-atomic-light.png` (com suporte a tema escuro via `logo-atomic-dark.png`)
+1. **Dashboard**: Sidebar, MobileNav, LayoutMinimal — fallback brand "Atomic Sales"
+2. **Auth pages**: Login, ForcePasswordChange, ResetPassword, AuthError, NotFound, WhiteLabelLogin — logo alt text, toasts, copyright
+3. **Landing pages**: SalesLanding, Power, Planos, NicheLandingPage, DirectCheckout — textos, footer, WhatsApp links, copyright
+4. **Páginas**: Onboarding, SignupSuccess, Legal, Team, PublicHelper — textos de boas-vindas e termos
+5. **Domínios**: useCustomDomainDetection (atomic.ia.br adicionado), CustomDomainRedirect (redirect → atomic.ia.br)
+6. **Edge Functions**: create-checkout (Stripe), email-hook (emails transacionais), send-welcome-email, implementer-checkout, partner-notification, chargeback-alerts, stripe-webhook, manual-user-provision, melhor-envio-* (User-Agent), split-engine, ecommerce-checkout/pagarme
+7. **White Label**: WhiteAdminBranding (URLs), WhiteLabelSalesPage (CTA), PartnerDetailSheet, PendingInvitations
+8. **index.html**: Twitter handle, redirect script
 
-3. **Adicionar suporte a tema** nos componentes que têm acesso ao `resolvedTheme`:
-   - `Sidebar.tsx`, `MobileNav.tsx`, `LayoutMinimal.tsx` já têm lógica de tema — adicionar fallback com `logo-atomic-dark.png` quando `isDark`
-   - `Login.tsx` e outras páginas auth — importar ambos logos e selecionar por tema
-
-4. **Atualizar `useDomainBranding.ts`** — adicionar `atomic.ia.br` ao `MAIN_DOMAINS`
-
-5. **Textos remanescentes com "Morphews"** (exceto assistente):
-   - `WhiteAdminSettings.tsx`: `noreply@morphews.com` → `noreply@updates.atomic.ia.br`
-   - `RomaneioBatchPrint.tsx`: URLs QR code `sales.morphews.com` → `atomic.ia.br`
-   - `LandingPageEditor.tsx`: preview URL `sales.morphews.com`
-   - Edge functions com fallbacks `morphews.com`
-   - `WhiteLabelSalesPage.tsx`: seção "MORPHEWS" e feature anchors — renomear para referência ao assistente ou Atomic Sales
-   - `zapi-assistant-webhook`: mensagens de erro "Morphews" → "Atomic Sales"
-   - `create-org-user`: mensagem de erro "CRM da Morphews" → "Atomic Sales"
-   - `stripe-webhook`: fallback email `tenant@morphews.com`
-   - `ecommerce-checkout/stripe.ts`: fallback URL
-
-6. **Não alterar**:
-   - `DonnaHelperPanel.tsx` — assistente continua "Morphews"
-   - `morphews-avatar.png` — mantém
-   - `MASTER_ADMIN_EMAIL` — email real
-   - `AdminWhatsAppInstanceTab.tsx` — referências à "Secretária Morphews" (é o assistente)
-
-### Escopo: ~15 arquivos frontend + ~6 edge functions
-
+### Mantido como "Morphews" (conforme solicitado)
+- DonnaHelperPanel — assistente virtual
+- morphews-avatar.png — avatar do assistente  
+- Sidebar "Fale com Morphews" — seção do helper
+- MASTER_ADMIN_EMAIL — email real
+- Secretária Morphews — em Power.tsx, Planos.tsx, admin panels
+- MORPHEWS_CHECKOUT_TRIGGER — evento interno
+- evolution-assistant-webhook — assistente WhatsApp

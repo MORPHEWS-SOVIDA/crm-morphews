@@ -9,7 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, CheckCircle, XCircle } from "lucide-react";
 import { useOrgWhiteLabelBranding } from "@/hooks/useOrgWhiteLabelBranding";
 import { useTheme } from "next-themes";
-import logo from "@/assets/logo-morphews.png";
+import logoAtomicLight from '@/assets/logo-atomic-light.png';
+import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 
 export default function ForcePasswordChange() {
   const navigate = useNavigate();
@@ -23,9 +24,10 @@ export default function ForcePasswordChange() {
 
   // Determine which logo to use
   const isDark = resolvedTheme === 'dark';
+  const defaultLogo = isDark ? logoAtomicDark : logoAtomicLight;
   const displayLogo = wlBranding 
-    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logo
-    : logo;
+    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || defaultLogo
+    : defaultLogo;
   const brandName = wlBranding?.brand_name || 'Atomic Sales';
 
   // Set favicon dynamically

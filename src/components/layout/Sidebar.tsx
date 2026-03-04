@@ -48,7 +48,8 @@ import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { useIsWhiteLabelOwner } from '@/hooks/useWhiteAdmin';
 import { useCombinedBranding } from '@/hooks/useDomainBranding';
 import { useTheme } from 'next-themes';
-import logoMorphews from '@/assets/logo-morphews.png';
+import logoAtomicLight from '@/assets/logo-atomic-light.png';
+import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 import morphewsAvatar from '@/assets/morphews-avatar.png';
 import { useState } from 'react';
 import { DonnaHelperPanel } from '@/components/helper/DonnaHelperPanel';
@@ -92,11 +93,12 @@ export function Sidebar() {
   // Wait for auth AND branding to load before showing any logo to avoid flash
   const isDark = resolvedTheme === 'dark';
   const isBrandingReady = !authLoading && !wlBrandingLoading;
+  const defaultLogo = isDark ? logoAtomicDark : logoAtomicLight;
   const displayLogo = !isBrandingReady
     ? null // Don't show any logo while loading
     : wlBranding 
-      ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
-      : logoMorphews;
+      ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || defaultLogo
+      : defaultLogo;
   const brandName = wlBranding?.brand_name || 'Atomic Sales';
   const brandTagline = wlBranding ? '' : 'Gestão de leads intuitiva'; // Hide tagline for white labels
   
