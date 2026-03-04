@@ -43,9 +43,10 @@ export function LayoutMinimal({ children }: LayoutMinimalProps) {
   const [isOpen, setIsOpen] = useState(false);
   
   const isDark = resolvedTheme === 'dark';
+  const defaultLogo = isDark ? logoAtomicDark : logoAtomicLight;
   const displayLogo = wlBranding 
-    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoAtomicSales
-    : logoAtomicSales;
+    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || defaultLogo
+    : defaultLogo;
   const brandName = wlBranding?.brand_name || 'Atomic Sales';
   
   const handleSignOut = async () => {

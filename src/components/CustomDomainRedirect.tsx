@@ -357,7 +357,7 @@ function WhiteLabelLoginPage({ slug }: { slug: string }) {
     );
   }
 
-  const logoUrl = config.logo_url || logoMorphews;
+  const logoUrl = config.logo_url || logoAtomicLight;
   const brandName = config.brand_name || 'CRM';
   const primaryColor = config.primary_color || '#9b87f5';
   const backgroundImage = config.login_background_url;

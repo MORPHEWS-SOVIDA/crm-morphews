@@ -116,13 +116,16 @@ export default function Login() {
     }
   };
 
+  const { resolvedTheme } = useTheme();
+  const displayLogo = resolvedTheme === 'dark' ? logoAtomicDark : logoAtomicLight;
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-card rounded-2xl shadow-card p-8 animate-fade-in">
           {/* Logo */}
           <div className="text-center mb-8">
-            <img src={logoAtomicSales} alt="Atomic Sales" className="h-10 w-auto mx-auto" />
+            <img src={displayLogo} alt="Atomic Sales" className="h-10 w-auto mx-auto" />
             <p className="text-muted-foreground mt-4">
               Entre na sua conta para continuar
             </p>

@@ -184,7 +184,7 @@ export default function WhiteLabelLogin() {
   }
 
   // Determine styles based on config
-  const logoUrl = config?.logo_url || logoAtomicSales;
+  const logoUrl = config?.logo_url || logoAtomicLight;
   const brandName = config?.brand_name || 'Atomic Sales';
   const primaryColor = config?.primary_color || '#9b87f5';
   const backgroundImage = config?.login_background_url;

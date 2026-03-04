@@ -87,11 +87,12 @@ export function MobileNav() {
   // Wait for auth AND branding to load before showing any logo to avoid flash
   const isDark = resolvedTheme === 'dark';
   const isBrandingReady = !authLoading && !wlBrandingLoading;
+  const defaultLogo = isDark ? logoAtomicDark : logoAtomicLight;
   const displayLogo = !isBrandingReady
     ? null
     : wlBranding 
-      ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoAtomicSales
-      : logoAtomicSales;
+      ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || defaultLogo
+      : defaultLogo;
 
   const hasFeature = (key: string) => {
     if (isMasterAdmin) return true;

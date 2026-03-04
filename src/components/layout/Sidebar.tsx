@@ -93,11 +93,12 @@ export function Sidebar() {
   // Wait for auth AND branding to load before showing any logo to avoid flash
   const isDark = resolvedTheme === 'dark';
   const isBrandingReady = !authLoading && !wlBrandingLoading;
+  const defaultLogo = isDark ? logoAtomicDark : logoAtomicLight;
   const displayLogo = !isBrandingReady
     ? null // Don't show any logo while loading
     : wlBranding 
-      ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
-      : logoMorphews;
+      ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || defaultLogo
+      : defaultLogo;
   const brandName = wlBranding?.brand_name || 'Atomic Sales';
   const brandTagline = wlBranding ? '' : 'Gestão de leads intuitiva'; // Hide tagline for white labels
   

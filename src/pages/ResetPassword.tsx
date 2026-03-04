@@ -134,7 +134,7 @@ export default function ResetPassword() {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <img src={logoAtomicSales} alt="Atomic Sales" className="h-12 w-auto" />
+              <img src={displayLogo} alt="Atomic Sales" className="h-12 w-auto" />
             </div>
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-primary" />

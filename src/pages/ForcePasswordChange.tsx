@@ -24,9 +24,10 @@ export default function ForcePasswordChange() {
 
   // Determine which logo to use
   const isDark = resolvedTheme === 'dark';
+  const defaultLogo = isDark ? logoAtomicDark : logoAtomicLight;
   const displayLogo = wlBranding 
-    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logo
-    : logo;
+    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || defaultLogo
+    : defaultLogo;
   const brandName = wlBranding?.brand_name || 'Atomic Sales';
 
   // Set favicon dynamically
