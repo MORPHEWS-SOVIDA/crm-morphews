@@ -351,13 +351,13 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
 
       {/* Add Items Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Adicionar Produtos e Combos à Loja</DialogTitle>
           </DialogHeader>
 
-          <Tabs value={addDialogTab} onValueChange={(v) => setAddDialogTab(v as 'products' | 'combos')}>
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={addDialogTab} onValueChange={(v) => setAddDialogTab(v as 'products' | 'combos')} className="flex flex-col flex-1 min-h-0">
+            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
               <TabsTrigger value="products" className="gap-2">
                 <Package className="h-4 w-4" />
                 Produtos {selectedProductIds.length > 0 && `(${selectedProductIds.length})`}
@@ -378,7 +378,7 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
               />
             </div>
 
-            <TabsContent value="products" className="mt-4 flex-1 overflow-auto min-h-[300px]">
+            <TabsContent value="products" className="mt-4 flex-1 overflow-auto min-h-0 max-h-[50vh]">
               {availableProducts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Package className="h-8 w-8 text-muted-foreground mb-2" />
@@ -427,7 +427,7 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
               )}
             </TabsContent>
 
-            <TabsContent value="combos" className="mt-4 flex-1 overflow-auto min-h-[300px]">
+            <TabsContent value="combos" className="mt-4 flex-1 overflow-auto min-h-0 max-h-[50vh]">
               {availableCombos.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Layers className="h-8 w-8 text-muted-foreground mb-2" />
@@ -483,7 +483,7 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
             </TabsContent>
           </Tabs>
 
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
               Cancelar
             </Button>
