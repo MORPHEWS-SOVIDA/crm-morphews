@@ -471,7 +471,7 @@ serve(async (req) => {
       const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
       if (RESEND_API_KEY) {
         try {
-          await fetch("https://api.resend.com/emails", {
+          const emailRes = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -484,7 +484,6 @@ serve(async (req) => {
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                    <h1 style="color: #8b5cf6;">Seu período de teste começou! 🚀</h1>
-                  <p>Olá ${customerName?.split(' ')[0] || 'você'},</p>
                   <p>Olá ${customerName?.split(' ')[0] || 'você'},</p>
                   <p>Você tem <strong>${plan.trial_days} dias grátis</strong> para experimentar o plano <strong>${plan.name}</strong>!</p>
                   <div style="background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%); color: white; padding: 20px; border-radius: 12px; margin: 20px 0;">
@@ -508,9 +507,14 @@ serve(async (req) => {
               `,
             }),
           });
-          console.log("Trial welcome email sent to:", email);
+          const emailResData = await emailRes.json();
+          if (!emailRes.ok) {
+            console.error("Resend API error for trial email:", emailRes.status, JSON.stringify(emailResData));
+          } else {
+            console.log("Trial welcome email sent successfully to:", email, "Resend ID:", emailResData.id);
+          }
         } catch (emailError) {
-          console.error("Error sending email:", emailError);
+          console.error("Error sending trial email:", emailError);
         }
       }
 
