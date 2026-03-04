@@ -613,7 +613,7 @@ serve(async (req) => {
     }
 
     // Create checkout session
-    const appOrigin = req.headers.get("origin") || "https://crm.morphews.com";
+    const appOrigin = req.headers.get("origin") || "https://atomic.ia.br";
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
