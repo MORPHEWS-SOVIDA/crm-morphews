@@ -20,13 +20,14 @@ import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/hooks/useSales';
 import { getCategoryConfig, type PaymentCategory } from '@/lib/paymentCategories';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getSignedStorageUrl } from '@/lib/storage-utils';
 import { EditSaleOnClosingDialog } from '@/components/expedition/EditSaleOnClosingDialog';
 import { useCurrentTenantId } from '@/hooks/useTenant';
+import { PaymentConfirmationDialog, PaymentConfirmationData } from '@/components/sales/PaymentConfirmationDialog';
+import { useSaveSalePayments } from '@/hooks/useSalePayments';
 
 // Tracking status labels for display
 const TRACKING_STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -128,27 +129,7 @@ export function SaleSelectionCard({
   const [proofImageUrl, setProofImageUrl] = useState<string | null>(null);
   const [loadingProof, setLoadingProof] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  // Use special value for "none" to avoid Radix UI Select empty value error
-  const NONE_VALUE = '__none__';
-  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>(sale.payment_method_id || NONE_VALUE);
-
-  // Fetch active payment methods for the organization
-  const { data: paymentMethods = [] } = useQuery({
-    queryKey: ['payment-methods-for-closing', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('payment_methods')
-        .select('id, name, category')
-        .eq('is_active', true)
-        .order('name');
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!tenantId && isEditPaymentOpen,
-    staleTime: 60000,
-  });
+  const saveSalePayments = useSaveSalePayments();
 
   const handleOpenProof = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -170,58 +151,45 @@ export function SaleSelectionCard({
 
   const handleOpenEditPayment = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedPaymentMethodId(sale.payment_method_id || NONE_VALUE);
     setIsEditPaymentOpen(true);
   };
 
-  const handleSavePaymentMethod = async () => {
+  const handlePaymentConfirm = async (data: PaymentConfirmationData) => {
     setIsSaving(true);
     try {
-      if (selectedPaymentMethodId === NONE_VALUE) {
-        // Clear payment method
-        const { error } = await supabase
-          .from('sales')
-          .update({
-            payment_method_id: null,
-            payment_method: 'Não informado',
-          })
-          .eq('id', sale.id);
+      // Update the sale's primary payment method
+      const { error } = await supabase
+        .from('sales')
+        .update({
+          payment_method_id: data.payment_method_id || null,
+          payment_method: data.payment_method_name || 'Não informado',
+        })
+        .eq('id', sale.id);
 
-        if (error) throw error;
-      } else {
-        // Find the selected payment method to get its name and category
-        const selectedMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
-        
-        if (!selectedMethod) {
-          toast.error('Forma de pagamento não encontrada');
-          return;
-        }
+      if (error) throw error;
 
-        // Update the sale with the selected payment method
-        const { error } = await supabase
-          .from('sales')
-          .update({
-            payment_method_id: selectedMethod.id,
-            payment_method: selectedMethod.name,
-          })
-          .eq('id', sale.id);
-
-        if (error) throw error;
+      // Save split payment lines to sale_payments
+      if (data.payment_lines && data.payment_lines.length > 0 && tenantId) {
+        await saveSalePayments.mutateAsync({
+          saleId: sale.id,
+          organizationId: tenantId,
+          payments: data.payment_lines.map((l) => ({
+            payment_method_id: l.payment_method_id || null,
+            payment_method_name: l.payment_method_name,
+            amount_cents: l.amount_cents,
+          })),
+        });
       }
 
       toast.success('Forma de pagamento atualizada!');
       setIsEditPaymentOpen(false);
       
-      // Invalidate queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ['available-closing-sales'] });
       queryClient.invalidateQueries({ queryKey: ['available-pickup-sales'] });
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
       
-      if (onPaymentCategoryChange && selectedPaymentMethodId !== NONE_VALUE) {
-        const selectedMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
-        if (selectedMethod?.category) {
-          onPaymentCategoryChange(sale.id, selectedMethod.category as PaymentCategory);
-        }
+      if (onPaymentCategoryChange && data.payment_method_id) {
+        // We don't have category here directly, but the query invalidation will refresh it
       }
     } catch (error) {
       console.error('Error updating payment:', error);
@@ -469,52 +437,15 @@ export function SaleSelectionCard({
         </DialogContent>
       </Dialog>
 
-      {/* Edit Payment Category Dialog */}
-      <Dialog open={isEditPaymentOpen} onOpenChange={setIsEditPaymentOpen}>
-        <DialogContent className="max-w-md" onClick={(e) => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle>Alterar Forma de Pagamento - #{sale.romaneio_number}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Forma de Pagamento</label>
-              <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma forma de pagamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>
-                    <span className="text-muted-foreground">Não informado</span>
-                  </SelectItem>
-                  {paymentMethods.map(pm => {
-                    const catConfig = getCategoryConfig(pm.category);
-                    return (
-                      <SelectItem key={pm.id} value={pm.id}>
-                        <span className="flex items-center gap-2">
-                          {catConfig.emoji} {pm.name}
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Selecione a forma de pagamento exata conforme cadastrado no sistema
-              </p>
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditPaymentOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSavePaymentMethod} disabled={isSaving}>
-                {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Salvar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Split Payment Dialog */}
+      <PaymentConfirmationDialog
+        open={isEditPaymentOpen}
+        onOpenChange={setIsEditPaymentOpen}
+        onConfirm={handlePaymentConfirm}
+        totalCents={sale.total_cents || 0}
+        existingPaymentMethodId={sale.payment_method_id}
+        allowTotalEdit={true}
+      />
 
       {/* Edit Sale on Closing Dialog */}
       {showEditSale && (
