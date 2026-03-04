@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePaymentLinkTransactions, usePaymentLinkStats, PaymentLinkTransaction } from '@/hooks/usePaymentLinks';
 import { LinkTransactionToSaleDialog } from './LinkTransactionToSaleDialog';
+import { TransactionDetailDialog } from './TransactionDetailDialog';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -44,6 +45,7 @@ export function TransactionsTab() {
   const [methodFilter, setMethodFilter] = useState<string>('');
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<PaymentLinkTransaction | null>(null);
+  const [detailTransaction, setDetailTransaction] = useState<any>(null);
   
   const { data: transactions, isLoading } = usePaymentLinkTransactions({
     status: statusFilter || undefined,
@@ -207,7 +209,7 @@ export function TransactionsTab() {
                   const canLink = tx.status === 'paid' && !tx.sale_id;
 
                   return (
-                    <TableRow key={tx.id}>
+                    <TableRow key={tx.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setDetailTransaction(tx)}>
                       <TableCell className="text-sm">
                         {format(new Date(tx.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                       </TableCell>
@@ -266,7 +268,7 @@ export function TransactionsTab() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleOpenLinkDialog(tx)}
+                                  onClick={(e) => { e.stopPropagation(); handleOpenLinkDialog(tx); }}
                                   className="h-8 w-8 p-0"
                                 >
                                   <Link2 className="h-4 w-4" />
@@ -303,6 +305,13 @@ export function TransactionsTab() {
           }}
         />
       )}
+
+      {/* Transaction Detail Dialog */}
+      <TransactionDetailDialog
+        open={!!detailTransaction}
+        onOpenChange={(open) => !open && setDetailTransaction(null)}
+        transaction={detailTransaction}
+      />
     </div>
   );
 }
