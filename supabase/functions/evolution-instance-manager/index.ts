@@ -958,6 +958,9 @@ serve(async (req) => {
         throw new Error("Nome da instância é obrigatório");
       }
 
+      // Verificar limite do plano antes de criar
+      await checkInstanceLimit(organizationId);
+
       const evolutionInstanceName = generateInstanceName(organizationId, name);
       const webhookUrl = `${SUPABASE_URL}/functions/v1/evolution-instagram-webhook`;
 
