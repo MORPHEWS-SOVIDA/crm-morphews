@@ -365,7 +365,7 @@ export function AffiliatesManager() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Vincular a Usuário Morphews (Recomendado)</Label>
+              <Label>Vincular a Usuário Atomic Sales (Recomendado)</Label>
               <AffiliateUserSelector
                 value={formData.user_id}
                 onChange={handleUserSelect}
