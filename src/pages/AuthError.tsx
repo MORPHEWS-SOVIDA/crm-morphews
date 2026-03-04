@@ -6,6 +6,8 @@ import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 import { useTheme } from 'next-themes';
 
 const AuthError = () => {
+  const { resolvedTheme } = useTheme();
+  const displayLogo = resolvedTheme === 'dark' ? logoAtomicDark : logoAtomicLight;
   const [searchParams] = useSearchParams();
   const error = searchParams.get('error');
   const errorDescription = searchParams.get('error_description');
