@@ -33,7 +33,7 @@ async function sendWhatsAppWelcome(phone: string, customerName: string, tempPass
   
   const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE_NAME}`;
   
-  const welcomeMessage = `🎉 *Bem-vindo ao Morphews CRM, ${customerName}!*
+  const welcomeMessage = `🎉 *Bem-vindo ao Atomic Sales, ${customerName}!*
 
 Sua conta foi criada com sucesso! 🚀
 
@@ -43,7 +43,7 @@ Senha temporária: *${tempPassword}*
 ⚠️ Por segurança, você deverá trocar sua senha no primeiro acesso.
 
 🔗 *Acesse agora:*
-https://crm.morphews.com/login
+https://atomic.ia.br/login
 
 ━━━━━━━━━━━━━━━━━━━━━
 
