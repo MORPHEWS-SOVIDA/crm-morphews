@@ -182,7 +182,7 @@ export function PublicLinksTab() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Ex: sovida, morphews, evento-2024
+                  Ex: sovida, atomicsales, evento-2024
                 </p>
               </div>
 

@@ -235,8 +235,8 @@ export default function NicheLandingPage({ config }: { config: NicheConfig }) {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <Link to="/2026" className="flex items-center gap-2">
-              <img src="/favicon.jpg" alt="Morphews" className="h-8 w-8 rounded" />
-              <span className="font-bold text-xl">Morphews</span>
+              <img src="/favicon.jpg" alt="Atomic Sales" className="h-8 w-8 rounded" />
+              <span className="font-bold text-xl">Atomic Sales</span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-8">
@@ -605,8 +605,8 @@ export default function NicheLandingPage({ config }: { config: NicheConfig }) {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
-              <img src="/favicon.jpg" alt="Morphews" className="h-8 w-8 rounded" />
-              <span className="font-bold text-xl">Morphews</span>
+              <img src="/favicon.jpg" alt="Atomic Sales" className="h-8 w-8 rounded" />
+              <span className="font-bold text-xl">Atomic Sales</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link to="/legal?section=termos" className="hover:text-foreground transition-colors">Termos de Uso</Link>

@@ -246,7 +246,7 @@ export default function PartnerInvitePage() {
           <div className="p-4 bg-muted rounded-lg space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Organização</span>
-              <span className="font-medium">{invitation.organization?.name || 'Morphews'}</span>
+              <span className="font-medium">{invitation.organization?.name || 'Atomic Sales'}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Tipo de Parceria</span>

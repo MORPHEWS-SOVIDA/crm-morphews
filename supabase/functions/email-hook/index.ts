@@ -63,7 +63,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Handle different email types
     switch (email_data.email_action_type) {
       case "recovery":
-        subject = "Recuperação de Senha - Morphews CRM";
+        subject = "Recuperação de Senha - Atomic Sales";
         htmlContent = `
           <!DOCTYPE html>
           <html>
@@ -74,7 +74,7 @@ const handler = async (req: Request): Promise<Response> => {
           <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
               <div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 30px; text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Morphews CRM</h1>
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Atomic Sales</h1>
               </div>
               
               <div style="padding: 40px 30px;">
@@ -105,7 +105,7 @@ const handler = async (req: Request): Promise<Response> => {
               
               <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
                 <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-                  © 2024 Morphews CRM. Todos os direitos reservados.
+                  © 2024 Atomic Sales. Todos os direitos reservados.
                 </p>
               </div>
             </div>
@@ -116,7 +116,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       case "signup":
       case "email_confirmation":
-        subject = "Confirme seu Email - Morphews CRM";
+        subject = "Confirme seu Email - Atomic Sales";
         htmlContent = `
           <!DOCTYPE html>
           <html>
@@ -127,7 +127,7 @@ const handler = async (req: Request): Promise<Response> => {
           <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
               <div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 30px; text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Morphews CRM</h1>
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Atomic Sales</h1>
               </div>
               
               <div style="padding: 40px 30px;">
@@ -138,7 +138,7 @@ const handler = async (req: Request): Promise<Response> => {
                 </p>
                 
                 <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
-                  Obrigado por se cadastrar no Morphews CRM! Clique no botão abaixo para confirmar seu email:
+                  Obrigado por se cadastrar no Atomic Sales! Clique no botão abaixo para confirmar seu email:
                 </p>
                 
                 <div style="text-align: center; margin: 30px 0;">
@@ -154,7 +154,7 @@ const handler = async (req: Request): Promise<Response> => {
               
               <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
                 <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-                  © 2024 Morphews CRM. Todos os direitos reservados.
+                  © 2024 Atomic Sales. Todos os direitos reservados.
                 </p>
               </div>
             </div>
@@ -164,7 +164,7 @@ const handler = async (req: Request): Promise<Response> => {
         break;
 
       case "magiclink":
-        subject = "Link de Acesso - Morphews CRM";
+        subject = "Link de Acesso - Atomic Sales";
         htmlContent = `
           <!DOCTYPE html>
           <html>
@@ -175,7 +175,7 @@ const handler = async (req: Request): Promise<Response> => {
           <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
               <div style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 30px; text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Morphews CRM</h1>
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">Atomic Sales</h1>
               </div>
               
               <div style="padding: 40px 30px;">
@@ -198,7 +198,7 @@ const handler = async (req: Request): Promise<Response> => {
               
               <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
                 <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-                  © 2024 Morphews CRM. Todos os direitos reservados.
+                  © 2024 Atomic Sales. Todos os direitos reservados.
                 </p>
               </div>
             </div>
@@ -209,7 +209,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       default:
         // For any other email type, send a generic email
-        subject = "Morphews CRM";
+        subject = "Atomic Sales";
         htmlContent = `
           <!DOCTYPE html>
           <html>
@@ -218,7 +218,7 @@ const handler = async (req: Request): Promise<Response> => {
           </head>
           <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; padding: 30px;">
-              <h1 style="color: #f97316;">Morphews CRM</h1>
+              <h1 style="color: #f97316;">Atomic Sales</h1>
               <p>Clique no link abaixo:</p>
               <a href="${verifyUrl}">Acessar</a>
             </div>
@@ -235,7 +235,7 @@ const handler = async (req: Request): Promise<Response> => {
         "Authorization": `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Morphews CRM <contato@morphews.com>",
+        from: "Atomic Sales <noreply@updates.atomic.ia.br>",
         to: [user.email],
         subject: subject,
         html: htmlContent,

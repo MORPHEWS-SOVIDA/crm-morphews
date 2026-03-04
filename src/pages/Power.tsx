@@ -331,7 +331,7 @@ export default function Power() {
     setMobileMenuOpen(false);
   };
 
-  const whatsappConsultorLink = `https://wa.me/555130760116?text=${encodeURIComponent("Vim do site https://crm.morphews.com/2026 e queria tirar uma dúvida")}`;
+  const whatsappConsultorLink = `https://wa.me/555130760116?text=${encodeURIComponent("Vim do site https://atomic.ia.br/2026 e queria tirar uma dúvida")}`;
 
   // Custom plan features for display
   const getPlanFeatures = (planName: string) => {
@@ -408,9 +408,9 @@ export default function Power() {
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
-                <img src="/favicon.jpg" alt="Morphews" className="h-6 w-6 rounded" />
+                <img src="/favicon.jpg" alt="Atomic Sales" className="h-6 w-6 rounded" />
               </div>
-              <span className="font-bold text-xl">Morphews</span>
+              <span className="font-bold text-xl">Atomic Sales</span>
             </Link>
 
             {/* Desktop Navigation */}
@@ -873,7 +873,7 @@ export default function Power() {
                   A solução
                 </Badge>
                 <h2 className="text-3xl md:text-4xl font-bold mb-6">
-                  <GradientText>Morphews:</GradientText> tudo conectado ao lead
+                  <GradientText>Atomic Sales:</GradientText> tudo conectado ao lead
                 </h2>
                 <ul className="space-y-4">
                   {[
@@ -1538,7 +1538,7 @@ export default function Power() {
                   <div className="w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-4 border-primary/20 shadow-2xl">
                     <img 
                       src={donnaAvatar} 
-                      alt="Donna - Assistente Virtual Morphews" 
+                      alt="Donna - Assistente Virtual Atomic Sales" 
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -1823,7 +1823,7 @@ export default function Power() {
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
               Quanto custa um lead esquecido? Uma venda perdida por falta de follow-up?
-              O Morphews custa menos que um café por dia.
+              O Atomic Sales custa menos que um café por dia.
             </p>
 
             {/* Annual/Monthly Toggle */}
@@ -1999,8 +1999,8 @@ export default function Power() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
-              <img src="/favicon.jpg" alt="Morphews" className="h-8 w-8 rounded" />
-              <span className="font-bold text-xl">Morphews</span>
+              <img src="/favicon.jpg" alt="Atomic Sales" className="h-8 w-8 rounded" />
+              <span className="font-bold text-xl">Atomic Sales</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link to="/termos" className="hover:text-foreground transition-colors">
@@ -2009,12 +2009,12 @@ export default function Power() {
               <Link to="/privacidade" className="hover:text-foreground transition-colors">
                 Privacidade
               </Link>
-              <a href="mailto:contato@morphews.com" className="hover:text-foreground transition-colors">
+              <a href="mailto:contato@atomic.ia.br" className="hover:text-foreground transition-colors">
                 Contato
               </a>
             </div>
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Morphews. Todos os direitos reservados.
+              © {new Date().getFullYear()} Atomic Sales. Todos os direitos reservados.
             </p>
           </div>
         </div>

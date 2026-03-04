@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import logoMorphews from "@/assets/logo-morphews.png";
+import logoAtomicSales from "@/assets/logo-morphews.png";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -30,7 +30,7 @@ export default function ResetPassword() {
   }, [searchParams]);
 
   const handleWhatsAppSupport = () => {
-    const message = encodeURIComponent("Estou com um problema na MORPHEWS CRM, pode me ajudar?");
+    const message = encodeURIComponent("Estou com um problema no Atomic Sales, pode me ajudar?");
     window.open(`https://wa.me/5551999984646?text=${message}`, "_blank");
   };
 
@@ -40,7 +40,7 @@ export default function ResetPassword() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
         <div className="w-full max-w-md text-center space-y-8">
           <div className="flex justify-center">
-            <img src={logoMorphews} alt="Morphews CRM" className="h-16 w-auto" />
+            <img src={logoAtomicSales} alt="Atomic Sales" className="h-16 w-auto" />
           </div>
 
           <div className="flex justify-center">
@@ -74,7 +74,7 @@ export default function ResetPassword() {
           </div>
 
           <p className="text-xs text-muted-foreground pt-4">
-            © {new Date().getFullYear()} Morphews CRM. Todos os direitos reservados.
+            © {new Date().getFullYear()} Atomic Sales. Todos os direitos reservados.
           </p>
         </div>
       </div>
@@ -131,7 +131,7 @@ export default function ResetPassword() {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <img src={logoMorphews} alt="Morphews CRM" className="h-12 w-auto" />
+              <img src={logoAtomicSales} alt="Atomic Sales" className="h-12 w-auto" />
             </div>
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <Lock className="w-8 h-8 text-primary" />

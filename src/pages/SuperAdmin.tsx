@@ -282,7 +282,7 @@ export default function SuperAdmin({ defaultTab = "organizations" }: SuperAdminP
 
       // Get plan name for email
       const selectedPlan = plans?.find(p => p.id === newOrg.planId);
-      const planName = selectedPlan?.name || "Morphews CRM";
+      const planName = selectedPlan?.name || "Atomic Sales";
 
       // If owner email is provided, create user and send credentials
       if (newOrg.ownerEmail && newOrg.ownerName) {
@@ -349,7 +349,7 @@ export default function SuperAdmin({ defaultTab = "organizations" }: SuperAdminP
       setSendingCredentialsFor(org.id);
       
       const subscription = subscriptions?.find(s => s.organization_id === org.id);
-      const planName = subscription?.subscription_plans?.name || "Morphews CRM";
+      const planName = subscription?.subscription_plans?.name || "Atomic Sales";
 
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;

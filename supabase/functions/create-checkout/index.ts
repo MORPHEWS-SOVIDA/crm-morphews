@@ -571,7 +571,7 @@ serve(async (req) => {
       console.log("Creating Stripe product and price for plan:", plan.name);
       
       const product = await stripe.products.create({
-        name: `Morphews CRM - ${plan.name}`,
+        name: `Atomic Sales - ${plan.name}`,
         metadata: { plan_id: plan.id },
       });
 

@@ -245,7 +245,7 @@ export default function ImplementerCheckoutPage() {
 
   const totalFirstPayment = linkData.plan.price_cents + linkData.implementation_fee_cents;
 
-  const brandName = whiteLabelConfig?.brand_name || 'Morphews CRM';
+  const brandName = whiteLabelConfig?.brand_name || 'Atomic Sales';
   const primaryColor = whiteLabelConfig?.primary_color || undefined;
 
   return (

@@ -56,12 +56,12 @@ export default function Legal() {
                 <div className="prose prose-invert max-w-none space-y-6">
                   <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
                     <FileText className="w-6 h-6 text-primary" />
-                    Termos de Uso do Morphews CRM
+                    Termos de Uso do Atomic Sales
                   </h2>
 
                   <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
                     <p className="text-amber-200 text-sm">
-                      <strong>IMPORTANTE:</strong> Ao utilizar o Morphews CRM, você declara ter lido, compreendido e 
+                      <strong>IMPORTANTE:</strong> Ao utilizar o Atomic Sales, você declara ter lido, compreendido e 
                       concordado integralmente com todos os termos descritos neste documento. O uso continuado 
                       da plataforma implica aceitação automática de quaisquer atualizações futuras.
                     </p>
@@ -70,7 +70,7 @@ export default function Legal() {
                   <section>
                     <h3 className="text-xl font-semibold text-foreground">1. Definições</h3>
                     <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-                      <li><strong>"Plataforma"</strong>: Sistema Morphews CRM, incluindo todas as funcionalidades, APIs e integrações.</li>
+                      <li><strong>"Plataforma"</strong>: Sistema Atomic Sales, incluindo todas as funcionalidades, APIs e integrações.</li>
                       <li><strong>"Contratante"</strong>: Pessoa física ou jurídica que contrata e utiliza os serviços da Plataforma.</li>
                       <li><strong>"Dados do Contratante"</strong>: Todas as informações inseridas pelo Contratante na Plataforma, incluindo dados de clientes, vendas, leads e comunicações.</li>
                       <li><strong>"Usuários"</strong>: Pessoas autorizadas pelo Contratante a acessar a Plataforma.</li>
@@ -367,7 +367,7 @@ export default function Legal() {
                     <h3 className="text-xl font-semibold text-foreground">1. Papéis e Responsabilidades</h3>
                     <div className="bg-muted/30 rounded-lg p-4 space-y-4">
                       <div>
-                        <p className="font-semibold text-foreground">Morphews CRM - Operador de Dados</p>
+                        <p className="font-semibold text-foreground">Atomic Sales - Operador de Dados</p>
                         <p className="text-sm text-muted-foreground">
                           Atuamos como OPERADOR dos dados pessoais inseridos pelo Contratante. 
                           Processamos os dados conforme instruções do Contratante e exclusivamente 

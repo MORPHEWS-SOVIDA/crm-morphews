@@ -116,7 +116,7 @@ serve(async (req) => {
         let htmlContent = '';
 
         if (type === 'invitation_created') {
-          const inviteUrl = `${Deno.env.get("SITE_URL") || "https://sales.morphews.com"}/parceiro/convite/${data.invite_code}`;
+          const inviteUrl = `${Deno.env.get("SITE_URL") || "https://atomic.ia.br"}/parceiro/convite/${data.invite_code}`;
           subject = `🎉 Você foi convidado(a) para ser parceiro(a) da ${data.org_name}!`;
           htmlContent = `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -136,7 +136,7 @@ serve(async (req) => {
             </div>
           `;
         } else if (type === 'application_approved') {
-          const loginUrl = `${Deno.env.get("SITE_URL") || "https://sales.morphews.com"}/login`;
+          const loginUrl = `${Deno.env.get("SITE_URL") || "https://atomic.ia.br"}/login`;
           subject = `✅ Seu cadastro foi aprovado - ${data.org_name}`;
           htmlContent = `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -237,10 +237,10 @@ serve(async (req) => {
           let message = '';
 
           if (type === 'invitation_created') {
-            const inviteUrl = `${Deno.env.get("SITE_URL") || "https://sales.morphews.com"}/parceiro/convite/${data.invite_code}`;
+            const inviteUrl = `${Deno.env.get("SITE_URL") || "https://atomic.ia.br"}/parceiro/convite/${data.invite_code}`;
             message = `🎉 *Convite de Parceria*\n\nOlá ${data.name}!\n\nVocê foi convidado(a) para ser parceiro(a) da *${data.org_name}*!\n\nAcesse o link para aceitar:\n${inviteUrl}\n\nEste convite expira em 30 dias.`;
           } else if (type === 'application_approved') {
-            message = `✅ *Cadastro Aprovado!*\n\nOlá ${data.name}!\n\nSeu cadastro como parceiro(a) da *${data.org_name}* foi aprovado!\n\n📧 E-mail: ${data.email}${finalPassword ? `\n🔑 Senha: ${finalPassword}` : ''}${data.affiliate_code ? `\n🏷️ Código: ${data.affiliate_code}` : ''}\n\nAcesse: https://sales.morphews.com/login`;
+            message = `✅ *Cadastro Aprovado!*\n\nOlá ${data.name}!\n\nSeu cadastro como parceiro(a) da *${data.org_name}* foi aprovado!\n\n📧 E-mail: ${data.email}${finalPassword ? `\n🔑 Senha: ${finalPassword}` : ''}${data.affiliate_code ? `\n🏷️ Código: ${data.affiliate_code}` : ''}\n\nAcesse: https://atomic.ia.br/login`;
           }
 
           // Normalizar número

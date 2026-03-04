@@ -57,7 +57,7 @@ export function CustomDomainRedirect({ children }: { children: React.ReactNode }
   // Redirect sales.morphews.com to main login
   useEffect(() => {
     if (window.location.hostname === 'sales.morphews.com') {
-      window.location.href = 'https://morphews.com/login';
+      window.location.href = 'https://atomic.ia.br/login';
     }
   }, []);
 
@@ -254,7 +254,7 @@ function WhiteLabelLoginPage({ slug }: { slug: string }) {
     if (config?.brand_name) {
       document.title = `Login | ${config.brand_name}`;
     }
-    return () => { document.title = 'Morphews CRM'; };
+    return () => { document.title = 'Atomic Sales'; };
   }, [config?.brand_name]);
 
   // Redirect if user becomes authenticated

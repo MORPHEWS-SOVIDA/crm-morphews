@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
-        'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+        'User-Agent': 'Atomic Sales (thiago@sonatura.com.br)',
       },
       body: JSON.stringify(quotePayload),
     });

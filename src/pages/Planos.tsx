@@ -196,8 +196,8 @@ export default function Planos() {
       <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/favicon.jpg" alt="Morphews" className="h-8 w-8 rounded" />
-            <span className="font-bold text-xl">Morphews</span>
+            <img src="/favicon.jpg" alt="Atomic Sales" className="h-8 w-8 rounded" />
+            <span className="font-bold text-xl">Atomic Sales</span>
           </Link>
           <div className="flex items-center gap-4">
             <a href="#como-funciona" className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
@@ -708,7 +708,7 @@ export default function Planos() {
               <div className="relative z-10 text-center">
                 <Badge className="mb-4 bg-white/20 text-white border-white/30">Sistema Moderno</Badge>
                 <h3 className="text-2xl md:text-3xl font-bold mb-4">
-                  Morphews foi feito pra te ajudar, facilitar, e fazer você <span className="underline decoration-wavy decoration-yellow-300">produzir e vender mais</span>
+                  Atomic Sales foi feito pra te ajudar, facilitar, e fazer você <span className="underline decoration-wavy decoration-yellow-300">produzir e vender mais</span>
                 </h3>
                 <p className="text-lg text-white/80 max-w-2xl mx-auto">
                   Chega de planilhas bagunçadas e sistemas complicados. Simples, intuitivo e poderoso.
@@ -927,7 +927,7 @@ export default function Planos() {
       {/* Footer */}
       <footer className="border-t py-8 bg-muted/30">
         <div className="container mx-auto px-4 text-center text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Morphews. Todos os direitos reservados.</p>
+          <p>&copy; {new Date().getFullYear()} Atomic Sales. Todos os direitos reservados.</p>
         </div>
       </footer>
 

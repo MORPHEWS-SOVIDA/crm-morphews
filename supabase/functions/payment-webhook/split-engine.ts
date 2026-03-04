@@ -248,7 +248,7 @@ async function getOrCreateTenantAccount(
         organization_id: organizationId,
         account_type: 'tenant',
         holder_name: (orgData?.name as string) || 'Tenant',
-        holder_email: (orgData?.owner_email as string) || 'noreply@morphews.com',
+        holder_email: (orgData?.owner_email as string) || 'noreply@atomic.ia.br',
         balance_cents: 0,
         pending_balance_cents: 0,
         total_received_cents: 0,

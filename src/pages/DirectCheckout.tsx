@@ -160,8 +160,8 @@ export default function DirectCheckout() {
       <header className="border-b bg-background/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/favicon.jpg" alt="Morphews" className="h-8 w-8 rounded" />
-            <span className="font-bold text-xl">Morphews</span>
+            <img src="/favicon.jpg" alt="Atomic Sales" className="h-8 w-8 rounded" />
+            <span className="font-bold text-xl">Atomic Sales</span>
           </Link>
         </div>
       </header>

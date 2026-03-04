@@ -156,7 +156,7 @@ async function createPagarmeCardV5(
   let creditCardPayment: Record<string, unknown> = {
     installments: request.installments || 1,
     capture: true,
-    statement_descriptor: 'MORPHEWS',
+    statement_descriptor: 'ATOMIC',
   };
 
   // Priority: saved card token > raw card data

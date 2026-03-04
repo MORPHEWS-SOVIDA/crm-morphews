@@ -97,7 +97,7 @@ export function Sidebar() {
     : wlBranding 
       ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
       : logoMorphews;
-  const brandName = wlBranding?.brand_name || 'Morphews CRM';
+  const brandName = wlBranding?.brand_name || 'Atomic Sales';
   const brandTagline = wlBranding ? '' : 'Gestão de leads intuitiva'; // Hide tagline for white labels
   
   // Check if user is a partner (any partner role)

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import logoMorphews from '@/assets/logo-morphews.png';
+import logoAtomicSales from '@/assets/logo-morphews.png';
 import { loginSchema } from '@/lib/validations';
 import { supabase } from '@/integrations/supabase/client';
 import { useWhiteLabelBySlug } from '@/hooks/useWhiteLabel';
@@ -60,7 +60,7 @@ export default function WhiteLabelLogin() {
       document.title = `Login | ${config.brand_name}`;
     }
     return () => {
-      document.title = 'Morphews CRM';
+      document.title = 'Atomic Sales';
     };
   }, [config?.brand_name]);
 
@@ -182,8 +182,8 @@ export default function WhiteLabelLogin() {
   }
 
   // Determine styles based on config
-  const logoUrl = config?.logo_url || logoMorphews;
-  const brandName = config?.brand_name || 'Morphews CRM';
+  const logoUrl = config?.logo_url || logoAtomicSales;
+  const brandName = config?.brand_name || 'Atomic Sales';
   const primaryColor = config?.primary_color || '#9b87f5';
   const backgroundImage = config?.login_background_url;
 

@@ -52,7 +52,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const loginUrl = "https://atomic.ia.br/login";
     
-    // Use white label branding if provided, otherwise use Morphews defaults
+    // Use white label branding if provided, otherwise use Atomic Sales defaults
     const brandName = whiteLabelBranding?.brand_name || "Atomic Sales";
     const primaryColor = whiteLabelBranding?.primary_color || "#667eea";
     const secondaryColor = "#764ba2";
@@ -107,7 +107,7 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    // Use verified Morphews domain for sending, but customize display name
+    // Use verified domain for sending, but customize display name
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
