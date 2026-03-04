@@ -104,7 +104,7 @@ export function AffiliatesManager() {
         .insert({
           organization_id: profile.organization_id,
           account_type: 'affiliate',
-          user_id: input.user_id || null, // Link to Morphews user
+          user_id: input.user_id || null, // Link to Atomic Sales user
           holder_name: input.name,
           holder_email: input.email,
           holder_document: input.document,
