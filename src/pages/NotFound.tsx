@@ -7,6 +7,8 @@ import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 import { useTheme } from 'next-themes';
 
 const NotFound = () => {
+  const { resolvedTheme } = useTheme();
+  const displayLogo = resolvedTheme === 'dark' ? logoAtomicDark : logoAtomicLight;
   const location = useLocation();
 
   useEffect(() => {
