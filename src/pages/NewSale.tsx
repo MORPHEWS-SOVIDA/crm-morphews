@@ -176,6 +176,7 @@ export default function NewSale() {
   const [paymentStatus, setPaymentStatus] = useState<'not_paid' | 'will_pay_before' | 'paid_now'>('not_paid');
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const selectedPaymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
   
@@ -235,9 +236,9 @@ export default function NewSale() {
   };
 
   const handleSubmit = async () => {
+    if (isSaving || createSale.isPending) return;
+    
     if (!selectedLead) {
-      toast.error('Selecione um cliente');
-      return;
     }
 
     if (selectedItems.length === 0) {
@@ -267,6 +268,7 @@ export default function NewSale() {
       return;
     }
 
+    setIsSaving(true);
     try {
       let uploadedProofUrl: string | null = null;
       
@@ -314,6 +316,8 @@ export default function NewSale() {
       navigate(`/vendas`);
     } catch (error) {
       console.error('Error creating sale:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -335,10 +339,10 @@ export default function NewSale() {
           </div>
           <Button 
             onClick={handleSubmit} 
-            disabled={!selectedLead || selectedItems.length === 0 || createSale.isPending}
+            disabled={!selectedLead || selectedItems.length === 0 || isSaving || createSale.isPending}
           >
             <Save className="w-4 h-4 mr-2" />
-            {createSale.isPending ? 'Salvando...' : 'Criar Venda'}
+            {isSaving || createSale.isPending ? 'Salvando...' : 'Criar Venda'}
           </Button>
         </div>
 
@@ -962,10 +966,10 @@ export default function NewSale() {
                   className="w-full" 
                   size="lg"
                   onClick={handleSubmit}
-                  disabled={!selectedLead || selectedItems.length === 0 || createSale.isPending}
+                  disabled={!selectedLead || selectedItems.length === 0 || isSaving || createSale.isPending}
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  {createSale.isPending ? 'Salvando...' : 'Criar Venda'}
+                  {isSaving || createSale.isPending ? 'Salvando...' : 'Criar Venda'}
                 </Button>
               </CardContent>
             </Card>
