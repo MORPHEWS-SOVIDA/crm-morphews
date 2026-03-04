@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { usePaymentLinkTransactions, usePaymentLinkStats, PaymentLinkTransaction } from '@/hooks/usePaymentLinks';
 import { LinkTransactionToSaleDialog } from './LinkTransactionToSaleDialog';
+import { TransactionDetailDialog } from './TransactionDetailDialog';
 import { 
   DollarSign, 
   TrendingUp, 
