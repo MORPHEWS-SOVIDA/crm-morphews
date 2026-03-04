@@ -107,6 +107,14 @@ export default function AllDeliveries() {
     // Date filter
     const today = startOfDay(new Date());
     switch(dateFilter) {
+      case 'pending':
+        // Show all dispatched (in-transit) regardless of date + today's delivered/returned
+        filtered = filtered.filter(d => {
+          if (d.status === 'dispatched') return true;
+          const date = d.scheduled_delivery_date ? parseISO(d.scheduled_delivery_date) : null;
+          return date && isToday(date);
+        });
+        break;
       case 'today':
         filtered = filtered.filter(d => {
           const date = d.scheduled_delivery_date ? parseISO(d.scheduled_delivery_date) : null;
@@ -135,6 +143,7 @@ export default function AllDeliveries() {
           });
         }
         break;
+      // 'all' = no date filter
     }
 
     // Motoboy filter
