@@ -198,6 +198,7 @@ export function TransactionsTab() {
                   <TableHead>Taxa</TableHead>
                   <TableHead>Liberação</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Vínculo</TableHead>
                   <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
