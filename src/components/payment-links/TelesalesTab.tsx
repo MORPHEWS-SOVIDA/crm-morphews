@@ -443,17 +443,23 @@ export function TelesalesTab() {
               
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                     step === 'select-sale' ? 'bg-primary text-primary-foreground' : 
-                    selectedSale ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'
+                    (selectedSale || useManualAmount) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                   }`}>
                     2
                   </div>
-                  <h3 className="font-medium">Selecionar Venda Pendente</h3>
+                  <h3 className="font-medium">Selecionar Venda ou Valor</h3>
                   {selectedSale && step === 'payment' && (
                     <Badge variant="outline" className="ml-2">
                       <Receipt className="h-3 w-3 mr-1" />
                       {formatCurrency(selectedSale.total_cents)}
+                    </Badge>
+                  )}
+                  {useManualAmount && step === 'payment' && manualAmountCents > 0 && (
+                    <Badge variant="outline" className="ml-2">
+                      <DollarSign className="h-3 w-3 mr-1" />
+                      {formatCurrency(manualAmountCents)}
                     </Badge>
                   )}
                 </div>
@@ -462,53 +468,73 @@ export function TelesalesTab() {
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                ) : unpaidSales && unpaidSales.length > 0 ? (
-                  <div className="space-y-2">
-                    {unpaidSales.map((sale) => (
-                      <div
-                        key={sale.id}
-                        className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                          selectedSaleId === sale.id 
-                            ? 'border-primary bg-primary/5' 
-                            : 'hover:border-primary/50 hover:bg-muted/50'
-                        }`}
-                        onClick={() => handleSelectSale(sale)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <ShoppingBag className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <div className="font-medium">
-                                {formatCurrency(sale.total_cents)}
+                ) : (
+                  <>
+                    {unpaidSales && unpaidSales.length > 0 && (
+                      <div className="space-y-2">
+                        {unpaidSales.map((sale) => (
+                          <div
+                            key={sale.id}
+                            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                              selectedSaleId === sale.id 
+                                ? 'border-primary bg-primary/5' 
+                                : 'hover:border-primary/50 hover:bg-muted/50'
+                            }`}
+                            onClick={() => handleSelectSale(sale)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                  <div className="font-medium">
+                                    {formatCurrency(sale.total_cents)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {format(new Date(sale.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                {format(new Date(sale.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              <div className="text-right">
+                                <Badge 
+                                  variant={sale.payment_status === 'not_paid' ? 'destructive' : 'secondary'}
+                                  className="mb-1"
+                                >
+                                  {sale.payment_status === 'not_paid' ? 'Não Pago' : 'Vai Pagar Antes'}
+                                </Badge>
+                                {sale.products && sale.products.length > 0 && (
+                                  <div className="text-xs text-muted-foreground max-w-[200px] truncate">
+                                    {sale.products.map(p => p.name).join(', ')}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <Badge 
-                              variant={sale.payment_status === 'pending' ? 'destructive' : 'secondary'}
-                              className="mb-1"
-                            >
-                              {sale.payment_status === 'pending' ? 'Pendente' : 'Parcial'}
-                            </Badge>
-                            {sale.products && sale.products.length > 0 && (
-                              <div className="text-xs text-muted-foreground max-w-[200px] truncate">
-                                {sale.products.map(p => p.name).join(', ')}
-                              </div>
-                            )}
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Manual amount option */}
+                    <div
+                      className={`p-4 border rounded-lg cursor-pointer transition-colors border-dashed ${
+                        useManualAmount 
+                          ? 'border-primary bg-primary/5' 
+                          : 'hover:border-primary/50 hover:bg-muted/50'
+                      }`}
+                      onClick={handleManualAmount}
+                    >
+                      <div className="flex items-center gap-3">
+                        <DollarSign className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <div className="font-medium">Cobrar valor avulso</div>
+                          <div className="text-xs text-muted-foreground">
+                            {unpaidSales && unpaidSales.length > 0 
+                              ? 'Cobrar um valor diferente, sem vincular a uma venda'
+                              : 'Este cliente não possui vendas pendentes — informe o valor manualmente'}
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <ShoppingBag className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>Nenhuma venda pendente de pagamento</p>
-                    <p className="text-sm">Este cliente não possui vendas aguardando pagamento</p>
-                  </div>
+                    </div>
+                  </>
                 )}
               </div>
             </>
