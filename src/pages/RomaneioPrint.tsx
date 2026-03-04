@@ -482,18 +482,9 @@ export default function RomaneioPrint() {
         <p style={{ fontSize: '9px' }}>TEL: {sale.lead?.whatsapp}</p>
       </div>
 
-      {/* Address */}
+      {/* Address - TEMPORARILY HIDDEN */}
       <div className="border-b border-dashed border-gray-400 pb-1 mb-1" style={{ fontSize: '9px' }}>
-        {addressData?.street ? (
-          <>
-            <p>{addressData.street}, {addressData.street_number}</p>
-            {addressData.complement && <p>{addressData.complement}</p>}
-            <p>{addressData.neighborhood} - {addressData.cep}</p>
-            <p>{addressData.city}/{addressData.state}</p>
-          </>
-        ) : (
-          <p>Endereço não cadastrado</p>
-        )}
+        <p className="italic">📍 Endereço disponível em /minhas-entregas</p>
         {deliveryNotes && <p className="mt-1 p-1 bg-gray-100">REF: {deliveryNotes}</p>}
         {(observation1 || observation2) && (
           <p className="mt-1 p-1 bg-yellow-100 border border-yellow-400">
