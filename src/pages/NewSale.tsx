@@ -236,9 +236,9 @@ export default function NewSale() {
   };
 
   const handleSubmit = async () => {
+    if (isSaving || createSale.isPending) return;
+    
     if (!selectedLead) {
-      toast.error('Selecione um cliente');
-      return;
     }
 
     if (selectedItems.length === 0) {
