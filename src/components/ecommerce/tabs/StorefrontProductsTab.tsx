@@ -378,7 +378,7 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
               />
             </div>
 
-            <TabsContent value="products" className="mt-4 flex-1 overflow-auto min-h-[300px]">
+            <TabsContent value="products" className="mt-4 flex-1 overflow-auto min-h-0 max-h-[50vh]">
               {availableProducts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Package className="h-8 w-8 text-muted-foreground mb-2" />
