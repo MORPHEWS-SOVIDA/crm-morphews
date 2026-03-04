@@ -810,6 +810,9 @@ serve(async (req) => {
     // ADD MANUAL INSTANCE (from existing Evolution instance)
     // =====================
     if (action === "add_manual") {
+      // Verificar limite do plano antes de adicionar
+      await checkInstanceLimit(organizationId);
+
       // Usar os campos já extraídos do body parseado no início da função
       const manualInstanceId = evolution_instance_id;
       const manualToken = evolution_api_token;
