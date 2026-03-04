@@ -152,21 +152,8 @@ export default function PickupClosing() {
       toast.error('Selecione pelo menos uma venda');
       return;
     }
-
-    try {
-      const closing = await createClosing.mutateAsync({
-        closingType: 'pickup',
-        sales: selectedSalesData,
-      });
-      
-      toast.success(`Fechamento #${closing.closing_number} criado com sucesso!`);
-      setSelectedSales(new Set());
-      setViewingClosingId(closing.id);
-      setActiveTab('history');
-    } catch (error) {
-      toast.error('Erro ao criar fechamento');
-      console.error(error);
-    }
+    setConfirmCreateMode('selected');
+    setConfirmCreateDialogOpen(true);
   };
 
   const handleCreateClosingAll = async () => {
@@ -174,14 +161,21 @@ export default function PickupClosing() {
       toast.error('Nenhuma venda pendente');
       return;
     }
+    setConfirmCreateMode('all');
+    setConfirmCreateDialogOpen(true);
+  };
 
+  const handleConfirmCreate = async () => {
+    setConfirmCreateDialogOpen(false);
+    const salesToClose = confirmCreateMode === 'all' ? availableSales : selectedSalesData;
+    
     try {
       const closing = await createClosing.mutateAsync({
         closingType: 'pickup',
-        sales: availableSales,
+        sales: salesToClose,
       });
       
-      toast.success(`Fechamento #${closing.closing_number} criado com ${availableSales.length} vendas!`);
+      toast.success(`Fechamento #${closing.closing_number} criado com ${salesToClose.length} vendas!`);
       setSelectedSales(new Set());
       setViewingClosingId(closing.id);
       setActiveTab('history');
