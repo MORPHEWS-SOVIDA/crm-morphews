@@ -437,52 +437,15 @@ export function SaleSelectionCard({
         </DialogContent>
       </Dialog>
 
-      {/* Edit Payment Category Dialog */}
-      <Dialog open={isEditPaymentOpen} onOpenChange={setIsEditPaymentOpen}>
-        <DialogContent className="max-w-md" onClick={(e) => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle>Alterar Forma de Pagamento - #{sale.romaneio_number}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Forma de Pagamento</label>
-              <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma forma de pagamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>
-                    <span className="text-muted-foreground">Não informado</span>
-                  </SelectItem>
-                  {paymentMethods.map(pm => {
-                    const catConfig = getCategoryConfig(pm.category);
-                    return (
-                      <SelectItem key={pm.id} value={pm.id}>
-                        <span className="flex items-center gap-2">
-                          {catConfig.emoji} {pm.name}
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Selecione a forma de pagamento exata conforme cadastrado no sistema
-              </p>
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditPaymentOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSavePaymentMethod} disabled={isSaving}>
-                {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Salvar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Split Payment Dialog */}
+      <PaymentConfirmationDialog
+        open={isEditPaymentOpen}
+        onOpenChange={setIsEditPaymentOpen}
+        onConfirm={handlePaymentConfirm}
+        totalCents={sale.total_cents || 0}
+        existingPaymentMethodId={sale.payment_method_id}
+        allowTotalEdit={true}
+      />
 
       {/* Edit Sale on Closing Dialog */}
       {showEditSale && (
