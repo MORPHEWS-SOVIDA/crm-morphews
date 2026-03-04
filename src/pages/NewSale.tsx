@@ -316,6 +316,8 @@ export default function NewSale() {
       navigate(`/vendas`);
     } catch (error) {
       console.error('Error creating sale:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
