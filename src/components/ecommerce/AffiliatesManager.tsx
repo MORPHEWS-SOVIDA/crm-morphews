@@ -303,7 +303,7 @@ export function AffiliatesManager() {
                     {affiliate.virtual_account?.user_id && (
                       <Badge variant="secondary" className="gap-1">
                         <UserCheck className="h-3 w-3" />
-                        Usuário Morphews
+                        Usuário Atomic Sales
                       </Badge>
                     )}
                     {!affiliate.is_active && (
