@@ -574,6 +574,7 @@ export function StorefrontCheckout() {
                   organizationId={storefront.organization_id}
                   onSelect={handleShippingSelect}
                   primaryColor={storefront.primary_color}
+                  hasFreeShipping={hasFreeShipping}
                 />
               </CardContent>
             </Card>
