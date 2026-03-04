@@ -966,10 +966,10 @@ export default function NewSale() {
                   className="w-full" 
                   size="lg"
                   onClick={handleSubmit}
-                  disabled={!selectedLead || selectedItems.length === 0 || createSale.isPending}
+                  disabled={!selectedLead || selectedItems.length === 0 || isSaving || createSale.isPending}
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  {createSale.isPending ? 'Salvando...' : 'Criar Venda'}
+                  {isSaving || createSale.isPending ? 'Salvando...' : 'Criar Venda'}
                 </Button>
               </CardContent>
             </Card>
