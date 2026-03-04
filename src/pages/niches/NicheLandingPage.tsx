@@ -441,7 +441,7 @@ export default function NicheLandingPage({ config }: { config: NicheConfig }) {
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
               Quanto custa um lead esquecido? Uma venda perdida por falta de follow-up?
-              O Morphews custa menos que um café por dia.
+              O Atomic Sales custa menos que um café por dia.
             </p>
 
             {/* Annual/Monthly Toggle */}
