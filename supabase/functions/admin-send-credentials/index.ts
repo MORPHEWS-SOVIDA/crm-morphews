@@ -64,15 +64,17 @@ Deno.serve(async (req) => {
         isAuthorized = true;
         console.log("Auth: service role key matched");
       } else {
-        console.log("Auth: trying JWT validation...");
+        console.log("Auth: trying JWT validation via getClaims...");
+        const token = authHeader.replace("Bearer ", "");
         const supabaseAnon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
-          global: { headers: { authorization: authHeader } },
+          global: { headers: { Authorization: authHeader } },
         });
-        const { data: userRes, error: userErr } = await supabaseAnon.auth.getUser();
-        console.log("Auth getUser result:", userRes?.user?.id, "error:", userErr?.message);
-        if (!userErr && userRes?.user) {
+        const { data: claimsData, error: claimsErr } = await supabaseAnon.auth.getClaims(token);
+        console.log("Auth getClaims result:", claimsData?.claims?.sub, "error:", claimsErr?.message);
+        if (!claimsErr && claimsData?.claims?.sub) {
+          const userId = claimsData.claims.sub;
           const { data: isMasterAdmin, error: rpcErr } = await supabaseAdmin.rpc("is_master_admin", {
-            _user_id: userRes.user.id,
+            _user_id: userId,
           });
           console.log("Auth is_master_admin:", isMasterAdmin, "rpcErr:", rpcErr?.message);
           if (isMasterAdmin) isAuthorized = true;
