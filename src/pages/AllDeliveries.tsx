@@ -70,7 +70,7 @@ export default function AllDeliveries() {
   const updateMotoboyTracking = useUpdateMotoboyTracking();
   
   // Filters
-  const [dateFilter, setDateFilter] = useState<string>('today');
+  const [dateFilter, setDateFilter] = useState<string>('pending');
   const [customDate, setCustomDate] = useState<string>('');
   const [motoboyFilter, setMotoboyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
