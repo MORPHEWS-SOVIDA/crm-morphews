@@ -1456,7 +1456,7 @@ export default function WhatsAppChat() {
             {/* Header do Chat Mobile */}
             <MobileHeader 
               conversation={{
-                contact_name: selectedConversation.contact_name,
+                contact_name: lead?.name || selectedConversation.contact_name,
                 contact_profile_pic: (selectedConversation as any).contact_profile_pic || null,
                 phone_number: selectedConversation.phone_number,
                 is_group: (selectedConversation as any).is_group,
@@ -1994,12 +1994,12 @@ export default function WhatsAppChat() {
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={selectedConversation.contact_profile_pic || undefined} />
                     <AvatarFallback className="bg-gradient-to-br from-green-400 to-green-600 text-white">
-                      {selectedConversation.contact_name?.[0]?.toUpperCase() || selectedConversation.phone_number.slice(-2)}
+                      {(lead?.name || selectedConversation.contact_name)?.[0]?.toUpperCase() || selectedConversation.phone_number.slice(-2)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <h3 className="font-semibold text-sm">
-                      {selectedConversation.contact_name || selectedConversation.phone_number}
+                      {lead?.name || selectedConversation.contact_name || selectedConversation.phone_number}
                     </h3>
                     <p className="text-xs text-muted-foreground">{selectedConversation.phone_number}</p>
                   </div>
