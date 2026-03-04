@@ -614,7 +614,7 @@ export default function NicheLandingPage({ config }: { config: NicheConfig }) {
               <a href="mailto:contato@atomic.ia.br" className="hover:text-foreground transition-colors">Contato</a>
             </div>
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Morphews. Todos os direitos reservados.
+              © {new Date().getFullYear()} Atomic Sales. Todos os direitos reservados.
             </p>
           </div>
         </div>

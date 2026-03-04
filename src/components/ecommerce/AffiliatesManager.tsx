@@ -371,7 +371,7 @@ export function AffiliatesManager() {
                 onChange={handleUserSelect}
               />
               <p className="text-xs text-muted-foreground">
-                O afiliado precisa ter conta na Morphews para poder solicitar saques
+                O afiliado precisa ter conta no Atomic Sales para poder solicitar saques
               </p>
             </div>
 
