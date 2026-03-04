@@ -20,13 +20,14 @@ import { ptBR } from 'date-fns/locale';
 import { formatCurrency } from '@/hooks/useSales';
 import { getCategoryConfig, type PaymentCategory } from '@/lib/paymentCategories';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { getSignedStorageUrl } from '@/lib/storage-utils';
 import { EditSaleOnClosingDialog } from '@/components/expedition/EditSaleOnClosingDialog';
 import { useCurrentTenantId } from '@/hooks/useTenant';
+import { PaymentConfirmationDialog, PaymentConfirmationData } from '@/components/sales/PaymentConfirmationDialog';
+import { useSaveSalePayments } from '@/hooks/useSalePayments';
 
 // Tracking status labels for display
 const TRACKING_STATUS_LABELS: Record<string, { label: string; color: string }> = {
