@@ -26,7 +26,7 @@ export default function ForcePasswordChange() {
   const displayLogo = wlBranding 
     ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logo
     : logo;
-  const brandName = wlBranding?.brand_name || 'Morphews CRM';
+  const brandName = wlBranding?.brand_name || 'Atomic Sales';
 
   // Set favicon dynamically
   useEffect(() => {

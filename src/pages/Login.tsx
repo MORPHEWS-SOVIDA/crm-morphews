@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import logoMorphews from '@/assets/logo-morphews.png';
+import logoAtomicSales from '@/assets/logo-morphews.png';
 import { loginSchema } from '@/lib/validations';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -89,7 +89,7 @@ export default function Login() {
 
       toast({
         title: 'Login realizado com sucesso!',
-        description: 'Bem-vindo ao Morphews CRM',
+        description: 'Bem-vindo ao Atomic Sales',
       });
       
       // Small delay to ensure auth state is updated before redirecting
@@ -120,7 +120,7 @@ export default function Login() {
         <div className="bg-card rounded-2xl shadow-card p-8 animate-fade-in">
           {/* Logo */}
           <div className="text-center mb-8">
-            <img src={logoMorphews} alt="Morphews CRM" className="h-10 w-auto mx-auto" />
+            <img src={logoAtomicSales} alt="Atomic Sales" className="h-10 w-auto mx-auto" />
             <p className="text-muted-foreground mt-4">
               Entre na sua conta para continuar
             </p>

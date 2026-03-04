@@ -464,7 +464,7 @@ function getPartnerEmailTemplate(data: {
           <p style="margin-top: 20px;">Se você acredita que este chargeback é indevido, entre em contato com o suporte da loja para contestação.</p>
         </div>
         <div class="footer">
-          <p>Este é um email automático do sistema Morphews.</p>
+          <p>Este é um email automático do sistema Atomic Sales.</p>
           <p>Você está recebendo porque é parceiro ativo na plataforma.</p>
         </div>
       </div>
@@ -496,7 +496,7 @@ function getPartnerWhatsAppMessage(data: {
     message += `\n⚠️ *Atenção:* Seu saldo está negativo. Próximas comissões cobrirão este débito.`;
   }
   
-  message += `\n\n_Morphews_`;
+  message += `\n\n_Atomic Sales_`;
   
   return message;
 }
@@ -572,7 +572,7 @@ function getTenantEmailTemplate(data: {
           </ol>
         </div>
         <div class="footer">
-          <p>Este é um email automático do sistema Morphews.</p>
+          <p>Este é um email automático do sistema Atomic Sales.</p>
         </div>
       </div>
     </body>
@@ -698,7 +698,7 @@ function getAdminEmailTemplate(data: {
           </ol>
         </div>
         <div class="footer">
-          <p>Sistema de Alertas do Gateway Morphews</p>
+          <p>Sistema de Alertas do Gateway Atomic Sales</p>
         </div>
       </div>
     </body>

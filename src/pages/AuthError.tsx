@@ -1,7 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Home, RefreshCw, Mail } from "lucide-react";
-import logoMorphews from "@/assets/logo-morphews.png";
+import logoAtomicSales from "@/assets/logo-morphews.png";
 
 const AuthError = () => {
   const [searchParams] = useSearchParams();
@@ -30,7 +30,7 @@ const AuthError = () => {
   const { title, description } = getErrorMessage();
 
   const handleWhatsAppSupport = () => {
-    const message = encodeURIComponent("Estou com um problema na MORPHEWS CRM, pode me ajudar?");
+    const message = encodeURIComponent("Estou com um problema no Atomic Sales, pode me ajudar?");
     window.open(`https://wa.me/5551999984646?text=${message}`, "_blank");
   };
 
@@ -40,8 +40,8 @@ const AuthError = () => {
         {/* Logo */}
         <div className="flex justify-center">
           <img 
-            src={logoMorphews} 
-            alt="Morphews CRM" 
+            src={logoAtomicSales} 
+            alt="Atomic Sales" 
             className="h-16 w-auto"
           />
         </div>
@@ -97,7 +97,7 @@ const AuthError = () => {
 
         {/* Footer */}
         <p className="text-xs text-muted-foreground pt-4">
-          © {new Date().getFullYear()} Morphews CRM. Todos os direitos reservados.
+          © {new Date().getFullYear()} Atomic Sales. Todos os direitos reservados.
         </p>
       </div>
     </div>

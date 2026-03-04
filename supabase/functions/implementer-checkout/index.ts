@@ -69,7 +69,7 @@ async function createPagarmeOrder(
       payment_method: 'credit_card',
       credit_card: {
         installments: cardData.installments || 1,
-        statement_descriptor: 'MORPHEWS CRM',
+        statement_descriptor: 'ATOMIC SALES',
         card: {
           number: cardData.card_number.replace(/\D/g, ''),
           holder_name: cardData.card_holder_name,
@@ -121,7 +121,7 @@ async function createPagarmeOrder(
     items: [
       {
         amount,
-        description: 'Assinatura Morphews CRM + Implementação',
+        description: 'Assinatura Atomic Sales + Implementação',
         quantity: 1,
         code: 'implementer-checkout',
       },
@@ -499,7 +499,7 @@ serve(async (req) => {
     });
 
     // 7. Send welcome notification (WhatsApp)
-    const brandName = whiteLabelBranding?.brand_name || "Morphews CRM";
+    const brandName = whiteLabelBranding?.brand_name || "Atomic Sales";
     
     try {
       const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL');
@@ -514,7 +514,7 @@ serve(async (req) => {
           ? `Suporte: ${whiteLabelBranding.support_whatsapp}`
           : `Implementador: ${implementer.referral_code}`;
         
-        const message = `🎉 *Bem-vindo ao ${brandName}!*\n\nSua conta foi criada com sucesso!\n\n📧 E-mail: ${customerEmail}\n🔑 Senha temporária: ${tempPassword}\n\nAcesse: https://crm.morphews.com\n\n${supportContact}`;
+        const message = `🎉 *Bem-vindo ao ${brandName}!*\n\nSua conta foi criada com sucesso!\n\n📧 E-mail: ${customerEmail}\n🔑 Senha temporária: ${tempPassword}\n\nAcesse: https://atomic.ia.br\n\n${supportContact}`;
 
         await fetch(`${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE_NAME}`, {
           method: 'POST',

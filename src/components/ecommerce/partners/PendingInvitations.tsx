@@ -59,7 +59,7 @@ export function PendingInvitations({ invitations, isLoading }: PendingInvitation
             name: invitation.name,
             whatsapp: invitation.whatsapp,
             invite_code: invitation.invite_code,
-            org_name: profile?.organization_id ? 'Sua Empresa' : 'Morphews', // TODO: buscar nome real
+            org_name: profile?.organization_id ? 'Sua Empresa' : 'Atomic Sales', // TODO: buscar nome real
             partner_role: partnerRoleMap[invitation.partner_type] || 'partner_affiliate',
           },
         },

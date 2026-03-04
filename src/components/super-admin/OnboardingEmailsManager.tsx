@@ -383,7 +383,7 @@ export function OnboardingEmailsManager() {
                       <Input
                         value={formData.subject}
                         onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                        placeholder="Ex: 🎉 Bem-vindo ao Morphews CRM!"
+                        placeholder="Ex: 🎉 Bem-vindo ao Atomic Sales!"
                       />
                     </div>
 

@@ -287,7 +287,7 @@ export function LandingPageFormDialog({ open, onOpenChange, landingPage }: Landi
                   <Label htmlFor="slug">URL *</Label>
                   <div className="flex items-center gap-1">
                     <span className="text-sm text-muted-foreground whitespace-nowrap">
-                      sales.morphews.com/lp/
+                      atomic.ia.br/lp/
                     </span>
                     <Input
                       id="slug"

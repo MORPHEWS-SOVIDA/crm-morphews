@@ -350,7 +350,7 @@ export default function SalesLanding() {
     setMobileMenuOpen(false);
   };
 
-  const whatsappConsultorLink = `https://wa.me/555130760116?text=${encodeURIComponent("Vim do site https://sales.morphews.com e quero saber mais")}`;
+  const whatsappConsultorLink = `https://wa.me/555130760116?text=${encodeURIComponent("Vim do site https://atomic.ia.br e quero saber mais")}`;
 
   const getPlanFeatures = (planName: string) => {
     const name = planName.toLowerCase();
@@ -426,9 +426,9 @@ export default function SalesLanding() {
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
-                <img src="/favicon.jpg" alt="Morphews" className="h-6 w-6 rounded" />
+                <img src="/favicon.jpg" alt="Atomic Sales" className="h-6 w-6 rounded" />
               </div>
-              <span className="font-bold text-xl">Morphews</span>
+              <span className="font-bold text-xl">Atomic Sales</span>
             </Link>
 
             <nav className="hidden md:flex items-center gap-8">
@@ -539,7 +539,7 @@ export default function SalesLanding() {
                 Tudo em um único lugar
               </h2>
               <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
-                Você já pode ter visto sistemas que têm alguma dessas funções, a <span className="font-bold text-primary">MORPHEWS</span> tem tudo <span className="font-bold text-primary">INTEGRADO</span> em um só login e senha
+                Você já pode ter visto sistemas que têm alguma dessas funções, a <span className="font-bold text-primary">ATOMIC SALES</span> tem tudo <span className="font-bold text-primary">INTEGRADO</span> em um só login e senha
               </p>
             </motion.div>
           </div>
@@ -594,13 +594,13 @@ export default function SalesLanding() {
           <div className="max-w-4xl mx-auto text-center">
             <Badge variant="outline" className="mb-4">
               <Video className="h-3 w-3 mr-2" />
-              Conheça o Morphews
+              Conheça o Atomic Sales
             </Badge>
             <h2 className="text-2xl md:text-4xl font-bold mb-6">
-              Entenda como o Morphews pode <GradientText>transformar seu negócio</GradientText>
+              Entenda como o Atomic Sales pode <GradientText>transformar seu negócio</GradientText>
             </h2>
             <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
-              O Morphews é uma plataforma completa de automação comercial com inteligência artificial. 
+              O Atomic Sales é uma plataforma completa de automação comercial com inteligência artificial. 
               Unificamos CRM, E-commerce, WhatsApp, NF-e, etiquetas de envio e muito mais em um único sistema 
               que trabalha 24 horas por dia para você vender mais e gastar menos tempo com tarefas repetitivas.
             </p>
@@ -624,7 +624,7 @@ export default function SalesLanding() {
                   <div className="w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-4 border-primary/20 shadow-2xl">
                     <img 
                       src={donnaAvatar} 
-                      alt="Donna - Assistente Virtual Morphews" 
+                      alt="Donna - Assistente Virtual Atomic Sales" 
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -1812,7 +1812,7 @@ export default function SalesLanding() {
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
               Quanto custa um lead esquecido? Uma venda perdida por falta de follow-up?
-              O Morphews custa menos que um café por dia.
+              O Atomic Sales custa menos que um café por dia.
             </p>
 
             <div className="inline-flex items-center gap-4 bg-card border rounded-full px-6 py-3">
@@ -1960,12 +1960,12 @@ export default function SalesLanding() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
-                <img src="/favicon.jpg" alt="Morphews" className="h-5 w-5 rounded" />
+                <img src="/favicon.jpg" alt="Atomic Sales" className="h-5 w-5 rounded" />
               </div>
-              <span className="font-bold">Morphews</span>
+              <span className="font-bold">Atomic Sales</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Morphews. Todos os direitos reservados.
+              © {new Date().getFullYear()} Atomic Sales. Todos os direitos reservados.
             </p>
             <div className="flex gap-4">
               <a href={whatsappConsultorLink} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">

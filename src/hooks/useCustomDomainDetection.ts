@@ -18,6 +18,7 @@ const MAIN_DOMAINS = [
   'morphews.com',
   'sales.morphews.com',
   'crm-morphews.lovable.app',
+  'atomic.ia.br',
 ];
 
 // Cache for faster domain detection on subsequent renders
@@ -52,7 +53,7 @@ export function useCustomDomainDetection(): CustomDomainResult {
     
     // Redirect subdomains to path-based URLs on morphews.com
     const SUBDOMAIN_REDIRECTS: Record<string, string> = {
-      'atomicsales.morphews.com': 'https://morphews.com/atomicsales',
+      'atomicsales.morphews.com': 'https://atomic.ia.br',
     };
     
     if (SUBDOMAIN_REDIRECTS[hostname]) {

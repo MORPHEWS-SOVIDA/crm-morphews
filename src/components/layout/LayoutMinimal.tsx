@@ -19,7 +19,7 @@ import {
   DollarSign,
   FileText,
 } from 'lucide-react';
-import logoMorphews from '@/assets/logo-morphews.png';
+import logoAtomicSales from '@/assets/logo-morphews.png';
 import { useCombinedBranding } from '@/hooks/useDomainBranding';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
@@ -43,9 +43,9 @@ export function LayoutMinimal({ children }: LayoutMinimalProps) {
   
   const isDark = resolvedTheme === 'dark';
   const displayLogo = wlBranding 
-    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoMorphews
-    : logoMorphews;
-  const brandName = wlBranding?.brand_name || 'Morphews';
+    ? (isDark && wlBranding.logo_dark_url ? wlBranding.logo_dark_url : wlBranding.logo_url) || logoAtomicSales
+    : logoAtomicSales;
+  const brandName = wlBranding?.brand_name || 'Atomic Sales';
   
   const handleSignOut = async () => {
     await signOut();

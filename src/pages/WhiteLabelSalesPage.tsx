@@ -703,7 +703,7 @@ export default function WhiteLabelSalesPage() {
                       if (plansSection) plansSection.scrollIntoView({ behavior: 'smooth' });
                     }}
                   >
-                    Quero o Morphews no meu negócio
+                    Quero o Atomic Sales no meu negócio
                     <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </motion.div>

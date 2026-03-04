@@ -26,7 +26,7 @@ export default function SignupSuccess() {
           </div>
           <CardTitle className="text-2xl">Conta Criada com Sucesso! 🎉</CardTitle>
           <CardDescription className="text-base">
-            Bem-vindo ao Morphews CRM
+            Bem-vindo ao Atomic Sales
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

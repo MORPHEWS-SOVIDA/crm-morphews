@@ -57,7 +57,7 @@ export function TrialExpiredBlocker({ children }: TrialExpiredBlockerProps) {
         <CardContent className="space-y-6">
           <div className="bg-muted/50 rounded-lg p-4 space-y-3">
             <p className="text-sm text-muted-foreground">
-              Para continuar usando o Morphews CRM e acessar todas as funcionalidades, você precisa assinar um plano.
+              Para continuar usando o Atomic Sales e acessar todas as funcionalidades, você precisa assinar um plano.
             </p>
             <ul className="text-sm space-y-2">
               <li className="flex items-center gap-2">

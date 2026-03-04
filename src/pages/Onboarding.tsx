@@ -72,7 +72,7 @@ export default function Onboarding() {
 
       toast({
         title: "Dados salvos com sucesso!",
-        description: "Bem-vindo ao Morphews CRM!",
+        description: "Bem-vindo ao Atomic Sales!",
       });
 
       navigate("/", { replace: true });
@@ -165,7 +165,7 @@ export default function Onboarding() {
           <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
             <Building2 className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Bem-vindo ao Morphews CRM!</CardTitle>
+          <CardTitle className="text-2xl">Bem-vindo ao Atomic Sales!</CardTitle>
           <CardDescription>
             Conte-nos um pouco mais sobre sua empresa para personalizarmos sua experiência
           </CardDescription>

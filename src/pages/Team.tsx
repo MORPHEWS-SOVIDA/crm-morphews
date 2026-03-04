@@ -476,7 +476,7 @@ export default function Team() {
         if (duplicate) {
           toast({
             title: "WhatsApp já cadastrado",
-            description: `Este número de WhatsApp já está associado a um usuário em outra empresa dentro do sistema MORPHEWS. Por favor, use outro número ou entre em contato com o suporte para resolver.`,
+            description: `Este número de WhatsApp já está associado a um usuário em outra empresa dentro do sistema ATOMIC SALES. Por favor, use outro número ou entre em contato com o suporte para resolver.`,
             variant: "destructive",
             duration: 15000, // Show for 15 seconds
           });
@@ -502,7 +502,7 @@ export default function Team() {
           ownerName: `${newUserData.firstName} ${newUserData.lastName}`,
           ownerEmail: newUserData.email,
           ownerPhone: newUserData.whatsapp.replace(/\D/g, ''),
-          planName: plan?.name || "Morphews CRM",
+          planName: plan?.name || "Atomic Sales",
           isAdditionalUser: true,
           accessToken,
         },
@@ -528,7 +528,7 @@ export default function Team() {
       // Check if it's a WhatsApp duplicate error from backend
       if (errorMessage.toLowerCase().includes('whatsapp') && 
           (errorMessage.toLowerCase().includes('duplicat') || errorMessage.toLowerCase().includes('existe') || errorMessage.toLowerCase().includes('já'))) {
-        errorMessage = "Este número de WhatsApp já está associado a um usuário em outra empresa dentro do sistema MORPHEWS. Por favor, use outro número ou entre em contato com o suporte para resolver.";
+        errorMessage = "Este número de WhatsApp já está associado a um usuário em outra empresa dentro do sistema ATOMIC SALES. Por favor, use outro número ou entre em contato com o suporte para resolver.";
       }
       
       toast({
@@ -580,7 +580,7 @@ export default function Team() {
       if (myProfileData.whatsapp) {
         const duplicate = await checkDuplicateUserWhatsApp(myProfileData.whatsapp, user.id);
         if (duplicate) {
-          throw new Error("Este WhatsApp já está sendo usado em outra empresa no CRM da Morphews. Por favor, procure SUPORTE DA MORPHEWS e informe esse erro.");
+          throw new Error("Este WhatsApp já está sendo usado em outra empresa no Atomic Sales. Por favor, procure o SUPORTE e informe esse erro.");
         }
       }
 
@@ -723,7 +723,7 @@ export default function Team() {
       if (editMemberData.whatsapp) {
         const duplicate = await checkDuplicateUserWhatsApp(editMemberData.whatsapp, editingMember.user_id);
         if (duplicate) {
-          throw new Error("Este WhatsApp já está sendo usado em outra empresa no CRM da Morphews. Por favor, procure SUPORTE DA MORPHEWS e informe esse erro.");
+          throw new Error("Este WhatsApp já está sendo usado em outra empresa no Atomic Sales. Por favor, procure o SUPORTE e informe esse erro.");
         }
       }
 

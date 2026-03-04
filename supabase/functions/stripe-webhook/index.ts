@@ -406,7 +406,7 @@ serve(async (req) => {
           .eq("id", planId)
           .single();
 
-        const planName = plan?.name || "Morphews CRM";
+        const planName = plan?.name || "Atomic Sales";
 
         // Check if user already exists
         const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();

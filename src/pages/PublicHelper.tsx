@@ -443,7 +443,7 @@ const HELP_SECTIONS: HelpSection[] = [
         id: 'domain-setup',
         title: 'Configurando seu Domínio',
         content: [
-          { type: 'text', content: 'Em vez de usar morphews.shop/loja/suaempresa, você pode usar seudominio.com.br.' },
+          { type: 'text', content: 'Em vez de usar atomic.ia.br/loja/suaempresa, você pode usar seudominio.com.br.' },
           { type: 'steps', content: [
             'Compre um domínio (Registro.br, GoDaddy, Hostinger)',
             'No painel de DNS do domínio, adicione os registros:',
@@ -692,7 +692,7 @@ export default function PublicHelper() {
             <BookOpen className="h-6 w-6 text-primary" />
             <div>
               <h1 className="font-semibold">Central de Ajuda</h1>
-              <p className="text-xs text-muted-foreground">Morphews CRM</p>
+              <p className="text-xs text-muted-foreground">Atomic Sales</p>
             </div>
           </div>
           <Link 

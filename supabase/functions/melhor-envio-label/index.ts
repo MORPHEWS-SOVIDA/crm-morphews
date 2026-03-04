@@ -68,7 +68,7 @@ async function getAvailableServices(token: string, baseUrl: string): Promise<any
       headers: {
         'Accept': 'application/json',
         'Authorization': `Bearer ${token}`,
-        'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+        'User-Agent': 'Atomic Sales (thiago@sonatura.com.br)',
       },
     });
 
@@ -172,7 +172,7 @@ async function createLabel(
         'Accept': 'application/json',
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
-        'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+        'User-Agent': 'Atomic Sales (thiago@sonatura.com.br)',
       },
       body: JSON.stringify(cartPayload),
       signal: controller.signal,
@@ -235,7 +235,7 @@ async function createLabel(
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
-      'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+      'User-Agent': 'Atomic Sales (thiago@sonatura.com.br)',
     },
     body: JSON.stringify(checkoutPayload),
   });
@@ -280,7 +280,7 @@ async function createLabel(
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
-      'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+      'User-Agent': 'Atomic Sales (thiago@sonatura.com.br)',
     },
     body: JSON.stringify(generatePayload),
   });
@@ -305,7 +305,7 @@ async function createLabel(
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
-      'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+      'User-Agent': 'Atomic Sales (thiago@sonatura.com.br)',
     },
     body: JSON.stringify(printPayload),
   });
@@ -364,7 +364,7 @@ async function createLabel(
           headers: {
             'Accept': 'application/json',
             'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+            'User-Agent': 'Atomic Sales (thiago@sonatura.com.br)',
           },
         });
         
@@ -543,7 +543,7 @@ Deno.serve(async (req) => {
           headers: {
             'Accept': 'application/json',
             'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+            'User-Agent': 'Atomic Sales (thiago@sonatura.com.br)',
           },
         });
 
@@ -610,7 +610,7 @@ Deno.serve(async (req) => {
               'Accept': 'application/pdf',
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`,
-              'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+              'User-Agent': 'Atomic Sales (thiago@sonatura.com.br)',
             },
             body: JSON.stringify(printPayload),
           });
@@ -679,7 +679,7 @@ Deno.serve(async (req) => {
         const pdfResponse = await fetch(pdfUrl, {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'User-Agent': 'Morphews CRM (thiago@sonatura.com.br)',
+            'User-Agent': 'Atomic Sales (thiago@sonatura.com.br)',
           },
         });
 
