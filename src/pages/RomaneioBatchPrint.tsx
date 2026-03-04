@@ -236,7 +236,7 @@ export default function RomaneioBatchPrint() {
 
   const renderA5Content = (sale: SaleData, isSecondCopy = false) => {
     // Use production URL for QR code
-    const saleQrData = `https://sales.morphews.com/vendas/${sale.id}`;
+    const saleQrData = `https://atomic.ia.br/vendas/${sale.id}`;
     
     // Use shipping_address if available
     const shippingAddress = (sale as any).shipping_address;
