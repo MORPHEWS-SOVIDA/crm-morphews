@@ -9,7 +9,7 @@ export interface SaleClosingStatus {
   saleId: string;
   wasClosed: boolean;
   closingType: 'pickup' | 'motoboy' | 'carrier' | null;
-  confirmedByFinanceiro: boolean; // Changed from confirmedByAuxiliar
+  confirmedByFinanceiro: boolean;
   confirmedByThiago: boolean;
   closingId: string | null;
 }
@@ -24,31 +24,42 @@ export function useSaleClosingStatus(saleIds: string[]) {
         return {};
       }
 
-      // Get all pickup_closing_sales for the given sale IDs
-      const { data: closingSales, error: closingSalesError } = await supabase
+      // Query sales directly for closed_at/finalized_at/finalized_by - this is the source of truth
+      // set by ALL closing flows (balcão, motoboy, transportadora)
+      const { data: salesData, error: salesError } = await supabase
+        .from('sales')
+        .select('id, closed_at, closed_by, finalized_at, finalized_by, delivery_type')
+        .in('id', saleIds)
+        .eq('organization_id', tenantId);
+
+      if (salesError) {
+        console.error('Error fetching sales closing data:', salesError);
+        throw salesError;
+      }
+
+      // Also get closing type info from pickup_closing_sales for backward compat
+      const { data: closingSales } = await supabase
         .from('pickup_closing_sales')
         .select(`
           sale_id,
           closing_id,
-          closing:pickup_closings(
-            id,
-            type,
-            status,
-            confirmed_by_auxiliar,
-            confirmed_by_admin
-          )
+          closing:pickup_closings(id, type)
         `)
         .in('sale_id', saleIds);
 
-      if (closingSalesError) {
-        console.error('Error fetching closing sales:', closingSalesError);
-        throw closingSalesError;
-      }
+      // Build closing type map
+      const closingInfoMap: Record<string, { closingType: string | null; closingId: string | null }> = {};
+      (closingSales || []).forEach(cs => {
+        const closing = cs.closing as any;
+        closingInfoMap[cs.sale_id] = {
+          closingType: closing?.type || null,
+          closingId: cs.closing_id,
+        };
+      });
 
-      // Build the status map
+      // Build the status map using sale's own fields as source of truth
       const statusMap: Record<string, SaleClosingStatus> = {};
 
-      // Initialize all sales as not closed
       saleIds.forEach(saleId => {
         statusMap[saleId] = {
           saleId,
@@ -60,29 +71,33 @@ export function useSaleClosingStatus(saleIds: string[]) {
         };
       });
 
-      // Update with actual closing data
-      (closingSales || []).forEach(cs => {
-        const closing = cs.closing as any;
-        if (!closing) return;
+      (salesData || []).forEach(sale => {
+        const closingInfo = closingInfoMap[sale.id];
+        const wasClosed = !!sale.closed_at || !!sale.finalized_at;
+        const confirmedByFinanceiro = !!sale.closed_at;
+        const confirmedByThiago = sale.finalized_by === THIAGO_USER_ID;
 
-        // If confirmed_by_auxiliar is set, it was confirmed by financeiro (any user with reports_view permission)
-        const confirmedByFinanceiro = !!closing.confirmed_by_auxiliar;
-        // Admin confirmation is still Thiago-specific
-        const confirmedByThiago = closing.confirmed_by_admin === THIAGO_USER_ID;
+        // Derive closing type from closing table or from sale's delivery_type
+        let closingType: 'pickup' | 'motoboy' | 'carrier' | null = null;
+        if (closingInfo?.closingType) {
+          closingType = closingInfo.closingType as any;
+        } else if (wasClosed && sale.delivery_type) {
+          closingType = sale.delivery_type as any;
+        }
 
-        statusMap[cs.sale_id] = {
-          saleId: cs.sale_id,
-          wasClosed: true,
-          closingType: closing.type || null,
+        statusMap[sale.id] = {
+          saleId: sale.id,
+          wasClosed,
+          closingType,
           confirmedByFinanceiro,
           confirmedByThiago,
-          closingId: cs.closing_id,
+          closingId: closingInfo?.closingId || null,
         };
       });
 
       return statusMap;
     },
     enabled: !!tenantId && saleIds.length > 0,
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 30000,
   });
 }
