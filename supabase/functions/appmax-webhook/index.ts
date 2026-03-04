@@ -184,7 +184,7 @@ async function processSaleSplits(supabase: any, saleId: string) {
         organization_id: sale.organization_id,
         account_type: 'tenant',
         holder_name: org?.name || 'Tenant',
-        holder_email: org?.email || 'tenant@morphews.com',
+        holder_email: org?.email || 'tenant@atomic.ia.br',
       })
       .select('id')
       .single();

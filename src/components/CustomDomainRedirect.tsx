@@ -69,7 +69,7 @@ export function CustomDomainRedirect({ children }: { children: React.ReactNode }
   }
 
   // Block render if redirecting from sales.morphews.com
-  if (window.location.hostname === 'sales.morphews.com') {
+  if (window.location.hostname === 'sales.morphews.com' || window.location.hostname === 'morphews.com') {
     return <PageLoader />;
   }
 

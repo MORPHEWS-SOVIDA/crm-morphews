@@ -233,7 +233,7 @@ export function WhiteAdminSettings() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Os emails serão enviados de <strong>noreply@morphews.com</strong> mas com o nome da sua marca.
+              Os emails serão enviados de <strong>noreply@updates.atomic.ia.br</strong> mas com o nome da sua marca.
             </p>
           </div>
 

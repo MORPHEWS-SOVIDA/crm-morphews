@@ -195,7 +195,7 @@ export default function LandingPageEditor() {
   };
 
   const previewUrl = landingPage 
-    ? `https://sales.morphews.com/lp/${landingPage.slug}`
+    ? `https://atomic.ia.br/lp/${landingPage.slug}`
     : '';
 
   if (isLoading) {
