@@ -236,8 +236,13 @@ export function TelesalesTab() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedLead || !selectedSale) {
-      toast.error('Selecione um cliente e uma venda');
+    if (!selectedLead) {
+      toast.error('Selecione um cliente');
+      return;
+    }
+
+    if (!effectiveAmountCents || effectiveAmountCents <= 0) {
+      toast.error('Informe um valor válido');
       return;
     }
 
@@ -250,8 +255,8 @@ export function TelesalesTab() {
 
     try {
       const selectedInstallmentOption = installmentOptions.find(o => o.installments === installments);
-      const finalAmountCents = selectedInstallmentOption?.totalValue || selectedSale.total_cents;
-      const baseAmountCents = selectedSale.total_cents;
+      const finalAmountCents = selectedInstallmentOption?.totalValue || effectiveAmountCents;
+      const baseAmountCents = effectiveAmountCents;
       const interestAmountCents = finalAmountCents - baseAmountCents;
 
       const response = await processMutation.mutateAsync({
@@ -274,7 +279,7 @@ export function TelesalesTab() {
           cvv: cardCvv,
         },
         origin_type: 'telesales',
-        sale_id: selectedSale.id,
+        sale_id: selectedSale?.id,
         lead_id: selectedLead.id,
       });
 
