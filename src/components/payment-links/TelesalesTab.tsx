@@ -157,7 +157,7 @@ export function TelesalesTab() {
 
   // Calculate installment options with interest
   const installmentOptions = useMemo(() => {
-    const amountCents = selectedSale?.total_cents || 0;
+    const amountCents = effectiveAmountCents;
     const maxInst = tenantFees?.max_installments || 12;
     const fees = tenantFees?.installment_fees as Record<string, number> | null;
     const passToCustomer = tenantFees?.installment_fee_passed_to_buyer !== false;
@@ -182,11 +182,11 @@ export function TelesalesTab() {
         totalValue,
         perInstallment: Math.ceil(totalValue / i),
         hasInterest,
-      interestAmount: totalValue - amountCents,
-    });
-  }
-  return options;
-}, [selectedSale?.total_cents, tenantFees, interestBearer, maxFreeInstallments]);
+        interestAmount: totalValue - amountCents,
+      });
+    }
+    return options;
+  }, [effectiveAmountCents, tenantFees, interestBearer, maxFreeInstallments]);
 
   const handleLeadChange = (id: string | null, lead: Lead | null) => {
     setLeadId(id);
