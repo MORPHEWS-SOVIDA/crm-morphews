@@ -278,7 +278,8 @@ export default function RomaneioPrint() {
             <span className="text-gray-700">TEL: {sale.lead?.whatsapp}</span>
           </div>
           
-          {/* Address - compact single/dual line */}
+          {/* Address - TEMPORARILY HIDDEN to force drivers to use /minhas-entregas */}
+          {/* 
           <div style={{ fontSize: '9px' }} className="mt-0.5">
             {addressData?.street ? (
               <>
@@ -291,6 +292,10 @@ export default function RomaneioPrint() {
             ) : (
               <span className="text-gray-500">Endereço não cadastrado</span>
             )}
+          </div>
+          */}
+          <div style={{ fontSize: '9px' }} className="mt-0.5 text-gray-500 italic">
+            📍 Endereço disponível em /minhas-entregas
           </div>
           
           {/* Delivery notes if any */}
