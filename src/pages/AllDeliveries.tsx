@@ -419,6 +419,7 @@ export default function AllDeliveries() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="pending">🔴 Pendentes na rua</SelectItem>
                     <SelectItem value="today">Hoje</SelectItem>
                     <SelectItem value="tomorrow">Amanhã</SelectItem>
                     <SelectItem value="week">Próximos 7 dias</SelectItem>
