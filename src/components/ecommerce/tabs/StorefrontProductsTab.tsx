@@ -483,7 +483,7 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
             </TabsContent>
           </Tabs>
 
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
               Cancelar
             </Button>
