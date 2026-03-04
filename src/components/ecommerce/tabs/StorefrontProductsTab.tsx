@@ -351,13 +351,13 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
 
       {/* Add Items Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Adicionar Produtos e Combos à Loja</DialogTitle>
           </DialogHeader>
 
-          <Tabs value={addDialogTab} onValueChange={(v) => setAddDialogTab(v as 'products' | 'combos')}>
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={addDialogTab} onValueChange={(v) => setAddDialogTab(v as 'products' | 'combos')} className="flex flex-col flex-1 min-h-0">
+            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
               <TabsTrigger value="products" className="gap-2">
                 <Package className="h-4 w-4" />
                 Produtos {selectedProductIds.length > 0 && `(${selectedProductIds.length})`}
