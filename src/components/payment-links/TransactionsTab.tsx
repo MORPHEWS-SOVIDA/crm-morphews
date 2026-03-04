@@ -268,7 +268,7 @@ export function TransactionsTab() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleOpenLinkDialog(tx)}
+                                  onClick={(e) => { e.stopPropagation(); handleOpenLinkDialog(tx); }}
                                   className="h-8 w-8 p-0"
                                 >
                                   <Link2 className="h-4 w-4" />
