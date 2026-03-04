@@ -58,7 +58,7 @@ export function CustomDomainRedirect({ children }: { children: React.ReactNode }
 
   // Redirect sales.morphews.com to main login
   useEffect(() => {
-    if (window.location.hostname === 'sales.morphews.com') {
+    if (window.location.hostname === 'sales.morphews.com' || window.location.hostname === 'morphews.com') {
       window.location.href = 'https://atomic.ia.br/login';
     }
   }, []);
