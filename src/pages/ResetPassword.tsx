@@ -11,6 +11,7 @@ import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 import { useTheme } from 'next-themes';
 
 export default function ResetPassword() {
+  const navigate = useNavigate();
   const { resolvedTheme } = useTheme();
   const displayLogo = resolvedTheme === 'dark' ? logoAtomicDark : logoAtomicLight;
   const [searchParams] = useSearchParams();
