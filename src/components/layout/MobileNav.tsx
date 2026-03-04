@@ -46,7 +46,8 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useNavigate } from 'react-router-dom';
 import { useCombinedBranding } from '@/hooks/useDomainBranding';
 import { useTheme } from 'next-themes';
-import logoAtomicSales from '@/assets/logo-morphews.png';
+import logoAtomicLight from '@/assets/logo-atomic-light.png';
+import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const MASTER_ADMIN_EMAIL = "thiago.morphews@gmail.com";

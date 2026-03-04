@@ -9,7 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, CheckCircle, XCircle } from "lucide-react";
 import { useOrgWhiteLabelBranding } from "@/hooks/useOrgWhiteLabelBranding";
 import { useTheme } from "next-themes";
-import logo from "@/assets/logo-morphews.png";
+import logoAtomicLight from '@/assets/logo-atomic-light.png';
+import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 
 export default function ForcePasswordChange() {
   const navigate = useNavigate();

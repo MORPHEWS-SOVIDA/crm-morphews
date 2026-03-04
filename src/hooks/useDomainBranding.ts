@@ -13,7 +13,7 @@ function useDomainWhiteLabelBranding() {
   const MAIN_DOMAINS = [
     'localhost', '127.0.0.1', 'lovable.app', 'lovable.dev',
     'lovableproject.com', 'morphews.com', 'sales.morphews.com',
-    'crm-morphews.lovable.app',
+    'crm-morphews.lovable.app', 'atomic.ia.br',
   ];
 
   const isMainDomain = MAIN_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`));

@@ -1,7 +1,9 @@
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Home, RefreshCw, Mail } from "lucide-react";
-import logoAtomicSales from "@/assets/logo-morphews.png";
+import logoAtomicLight from '@/assets/logo-atomic-light.png';
+import logoAtomicDark from '@/assets/logo-atomic-dark.png';
+import { useTheme } from 'next-themes';
 
 const AuthError = () => {
   const [searchParams] = useSearchParams();
