@@ -151,58 +151,45 @@ export function SaleSelectionCard({
 
   const handleOpenEditPayment = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedPaymentMethodId(sale.payment_method_id || NONE_VALUE);
     setIsEditPaymentOpen(true);
   };
 
-  const handleSavePaymentMethod = async () => {
+  const handlePaymentConfirm = async (data: PaymentConfirmationData) => {
     setIsSaving(true);
     try {
-      if (selectedPaymentMethodId === NONE_VALUE) {
-        // Clear payment method
-        const { error } = await supabase
-          .from('sales')
-          .update({
-            payment_method_id: null,
-            payment_method: 'Não informado',
-          })
-          .eq('id', sale.id);
+      // Update the sale's primary payment method
+      const { error } = await supabase
+        .from('sales')
+        .update({
+          payment_method_id: data.payment_method_id || null,
+          payment_method: data.payment_method_name || 'Não informado',
+        })
+        .eq('id', sale.id);
 
-        if (error) throw error;
-      } else {
-        // Find the selected payment method to get its name and category
-        const selectedMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
-        
-        if (!selectedMethod) {
-          toast.error('Forma de pagamento não encontrada');
-          return;
-        }
+      if (error) throw error;
 
-        // Update the sale with the selected payment method
-        const { error } = await supabase
-          .from('sales')
-          .update({
-            payment_method_id: selectedMethod.id,
-            payment_method: selectedMethod.name,
-          })
-          .eq('id', sale.id);
-
-        if (error) throw error;
+      // Save split payment lines to sale_payments
+      if (data.payment_lines && data.payment_lines.length > 0 && tenantId) {
+        await saveSalePayments.mutateAsync({
+          saleId: sale.id,
+          organizationId: tenantId,
+          payments: data.payment_lines.map((l) => ({
+            payment_method_id: l.payment_method_id || null,
+            payment_method_name: l.payment_method_name,
+            amount_cents: l.amount_cents,
+          })),
+        });
       }
 
       toast.success('Forma de pagamento atualizada!');
       setIsEditPaymentOpen(false);
       
-      // Invalidate queries to refresh the list
       queryClient.invalidateQueries({ queryKey: ['available-closing-sales'] });
       queryClient.invalidateQueries({ queryKey: ['available-pickup-sales'] });
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
       
-      if (onPaymentCategoryChange && selectedPaymentMethodId !== NONE_VALUE) {
-        const selectedMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
-        if (selectedMethod?.category) {
-          onPaymentCategoryChange(sale.id, selectedMethod.category as PaymentCategory);
-        }
+      if (onPaymentCategoryChange && data.payment_method_id) {
+        // We don't have category here directly, but the query invalidation will refresh it
       }
     } catch (error) {
       console.error('Error updating payment:', error);
