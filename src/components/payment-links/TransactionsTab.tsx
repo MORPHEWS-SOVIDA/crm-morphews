@@ -45,6 +45,7 @@ export function TransactionsTab() {
   const [methodFilter, setMethodFilter] = useState<string>('');
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<PaymentLinkTransaction | null>(null);
+  const [detailTransaction, setDetailTransaction] = useState<any>(null);
   
   const { data: transactions, isLoading } = usePaymentLinkTransactions({
     status: statusFilter || undefined,
