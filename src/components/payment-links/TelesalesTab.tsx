@@ -193,6 +193,8 @@ export function TelesalesTab() {
     setSelectedLead(lead);
     setSelectedSaleId(null);
     setSelectedSale(null);
+    setUseManualAmount(false);
+    setManualAmountStr('');
     
     if (id && lead) {
       setStep('select-sale');
@@ -204,6 +206,15 @@ export function TelesalesTab() {
   const handleSelectSale = (sale: Sale) => {
     setSelectedSaleId(sale.id);
     setSelectedSale(sale);
+    setUseManualAmount(false);
+    setInstallments(1);
+    setStep('payment');
+  };
+
+  const handleManualAmount = () => {
+    setSelectedSaleId(null);
+    setSelectedSale(null);
+    setUseManualAmount(true);
     setInstallments(1);
     setStep('payment');
   };
@@ -213,6 +224,8 @@ export function TelesalesTab() {
     setSelectedLead(null);
     setSelectedSaleId(null);
     setSelectedSale(null);
+    setUseManualAmount(false);
+    setManualAmountStr('');
     setInstallments(1);
     setCardNumber('');
     setCardHolder('');
