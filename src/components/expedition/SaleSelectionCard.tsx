@@ -129,27 +129,7 @@ export function SaleSelectionCard({
   const [proofImageUrl, setProofImageUrl] = useState<string | null>(null);
   const [loadingProof, setLoadingProof] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  // Use special value for "none" to avoid Radix UI Select empty value error
-  const NONE_VALUE = '__none__';
-  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>(sale.payment_method_id || NONE_VALUE);
-
-  // Fetch active payment methods for the organization
-  const { data: paymentMethods = [] } = useQuery({
-    queryKey: ['payment-methods-for-closing', tenantId],
-    queryFn: async () => {
-      if (!tenantId) return [];
-      const { data, error } = await supabase
-        .from('payment_methods')
-        .select('id, name, category')
-        .eq('is_active', true)
-        .order('name');
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!tenantId && isEditPaymentOpen,
-    staleTime: 60000,
-  });
+  const saveSalePayments = useSaveSalePayments();
 
   const handleOpenProof = async (e: React.MouseEvent) => {
     e.stopPropagation();
