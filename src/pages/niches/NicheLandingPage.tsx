@@ -347,7 +347,7 @@ export default function NicheLandingPage({ config }: { config: NicheConfig }) {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <Badge variant="outline" className="mb-4">A Solução</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">Com o Morphews você terá</h2>
+            <h2 className="text-3xl md:text-4xl font-bold">Com o Atomic Sales você terá</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {config.benefits.map(({ icon: Icon, title, description }, i) => (
