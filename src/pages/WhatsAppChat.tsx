@@ -1456,7 +1456,7 @@ export default function WhatsAppChat() {
             {/* Header do Chat Mobile */}
             <MobileHeader 
               conversation={{
-                contact_name: selectedConversation.contact_name,
+                contact_name: lead?.name || selectedConversation.contact_name,
                 contact_profile_pic: (selectedConversation as any).contact_profile_pic || null,
                 phone_number: selectedConversation.phone_number,
                 is_group: (selectedConversation as any).is_group,
