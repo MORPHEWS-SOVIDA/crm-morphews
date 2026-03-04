@@ -43,7 +43,7 @@ export default function ResetPassword() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
         <div className="w-full max-w-md text-center space-y-8">
           <div className="flex justify-center">
-            <img src={logoAtomicSales} alt="Atomic Sales" className="h-16 w-auto" />
+            <img src={displayLogo} alt="Atomic Sales" className="h-16 w-auto" />
           </div>
 
           <div className="flex justify-center">
