@@ -611,7 +611,7 @@ export default function NicheLandingPage({ config }: { config: NicheConfig }) {
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link to="/legal?section=termos" className="hover:text-foreground transition-colors">Termos de Uso</Link>
               <Link to="/legal?section=privacidade" className="hover:text-foreground transition-colors">Privacidade</Link>
-              <a href="mailto:contato@morphews.com" className="hover:text-foreground transition-colors">Contato</a>
+              <a href="mailto:contato@atomic.ia.br" className="hover:text-foreground transition-colors">Contato</a>
             </div>
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} Morphews. Todos os direitos reservados.
