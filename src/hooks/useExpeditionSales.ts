@@ -46,6 +46,8 @@ export function useExpeditionSales() {
         `)
         .eq('organization_id', organizationId)
         .in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned', 'cancelled', 'payment_confirmed'])
+        .is('finalized_at', null)
+        .is('closed_at', null)
         .order('scheduled_delivery_date', { ascending: true })
         .order('created_at', { ascending: true });
 
