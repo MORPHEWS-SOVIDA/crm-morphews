@@ -705,6 +705,44 @@ export default function PickupClosing() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Confirm Create Closing Dialog */}
+        <Dialog open={confirmCreateDialogOpen} onOpenChange={setConfirmCreateDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-yellow-500" />
+                Confirmar Criação de Fechamento
+              </DialogTitle>
+              <DialogDescription>
+                Você está prestes a criar um fechamento com{' '}
+                <strong>{confirmCreateMode === 'all' ? availableSales.length : selectedSalesData.length} venda(s)</strong>.
+                {confirmCreateMode === 'all' && (
+                  <span className="block mt-2 text-yellow-600 font-medium">
+                    ⚠️ Todas as vendas disponíveis serão incluídas neste fechamento.
+                  </span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmCreateDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                className={colors.button}
+                onClick={handleConfirmCreate}
+                disabled={createClosing.isPending}
+              >
+                {createClosing.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4 mr-2" />
+                )}
+                Sim, Criar Fechamento
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
