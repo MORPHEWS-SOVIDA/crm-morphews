@@ -56,23 +56,30 @@ Deno.serve(async (req) => {
     let isAuthorized = false;
     if (INTERNAL_AUTH_SECRET && internalSecret === INTERNAL_AUTH_SECRET) {
       isAuthorized = true;
+      console.log("Auth: internal secret matched");
     } else if (authHeader?.startsWith("Bearer ")) {
       // Try service role key first
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       if (serviceKey && authHeader === `Bearer ${serviceKey}`) {
         isAuthorized = true;
+        console.log("Auth: service role key matched");
       } else {
+        console.log("Auth: trying JWT validation...");
         const supabaseAnon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
           global: { headers: { authorization: authHeader } },
         });
         const { data: userRes, error: userErr } = await supabaseAnon.auth.getUser();
+        console.log("Auth getUser result:", userRes?.user?.id, "error:", userErr?.message);
         if (!userErr && userRes?.user) {
-          const { data: isMasterAdmin } = await supabaseAdmin.rpc("is_master_admin", {
+          const { data: isMasterAdmin, error: rpcErr } = await supabaseAdmin.rpc("is_master_admin", {
             _user_id: userRes.user.id,
           });
+          console.log("Auth is_master_admin:", isMasterAdmin, "rpcErr:", rpcErr?.message);
           if (isMasterAdmin) isAuthorized = true;
         }
       }
+    } else {
+      console.log("Auth: no auth header found");
     }
 
     if (!isAuthorized) {
