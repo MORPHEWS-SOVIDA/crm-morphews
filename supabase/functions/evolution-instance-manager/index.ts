@@ -69,6 +69,55 @@ async function fetchOwnerPhoneFromEvolution(instanceName: string): Promise<strin
   }
 }
 
+// Verificar limite de instâncias do plano
+async function checkInstanceLimit(organizationId: string): Promise<void> {
+  // Buscar plano ativo
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("plan_id, status")
+    .eq("organization_id", organizationId)
+    .in("status", ["active", "trialing"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!subscription) {
+    throw new Error("Nenhuma assinatura ativa encontrada. Contrate um plano para adicionar instâncias.");
+  }
+
+  const { data: plan } = await supabase
+    .from("subscription_plans")
+    .select("included_whatsapp_instances, extra_instance_price_cents, name")
+    .eq("id", subscription.plan_id)
+    .single();
+
+  if (!plan) {
+    console.warn("Plano não encontrado, permitindo criação.");
+    return;
+  }
+
+  const maxInstances = plan.included_whatsapp_instances ?? 1;
+
+  // Contar instâncias ativas (não arquivadas)
+  const { count } = await supabase
+    .from("whatsapp_instances")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .is("deleted_at", null);
+
+  const currentCount = count ?? 0;
+
+  console.log("Instance limit check:", { currentCount, maxInstances, plan: plan.name, extraPrice: plan.extra_instance_price_cents });
+
+  if (currentCount >= maxInstances) {
+    const extraPrice = plan.extra_instance_price_cents ? (plan.extra_instance_price_cents / 100).toFixed(2) : null;
+    const msg = extraPrice
+      ? `Seu plano "${plan.name}" inclui ${maxInstances} instância(s). Você já possui ${currentCount}. Para adicionar mais, será cobrado R$ ${extraPrice}/mês por instância extra. Entre em contato com o suporte para contratar.`
+      : `Seu plano "${plan.name}" permite no máximo ${maxInstances} instância(s) e você já possui ${currentCount}. Faça upgrade do seu plano para adicionar mais.`;
+    throw new Error(msg);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -112,6 +161,9 @@ serve(async (req) => {
       if (!name) {
         throw new Error("Nome da instância é obrigatório");
       }
+
+      // Verificar limite do plano antes de criar
+      await checkInstanceLimit(organizationId);
 
       const evolutionInstanceName = generateInstanceName(organizationId, name);
       const webhookUrl = getWebhookUrl(evolutionInstanceName);
@@ -758,6 +810,9 @@ serve(async (req) => {
     // ADD MANUAL INSTANCE (from existing Evolution instance)
     // =====================
     if (action === "add_manual") {
+      // Verificar limite do plano antes de adicionar
+      await checkInstanceLimit(organizationId);
+
       // Usar os campos já extraídos do body parseado no início da função
       const manualInstanceId = evolution_instance_id;
       const manualToken = evolution_api_token;
@@ -902,6 +957,9 @@ serve(async (req) => {
       if (!name) {
         throw new Error("Nome da instância é obrigatório");
       }
+
+      // Verificar limite do plano antes de criar
+      await checkInstanceLimit(organizationId);
 
       const evolutionInstanceName = generateInstanceName(organizationId, name);
       const webhookUrl = `${SUPABASE_URL}/functions/v1/evolution-instagram-webhook`;
