@@ -176,6 +176,7 @@ export default function NewSale() {
   const [paymentStatus, setPaymentStatus] = useState<'not_paid' | 'will_pay_before' | 'paid_now'>('not_paid');
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const selectedPaymentMethod = paymentMethods.find(pm => pm.id === selectedPaymentMethodId);
   
