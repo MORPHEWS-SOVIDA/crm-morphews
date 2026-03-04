@@ -68,6 +68,10 @@ export function TelesalesTab() {
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   
+  // Manual amount mode (no sale linked)
+  const [useManualAmount, setUseManualAmount] = useState(false);
+  const [manualAmountStr, setManualAmountStr] = useState('');
+  
   // Payment
   const [installments, setInstallments] = useState(1);
   const [interestBearer, setInterestBearer] = useState<'customer' | 'seller'>('customer');
@@ -78,6 +82,16 @@ export function TelesalesTab() {
   const [cardHolder, setCardHolder] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
+
+  // Parse manual amount to cents
+  const manualAmountCents = useMemo(() => {
+    const cleaned = manualAmountStr.replace(/[^\d,]/g, '').replace(',', '.');
+    const value = parseFloat(cleaned);
+    return isNaN(value) ? 0 : Math.round(value * 100);
+  }, [manualAmountStr]);
+
+  // The effective amount (from sale or manual)
+  const effectiveAmountCents = selectedSale?.total_cents || manualAmountCents;
 
   // Fetch unpaid sales for the selected lead
   const { data: unpaidSales, isLoading: loadingSales } = useQuery({
@@ -99,8 +113,8 @@ export function TelesalesTab() {
         `)
         .eq('organization_id', profile.organization_id)
         .eq('lead_id', leadId)
-        .in('payment_status', ['pending', 'not_paid'])
-        .neq('status', 'cancelled')
+        .in('payment_status', ['not_paid', 'will_pay_before'])
+        .not('status', 'in', '("cancelled","returned")')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -143,7 +157,7 @@ export function TelesalesTab() {
 
   // Calculate installment options with interest
   const installmentOptions = useMemo(() => {
-    const amountCents = selectedSale?.total_cents || 0;
+    const amountCents = effectiveAmountCents;
     const maxInst = tenantFees?.max_installments || 12;
     const fees = tenantFees?.installment_fees as Record<string, number> | null;
     const passToCustomer = tenantFees?.installment_fee_passed_to_buyer !== false;
@@ -168,17 +182,19 @@ export function TelesalesTab() {
         totalValue,
         perInstallment: Math.ceil(totalValue / i),
         hasInterest,
-      interestAmount: totalValue - amountCents,
-    });
-  }
-  return options;
-}, [selectedSale?.total_cents, tenantFees, interestBearer, maxFreeInstallments]);
+        interestAmount: totalValue - amountCents,
+      });
+    }
+    return options;
+  }, [effectiveAmountCents, tenantFees, interestBearer, maxFreeInstallments]);
 
   const handleLeadChange = (id: string | null, lead: Lead | null) => {
     setLeadId(id);
     setSelectedLead(lead);
     setSelectedSaleId(null);
     setSelectedSale(null);
+    setUseManualAmount(false);
+    setManualAmountStr('');
     
     if (id && lead) {
       setStep('select-sale');
@@ -190,6 +206,15 @@ export function TelesalesTab() {
   const handleSelectSale = (sale: Sale) => {
     setSelectedSaleId(sale.id);
     setSelectedSale(sale);
+    setUseManualAmount(false);
+    setInstallments(1);
+    setStep('payment');
+  };
+
+  const handleManualAmount = () => {
+    setSelectedSaleId(null);
+    setSelectedSale(null);
+    setUseManualAmount(true);
     setInstallments(1);
     setStep('payment');
   };
@@ -199,6 +224,8 @@ export function TelesalesTab() {
     setSelectedLead(null);
     setSelectedSaleId(null);
     setSelectedSale(null);
+    setUseManualAmount(false);
+    setManualAmountStr('');
     setInstallments(1);
     setCardNumber('');
     setCardHolder('');
@@ -209,8 +236,13 @@ export function TelesalesTab() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedLead || !selectedSale) {
-      toast.error('Selecione um cliente e uma venda');
+    if (!selectedLead) {
+      toast.error('Selecione um cliente');
+      return;
+    }
+
+    if (!effectiveAmountCents || effectiveAmountCents <= 0) {
+      toast.error('Informe um valor válido');
       return;
     }
 
@@ -223,8 +255,8 @@ export function TelesalesTab() {
 
     try {
       const selectedInstallmentOption = installmentOptions.find(o => o.installments === installments);
-      const finalAmountCents = selectedInstallmentOption?.totalValue || selectedSale.total_cents;
-      const baseAmountCents = selectedSale.total_cents;
+      const finalAmountCents = selectedInstallmentOption?.totalValue || effectiveAmountCents;
+      const baseAmountCents = effectiveAmountCents;
       const interestAmountCents = finalAmountCents - baseAmountCents;
 
       const response = await processMutation.mutateAsync({
@@ -247,7 +279,7 @@ export function TelesalesTab() {
           cvv: cardCvv,
         },
         origin_type: 'telesales',
-        sale_id: selectedSale.id,
+        sale_id: selectedSale?.id,
         lead_id: selectedLead.id,
       });
 
@@ -411,17 +443,23 @@ export function TelesalesTab() {
               
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                     step === 'select-sale' ? 'bg-primary text-primary-foreground' : 
-                    selectedSale ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'
+                    (selectedSale || useManualAmount) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                   }`}>
                     2
                   </div>
-                  <h3 className="font-medium">Selecionar Venda Pendente</h3>
+                  <h3 className="font-medium">Selecionar Venda ou Valor</h3>
                   {selectedSale && step === 'payment' && (
                     <Badge variant="outline" className="ml-2">
                       <Receipt className="h-3 w-3 mr-1" />
                       {formatCurrency(selectedSale.total_cents)}
+                    </Badge>
+                  )}
+                  {useManualAmount && step === 'payment' && manualAmountCents > 0 && (
+                    <Badge variant="outline" className="ml-2">
+                      <DollarSign className="h-3 w-3 mr-1" />
+                      {formatCurrency(manualAmountCents)}
                     </Badge>
                   )}
                 </div>
@@ -430,60 +468,80 @@ export function TelesalesTab() {
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                ) : unpaidSales && unpaidSales.length > 0 ? (
-                  <div className="space-y-2">
-                    {unpaidSales.map((sale) => (
-                      <div
-                        key={sale.id}
-                        className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                          selectedSaleId === sale.id 
-                            ? 'border-primary bg-primary/5' 
-                            : 'hover:border-primary/50 hover:bg-muted/50'
-                        }`}
-                        onClick={() => handleSelectSale(sale)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <ShoppingBag className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <div className="font-medium">
-                                {formatCurrency(sale.total_cents)}
+                ) : (
+                  <>
+                    {unpaidSales && unpaidSales.length > 0 && (
+                      <div className="space-y-2">
+                        {unpaidSales.map((sale) => (
+                          <div
+                            key={sale.id}
+                            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                              selectedSaleId === sale.id 
+                                ? 'border-primary bg-primary/5' 
+                                : 'hover:border-primary/50 hover:bg-muted/50'
+                            }`}
+                            onClick={() => handleSelectSale(sale)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                  <div className="font-medium">
+                                    {formatCurrency(sale.total_cents)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {format(new Date(sale.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                {format(new Date(sale.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              <div className="text-right">
+                                <Badge 
+                                  variant={sale.payment_status === 'not_paid' ? 'destructive' : 'secondary'}
+                                  className="mb-1"
+                                >
+                                  {sale.payment_status === 'not_paid' ? 'Não Pago' : 'Vai Pagar Antes'}
+                                </Badge>
+                                {sale.products && sale.products.length > 0 && (
+                                  <div className="text-xs text-muted-foreground max-w-[200px] truncate">
+                                    {sale.products.map(p => p.name).join(', ')}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <Badge 
-                              variant={sale.payment_status === 'pending' ? 'destructive' : 'secondary'}
-                              className="mb-1"
-                            >
-                              {sale.payment_status === 'pending' ? 'Pendente' : 'Parcial'}
-                            </Badge>
-                            {sale.products && sale.products.length > 0 && (
-                              <div className="text-xs text-muted-foreground max-w-[200px] truncate">
-                                {sale.products.map(p => p.name).join(', ')}
-                              </div>
-                            )}
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Manual amount option */}
+                    <div
+                      className={`p-4 border rounded-lg cursor-pointer transition-colors border-dashed ${
+                        useManualAmount 
+                          ? 'border-primary bg-primary/5' 
+                          : 'hover:border-primary/50 hover:bg-muted/50'
+                      }`}
+                      onClick={handleManualAmount}
+                    >
+                      <div className="flex items-center gap-3">
+                        <DollarSign className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <div className="font-medium">Cobrar valor avulso</div>
+                          <div className="text-xs text-muted-foreground">
+                            {unpaidSales && unpaidSales.length > 0 
+                              ? 'Cobrar um valor diferente, sem vincular a uma venda'
+                              : 'Este cliente não possui vendas pendentes — informe o valor manualmente'}
                           </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <ShoppingBag className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>Nenhuma venda pendente de pagamento</p>
-                    <p className="text-sm">Este cliente não possui vendas aguardando pagamento</p>
-                  </div>
+                    </div>
+                  </>
                 )}
               </div>
             </>
           )}
 
           {/* Step 3: Payment */}
-          {step === 'payment' && selectedSale && (
+          {step === 'payment' && (selectedSale || useManualAmount) && (
             <>
               <Separator />
               
@@ -494,6 +552,19 @@ export function TelesalesTab() {
                   </div>
                   <h3 className="font-medium">Dados do Pagamento</h3>
                 </div>
+
+                {/* Manual amount input */}
+                {useManualAmount && (
+                  <div>
+                    <Label>Valor a cobrar (R$) *</Label>
+                    <Input
+                      value={manualAmountStr}
+                      onChange={(e) => setManualAmountStr(e.target.value)}
+                      placeholder="0,00"
+                      className="text-lg font-bold"
+                    />
+                  </div>
+                )}
                 
                 {/* Interest Bearer */}
                 <InterestBearerSelector
@@ -501,34 +572,38 @@ export function TelesalesTab() {
                   onBearerChange={setInterestBearer}
                   maxFreeInstallments={maxFreeInstallments}
                   onMaxFreeInstallmentsChange={setMaxFreeInstallments}
-                  amountCents={selectedSale.total_cents}
+                  amountCents={effectiveAmountCents}
                   cardEnabled={true}
                 />
 
                 {/* Amount summary */}
                 <div className="p-4 bg-muted rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-muted-foreground">Valor da venda:</span>
-                    <span className="font-bold text-lg">{formatCurrency(selectedSale.total_cents)}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedSale ? 'Valor da venda:' : 'Valor a cobrar:'}
+                    </span>
+                    <span className="font-bold text-lg">{formatCurrency(effectiveAmountCents)}</span>
                   </div>
                   
-                  <div className="flex items-center gap-4">
-                    <Label className="text-sm">Parcelas:</Label>
-                    <Select value={installments.toString()} onValueChange={(v) => setInstallments(parseInt(v))}>
-                      <SelectTrigger className="w-[240px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {installmentOptions.map((opt) => (
-                          <SelectItem key={opt.installments} value={opt.installments.toString()}>
-                            {opt.installments}x {opt.installments === 1 
-                              ? 'à vista' 
-                              : `de ${formatCurrency(opt.perInstallment)}${opt.hasInterest ? '' : ' sem juros'}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {effectiveAmountCents > 0 && (
+                    <div className="flex items-center gap-4">
+                      <Label className="text-sm">Parcelas:</Label>
+                      <Select value={installments.toString()} onValueChange={(v) => setInstallments(parseInt(v))}>
+                        <SelectTrigger className="w-[240px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {installmentOptions.map((opt) => (
+                            <SelectItem key={opt.installments} value={opt.installments.toString()}>
+                              {opt.installments}x {opt.installments === 1 
+                                ? 'à vista' 
+                                : `de ${formatCurrency(opt.perInstallment)}${opt.hasInterest ? '' : ' sem juros'}`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   
                   {installments > 1 && installmentOptions.find(o => o.installments === installments)?.hasInterest && (
                     <div className="mt-2 text-xs text-muted-foreground">
@@ -592,11 +667,11 @@ export function TelesalesTab() {
                     className="w-full" 
                     size="lg"
                     onClick={handleSubmit}
-                    disabled={!cardNumber || !cardHolder || !cardExpiry || !cardCvv}
+                    disabled={!cardNumber || !cardHolder || !cardExpiry || !cardCvv || effectiveAmountCents <= 0}
                   >
                     <DollarSign className="h-5 w-5 mr-2" />
                     Cobrar {formatCurrency(
-                      installmentOptions.find(o => o.installments === installments)?.totalValue || selectedSale.total_cents
+                      installmentOptions.find(o => o.installments === installments)?.totalValue || effectiveAmountCents
                     )}
                   </Button>
                 </div>
