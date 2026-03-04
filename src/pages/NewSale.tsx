@@ -268,6 +268,7 @@ export default function NewSale() {
       return;
     }
 
+    setIsSaving(true);
     try {
       let uploadedProofUrl: string | null = null;
       
