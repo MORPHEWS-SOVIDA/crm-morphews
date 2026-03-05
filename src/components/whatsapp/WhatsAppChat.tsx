@@ -2123,7 +2123,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               {selectedConversation?.is_group ? "Informações do Grupo" : "Informações do Contato"}
             </DrawerTitle>
             <DrawerDescription>
-              {selectedConversation?.display_name || selectedConversation?.contact_name || selectedConversation?.phone_number}
+              {leadDetails?.name || selectedConversation?.display_name || selectedConversation?.contact_name || selectedConversation?.phone_number}
             </DrawerDescription>
           </DrawerHeader>
           <div className="p-4 space-y-4">
