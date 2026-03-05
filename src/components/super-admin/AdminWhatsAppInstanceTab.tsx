@@ -654,7 +654,7 @@ export function AdminWhatsAppInstanceTab() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Cole essa URL no painel da Evolution API (na mesma instância acima).
+                  Cole essa URL no painel da API de WhatsApp (na mesma instância acima).
                 </p>
               </div>
             </div>
