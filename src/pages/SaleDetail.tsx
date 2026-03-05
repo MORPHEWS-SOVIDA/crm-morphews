@@ -1394,7 +1394,7 @@ export default function SaleDetail() {
                           {format(new Date(sale.scheduled_delivery_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
                           {sale.scheduled_delivery_shift && (
                             <span className="text-xs text-muted-foreground ml-1">
-                              ({sale.scheduled_delivery_shift === 'morning' ? 'Manhã' : 'Tarde'})
+                              ({sale.scheduled_delivery_shift === 'morning' ? 'Manhã' : sale.scheduled_delivery_shift === 'afternoon' ? 'Tarde' : 'Dia Inteiro'})
                             </span>
                           )}
                         </p>
