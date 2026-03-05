@@ -29,6 +29,7 @@ import { useCrossInstanceConversations, getOtherInstanceConversations } from "@/
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { QuickMessagesPicker } from "./QuickMessagesPicker";
 import { QuickMessage } from "@/hooks/useQuickMessages";
+import { ConversationListItem } from "./ConversationListItem";
 
 interface WhatsAppChatProps {
   instanceId?: string; // Agora opcional - se não passar, busca todas da org
