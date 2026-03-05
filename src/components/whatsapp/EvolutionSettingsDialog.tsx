@@ -153,7 +153,7 @@ export function EvolutionSettingsDialog({
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Essas configurações são sincronizadas diretamente com o Evolution API e afetam o comportamento do WhatsApp.
+                Essas configurações afetam o comportamento do WhatsApp nesta instância.
               </AlertDescription>
             </Alert>
 
