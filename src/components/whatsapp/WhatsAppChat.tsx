@@ -1557,7 +1557,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   )}>
                     {selectedConversation.is_group 
                       ? "G" 
-                      : (selectedConversation.display_name?.charAt(0) || selectedConversation.contact_name?.charAt(0) || "?")}
+                      : (leadDetails?.name?.charAt(0) || selectedConversation.display_name?.charAt(0) || selectedConversation.contact_name?.charAt(0) || "?")}
                   </AvatarFallback>
                 </Avatar>
 
@@ -1565,7 +1565,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                 <div className="flex-1 min-w-0" onClick={() => setShowLeadInfoDrawer(true)}>
                   <p className="font-semibold text-base truncate">
                     {selectedConversation.is_group && <span className="text-blue-500 mr-1">👥</span>}
-                    {selectedConversation.display_name || selectedConversation.contact_name || (selectedConversation.is_group ? "Grupo" : selectedConversation.phone_number)}
+                    {leadDetails?.name || selectedConversation.display_name || selectedConversation.contact_name || (selectedConversation.is_group ? "Grupo" : selectedConversation.phone_number)}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {selectedConversation.phone_number}
@@ -2123,7 +2123,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               {selectedConversation?.is_group ? "Informações do Grupo" : "Informações do Contato"}
             </DrawerTitle>
             <DrawerDescription>
-              {selectedConversation?.display_name || selectedConversation?.contact_name || selectedConversation?.phone_number}
+              {leadDetails?.name || selectedConversation?.display_name || selectedConversation?.contact_name || selectedConversation?.phone_number}
             </DrawerDescription>
           </DrawerHeader>
           <div className="p-4 space-y-4">
