@@ -493,9 +493,16 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     };
   }, [profile?.organization_id, activeConversation?.id, queryClient]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change - throttled for mobile
+  const lastScrolledMsgCount = useRef(0);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages && messages.length !== lastScrolledMsgCount.current) {
+      lastScrolledMsgCount.current = messages.length;
+      // Use requestAnimationFrame to avoid layout thrashing on mobile
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: messages.length <= 1 ? "auto" : "smooth" });
+      });
+    }
   }, [messages]);
 
   // Auto-grow textarea (min/max variam no mobile)
