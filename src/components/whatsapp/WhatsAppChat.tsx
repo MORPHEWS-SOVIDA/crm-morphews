@@ -1634,6 +1634,20 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                 </div>
               </div>
             ))
+            {/* Botão carregar mais no mobile */}
+            {isMobile && filteredConversations && visibleCount < filteredConversations.length && (
+              <div className="p-3 text-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground"
+                  onClick={() => setVisibleCount(prev => prev + MOBILE_CONVERSATION_LIMIT)}
+                >
+                  Carregar mais ({filteredConversations.length - visibleCount} restantes)
+                </Button>
+              </div>
+            )}
+            </>
           )}
         </ScrollArea>
       </div>
