@@ -320,7 +320,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
               <DialogHeader>
                 <DialogTitle>Adicionar Instância Existente</DialogTitle>
                 <DialogDescription>
-                  Adicione uma instância que já existe no Evolution API. Útil para conectar instâncias já configuradas em outros sistemas.
+                  Adicione uma instância já existente. Útil para conectar instâncias já configuradas em outros sistemas.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
