@@ -1347,11 +1347,31 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     }
   };
 
-  const filteredConversations = conversations?.filter(
-    (c) =>
-      normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
-      c.phone_number.includes(searchTerm)
-  );
+  const filteredConversations = useMemo(() => {
+    if (!conversations) return [];
+    if (!searchTerm) return conversations;
+    const normalized = normalizeText(searchTerm);
+    return conversations.filter(
+      (c) =>
+        normalizeText(c.contact_name || '').includes(normalized) ||
+        normalizeText(c.display_name || '').includes(normalized) ||
+        c.phone_number.includes(searchTerm)
+    );
+  }, [conversations, searchTerm]);
+
+  // Limitar conversas visíveis no mobile para performance
+  const MOBILE_CONVERSATION_LIMIT = 40;
+  const [visibleCount, setVisibleCount] = useState(MOBILE_CONVERSATION_LIMIT);
+  
+  // Reset visibleCount quando filtro muda
+  useEffect(() => {
+    setVisibleCount(MOBILE_CONVERSATION_LIMIT);
+  }, [searchTerm]);
+
+  const visibleConversations = useMemo(() => {
+    if (!isMobile) return filteredConversations;
+    return filteredConversations?.slice(0, visibleCount) || [];
+  }, [filteredConversations, isMobile, visibleCount]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);

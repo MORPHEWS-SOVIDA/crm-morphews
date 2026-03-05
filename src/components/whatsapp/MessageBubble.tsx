@@ -331,4 +331,4 @@ export const MessageBubble = memo(function MessageBubble({ message, organization
       </div>
     </div>
   );
-}
+});
