@@ -1633,7 +1633,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   </div>
                 </div>
               </div>
-            ))
+            ))}
             {/* Botão carregar mais no mobile */}
             {isMobile && filteredConversations && visibleCount < filteredConversations.length && (
               <div className="p-3 text-center">
