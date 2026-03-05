@@ -604,7 +604,7 @@ export function AdminWhatsAppInstanceTab() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="api_url">URL da Evolution API *</Label>
+                <Label htmlFor="api_url">URL da API *</Label>
                 <Input
                   id="api_url"
                   placeholder="https://api.evolution.com"
