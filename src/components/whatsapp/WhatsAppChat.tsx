@@ -154,11 +154,13 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     enabled: !!profile?.organization_id,
   });
 
-  // Create a map for quick instance lookup
-  const instancesMap = allInstances?.reduce((acc, inst) => {
-    acc[inst.id] = inst;
-    return acc;
-  }, {} as Record<string, InstanceInfo>) || {};
+  // Create a map for quick instance lookup - memoized to prevent re-renders
+  const instancesMap = useMemo(() => {
+    return allInstances?.reduce((acc, inst) => {
+      acc[inst.id] = inst;
+      return acc;
+    }, {} as Record<string, InstanceInfo>) || {};
+  }, [allInstances]);
 
   // Helper to get instance display label
   const getInstanceLabel = (instId: string | null) => {
