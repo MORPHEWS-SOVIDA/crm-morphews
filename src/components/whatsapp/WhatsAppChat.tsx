@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { Send, Phone, Search, ArrowLeft, User, Loader2, Plus, ExternalLink, Mic, Image as ImageIcon, Info, Link, FileText, MessageSquarePlus, Clock, Star, Instagram, MessageSquareMore, Video, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -477,8 +477,12 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           schema: "public",
           table: "whatsapp_messages",
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
+        (payload) => {
+          // Só invalidar mensagens se for da conversa ativa
+          if (activeConversation?.id && payload.new && (payload.new as any).conversation_id === activeConversation.id) {
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-messages", activeConversation.id] });
+          }
+          // Sempre atualizar lista de conversas (para unread_count etc)
           queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
         }
       )
@@ -487,11 +491,18 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [profile?.organization_id, queryClient]);
+  }, [profile?.organization_id, activeConversation?.id, queryClient]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change - throttled for mobile
+  const lastScrolledMsgCount = useRef(0);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages && messages.length !== lastScrolledMsgCount.current) {
+      lastScrolledMsgCount.current = messages.length;
+      // Use requestAnimationFrame to avoid layout thrashing on mobile
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: messages.length <= 1 ? "auto" : "smooth" });
+      });
+    }
   }, [messages]);
 
   // Auto-grow textarea (min/max variam no mobile)
@@ -1347,11 +1358,31 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     }
   };
 
-  const filteredConversations = conversations?.filter(
-    (c) =>
-      normalizeText(c.contact_name || '').includes(normalizeText(searchTerm)) ||
-      c.phone_number.includes(searchTerm)
-  );
+  const filteredConversations = useMemo(() => {
+    if (!conversations) return [];
+    if (!searchTerm) return conversations;
+    const normalized = normalizeText(searchTerm);
+    return conversations.filter(
+      (c) =>
+        normalizeText(c.contact_name || '').includes(normalized) ||
+        normalizeText(c.display_name || '').includes(normalized) ||
+        c.phone_number.includes(searchTerm)
+    );
+  }, [conversations, searchTerm]);
+
+  // Limitar conversas visíveis no mobile para performance
+  const MOBILE_CONVERSATION_LIMIT = 40;
+  const [visibleCount, setVisibleCount] = useState(MOBILE_CONVERSATION_LIMIT);
+  
+  // Reset visibleCount quando filtro muda
+  useEffect(() => {
+    setVisibleCount(MOBILE_CONVERSATION_LIMIT);
+  }, [searchTerm]);
+
+  const visibleConversations = useMemo(() => {
+    if (!isMobile) return filteredConversations;
+    return filteredConversations?.slice(0, visibleCount) || [];
+  }, [filteredConversations, isMobile, visibleCount]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -1439,7 +1470,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               <p className="text-xs mt-1">Aguardando mensagens...</p>
             </div>
           ) : (
-            filteredConversations?.map((conversation) => (
+            <>
+            {visibleConversations?.map((conversation) => (
               <div
                 key={conversation.id}
                 className={cn(
@@ -1465,8 +1497,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                     </AvatarFallback>
                   </Avatar>
                   
-                  {/* Indicadores de outras instâncias */}
-                  {(() => {
+                  {/* Indicadores de outras instâncias - simplificado no mobile */}
+                  {!isMobile && (() => {
                     const otherInstances = getOtherInstanceConversations(
                       crossInstanceMap, 
                       conversation.phone_number, 
@@ -1482,7 +1514,6 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                     
                     return (
                       <>
-                        {/* Bolinha azul indicando conversas em outras instâncias */}
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1513,24 +1544,28 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           </Tooltip>
                         </TooltipProvider>
                         
-                        {/* Badge âmbar pulsante com total de não lidas em outras instâncias */}
                         {totalUnreadOtherInstances > 0 && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="absolute -top-1.5 -right-1.5 h-5 min-w-[20px] px-1 rounded-full bg-amber-500 border-2 border-card flex items-center justify-center animate-pulse cursor-help">
-                                  <span className="text-[10px] font-bold text-white">
-                                    {totalUnreadOtherInstances > 99 ? '99+' : totalUnreadOtherInstances}
-                                  </span>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                <p className="text-xs">Mensagens não lidas em outras instâncias</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          <div className="absolute -top-1.5 -right-1.5 h-5 min-w-[20px] px-1 rounded-full bg-amber-500 border-2 border-card flex items-center justify-center animate-pulse">
+                            <span className="text-[10px] font-bold text-white">
+                              {totalUnreadOtherInstances > 99 ? '99+' : totalUnreadOtherInstances}
+                            </span>
+                          </div>
                         )}
                       </>
+                    );
+                  })()}
+                  {/* Mobile: indicador simplificado sem tooltip */}
+                  {isMobile && (() => {
+                    const otherInstances = getOtherInstanceConversations(
+                      crossInstanceMap, 
+                      conversation.phone_number, 
+                      conversation.instance_id || ''
+                    );
+                    if (otherInstances.length === 0) return null;
+                    return (
+                      <div className="absolute -top-1 -left-1 h-4 w-4 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center">
+                        <span className="text-[8px] font-bold text-white">{otherInstances.length}</span>
+                      </div>
                     );
                   })()}
                 </div>
@@ -1612,7 +1647,21 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   </div>
                 </div>
               </div>
-            ))
+            ))}
+            {/* Botão carregar mais no mobile */}
+            {isMobile && filteredConversations && visibleCount < filteredConversations.length && (
+              <div className="p-3 text-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground"
+                  onClick={() => setVisibleCount(prev => prev + MOBILE_CONVERSATION_LIMIT)}
+                >
+                  Carregar mais ({filteredConversations.length - visibleCount} restantes)
+                </Button>
+              </div>
+            )}
+            </>
           )}
         </ScrollArea>
       </div>

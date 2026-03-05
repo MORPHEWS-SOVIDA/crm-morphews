@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Bot, Check, CheckCheck, Clock, Download, ImageIcon, AlertTriangle, FileText, Loader2, Mic } from 'lucide-react';
@@ -30,7 +30,7 @@ interface MessageBubbleProps {
   organizationId?: string; // Para transcrição manual
 }
 
-export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, organizationId }: MessageBubbleProps) {
   const isOutbound = message.direction === 'outbound';
   const transcribeMutation = useTranscribeAudioMessage();
 
@@ -107,6 +107,7 @@ export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
               <img 
                 src={message.media_url} 
                 alt="Imagem" 
+                loading="lazy"
                 className="rounded-lg max-w-full max-h-72 object-contain cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={() => window.open(message.media_url!, '_blank')}
                 onError={() => setImageError(true)}
@@ -331,4 +332,4 @@ export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
       </div>
     </div>
   );
-}
+});
