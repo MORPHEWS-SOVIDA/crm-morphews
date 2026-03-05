@@ -20,17 +20,19 @@ EXTRACTION PROCESS:
 1. Scan the ENTIRE screenshot from TOP to BOTTOM
 2. Count EVERY conversation row, including partially visible rows at edges
 3. For EACH row, determine what text identifies the person:
-   - If you see a USERNAME (no spaces, only a-z 0-9 . _) → return it as type "handle"
-   - If you see a DISPLAY NAME (has spaces, emojis, uppercase words, titles) → return it as type "display_name"
+   - If you see a USERNAME (no spaces, only letters/numbers/dots/underscores) → return it as type "handle"
+   - If you see a DISPLAY NAME (has spaces, titles, special chars) → return it as type "display_name"
 4. Double-check: your output array length MUST equal the number of visible conversation rows
 
 CRITICAL RULES:
 - NEVER skip a row. Every visible conversation = one entry in your output
-- NEVER invent or guess information. Only return what is literally visible
+- NEVER invent or guess information. Only return what is literally visible on screen
 - Include partially visible rows at top/bottom edges — extract whatever is readable
 - A handle has NO spaces. If it has spaces, it's a display_name
-- Remove any emoji or special decoration from handles but keep display names as-is (without emojis)
-- Do NOT confuse the message preview text (like "Enviado há 5 min") with the name/handle
+- Remove any emoji from values but keep display names as-is otherwise
+- Do NOT confuse the message preview text (like "Enviado há 5 min", "Enviado agora há pouco") with the name/handle
+- The second line of each row is ALWAYS a status/time indicator, NOT a name. Ignore it.
+- Look carefully at each row: the FIRST line of text is the name/handle
 
 Return ONLY a valid JSON array of objects. Each object has:
 - "type": either "handle" or "display_name"  
@@ -58,12 +60,10 @@ function normalizeAndFilter(arr: unknown[]): ExtractedEntry[] {
   const results: ExtractedEntry[] = [];
   for (const item of arr) {
     if (typeof item === "string") {
-      // Legacy format: plain string array — treat as handle
       const raw = item.toLowerCase().trim().replace(/^@/, "");
       if (isValidHandle(raw)) {
         results.push({ type: "handle", value: raw });
       } else if (raw.length > 0) {
-        // Might be a display name returned as string
         results.push({ type: "display_name", value: item.trim() });
       }
       continue;
@@ -81,18 +81,16 @@ function normalizeAndFilter(arr: unknown[]): ExtractedEntry[] {
         if (isValidHandle(raw)) {
           results.push({ type: "handle", value: raw });
         } else {
-          // AI said handle but it has spaces/invalid chars — treat as display_name
           console.warn(`[NORMALIZE] AI marked as handle but invalid: "${raw}" — treating as display_name`);
           results.push({ type: "display_name", value: value });
         }
       } else if (type === "display_name") {
-        // Clean emojis and excess whitespace from display names
-        const cleaned = value.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}♥️❤🖤💜💛💚💙🤍🩷🩵🩶⚡✨🌟⭐🔥💫🏋️‍♀️🏋️‍♂️💪🧠🫀🫁🦷🦴🩺💊🏥🏨🔬🧬🧪💉🩹🩻🩸🩺]/gu, "").trim();
+        // Clean emojis from display names
+        const cleaned = value.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}♥️❤🖤💜💛💚💙🤍🩷🩵🩶⚡✨🌟⭐🔥💫]/gu, "").trim();
         if (cleaned.length > 0) {
           results.push({ type: "display_name", value: cleaned });
         }
       } else {
-        // Unknown type — try to figure it out
         const raw = value.toLowerCase().replace(/^@/, "");
         if (isValidHandle(raw)) {
           results.push({ type: "handle", value: raw });
@@ -135,7 +133,7 @@ interface ExtractionResult {
 async function extractFromScreenshot(
   filePath: string,
   supabase: ReturnType<typeof createClient>,
-  GROQ_API_KEY: string
+  LOVABLE_API_KEY: string
 ): Promise<ExtractionResult> {
   console.log(`[EXTRACT] Processing file: ${filePath}`);
   
@@ -184,16 +182,17 @@ async function extractFromScreenshot(
       else mimeType = "image/jpeg";
     }
 
-    console.log(`[EXTRACT] Calling Groq Vision API for ${filePath} (mime: ${mimeType}, base64 length: ${base64.length})...`);
+    console.log(`[EXTRACT] Calling Lovable AI (Gemini 2.5 Flash) for ${filePath} (mime: ${mimeType}, base64 length: ${base64.length})...`);
 
-    const aiResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    // Use Lovable AI gateway with Gemini 2.5 Flash (supports vision, fast, accurate)
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "meta-llama/llama-4-scout-17b-16e-instruct",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
@@ -205,13 +204,15 @@ async function extractFromScreenshot(
               },
               {
                 type: "text",
-                text: `Analyze this Instagram DM list screenshot. Extract EVERY conversation row visible — from the very top to the very bottom, including partially visible ones.
+                text: `Analyze this Instagram DM list screenshot carefully. Extract EVERY conversation row visible — from the very top to the very bottom, including partially visible ones.
 
 For each row, return:
-- type "handle" if you see a username (no spaces, only letters/numbers/dots/underscores)
+- type "handle" if you see a username (no spaces, only letters/numbers/dots/underscores)  
 - type "display_name" if you see a display name (has spaces, titles, special chars)
 
-Return a JSON array of objects. The array length MUST match the total number of conversation rows visible. Do NOT skip any row. Do NOT invent information.`
+IMPORTANT: The second line of each row (like "Enviado há 5 min" or "Enviado agora há pouco") is a timestamp, NOT a name. Ignore it.
+
+Return a JSON array of objects. The array length MUST match the total number of conversation rows visible. Do NOT skip any row. Do NOT invent information — only return what you can literally read.`
               }
             ],
           },
@@ -224,12 +225,12 @@ Return a JSON array of objects. The array length MUST match the total number of 
       const errText = await aiResponse.text();
       console.error(`[EXTRACT] AI API error ${aiResponse.status} for ${filePath}: ${errText.substring(0, 500)}`);
       if (aiResponse.status === 402) {
-        return { entries: [], error: "Créditos Groq esgotados.", errorCode: 402 };
+        return { entries: [], error: "Créditos de IA esgotados. Recarregue no painel de Usage.", errorCode: 402 };
       }
       if (aiResponse.status === 429) {
-        return { entries: [], error: "Limite de requisições Groq excedido. Tente novamente em alguns minutos.", errorCode: 429 };
+        return { entries: [], error: "Limite de requisições excedido. Tente novamente em alguns minutos.", errorCode: 429 };
       }
-      return { entries: [], error: `Erro na API Groq: ${aiResponse.status}` };
+      return { entries: [], error: `Erro na API de IA: ${aiResponse.status}` };
     }
 
     const aiData = await aiResponse.json();
@@ -249,8 +250,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -306,7 +307,7 @@ serve(async (req) => {
       
       console.log(`[MAIN] Processing screenshot ${i + 1}/${screenshotUrls.length}: ${filePath}`);
       
-      const result = await extractFromScreenshot(filePath, supabase, GROQ_API_KEY);
+      const result = await extractFromScreenshot(filePath, supabase, LOVABLE_API_KEY);
       
       if (result.error && (result.errorCode === 402 || result.errorCode === 429)) {
         await supabase
@@ -325,7 +326,7 @@ serve(async (req) => {
       console.log(`[MAIN] Screenshot ${i + 1} extracted ${result.entries.length} entries. Running total: ${allEntries.length}`);
     }
 
-    // Deduplicate: for handles, dedupe by lowercase value. For display names, dedupe by trimmed value
+    // Deduplicate
     const seenHandles = new Set<string>();
     const seenDisplayNames = new Set<string>();
     const uniqueEntries: ExtractedEntry[] = [];
@@ -365,14 +366,14 @@ serve(async (req) => {
     
     let leadsCreated = 0;
     let leadsSkipped = 0;
-    const allUsernames: string[] = [];
+    const allExtractedNames: string[] = [];
 
     for (const entry of uniqueEntries) {
       if (entry.type === "handle") {
         const username = entry.value;
-        allUsernames.push(username);
+        allExtractedNames.push(`@${username}`);
 
-        // Check if activity already exists for this handle
+        // Check if activity already exists
         const { data: existingActivity } = await supabase
           .from("social_selling_activities")
           .select("id")
@@ -440,26 +441,19 @@ serve(async (req) => {
       } else {
         // Display name — no handle available
         const displayName = entry.value;
-        allUsernames.push(displayName); // Track for reporting
+        allExtractedNames.push(displayName);
 
-        // Check if we already have an activity for this display name (by name match)
-        const { data: existingLeadByName } = await supabase
-          .from("leads")
-          .select("id")
-          .eq("organization_id", profile.organization_id)
-          .eq("source", "social_selling")
-          .ilike("name", displayName)
-          .limit(1)
-          .maybeSingle();
+        // Use a normalized key for dedup in activities
+        const normalizedKey = displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        // Also check if activity already exists
+        // Check if activity already exists for this display name
         const { data: existingActivity } = await supabase
           .from("social_selling_activities")
           .select("id")
           .eq("organization_id", profile.organization_id)
           .eq("seller_id", importRecord.seller_id)
           .eq("profile_id", importRecord.profile_id)
-          .eq("instagram_username", displayName.toLowerCase().replace(/\s+/g, ''))
+          .eq("instagram_username", normalizedKey)
           .eq("activity_type", "message_sent")
           .limit(1)
           .maybeSingle();
@@ -468,6 +462,16 @@ serve(async (req) => {
           leadsSkipped++;
           continue;
         }
+
+        // Check if lead already exists by name
+        const { data: existingLeadByName } = await supabase
+          .from("leads")
+          .select("id")
+          .eq("organization_id", profile.organization_id)
+          .eq("source", "social_selling")
+          .ilike("name", displayName)
+          .limit(1)
+          .maybeSingle();
 
         let leadId: string;
 
@@ -479,7 +483,7 @@ serve(async (req) => {
             .insert({
               organization_id: profile.organization_id,
               name: displayName,
-              instagram: null, // No handle available — don't invent one
+              instagram: null, // Don't invent a handle
               stage: stageEnum,
               funnel_stage_id: targetFunnelStageId,
               source: "social_selling",
@@ -505,7 +509,7 @@ serve(async (req) => {
             profile_id: importRecord.profile_id,
             import_id: import_id,
             activity_type: "message_sent",
-            instagram_username: displayName.toLowerCase().replace(/\s+/g, ''),
+            instagram_username: normalizedKey,
           });
       }
     }
@@ -514,7 +518,7 @@ serve(async (req) => {
       .from("social_selling_imports")
       .update({
         status: "completed",
-        extracted_usernames: allUsernames,
+        extracted_usernames: allExtractedNames,
         leads_created_count: leadsCreated,
         processed_at: new Date().toISOString(),
       })
@@ -525,7 +529,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        usernames: allUsernames,
+        usernames: allExtractedNames,
         leads_created: leadsCreated,
         leads_skipped: leadsSkipped,
         total_extracted: uniqueEntries.length,
