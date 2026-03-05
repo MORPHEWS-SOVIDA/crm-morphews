@@ -466,7 +466,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     refetchInterval: 60000, // Poll every 60 seconds (realtime handles instant updates)
   });
 
-  // Real-time subscription for new messages - agora pela org
+  // Real-time subscription for new messages - throttled conversation list invalidation
+  const lastConvInvalidation = useRef(0);
   useEffect(() => {
     if (!profile?.organization_id) return;
     
@@ -484,8 +485,13 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           if (activeConversation?.id && payload.new && (payload.new as any).conversation_id === activeConversation.id) {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-messages", activeConversation.id] });
           }
-          // Sempre atualizar lista de conversas (para unread_count etc)
-          queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+          // Throttle conversation list invalidation (max once per 3 seconds on mobile, 1s on desktop)
+          const throttleMs = isMobile ? 3000 : 1000;
+          const now = Date.now();
+          if (now - lastConvInvalidation.current > throttleMs) {
+            lastConvInvalidation.current = now;
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+          }
         }
       )
       .subscribe();
@@ -493,7 +499,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [profile?.organization_id, activeConversation?.id, queryClient]);
+  }, [profile?.organization_id, activeConversation?.id, queryClient, isMobile]);
 
   // Scroll to bottom when messages change - throttled for mobile
   const lastScrolledMsgCount = useRef(0);
