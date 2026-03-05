@@ -468,7 +468,7 @@ export function AdminWhatsAppInstanceTab() {
                 Instância WhatsApp Administrativa
               </CardTitle>
               <CardDescription>
-                Configure a instância Evolution API usada para comunicação com clientes:
+                Configure a instância de API usada para comunicação com clientes:
                 envio de credenciais, notificações de demandas e atualizações de leads via WhatsApp.
               </CardDescription>
             </CardHeader>
