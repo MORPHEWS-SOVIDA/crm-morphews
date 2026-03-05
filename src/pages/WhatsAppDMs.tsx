@@ -506,7 +506,7 @@ export default function WhatsAppDMs() {
                   value={newInstanceName}
                   onChange={(e) => setNewInstanceName(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">Sem espaços, acentos ou caracteres especiais. Esse é o ID enviado para o Evolution.</p>
+                <p className="text-xs text-muted-foreground">Sem espaços, acentos ou caracteres especiais. Esse é o identificador único da instância.</p>
               </div>
               
               <div className="space-y-2">
