@@ -1459,7 +1459,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
               <p className="text-xs mt-1">Aguardando mensagens...</p>
             </div>
           ) : (
-            filteredConversations?.map((conversation) => (
+            <>
+            {visibleConversations?.map((conversation) => (
               <div
                 key={conversation.id}
                 className={cn(
