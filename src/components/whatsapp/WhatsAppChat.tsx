@@ -1490,8 +1490,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                     </AvatarFallback>
                   </Avatar>
                   
-                  {/* Indicadores de outras instâncias */}
-                  {(() => {
+                  {/* Indicadores de outras instâncias - simplificado no mobile */}
+                  {!isMobile && (() => {
                     const otherInstances = getOtherInstanceConversations(
                       crossInstanceMap, 
                       conversation.phone_number, 
@@ -1507,7 +1507,6 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                     
                     return (
                       <>
-                        {/* Bolinha azul indicando conversas em outras instâncias */}
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1538,24 +1537,28 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           </Tooltip>
                         </TooltipProvider>
                         
-                        {/* Badge âmbar pulsante com total de não lidas em outras instâncias */}
                         {totalUnreadOtherInstances > 0 && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="absolute -top-1.5 -right-1.5 h-5 min-w-[20px] px-1 rounded-full bg-amber-500 border-2 border-card flex items-center justify-center animate-pulse cursor-help">
-                                  <span className="text-[10px] font-bold text-white">
-                                    {totalUnreadOtherInstances > 99 ? '99+' : totalUnreadOtherInstances}
-                                  </span>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                <p className="text-xs">Mensagens não lidas em outras instâncias</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          <div className="absolute -top-1.5 -right-1.5 h-5 min-w-[20px] px-1 rounded-full bg-amber-500 border-2 border-card flex items-center justify-center animate-pulse">
+                            <span className="text-[10px] font-bold text-white">
+                              {totalUnreadOtherInstances > 99 ? '99+' : totalUnreadOtherInstances}
+                            </span>
+                          </div>
                         )}
                       </>
+                    );
+                  })()}
+                  {/* Mobile: indicador simplificado sem tooltip */}
+                  {isMobile && (() => {
+                    const otherInstances = getOtherInstanceConversations(
+                      crossInstanceMap, 
+                      conversation.phone_number, 
+                      conversation.instance_id || ''
+                    );
+                    if (otherInstances.length === 0) return null;
+                    return (
+                      <div className="absolute -top-1 -left-1 h-4 w-4 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center">
+                        <span className="text-[8px] font-bold text-white">{otherInstances.length}</span>
+                      </div>
                     );
                   })()}
                 </div>
