@@ -336,7 +336,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="manual-instance-id">ID da Instância (Evolution) *</Label>
+                  <Label htmlFor="manual-instance-id">ID da Instância *</Label>
                   <Input
                     id="manual-instance-id"
                     placeholder="Ex: minhainstancia123"
