@@ -581,7 +581,7 @@ export default function WhatsAppDMs() {
                   value={manualName}
                   onChange={(e) => setManualName(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">Esse é o ID da instância no Evolution API (campo instanceName). Sem espaços e sem acentos.</p>
+                <p className="text-xs text-muted-foreground">Esse é o ID da instância (campo instanceName). Sem espaços e sem acentos.</p>
               </div>
               
               <div className="space-y-2">
