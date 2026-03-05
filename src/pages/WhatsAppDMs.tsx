@@ -1053,7 +1053,7 @@ export default function WhatsAppDMs() {
                         variant="outline" 
                         size="sm"
                         onClick={() => setEvolutionSettingsInstance(instance)}
-                        title="Configurações do WhatsApp (Evolution)"
+                        title="Configurações do WhatsApp"
                       >
                         <Cog className="h-4 w-4" />
                       </Button>

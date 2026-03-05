@@ -458,7 +458,7 @@ function WavoipTokenDialog({
               <span>
                 <strong>Importante:</strong> O Wavoip é um serviço separado. 
                 Cada instância precisa de seu próprio token de dispositivo.
-                A Evolution API continua gerenciando apenas as mensagens.
+                A API de mensagens continua gerenciando apenas as mensagens.
               </span>
             </p>
           </div>

@@ -784,7 +784,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                             setSelectedInstanceForDialog(instance);
                             setEvolutionSettingsDialogOpen(true);
                           }}
-                          title="Configurações do WhatsApp (Evolution)"
+                          title="Configurações do WhatsApp"
                         >
                           <Cog className="h-4 w-4" />
                         </Button>
