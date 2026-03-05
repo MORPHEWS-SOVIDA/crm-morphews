@@ -107,6 +107,7 @@ export const MessageBubble = memo(function MessageBubble({ message, organization
               <img 
                 src={message.media_url} 
                 alt="Imagem" 
+                loading="lazy"
                 className="rounded-lg max-w-full max-h-72 object-contain cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={() => window.open(message.media_url!, '_blank')}
                 onError={() => setImageError(true)}
