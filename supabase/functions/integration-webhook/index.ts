@@ -1756,9 +1756,23 @@ Deno.serve(async (req) => {
       }
       
       // Get seller user - prioritize default_seller_id (new field), then first responsible, then lead's assigned_to
-      const sellerUserId = typedIntegration.default_seller_id 
+      const candidateSellerUserId = typedIntegration.default_seller_id 
         || typedIntegration.default_responsible_user_ids?.[0] 
         || leadData.assigned_to;
+      
+      // Validate that the seller actually exists to avoid FK violation (sales_seller_user_id_fkey)
+      let sellerUserId = candidateSellerUserId;
+      if (candidateSellerUserId) {
+        const { data: sellerExists } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('user_id', candidateSellerUserId)
+          .maybeSingle();
+        if (!sellerExists) {
+          console.warn(`Seller ${candidateSellerUserId} not found in profiles, setting to null`);
+          sellerUserId = null;
+        }
+      }
       
       // Get first address for the lead
       const { data: leadAddress } = await supabase
