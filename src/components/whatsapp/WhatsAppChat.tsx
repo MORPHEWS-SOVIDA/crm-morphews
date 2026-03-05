@@ -323,8 +323,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     }
   }, [selectedConversation?.id, selectedConversation?.instance_id, queryClient]);
 
-  // Fetch pending scheduled messages count per lead
-  const leadIds = conversations?.filter(c => c.lead_id).map(c => c.lead_id as string) || [];
+  // Fetch pending scheduled messages count per lead - skip on mobile for performance
+  const leadIds = (!isMobile && conversations) ? conversations.filter(c => c.lead_id).map(c => c.lead_id as string) : [];
   const { data: scheduledMessagesCount } = useQuery({
     queryKey: ["scheduled-messages-count", leadIds],
     queryFn: async () => {
@@ -346,7 +346,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       });
       return counts;
     },
-    enabled: leadIds.length > 0,
+    enabled: leadIds.length > 0 && !isMobile,
     refetchInterval: 120000, // Poll every 2 minutes
   });
 
