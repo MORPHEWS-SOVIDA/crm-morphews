@@ -477,8 +477,12 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           schema: "public",
           table: "whatsapp_messages",
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["whatsapp-messages"] });
+        (payload) => {
+          // Só invalidar mensagens se for da conversa ativa
+          if (activeConversation?.id && payload.new && (payload.new as any).conversation_id === activeConversation.id) {
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-messages", activeConversation.id] });
+          }
+          // Sempre atualizar lista de conversas (para unread_count etc)
           queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
         }
       )
@@ -487,7 +491,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [profile?.organization_id, queryClient]);
+  }, [profile?.organization_id, activeConversation?.id, queryClient]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
