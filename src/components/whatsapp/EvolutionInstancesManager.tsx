@@ -320,7 +320,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
               <DialogHeader>
                 <DialogTitle>Adicionar Instância Existente</DialogTitle>
                 <DialogDescription>
-                  Adicione uma instância que já existe no Evolution API. Útil para conectar instâncias já configuradas em outros sistemas.
+                  Adicione uma instância já existente. Útil para conectar instâncias já configuradas em outros sistemas.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -336,14 +336,14 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="manual-instance-id">ID da Instância (Evolution) *</Label>
+                  <Label htmlFor="manual-instance-id">ID da Instância *</Label>
                   <Input
                     id="manual-instance-id"
                     placeholder="Ex: minhainstancia123"
                     value={manualInstanceId}
                     onChange={(e) => setManualInstanceId(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">O nome/ID da instância no Evolution API (campo instanceName)</p>
+                  <p className="text-xs text-muted-foreground">O nome/ID da instância (campo instanceName)</p>
                 </div>
                 
                 <div className="space-y-2">
@@ -784,7 +784,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                             setSelectedInstanceForDialog(instance);
                             setEvolutionSettingsDialogOpen(true);
                           }}
-                          title="Configurações do WhatsApp (Evolution)"
+                          title="Configurações do WhatsApp"
                         >
                           <Cog className="h-4 w-4" />
                         </Button>

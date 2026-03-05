@@ -468,7 +468,7 @@ export function AdminWhatsAppInstanceTab() {
                 Instância WhatsApp Administrativa
               </CardTitle>
               <CardDescription>
-                Configure a instância Evolution API usada para comunicação com clientes:
+                Configure a instância de API usada para comunicação com clientes:
                 envio de credenciais, notificações de demandas e atualizações de leads via WhatsApp.
               </CardDescription>
             </CardHeader>
@@ -604,7 +604,7 @@ export function AdminWhatsAppInstanceTab() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="api_url">URL da Evolution API *</Label>
+                <Label htmlFor="api_url">URL da API *</Label>
                 <Input
                   id="api_url"
                   placeholder="https://api.evolution.com"
@@ -654,7 +654,7 @@ export function AdminWhatsAppInstanceTab() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Cole essa URL no painel da Evolution API (na mesma instância acima).
+                  Cole essa URL no painel da API de WhatsApp (na mesma instância acima).
                 </p>
               </div>
             </div>

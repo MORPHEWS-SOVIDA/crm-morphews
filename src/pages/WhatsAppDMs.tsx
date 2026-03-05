@@ -506,7 +506,7 @@ export default function WhatsAppDMs() {
                   value={newInstanceName}
                   onChange={(e) => setNewInstanceName(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">Sem espaços, acentos ou caracteres especiais. Esse é o ID enviado para o Evolution.</p>
+                <p className="text-xs text-muted-foreground">Sem espaços, acentos ou caracteres especiais. Esse é o identificador único da instância.</p>
               </div>
               
               <div className="space-y-2">
@@ -568,7 +568,7 @@ export default function WhatsAppDMs() {
                 Adicionar Instância Existente
               </DialogTitle>
               <DialogDescription>
-                Adicione uma instância que já existe no Evolution API. Útil para conectar instâncias já configuradas em outros sistemas.
+                Adicione uma instância já existente. Útil para conectar instâncias já configuradas em outros sistemas.
               </DialogDescription>
             </DialogHeader>
 
@@ -581,7 +581,7 @@ export default function WhatsAppDMs() {
                   value={manualName}
                   onChange={(e) => setManualName(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">Esse é o ID da instância no Evolution API (campo instanceName). Sem espaços e sem acentos.</p>
+                <p className="text-xs text-muted-foreground">Esse é o ID da instância (campo instanceName). Sem espaços e sem acentos.</p>
               </div>
               
               <div className="space-y-2">
@@ -1053,7 +1053,7 @@ export default function WhatsAppDMs() {
                         variant="outline" 
                         size="sm"
                         onClick={() => setEvolutionSettingsInstance(instance)}
-                        title="Configurações do WhatsApp (Evolution)"
+                        title="Configurações do WhatsApp"
                       >
                         <Cog className="h-4 w-4" />
                       </Button>

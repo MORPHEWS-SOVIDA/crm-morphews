@@ -116,7 +116,7 @@ export function EvolutionSettingsDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["evolution-settings", instanceId] });
       queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
-      toast.success("Configurações do Evolution salvas!");
+      toast.success("Configurações do WhatsApp salvas!");
       onOpenChange(false);
     },
     onError: (error: any) => {
@@ -137,7 +137,7 @@ export function EvolutionSettingsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Cog className="h-5 w-5" />
-            Configurações do Evolution - {instanceName}
+            Configurações do WhatsApp – {instanceName}
           </DialogTitle>
           <DialogDescription>
             Configure o comportamento da instância no WhatsApp
@@ -153,7 +153,7 @@ export function EvolutionSettingsDialog({
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Essas configurações são sincronizadas diretamente com o Evolution API e afetam o comportamento do WhatsApp.
+                Essas configurações afetam o comportamento do WhatsApp nesta instância.
               </AlertDescription>
             </Alert>
 
@@ -300,7 +300,7 @@ export function EvolutionSettingsDialog({
                 {updateSettings.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : null}
-                Salvar no Evolution
+                Salvar Configurações
               </Button>
             </div>
           </div>
