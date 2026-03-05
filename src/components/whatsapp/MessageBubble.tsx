@@ -30,7 +30,7 @@ interface MessageBubbleProps {
   organizationId?: string; // Para transcrição manual
 }
 
-export function MessageBubble({ message, organizationId }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, organizationId }: MessageBubbleProps) {
   const isOutbound = message.direction === 'outbound';
   const transcribeMutation = useTranscribeAudioMessage();
 
