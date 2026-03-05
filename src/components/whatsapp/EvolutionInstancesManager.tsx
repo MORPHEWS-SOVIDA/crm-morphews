@@ -343,7 +343,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                     value={manualInstanceId}
                     onChange={(e) => setManualInstanceId(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">O nome/ID da instância no Evolution API (campo instanceName)</p>
+                  <p className="text-xs text-muted-foreground">O nome/ID da instância (campo instanceName)</p>
                 </div>
                 
                 <div className="space-y-2">
