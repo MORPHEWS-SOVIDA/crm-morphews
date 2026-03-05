@@ -1565,7 +1565,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                 <div className="flex-1 min-w-0" onClick={() => setShowLeadInfoDrawer(true)}>
                   <p className="font-semibold text-base truncate">
                     {selectedConversation.is_group && <span className="text-blue-500 mr-1">👥</span>}
-                    {selectedConversation.display_name || selectedConversation.contact_name || (selectedConversation.is_group ? "Grupo" : selectedConversation.phone_number)}
+                    {leadDetails?.name || selectedConversation.display_name || selectedConversation.contact_name || (selectedConversation.is_group ? "Grupo" : selectedConversation.phone_number)}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {selectedConversation.phone_number}
