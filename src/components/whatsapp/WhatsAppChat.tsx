@@ -162,8 +162,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     }, {} as Record<string, InstanceInfo>) || {};
   }, [allInstances]);
 
-  // Helper to get instance display label
-  const getInstanceLabel = (instId: string | null) => {
+  // Helper to get instance display label - memoized as callback
+  const getInstanceLabel = useCallback((instId: string | null) => {
     if (!instId) return null;
     const inst = instancesMap[instId];
     if (!inst) return null;
@@ -171,7 +171,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     const number = inst.manual_instance_number || inst.phone_number;
     if (displayName && number) return `${displayName} · ${number}`;
     return displayName || number || inst.name;
-  };
+  }, [instancesMap]);
 
   // Helper to get instance status badge
   const getInstanceStatusInfo = (conversation: Conversation) => {
