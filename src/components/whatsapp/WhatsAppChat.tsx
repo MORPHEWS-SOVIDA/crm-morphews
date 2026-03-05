@@ -1557,7 +1557,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   )}>
                     {selectedConversation.is_group 
                       ? "G" 
-                      : (selectedConversation.display_name?.charAt(0) || selectedConversation.contact_name?.charAt(0) || "?")}
+                      : (leadDetails?.name?.charAt(0) || selectedConversation.display_name?.charAt(0) || selectedConversation.contact_name?.charAt(0) || "?")}
                   </AvatarFallback>
                 </Avatar>
 
