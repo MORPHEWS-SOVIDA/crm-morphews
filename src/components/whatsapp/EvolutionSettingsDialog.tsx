@@ -137,7 +137,7 @@ export function EvolutionSettingsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Cog className="h-5 w-5" />
-            Configurações do Evolution - {instanceName}
+            Configurações do WhatsApp – {instanceName}
           </DialogTitle>
           <DialogDescription>
             Configure o comportamento da instância no WhatsApp
