@@ -1480,181 +1480,28 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           ) : (
             <>
             {visibleConversations?.map((conversation) => (
-              <div
+              <ConversationListItem
                 key={conversation.id}
-                className={cn(
-                  "flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors border-b",
-                  selectedConversation?.id === conversation.id && "bg-muted"
-                )}
+                conversation={conversation}
+                isSelected={selectedConversation?.id === conversation.id}
                 onClick={() => {
                   setSelectedConversation(conversation);
                   setActiveInstanceId(conversation.instance_id);
                 }}
-              >
-                {/* Avatar com indicadores de outras instâncias */}
-                <div className="relative flex-shrink-0">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={conversation.contact_profile_pic || undefined} />
-                    <AvatarFallback className={cn(
-                      "text-white",
-                      conversation.is_group ? "bg-blue-500" : "bg-green-500"
-                    )}>
-                      {conversation.is_group 
-                        ? "G" 
-                        : (conversation.display_name?.charAt(0) || conversation.contact_name?.charAt(0) || conversation.phone_number.slice(-2))}
-                    </AvatarFallback>
-                  </Avatar>
-                  
-                  {/* Indicadores de outras instâncias - simplificado no mobile */}
-                  {!isMobile && (() => {
-                    const otherInstances = getOtherInstanceConversations(
-                      crossInstanceMap, 
-                      conversation.phone_number, 
-                      conversation.instance_id || ''
-                    );
-                    
-                    if (otherInstances.length === 0) return null;
-                    
-                    const totalUnreadOtherInstances = otherInstances.reduce(
-                      (sum, conv) => sum + (conv.unread_count || 0), 
-                      0
-                    );
-                    
-                    return (
-                      <>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="absolute -top-1 -left-1 h-5 w-5 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center cursor-help">
-                                <MessageSquareMore className="h-2.5 w-2.5 text-white" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-[280px]">
-                              <p className="font-medium text-xs mb-1">Conversas em outras instâncias:</p>
-                              <ul className="text-xs space-y-0.5">
-                                {otherInstances.map((conv) => (
-                                  <li key={conv.id} className="flex items-center gap-1">
-                                    {conv.unread_count > 0 && (
-                                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-                                    )}
-                                    <span className="truncate">
-                                      {conv.instance_display_name || conv.instance_name}
-                                    </span>
-                                    {conv.unread_count > 0 && (
-                                      <span className="text-[9px] px-1 rounded bg-red-500 text-white">
-                                        {conv.unread_count}
-                                      </span>
-                                    )}
-                                  </li>
-                                ))}
-                              </ul>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        
-                        {totalUnreadOtherInstances > 0 && (
-                          <div className="absolute -top-1.5 -right-1.5 h-5 min-w-[20px] px-1 rounded-full bg-amber-500 border-2 border-card flex items-center justify-center animate-pulse">
-                            <span className="text-[10px] font-bold text-white">
-                              {totalUnreadOtherInstances > 99 ? '99+' : totalUnreadOtherInstances}
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                  {/* Mobile: indicador simplificado sem tooltip */}
-                  {isMobile && (() => {
-                    const otherInstances = getOtherInstanceConversations(
-                      crossInstanceMap, 
-                      conversation.phone_number, 
-                      conversation.instance_id || ''
-                    );
-                    if (otherInstances.length === 0) return null;
-                    return (
-                      <div className="absolute -top-1 -left-1 h-4 w-4 rounded-full bg-blue-500 border-2 border-card flex items-center justify-center">
-                        <span className="text-[8px] font-bold text-white">{otherInstances.length}</span>
-                      </div>
-                    );
-                  })()}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium truncate flex items-center gap-1">
-                      {conversation.is_group && (
-                        <span className="text-xs text-blue-500">👥</span>
-                      )}
-                      {conversation.display_name || conversation.contact_name || (conversation.is_group ? (conversation.group_subject || "Grupo") : conversation.phone_number)}
-                    </span>
-                    {conversation.last_message_at && (
-                      <span className="text-xs text-muted-foreground">
-                        {formatTime(conversation.last_message_at)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div className="flex flex-col gap-0.5">
-                      {/* Número do contato */}
-                      <div className="text-sm text-muted-foreground truncate flex items-center gap-1">
-                        {conversation.is_group ? (
-                          <span className="text-blue-600 flex items-center gap-1">
-                            Grupo
-                          </span>
-                        ) : conversation.lead_id ? (
-                          <span className="text-green-600 flex items-center gap-1">
-                            <User className="h-3 w-3" /> Lead vinculado
-                          </span>
-                        ) : (
-                          <span>{conversation.phone_number}</span>
-                        )}
-                      </div>
-                      {/* Instância - "Falando com:" ou status */}
-                      {(() => {
-                        const statusInfo = getInstanceStatusInfo(conversation);
-                        if (statusInfo.status === 'deleted') {
-                          return (
-                            <span className="text-[10px] text-red-500 truncate flex items-center gap-1">
-                              ⚠️ {statusInfo.label}
-                              {statusInfo.originalName && <span className="text-muted-foreground">({statusInfo.originalName})</span>}
-                            </span>
-                          );
-                        }
-                        if (statusInfo.status === 'disconnected') {
-                          return (
-                            <span className="text-[10px] text-amber-500 truncate flex items-center gap-1">
-                              ⚠️ {statusInfo.label}
-                              {statusInfo.originalName && <span className="text-muted-foreground">({statusInfo.originalName})</span>}
-                            </span>
-                          );
-                        }
-                        // Connected - mostrar normalmente
-                        if (getInstanceLabel(conversation.instance_id)) {
-                          return (
-                            <span className="text-[10px] text-muted-foreground truncate">
-                              Falando com: <span className="font-medium text-foreground/70">{getInstanceLabel(conversation.instance_id)}</span>
-                            </span>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {/* Scheduled messages indicator */}
-                      {conversation.lead_id && scheduledMessagesCount?.[conversation.lead_id] && (
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300 h-5 min-w-5 flex items-center justify-center gap-0.5 px-1">
-                          <Clock className="h-3 w-3" />
-                          {scheduledMessagesCount[conversation.lead_id]}
-                        </Badge>
-                      )}
-                      {conversation.unread_count > 0 && (
-                        <Badge className="bg-green-500 text-white h-5 min-w-5 flex items-center justify-center">
-                          {conversation.unread_count}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                instanceLabel={getInstanceLabel(conversation.instance_id)}
+                isMobile={isMobile}
+                otherInstances={
+                  // Skip cross-instance lookups on mobile for performance
+                  isMobile
+                    ? undefined
+                    : getOtherInstanceConversations(
+                        crossInstanceMap,
+                        conversation.phone_number,
+                        conversation.instance_id || ''
+                      )
+                }
+                scheduledCount={conversation.lead_id ? scheduledMessagesCount?.[conversation.lead_id] : undefined}
+              />
             ))}
             {/* Botão carregar mais no mobile */}
             {isMobile && filteredConversations && visibleCount < filteredConversations.length && (
