@@ -116,7 +116,7 @@ export function EvolutionSettingsDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["evolution-settings", instanceId] });
       queryClient.invalidateQueries({ queryKey: ["evolution-instances"] });
-      toast.success("Configurações do Evolution salvas!");
+      toast.success("Configurações do WhatsApp salvas!");
       onOpenChange(false);
     },
     onError: (error: any) => {
