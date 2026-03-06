@@ -174,7 +174,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           lead:leads!lead_scheduled_messages_lead_id_fkey(name, whatsapp)
         `)
         .eq('organization_id', tenantId)
-        .eq('created_by', user.id)
+        .eq('created_by', targetUserId)
         .eq('status', 'pending')
         .is('deleted_at', null)
         .gte('scheduled_at', now.toISOString())
