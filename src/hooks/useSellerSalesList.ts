@@ -53,9 +53,11 @@ function getStatusPriority(sale: SellerSaleItem): number {
 }
 
 export function useSellerSalesList(options: UseSellerSalesListOptions) {
-  const { month, statusFilter } = options;
+  const { month, statusFilter, viewAsUserId } = options;
   const { user } = useAuth();
   const { tenantId, isLoading: isTenantLoading } = useTenant();
+  
+  const targetUserId = viewAsUserId || user?.id;
   
   const monthKey = format(month, 'yyyy-MM');
   const monthStart = startOfMonth(month);
