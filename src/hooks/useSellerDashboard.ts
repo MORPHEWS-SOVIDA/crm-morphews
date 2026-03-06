@@ -91,6 +91,8 @@ interface SellerDashboardOptions {
   commissionMonth?: Date;
   pendingSalesStart?: Date;
   pendingSalesEnd?: Date;
+  /** When set, load dashboard data for this user instead of the authenticated user */
+  viewAsUserId?: string;
 }
 
 export function useSellerDashboard(options: SellerDashboardOptions = {}) {
@@ -99,18 +101,21 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
     commissionMonth = new Date(),
     pendingSalesStart,
     pendingSalesEnd,
+    viewAsUserId,
   } = options;
   const { user } = useAuth();
   const { tenantId } = useTenant();
+  
+  const targetUserId = viewAsUserId || user?.id;
   
   const monthKey = format(commissionMonth, 'yyyy-MM');
   const pendingStartKey = pendingSalesStart ? format(pendingSalesStart, 'yyyy-MM-dd') : 'default';
   const pendingEndKey = pendingSalesEnd ? format(pendingSalesEnd, 'yyyy-MM-dd') : 'default';
   
   return useQuery({
-    queryKey: ['seller-dashboard', tenantId, user?.id, treatmentDays, monthKey, pendingStartKey, pendingEndKey],
+    queryKey: ['seller-dashboard', tenantId, targetUserId, treatmentDays, monthKey, pendingStartKey, pendingEndKey],
     queryFn: async (): Promise<SellerDashboardData> => {
-      if (!tenantId || !user?.id) {
+      if (!tenantId || !targetUserId) {
         throw new Error('Missing tenant or user');
       }
 
@@ -128,7 +133,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         .from('lead_responsibles')
         .select('lead_id')
         .eq('organization_id', tenantId)
-        .eq('user_id', user.id);
+        .eq('user_id', targetUserId);
 
       const myLeadIds = responsibleLeads?.map(r => r.lead_id) || [];
 
@@ -143,7 +148,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           lead:leads!lead_followups_lead_id_fkey(name, whatsapp)
         `)
         .eq('organization_id', tenantId)
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .is('completed_at', null)
         .gte('scheduled_at', now.toISOString())
         .order('scheduled_at', { ascending: true })
@@ -169,7 +174,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           lead:leads!lead_scheduled_messages_lead_id_fkey(name, whatsapp)
         `)
         .eq('organization_id', tenantId)
-        .eq('created_by', user.id)
+        .eq('created_by', targetUserId)
         .eq('status', 'pending')
         .is('deleted_at', null)
         .gte('scheduled_at', now.toISOString())
@@ -202,7 +207,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           )
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .in('status', ['delivered', 'finalized'])
         .not('delivered_at', 'is', null)
         .order('delivered_at', { ascending: false })
@@ -282,7 +287,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           lead:leads!sales_lead_id_fkey(name, whatsapp)
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .in('status', ['draft', 'pending_expedition', 'payment_confirmed', 'dispatched', 'returned', 'cancelled'])
         .gte('created_at', pendingStart.toISOString())
         .lte('created_at', pendingEnd.toISOString())
@@ -338,7 +343,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           sale_items(product_name)
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .in('status', ['delivered', 'finalized'])
         .order('created_at', { ascending: false });
 
@@ -410,7 +415,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         .from('organization_members')
         .select('commission_percentage')
         .eq('organization_id', tenantId)
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .maybeSingle();
 
       const defaultCommissionPercentage = Number(memberData?.commission_percentage) || 0;
@@ -427,7 +432,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           sale_items(commission_cents)
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .neq('status', 'cancelled')
         .gte('created_at', monthStart.toISOString())
         .lte('created_at', monthEnd.toISOString());
@@ -463,7 +468,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           sale_items(commission_cents)
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .eq('status', 'finalized')
         .gte('finalized_at', monthStart.toISOString())
         .lte('finalized_at', monthEnd.toISOString());
@@ -502,7 +507,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         },
       };
     },
-    enabled: !!tenantId && !!user?.id,
+    enabled: !!tenantId && !!targetUserId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }

@@ -210,7 +210,11 @@ function useDebounce<T>(value: T, delay: number): T {
 // Period filter types
 type PeriodFilterType = 'today' | 'custom' | 'month';
 
-export function SellerDashboard() {
+interface SellerDashboardProps {
+  viewAsUserId?: string;
+}
+
+export function SellerDashboard({ viewAsUserId }: SellerDashboardProps = {}) {
   const navigate = useNavigate();
   const [treatmentDaysInput, setTreatmentDaysInput] = useState('5');
   const [commissionMonth, setCommissionMonth] = useState(new Date());
@@ -248,6 +252,7 @@ export function SellerDashboard() {
     commissionMonth,
     pendingSalesStart: periodDates.start,
     pendingSalesEnd: periodDates.end,
+    viewAsUserId,
   });
   
   const { data: uncontactedLeads = [], isLoading: loadingUncontacted } = useUncontactedLeads();
