@@ -149,6 +149,9 @@ function StageEditForm({
   const [isReceptivoDestination, setIsReceptivoDestination] = useState(stage?.is_receptivo_destination || false);
   // Auto lead source assignment
   const [defaultLeadSourceId, setDefaultLeadSourceId] = useState<string | null>(stage?.default_lead_source_id || null);
+  // Auto-move after timeout
+  const [autoMoveAfterHours, setAutoMoveAfterHours] = useState<string>(stage?.auto_move_after_hours?.toString() || '');
+  const [autoMoveTargetStageId, setAutoMoveTargetStageId] = useState<string | null>(stage?.auto_move_target_stage_id || null);
 
   // Fetch non-purchase reasons for followup selector
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
