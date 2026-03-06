@@ -873,6 +873,7 @@ export function FunnelStagesManager() {
               maxPosition={maxFunnelPosition}
               organizationId={profile?.organization_id || ''}
               usedEnumValues={usedEnumValues}
+              allStages={stages}
             />
           </DialogContent>
         </Dialog>
