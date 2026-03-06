@@ -1087,7 +1087,7 @@ export function SellerDashboard({ viewAsUserId }: SellerDashboardProps = {}) {
       </div>
 
       {/* SELLER SALES LIST - Full Table View */}
-      <SellerSalesList />
+      <SellerSalesList viewAsUserId={viewAsUserId} />
 
       <Dialog open={showSlothModal} onOpenChange={handleCloseSlothModal}>
         <DialogContent 
