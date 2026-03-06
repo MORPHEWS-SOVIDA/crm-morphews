@@ -185,6 +185,9 @@ function StageEditForm({
       is_receptivo_destination: isReceptivoDestination,
       // Auto lead source
       default_lead_source_id: defaultLeadSourceId,
+      // Auto-move timeout
+      auto_move_after_hours: autoMoveAfterHours ? parseInt(autoMoveAfterHours, 10) : null,
+      auto_move_target_stage_id: autoMoveAfterHours ? autoMoveTargetStageId : null,
     };
 
     if (isNew) {
