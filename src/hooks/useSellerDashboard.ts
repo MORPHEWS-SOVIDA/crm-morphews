@@ -148,7 +148,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           lead:leads!lead_followups_lead_id_fkey(name, whatsapp)
         `)
         .eq('organization_id', tenantId)
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .is('completed_at', null)
         .gte('scheduled_at', now.toISOString())
         .order('scheduled_at', { ascending: true })
