@@ -214,7 +214,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
 
       return sales;
     },
-    enabled: !!tenantId && !!user?.id,
+    enabled: !!tenantId && !!targetUserId,
     staleTime: 1000 * 60 * 2,
     refetchOnMount: 'always', // Force refetch when component mounts
     refetchOnWindowFocus: true,
