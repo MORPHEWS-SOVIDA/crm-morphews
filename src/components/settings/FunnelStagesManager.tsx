@@ -569,7 +569,7 @@ function StageEditForm({
         </p>
       </div>
 
-
+      <div className="space-y-2">
         <Label>Preview</Label>
         <div className={cn('p-3 rounded-lg', color)}>
           <div className="flex items-center justify-between">
