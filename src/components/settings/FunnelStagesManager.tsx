@@ -131,6 +131,7 @@ function StageEditForm({
   organizationId,
   usedEnumValues,
   currentEnumValue,
+  allStages = [],
 }: StageEditFormProps) {
   const [name, setName] = useState(stage?.name || '');
   const [color, setColor] = useState(stage?.color || 'bg-slate-200');
