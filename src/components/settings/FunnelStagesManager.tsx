@@ -153,11 +153,30 @@ function StageEditForm({
   // Auto-move after timeout
   const [autoMoveAfterHours, setAutoMoveAfterHours] = useState<string>(stage?.auto_move_after_hours?.toString() || '');
   const [autoMoveTargetStageId, setAutoMoveTargetStageId] = useState<string | null>(stage?.auto_move_target_stage_id || null);
+  const [autoMoveUseRotation, setAutoMoveUseRotation] = useState(stage?.auto_move_use_rotation || false);
+  
+  // Rotation targets state
+  const [rotationTargets, setRotationTargets] = useState<{ target_stage_id: string; social_selling_profile_id: string | null }[]>([]);
+  const [rotationLoaded, setRotationLoaded] = useState(false);
 
   // Fetch non-purchase reasons for followup selector
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
   // Fetch lead sources for auto-assignment selector
   const { data: leadSources = [] } = useLeadSources();
+  // Fetch rotation targets for this stage
+  const { data: existingRotationTargets = [] } = useAutoMoveRotationTargets(stage?.id);
+  // Fetch social selling profiles
+  const { data: socialSellingProfiles = [] } = useSocialSellingProfiles(organizationId);
+  const saveRotationTargets = useSaveRotationTargets();
+
+  // Load existing rotation targets once
+  if (existingRotationTargets.length > 0 && !rotationLoaded) {
+    setRotationTargets(existingRotationTargets.map(t => ({
+      target_stage_id: t.target_stage_id,
+      social_selling_profile_id: t.social_selling_profile_id,
+    })));
+    setRotationLoaded(true);
+  }
 
   const selectedColorInfo = STAGE_COLORS.find(c => c.value === color);
 
