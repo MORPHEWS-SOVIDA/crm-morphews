@@ -502,7 +502,74 @@ function StageEditForm({
         </p>
       </div>
 
-      <div className="space-y-2">
+      {/* Auto-move after timeout */}
+      <div className="space-y-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800">
+        <div className="flex items-center gap-2">
+          <Timer className="w-4 h-4 text-rose-600" />
+          <Label className="text-sm font-medium">Mover Automaticamente após Tempo</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Se um lead ficar nesta etapa por mais de X horas sem mudança, ele será movido automaticamente para outra etapa.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            min="1"
+            placeholder="Ex: 48"
+            value={autoMoveAfterHours}
+            onChange={(e) => setAutoMoveAfterHours(e.target.value)}
+            className="w-24"
+          />
+          <span className="text-sm text-muted-foreground">horas</span>
+        </div>
+        {autoMoveAfterHours && parseInt(autoMoveAfterHours) > 0 && (
+          <>
+            <Label className="text-sm">Mover para:</Label>
+            <Select
+              value={autoMoveTargetStageId || 'none'}
+              onValueChange={(v) => setAutoMoveTargetStageId(v === 'none' ? null : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar etapa destino..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-muted-foreground">Nenhuma (desativado)</span>
+                </SelectItem>
+                {allStages
+                  .filter(s => s.id !== stage?.id)
+                  .sort((a, b) => a.position - b.position)
+                  .map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      <div className="flex items-center gap-2">
+                        <div className={cn('w-3 h-3 rounded-full', s.color)} />
+                        <span>{s.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {autoMoveTargetStageId && (
+              <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                <Timer className="w-3 h-3" />
+                Leads parados por {autoMoveAfterHours}h serão movidos automaticamente
+              </p>
+            )}
+          </>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Deixe vazio para desativar. Verificado automaticamente a cada hora.
+        </p>
+      </div>
+
+
         <Label>Preview</Label>
         <div className={cn('p-3 rounded-lg', color)}>
           <div className="flex items-center justify-between">
