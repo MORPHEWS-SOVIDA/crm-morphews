@@ -91,6 +91,8 @@ interface SellerDashboardOptions {
   commissionMonth?: Date;
   pendingSalesStart?: Date;
   pendingSalesEnd?: Date;
+  /** When set, load dashboard data for this user instead of the authenticated user */
+  viewAsUserId?: string;
 }
 
 export function useSellerDashboard(options: SellerDashboardOptions = {}) {
@@ -99,18 +101,21 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
     commissionMonth = new Date(),
     pendingSalesStart,
     pendingSalesEnd,
+    viewAsUserId,
   } = options;
   const { user } = useAuth();
   const { tenantId } = useTenant();
+  
+  const targetUserId = viewAsUserId || user?.id;
   
   const monthKey = format(commissionMonth, 'yyyy-MM');
   const pendingStartKey = pendingSalesStart ? format(pendingSalesStart, 'yyyy-MM-dd') : 'default';
   const pendingEndKey = pendingSalesEnd ? format(pendingSalesEnd, 'yyyy-MM-dd') : 'default';
   
   return useQuery({
-    queryKey: ['seller-dashboard', tenantId, user?.id, treatmentDays, monthKey, pendingStartKey, pendingEndKey],
+    queryKey: ['seller-dashboard', tenantId, targetUserId, treatmentDays, monthKey, pendingStartKey, pendingEndKey],
     queryFn: async (): Promise<SellerDashboardData> => {
-      if (!tenantId || !user?.id) {
+      if (!tenantId || !targetUserId) {
         throw new Error('Missing tenant or user');
       }
 
