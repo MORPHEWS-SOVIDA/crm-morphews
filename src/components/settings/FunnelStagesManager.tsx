@@ -19,6 +19,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useFunnelStages, useUpdateFunnelStage, useCreateFunnelStage, useDeleteFunnelStage, useReorderFunnelStages, FunnelStageCustom, CapiEventName } from '@/hooks/useFunnelStages';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { useLeadSources } from '@/hooks/useConfigOptions';
+import { useAutoMoveRotationTargets, useSocialSellingProfiles, useSaveRotationTargets } from '@/hooks/useAutoMoveRotation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
