@@ -118,6 +118,7 @@ interface StageEditFormProps {
   organizationId: string;
   usedEnumValues: (FunnelStage | null)[];
   currentEnumValue?: FunnelStage | null;
+  allStages?: FunnelStageCustom[];
 }
 
 function StageEditForm({ 
