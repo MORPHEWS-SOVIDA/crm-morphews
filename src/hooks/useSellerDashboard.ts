@@ -343,7 +343,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           sale_items(product_name)
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .in('status', ['delivered', 'finalized'])
         .order('created_at', { ascending: false });
 
