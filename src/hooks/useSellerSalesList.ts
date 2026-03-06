@@ -27,6 +27,7 @@ export interface SellerSaleItem {
 interface UseSellerSalesListOptions {
   month: Date;
   statusFilter?: string;
+  viewAsUserId?: string;
 }
 
 // Custom sorting: returned (danger) > dispatched > pending_expedition > payment_confirmed > draft > delivered > paid
