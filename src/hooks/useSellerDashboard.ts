@@ -507,7 +507,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         },
       };
     },
-    enabled: !!tenantId && !!user?.id,
+    enabled: !!tenantId && !!targetUserId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
