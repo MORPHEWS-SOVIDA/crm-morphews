@@ -76,7 +76,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
   });
   
   return useQuery({
-    queryKey: ['seller-sales-list', tenantId, user?.id, monthKey, statusFilter],
+    queryKey: ['seller-sales-list', tenantId, targetUserId, monthKey, statusFilter],
     queryFn: async (): Promise<SellerSaleItem[]> => {
       // Log no início da query
       console.log('[useSellerSalesList] queryFn executing with:', {
