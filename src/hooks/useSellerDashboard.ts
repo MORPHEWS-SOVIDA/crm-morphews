@@ -432,7 +432,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           sale_items(commission_cents)
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .neq('status', 'cancelled')
         .gte('created_at', monthStart.toISOString())
         .lte('created_at', monthEnd.toISOString());
