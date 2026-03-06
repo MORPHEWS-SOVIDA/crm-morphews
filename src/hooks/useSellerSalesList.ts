@@ -130,7 +130,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
           melhor_envio_labels(status)
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .gte('created_at', monthStart.toISOString())
         .lte('created_at', monthEnd.toISOString())
         .order('created_at', { ascending: false });
