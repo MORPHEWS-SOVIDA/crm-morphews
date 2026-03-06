@@ -944,6 +944,7 @@ export function FunnelStagesManager() {
               organizationId={profile?.organization_id || ''}
               usedEnumValues={usedEnumValues}
               currentEnumValue={editingStage.enum_value}
+              allStages={stages}
             />
           )}
         </DialogContent>
