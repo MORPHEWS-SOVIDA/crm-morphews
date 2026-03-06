@@ -2140,7 +2140,24 @@ async function processMessage(
           };
           
           // Processar recursivamente com o novo bot (incrementar depth para evitar loop)
-          return processMessage(specialistBot, newContext, userMessage, instanceName, isWithinSchedule, routingDepth + 1, incomingMessageType);
+          try {
+            return await processMessage(specialistBot, newContext, userMessage, instanceName, isWithinSchedule, routingDepth + 1, incomingMessageType);
+          } catch (routingError) {
+            console.error('❌ Specialist bot failed to process, sending retry message:', routingError);
+            
+            // Fallback: send a generic message asking the customer to repeat
+            const retryMessage = 'Desculpa, não apareceu sua última mensagem aqui. Pode repetir, por favor? 😊';
+            await sendWhatsAppMessage(
+              instanceName,
+              context.chatId,
+              retryMessage,
+              context.conversationId,
+              context.instanceId,
+              matchedRoute.target_bot_id
+            );
+            
+            return { success: true, action: 'retry_requested', message: 'Specialist failed, asked customer to repeat' };
+          }
         }
       }
     }
