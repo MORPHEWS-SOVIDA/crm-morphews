@@ -133,7 +133,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         .from('lead_responsibles')
         .select('lead_id')
         .eq('organization_id', tenantId)
-        .eq('user_id', user.id);
+        .eq('user_id', targetUserId);
 
       const myLeadIds = responsibleLeads?.map(r => r.lead_id) || [];
 
