@@ -19,13 +19,14 @@ import { CSS } from '@dnd-kit/utilities';
 import { useFunnelStages, useUpdateFunnelStage, useCreateFunnelStage, useDeleteFunnelStage, useReorderFunnelStages, FunnelStageCustom, CapiEventName } from '@/hooks/useFunnelStages';
 import { useNonPurchaseReasons } from '@/hooks/useNonPurchaseReasons';
 import { useLeadSources } from '@/hooks/useConfigOptions';
+import { useAutoMoveRotationTargets, useSocialSellingProfiles, useSaveRotationTargets } from '@/hooks/useAutoMoveRotation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send, ShoppingCart, MapPin, ChevronsUpDown, Check, Search, Timer } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send, ShoppingCart, MapPin, ChevronsUpDown, Check, Search, Timer, RotateCcw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -152,11 +153,30 @@ function StageEditForm({
   // Auto-move after timeout
   const [autoMoveAfterHours, setAutoMoveAfterHours] = useState<string>(stage?.auto_move_after_hours?.toString() || '');
   const [autoMoveTargetStageId, setAutoMoveTargetStageId] = useState<string | null>(stage?.auto_move_target_stage_id || null);
+  const [autoMoveUseRotation, setAutoMoveUseRotation] = useState(stage?.auto_move_use_rotation || false);
+  
+  // Rotation targets state
+  const [rotationTargets, setRotationTargets] = useState<{ target_stage_id: string; social_selling_profile_id: string | null }[]>([]);
+  const [rotationLoaded, setRotationLoaded] = useState(false);
 
   // Fetch non-purchase reasons for followup selector
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
   // Fetch lead sources for auto-assignment selector
   const { data: leadSources = [] } = useLeadSources();
+  // Fetch rotation targets for this stage
+  const { data: existingRotationTargets = [] } = useAutoMoveRotationTargets(stage?.id);
+  // Fetch social selling profiles
+  const { data: socialSellingProfiles = [] } = useSocialSellingProfiles(organizationId);
+  const saveRotationTargets = useSaveRotationTargets();
+
+  // Load existing rotation targets once
+  if (existingRotationTargets.length > 0 && !rotationLoaded) {
+    setRotationTargets(existingRotationTargets.map(t => ({
+      target_stage_id: t.target_stage_id,
+      social_selling_profile_id: t.social_selling_profile_id,
+    })));
+    setRotationLoaded(true);
+  }
 
   const selectedColorInfo = STAGE_COLORS.find(c => c.value === color);
 
@@ -187,7 +207,8 @@ function StageEditForm({
       default_lead_source_id: defaultLeadSourceId,
       // Auto-move timeout
       auto_move_after_hours: autoMoveAfterHours ? parseInt(autoMoveAfterHours, 10) : null,
-      auto_move_target_stage_id: autoMoveAfterHours ? autoMoveTargetStageId : null,
+      auto_move_target_stage_id: (autoMoveAfterHours && !autoMoveUseRotation) ? autoMoveTargetStageId : null,
+      auto_move_use_rotation: autoMoveAfterHours ? autoMoveUseRotation : false,
     };
 
     if (isNew) {
@@ -197,6 +218,18 @@ function StageEditForm({
     }
 
     onSave(data);
+
+    // Save rotation targets if using rotation mode and editing existing stage
+    if (stage?.id && autoMoveUseRotation && autoMoveAfterHours) {
+      saveRotationTargets.mutate({
+        sourceStageId: stage.id,
+        organizationId,
+        targets: rotationTargets.map((t, i) => ({
+          ...t,
+          position: i,
+        })),
+      });
+    }
   };
 
   return (
@@ -503,7 +536,7 @@ function StageEditForm({
       </div>
 
       {/* Auto-move after timeout */}
-      <div className="space-y-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800">
+      <div className="space-y-3 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800">
         <div className="flex items-center gap-2">
           <Timer className="w-4 h-4 text-rose-600" />
           <Label className="text-sm font-medium">Mover Automaticamente após Tempo</Label>
@@ -531,36 +564,152 @@ function StageEditForm({
         </div>
         {autoMoveAfterHours && parseInt(autoMoveAfterHours) > 0 && (
           <>
-            <Label className="text-sm">Mover para:</Label>
-            <Select
-              value={autoMoveTargetStageId || 'none'}
-              onValueChange={(v) => setAutoMoveTargetStageId(v === 'none' ? null : v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecionar etapa destino..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">
-                  <span className="text-muted-foreground">Nenhuma (desativado)</span>
-                </SelectItem>
-                {allStages
-                  .filter(s => s.id !== stage?.id)
-                  .sort((a, b) => a.position - b.position)
-                  .map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      <div className="flex items-center gap-2">
-                        <div className={cn('w-3 h-3 rounded-full', s.color)} />
-                        <span>{s.name}</span>
-                      </div>
+            {/* Toggle between simple and rotation mode */}
+            <div className="flex items-center space-x-3 p-2 rounded bg-rose-100 dark:bg-rose-900/30">
+              <Checkbox
+                id="use-rotation"
+                checked={autoMoveUseRotation}
+                onCheckedChange={(checked) => setAutoMoveUseRotation(checked === true)}
+              />
+              <div className="flex-1">
+                <Label htmlFor="use-rotation" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+                  <RotateCcw className="w-4 h-4 text-rose-600" />
+                  Rotação entre perfis (Social Selling)
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Distribui leads entre múltiplas etapas, excluindo o perfil que fez o primeiro contato
+                </p>
+              </div>
+            </div>
+
+            {!autoMoveUseRotation ? (
+              <>
+                <Label className="text-sm">Mover para:</Label>
+                <Select
+                  value={autoMoveTargetStageId || 'none'}
+                  onValueChange={(v) => setAutoMoveTargetStageId(v === 'none' ? null : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar etapa destino..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <span className="text-muted-foreground">Nenhuma (desativado)</span>
                     </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {autoMoveTargetStageId && (
-              <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                <Timer className="w-3 h-3" />
-                Leads parados por {autoMoveAfterHours}h serão movidos automaticamente
-              </p>
+                    {allStages
+                      .filter(s => s.id !== stage?.id)
+                      .sort((a, b) => a.position - b.position)
+                      .map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          <div className="flex items-center gap-2">
+                            <div className={cn('w-3 h-3 rounded-full', s.color)} />
+                            <span>{s.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {autoMoveTargetStageId && (
+                  <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                    <Timer className="w-3 h-3" />
+                    Leads parados por {autoMoveAfterHours}h serão movidos automaticamente
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="space-y-3">
+                <Label className="text-sm">Etapas de Rotação:</Label>
+                <p className="text-xs text-muted-foreground">
+                  Cada etapa deve ser vinculada a um perfil do Instagram. Quando o lead foi inicialmente contatado por um perfil, a etapa desse perfil será excluída da rotação.
+                </p>
+                
+                {rotationTargets.map((target, index) => {
+                  const targetStage = allStages.find(s => s.id === target.target_stage_id);
+                  const targetProfile = socialSellingProfiles.find(p => p.id === target.social_selling_profile_id);
+                  
+                  return (
+                    <div key={index} className="flex items-center gap-2 p-2 rounded border bg-background">
+                      <div className="flex-1 space-y-2">
+                        <Select
+                          value={target.target_stage_id || 'none'}
+                          onValueChange={(v) => {
+                            const updated = [...rotationTargets];
+                            updated[index] = { ...updated[index], target_stage_id: v };
+                            setRotationTargets(updated);
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Etapa destino..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allStages
+                              .filter(s => s.id !== stage?.id)
+                              .sort((a, b) => a.position - b.position)
+                              .map((s) => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  <div className="flex items-center gap-2">
+                                    <div className={cn('w-3 h-3 rounded-full', s.color)} />
+                                    <span>{s.name}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={target.social_selling_profile_id || 'none'}
+                          onValueChange={(v) => {
+                            const updated = [...rotationTargets];
+                            updated[index] = { ...updated[index], social_selling_profile_id: v === 'none' ? null : v };
+                            setRotationTargets(updated);
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Perfil vinculado..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">
+                              <span className="text-muted-foreground">Sem perfil vinculado</span>
+                            </SelectItem>
+                            {socialSellingProfiles.map((profile) => (
+                              <SelectItem key={profile.id} value={profile.id}>
+                                @{profile.instagram_username} {profile.display_name ? `(${profile.display_name})` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => {
+                          setRotationTargets(rotationTargets.filter((_, i) => i !== index));
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setRotationTargets([...rotationTargets, { target_stage_id: '', social_selling_profile_id: null }]);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Adicionar etapa de rotação
+                </Button>
+
+                {rotationTargets.length > 0 && (
+                  <div className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1 mt-2">
+                    <RotateCcw className="w-3 h-3" />
+                    Leads parados por {autoMoveAfterHours}h serão distribuídos entre {rotationTargets.length} etapas (excluindo o perfil que fez o 1° contato)
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}
