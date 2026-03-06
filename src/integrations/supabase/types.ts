@@ -20516,6 +20516,7 @@ export type Database = {
           last_customer_message_at: string | null
           last_message_at: string | null
           lead_id: string | null
+          nps_pending: boolean | null
           organization_id: string
           original_instance_name: string | null
           phone_number: string
@@ -20558,6 +20559,7 @@ export type Database = {
           last_customer_message_at?: string | null
           last_message_at?: string | null
           lead_id?: string | null
+          nps_pending?: boolean | null
           organization_id: string
           original_instance_name?: string | null
           phone_number: string
@@ -20600,6 +20602,7 @@ export type Database = {
           last_customer_message_at?: string | null
           last_message_at?: string | null
           lead_id?: string | null
+          nps_pending?: boolean | null
           organization_id?: string
           original_instance_name?: string | null
           phone_number?: string
@@ -22306,6 +22309,7 @@ export type Database = {
         Args: { p_application_id: string; p_reviewer_id: string }
         Returns: Json
       }
+      auto_close_inactive_conversations: { Args: never; Returns: Json }
       backfill_contacts_from_existing_conversations: {
         Args: { _organization_id: string }
         Returns: number
