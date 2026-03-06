@@ -84,11 +84,10 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
         userId: user?.id,
       });
       
-      if (!tenantId || !user?.id) {
-        console.warn('[useSellerSalesList] SKIP: Missing tenantId or user.id:', { 
+      if (!tenantId || !targetUserId) {
+        console.warn('[useSellerSalesList] SKIP: Missing tenantId or targetUserId:', { 
           tenantId, 
-          userId: user?.id,
-          userEmail: user?.email,
+          targetUserId,
         });
         return [];
       }
