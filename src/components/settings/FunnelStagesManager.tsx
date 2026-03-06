@@ -207,7 +207,8 @@ function StageEditForm({
       default_lead_source_id: defaultLeadSourceId,
       // Auto-move timeout
       auto_move_after_hours: autoMoveAfterHours ? parseInt(autoMoveAfterHours, 10) : null,
-      auto_move_target_stage_id: autoMoveAfterHours ? autoMoveTargetStageId : null,
+      auto_move_target_stage_id: (autoMoveAfterHours && !autoMoveUseRotation) ? autoMoveTargetStageId : null,
+      auto_move_use_rotation: autoMoveAfterHours ? autoMoveUseRotation : false,
     };
 
     if (isNew) {
@@ -217,6 +218,18 @@ function StageEditForm({
     }
 
     onSave(data);
+
+    // Save rotation targets if using rotation mode and editing existing stage
+    if (stage?.id && autoMoveUseRotation && autoMoveAfterHours) {
+      saveRotationTargets.mutate({
+        sourceStageId: stage.id,
+        organizationId,
+        targets: rotationTargets.map((t, i) => ({
+          ...t,
+          position: i,
+        })),
+      });
+    }
   };
 
   return (

@@ -28,6 +28,7 @@ export interface FunnelStageCustom {
   // Auto-move after timeout
   auto_move_after_hours: number | null; // Hours before auto-moving lead to target stage
   auto_move_target_stage_id: string | null; // Target stage ID for auto-move
+  auto_move_use_rotation: boolean; // When true, use rotation targets instead of single target
   created_at: string;
   updated_at: string;
 }
