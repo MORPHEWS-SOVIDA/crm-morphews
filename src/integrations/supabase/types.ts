@@ -977,6 +977,65 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_move_rotation_targets: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          position: number
+          social_selling_profile_id: string | null
+          source_stage_id: string
+          target_stage_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          position?: number
+          social_selling_profile_id?: string | null
+          source_stage_id: string
+          target_stage_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          position?: number
+          social_selling_profile_id?: string | null
+          source_stage_id?: string
+          target_stage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_move_rotation_targets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_move_rotation_targets_social_selling_profile_id_fkey"
+            columns: ["social_selling_profile_id"]
+            isOneToOne: false
+            referencedRelation: "social_selling_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_move_rotation_targets_source_stage_id_fkey"
+            columns: ["source_stage_id"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_move_rotation_targets_target_stage_id_fkey"
+            columns: ["target_stage_id"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_accounts: {
         Row: {
           account_digit: string | null
@@ -9404,6 +9463,7 @@ export type Database = {
         Row: {
           auto_move_after_hours: number | null
           auto_move_target_stage_id: string | null
+          auto_move_use_rotation: boolean | null
           capi_custom_event: string | null
           capi_event_name: string | null
           color: string
@@ -9425,6 +9485,7 @@ export type Database = {
         Insert: {
           auto_move_after_hours?: number | null
           auto_move_target_stage_id?: string | null
+          auto_move_use_rotation?: boolean | null
           capi_custom_event?: string | null
           capi_event_name?: string | null
           color?: string
@@ -9446,6 +9507,7 @@ export type Database = {
         Update: {
           auto_move_after_hours?: number | null
           auto_move_target_stage_id?: string | null
+          auto_move_use_rotation?: boolean | null
           capi_custom_event?: string | null
           capi_event_name?: string | null
           color?: string
