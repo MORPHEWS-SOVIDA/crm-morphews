@@ -9402,6 +9402,8 @@ export type Database = {
       }
       organization_funnel_stages: {
         Row: {
+          auto_move_after_hours: number | null
+          auto_move_target_stage_id: string | null
           capi_custom_event: string | null
           capi_event_name: string | null
           color: string
@@ -9421,6 +9423,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_move_after_hours?: number | null
+          auto_move_target_stage_id?: string | null
           capi_custom_event?: string | null
           capi_event_name?: string | null
           color?: string
@@ -9440,6 +9444,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_move_after_hours?: number | null
+          auto_move_target_stage_id?: string | null
           capi_custom_event?: string | null
           capi_event_name?: string | null
           color?: string
@@ -9459,6 +9465,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "organization_funnel_stages_auto_move_target_stage_id_fkey"
+            columns: ["auto_move_target_stage_id"]
+            isOneToOne: false
+            referencedRelation: "organization_funnel_stages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organization_funnel_stages_default_followup_reason_id_fkey"
             columns: ["default_followup_reason_id"]
@@ -22310,6 +22323,7 @@ export type Database = {
         Returns: Json
       }
       auto_close_inactive_conversations: { Args: never; Returns: Json }
+      auto_move_stale_leads: { Args: never; Returns: undefined }
       backfill_contacts_from_existing_conversations: {
         Args: { _organization_id: string }
         Returns: number

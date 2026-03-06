@@ -25,7 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send, ShoppingCart, MapPin, ChevronsUpDown, Check, Search } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, GripVertical, Phone, AlertTriangle, Info, Calendar, Zap, Send, ShoppingCart, MapPin, ChevronsUpDown, Check, Search, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -118,6 +118,7 @@ interface StageEditFormProps {
   organizationId: string;
   usedEnumValues: (FunnelStage | null)[];
   currentEnumValue?: FunnelStage | null;
+  allStages?: FunnelStageCustom[];
 }
 
 function StageEditForm({ 
@@ -130,6 +131,7 @@ function StageEditForm({
   organizationId,
   usedEnumValues,
   currentEnumValue,
+  allStages = [],
 }: StageEditFormProps) {
   const [name, setName] = useState(stage?.name || '');
   const [color, setColor] = useState(stage?.color || 'bg-slate-200');
@@ -147,6 +149,9 @@ function StageEditForm({
   const [isReceptivoDestination, setIsReceptivoDestination] = useState(stage?.is_receptivo_destination || false);
   // Auto lead source assignment
   const [defaultLeadSourceId, setDefaultLeadSourceId] = useState<string | null>(stage?.default_lead_source_id || null);
+  // Auto-move after timeout
+  const [autoMoveAfterHours, setAutoMoveAfterHours] = useState<string>(stage?.auto_move_after_hours?.toString() || '');
+  const [autoMoveTargetStageId, setAutoMoveTargetStageId] = useState<string | null>(stage?.auto_move_target_stage_id || null);
 
   // Fetch non-purchase reasons for followup selector
   const { data: nonPurchaseReasons = [] } = useNonPurchaseReasons();
@@ -180,6 +185,9 @@ function StageEditForm({
       is_receptivo_destination: isReceptivoDestination,
       // Auto lead source
       default_lead_source_id: defaultLeadSourceId,
+      // Auto-move timeout
+      auto_move_after_hours: autoMoveAfterHours ? parseInt(autoMoveAfterHours, 10) : null,
+      auto_move_target_stage_id: autoMoveAfterHours ? autoMoveTargetStageId : null,
     };
 
     if (isNew) {
@@ -494,6 +502,73 @@ function StageEditForm({
         </p>
       </div>
 
+      {/* Auto-move after timeout */}
+      <div className="space-y-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800">
+        <div className="flex items-center gap-2">
+          <Timer className="w-4 h-4 text-rose-600" />
+          <Label className="text-sm font-medium">Mover Automaticamente após Tempo</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Se um lead ficar nesta etapa por mais de X horas sem mudança, ele será movido automaticamente para outra etapa.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            min="1"
+            placeholder="Ex: 48"
+            value={autoMoveAfterHours}
+            onChange={(e) => setAutoMoveAfterHours(e.target.value)}
+            className="w-24"
+          />
+          <span className="text-sm text-muted-foreground">horas</span>
+        </div>
+        {autoMoveAfterHours && parseInt(autoMoveAfterHours) > 0 && (
+          <>
+            <Label className="text-sm">Mover para:</Label>
+            <Select
+              value={autoMoveTargetStageId || 'none'}
+              onValueChange={(v) => setAutoMoveTargetStageId(v === 'none' ? null : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar etapa destino..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-muted-foreground">Nenhuma (desativado)</span>
+                </SelectItem>
+                {allStages
+                  .filter(s => s.id !== stage?.id)
+                  .sort((a, b) => a.position - b.position)
+                  .map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      <div className="flex items-center gap-2">
+                        <div className={cn('w-3 h-3 rounded-full', s.color)} />
+                        <span>{s.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {autoMoveTargetStageId && (
+              <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                <Timer className="w-3 h-3" />
+                Leads parados por {autoMoveAfterHours}h serão movidos automaticamente
+              </p>
+            )}
+          </>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Deixe vazio para desativar. Verificado automaticamente a cada hora.
+        </p>
+      </div>
+
       <div className="space-y-2">
         <Label>Preview</Label>
         <div className={cn('p-3 rounded-lg', color)}>
@@ -798,6 +873,7 @@ export function FunnelStagesManager() {
               maxPosition={maxFunnelPosition}
               organizationId={profile?.organization_id || ''}
               usedEnumValues={usedEnumValues}
+              allStages={stages}
             />
           </DialogContent>
         </Dialog>
@@ -868,6 +944,7 @@ export function FunnelStagesManager() {
               organizationId={profile?.organization_id || ''}
               usedEnumValues={usedEnumValues}
               currentEnumValue={editingStage.enum_value}
+              allStages={stages}
             />
           )}
         </DialogContent>
