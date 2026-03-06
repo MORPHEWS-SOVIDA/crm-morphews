@@ -287,7 +287,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           lead:leads!sales_lead_id_fkey(name, whatsapp)
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .in('status', ['draft', 'pending_expedition', 'payment_confirmed', 'dispatched', 'returned', 'cancelled'])
         .gte('created_at', pendingStart.toISOString())
         .lte('created_at', pendingEnd.toISOString())
