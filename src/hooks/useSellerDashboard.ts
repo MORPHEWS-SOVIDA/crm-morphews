@@ -415,7 +415,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         .from('organization_members')
         .select('commission_percentage')
         .eq('organization_id', tenantId)
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .maybeSingle();
 
       const defaultCommissionPercentage = Number(memberData?.commission_percentage) || 0;
