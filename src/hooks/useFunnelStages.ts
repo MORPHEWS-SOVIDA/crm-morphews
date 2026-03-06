@@ -25,6 +25,9 @@ export interface FunnelStageCustom {
   is_receptivo_destination: boolean; // When true, leads are moved here after Add Receptivo sales
   // Auto lead source assignment
   default_lead_source_id: string | null; // When set, leads entering this stage get this source automatically
+  // Auto-move after timeout
+  auto_move_after_hours: number | null; // Hours before auto-moving lead to target stage
+  auto_move_target_stage_id: string | null; // Target stage ID for auto-move
   created_at: string;
   updated_at: string;
 }
