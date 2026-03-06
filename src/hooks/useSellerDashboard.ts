@@ -207,7 +207,7 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
           )
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .in('status', ['delivered', 'finalized'])
         .not('delivered_at', 'is', null)
         .order('delivered_at', { ascending: false })
