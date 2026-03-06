@@ -27,6 +27,7 @@ export interface SellerSaleItem {
 interface UseSellerSalesListOptions {
   month: Date;
   statusFilter?: string;
+  viewAsUserId?: string;
 }
 
 // Custom sorting: returned (danger) > dispatched > pending_expedition > payment_confirmed > draft > delivered > paid
@@ -52,9 +53,11 @@ function getStatusPriority(sale: SellerSaleItem): number {
 }
 
 export function useSellerSalesList(options: UseSellerSalesListOptions) {
-  const { month, statusFilter } = options;
+  const { month, statusFilter, viewAsUserId } = options;
   const { user } = useAuth();
   const { tenantId, isLoading: isTenantLoading } = useTenant();
+  
+  const targetUserId = viewAsUserId || user?.id;
   
   const monthKey = format(month, 'yyyy-MM');
   const monthStart = startOfMonth(month);
@@ -73,7 +76,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
   });
   
   return useQuery({
-    queryKey: ['seller-sales-list', tenantId, user?.id, monthKey, statusFilter],
+    queryKey: ['seller-sales-list', tenantId, targetUserId, monthKey, statusFilter],
     queryFn: async (): Promise<SellerSaleItem[]> => {
       // Log no início da query
       console.log('[useSellerSalesList] queryFn executing with:', {
@@ -81,11 +84,10 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
         userId: user?.id,
       });
       
-      if (!tenantId || !user?.id) {
-        console.warn('[useSellerSalesList] SKIP: Missing tenantId or user.id:', { 
+      if (!tenantId || !targetUserId) {
+        console.warn('[useSellerSalesList] SKIP: Missing tenantId or targetUserId:', { 
           tenantId, 
-          userId: user?.id,
-          userEmail: user?.email,
+          targetUserId,
         });
         return [];
       }
@@ -128,7 +130,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
           melhor_envio_labels(status)
         `)
         .eq('organization_id', tenantId)
-        .eq('seller_user_id', user.id)
+        .eq('seller_user_id', targetUserId)
         .gte('created_at', monthStart.toISOString())
         .lte('created_at', monthEnd.toISOString())
         .order('created_at', { ascending: false });
@@ -212,7 +214,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
 
       return sales;
     },
-    enabled: !!tenantId && !!user?.id,
+    enabled: !!tenantId && !!targetUserId,
     staleTime: 1000 * 60 * 2,
     refetchOnMount: 'always', // Force refetch when component mounts
     refetchOnWindowFocus: true,

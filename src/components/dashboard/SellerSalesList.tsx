@@ -296,7 +296,7 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
   );
 }
 
-export function SellerSalesList() {
+export function SellerSalesList({ viewAsUserId }: { viewAsUserId?: string } = {}) {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [statusFilter, setStatusFilter] = useState('all');
   const { user } = useAuth();
@@ -305,6 +305,7 @@ export function SellerSalesList() {
   const { data: sales, isLoading, error, isFetching, isStale } = useSellerSalesList({
     month: selectedMonth,
     statusFilter,
+    viewAsUserId,
   });
 
   // Debug logs detalhados
