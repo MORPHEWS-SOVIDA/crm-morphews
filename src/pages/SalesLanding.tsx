@@ -2,13 +2,15 @@ import { useState, useEffect, useRef } from "react";
 import { motion, useScroll, useTransform, useInView } from "framer-motion";
 import { 
   Check, Zap, Crown, Rocket, Loader2, Star, Phone, ArrowRight, MessageCircle, 
-  Sparkles, Shield, Clock, Mic, Bot, ChevronRight, Users, 
+  Sparkles, Shield, Clock, Bot, ChevronRight, Users, 
   Target, BarChart3, CheckCircle2, 
-  Brain, Settings, Webhook, Globe, Cpu, Lock,
-  ChevronDown, Menu, X, Gauge,
+  Brain, Webhook, Cpu, 
+  Menu, X,
   Volume2, Eye, AudioLines, Network, Route,
-  Wrench, ClipboardCheck, Calendar, Heart, Package,
-  Building2, GraduationCap, ShoppingCart, Send, Image
+  Wrench, ClipboardCheck, Calendar, Heart,
+  Building2, ShoppingCart, Send, Image,
+  AlertTriangle, TrendingDown, UserX, XCircle, DollarSign,
+  Headphones, RefreshCw, Layers
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import atomicLogo from "@/assets/logo-atomic-sales.png";
@@ -25,42 +27,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-// Animated counter component
-const AnimatedCounter = ({ end, duration = 2, suffix = "" }: { end: number; duration?: number; suffix?: string }) => {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true });
-
-  useEffect(() => {
-    if (!isInView) return;
-    let startTime: number;
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / (duration * 1000), 1);
-      setCount(Math.floor(progress * end));
-      if (progress < 1) requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  }, [isInView, end, duration]);
-
-  return <span ref={ref}>{count.toLocaleString("pt-BR")}{suffix}</span>;
-};
-
-const FloatingElement = ({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) => (
-  <motion.div
-    initial={{ y: 0 }}
-    animate={{ y: [-10, 10, -10] }}
-    transition={{ duration: 4, repeat: Infinity, delay, ease: "easeInOut" }}
-    className={className}
-  >
-    {children}
-  </motion.div>
-);
-
 const GradientText = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
   <span className={cn("bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 bg-clip-text text-transparent", className)}>
     {children}
   </span>
+);
+
+const BigIdea = ({ className = "" }: { className?: string }) => (
+  <p className={cn("text-lg md:text-xl font-semibold text-muted-foreground italic", className)}>
+    Você não precisa de mais tráfego. <span className="text-foreground">Precisa de uma estrutura de vendas automática.</span>
+  </p>
 );
 
 export default function SalesLanding() {
@@ -72,8 +48,7 @@ export default function SalesLanding() {
   
   const [showLeadModal, setShowLeadModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<{ 
-    id: string; 
-    name: string; 
+    id: string; name: string; 
     payment_provider?: "stripe" | "atomicpay" | null;
     atomicpay_monthly_url?: string | null;
     atomicpay_annual_url?: string | null;
@@ -84,10 +59,7 @@ export default function SalesLanding() {
   const [isAnnual, setIsAnnual] = useState(true);
 
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"]
-  });
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
 
@@ -161,38 +133,13 @@ export default function SalesLanding() {
   const getPlanFeatures = (planName: string) => {
     const name = planName.toLowerCase();
     if (name === "grátis" || name === "starter" || name === "start") {
-      return [
-        "1 usuário",
-        "100 leads",
-        "1 instância WhatsApp",
-        "Multi atendimento WhatsApp",
-        "Chat centralizado",
-      ];
+      return ["1 usuário", "100 leads", "1 instância WhatsApp", "Multi atendimento WhatsApp", "Chat centralizado"];
     }
     if (name === "growth") {
-      return [
-        "3 usuários",
-        "1.000 leads",
-        "1 instância WhatsApp",
-        "2 Robôs de IA no WhatsApp",
-        "Follow-up automático programado",
-        "Cadências de mensagens",
-        "Integração via Webhook",
-      ];
+      return ["3 usuários", "1.000 leads", "1 instância WhatsApp", "2 Robôs de IA no WhatsApp", "Follow-up automático programado", "Cadências de mensagens", "Integração via Webhook"];
     }
     if (name === "pro") {
-      return [
-        "10 usuários",
-        "10.000 leads",
-        "3 instâncias WhatsApp",
-        "Robôs WhatsApp ilimitados",
-        "Times de robôs (Maestro + Especialistas)",
-        "Follow-up automático programado",
-        "Cadências de mensagens pré-programadas",
-        "Robôs com áudio e visão",
-        "Integração via Webhook",
-        "CRM com funil integrado",
-      ];
+      return ["10 usuários", "10.000 leads", "3 instâncias WhatsApp", "Robôs WhatsApp ilimitados", "Times de robôs (Maestro + Especialistas)", "Follow-up automático programado", "Cadências de mensagens pré-programadas", "Robôs com áudio e visão", "Integração via Webhook", "CRM com funil integrado"];
     }
     return [`${planName}`, "Multi atendimento WhatsApp", "Robôs IA"];
   };
@@ -221,18 +168,15 @@ export default function SalesLanding() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            {/* Mobile: logo left. Desktop: logo centered via absolute */}
             <Link to="/" className="flex items-center md:absolute md:left-1/2 md:-translate-x-1/2">
               <img src={atomicLogo} alt="Atomic Sales" className="h-8 md:h-9" />
             </Link>
-
             <nav className="hidden md:flex items-center gap-8">
-              <button onClick={() => scrollToSection("robos")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Robôs IA</button>
-              <button onClick={() => scrollToSection("whatsapp")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">WhatsApp</button>
-              <button onClick={() => scrollToSection("automacao")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Automação</button>
+              <button onClick={() => scrollToSection("problema")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">O Problema</button>
+              <button onClick={() => scrollToSection("solucao")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Solução</button>
+              <button onClick={() => scrollToSection("time-ia")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Time de IA</button>
               <button onClick={() => scrollToSection("precos")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">Preços</button>
             </nav>
-
             <div className="hidden md:flex items-center gap-3">
               {user ? (
                 <Button asChild><Link to="/">Acessar Dashboard</Link></Button>
@@ -245,19 +189,17 @@ export default function SalesLanding() {
                 </>
               )}
             </div>
-
             <button className="md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
         </div>
-
         {mobileMenuOpen && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="md:hidden bg-background border-b p-4">
             <nav className="flex flex-col gap-4">
-              <button onClick={() => scrollToSection("robos")} className="text-left py-2">Robôs IA</button>
-              <button onClick={() => scrollToSection("whatsapp")} className="text-left py-2">WhatsApp</button>
-              <button onClick={() => scrollToSection("automacao")} className="text-left py-2">Automação</button>
+              <button onClick={() => scrollToSection("problema")} className="text-left py-2">O Problema</button>
+              <button onClick={() => scrollToSection("solucao")} className="text-left py-2">Solução</button>
+              <button onClick={() => scrollToSection("time-ia")} className="text-left py-2">Time de IA</button>
               <button onClick={() => scrollToSection("precos")} className="text-left py-2">Preços</button>
               {!user && (
                 <>
@@ -270,76 +212,172 @@ export default function SalesLanding() {
         )}
       </header>
 
-      {/* ===== HERO ===== */}
+      {/* ===== 1. HERO ===== */}
       <motion.section 
         ref={heroRef}
         style={{ opacity: heroOpacity, scale: heroScale }}
-        className="relative pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden"
+        className="relative pt-32 pb-20 md:pt-44 md:pb-32 overflow-hidden"
       >
         <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto text-center">
+          <div className="max-w-4xl mx-auto text-center">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <Badge variant="outline" className="mb-6 px-4 py-1.5 text-sm border-green-500/50">
-                <MessageCircle className="h-4 w-4 mr-2 text-green-500" />
-                Automação inteligente de WhatsApp
+                <Bot className="h-4 w-4 mr-2 text-green-500" />
+                Estrutura de vendas automática com IA
               </Badge>
             </motion.div>
 
             <motion.h1
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
-              className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-tight"
+              className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]"
             >
-              Atendimento WhatsApp
+              Você não precisa de<br />mais tráfego.
               <br />
-              <GradientText>100% automatizado com IA</GradientText>
+              <GradientText>Precisa de uma estrutura de vendas automática.</GradientText>
             </motion.h1>
 
             <motion.p
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8"
+              className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-4"
             >
-              Robôs de IA que atendem seus clientes no WhatsApp 24/7. Eles escutam áudios, leem imagens, 
-              respondem por voz e parecem humanos. Integrado ao CRM com follow-up automático.
+              Crie robôs de IA que atendem clientes, fazem follow-up e conduzem vendas no WhatsApp 24h por dia.
+            </motion.p>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.25 }}
+              className="text-base text-muted-foreground max-w-2xl mx-auto mb-10"
+            >
+              Sem depender de equipe. Sem deixar leads morrerem.
             </motion.p>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}
               className="flex flex-col sm:flex-row gap-4 justify-center"
             >
-              <Button size="lg" onClick={() => scrollToSection("precos")} className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 px-8 py-6 text-lg">
-                Começar Agora <ArrowRight className="ml-2 h-5 w-5" />
+              <Button size="lg" onClick={() => scrollToSection("precos")} className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 px-10 py-7 text-lg">
+                Criar meu robô de vendas <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
-              <Button size="lg" variant="outline" asChild className="px-8 py-6 text-lg border-green-500/50 text-green-600 hover:bg-green-50">
-                <a href={whatsappConsultorLink} target="_blank" rel="noopener noreferrer">
-                  <MessageCircle className="mr-2 h-5 w-5" /> Falar com Consultor
-                </a>
+              <Button size="lg" variant="outline" onClick={() => scrollToSection("solucao")} className="px-8 py-7 text-lg border-green-500/50 text-green-600 hover:bg-green-50">
+                Ver como funciona <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
             </motion.div>
           </div>
         </div>
       </motion.section>
 
-      {/* ===== WHAT THE BOTS DO ===== */}
-      <section className="py-16 md:py-24 bg-muted/30">
+      {/* ===== 2. O PROBLEMA ===== */}
+      <section id="problema" className="py-20 md:py-28 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
+              <h2 className="text-3xl md:text-5xl font-extrabold mb-6 leading-tight">
+                A maioria das pessoas tenta resolver vendas<br />
+                <GradientText>com tráfego</GradientText>
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Mas o problema raramente é tráfego.<br />
+                <span className="text-foreground font-semibold">O problema é o que acontece depois que o lead chega.</span>
+              </p>
+            </motion.div>
+
+            {/* Visual flow */}
+            <div className="max-w-lg mx-auto space-y-4">
+              <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} 
+                className="flex items-center gap-4 p-5 bg-green-500/10 border border-green-500/30 rounded-2xl">
+                <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="font-bold text-lg">Lead chega</p>
+                  <p className="text-sm text-muted-foreground">Você responde</p>
+                </div>
+              </motion.div>
+
+              <div className="text-center text-muted-foreground text-sm font-medium py-1">Depois disso...</div>
+
+              {[
+                { icon: MessageCircle, text: "A conversa se perde", color: "text-orange-500" },
+                { icon: TrendingDown, text: "O cliente esfria", color: "text-red-400" },
+                { icon: UserX, text: "Ninguém faz follow-up", color: "text-red-500" },
+                { icon: XCircle, text: "A venda morre", color: "text-red-600" },
+              ].map(({ icon: Icon, text, color }, i) => (
+                <motion.div key={i} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+                  className="flex items-center gap-4 p-4 bg-destructive/5 border border-destructive/20 rounded-2xl">
+                  <Icon className={cn("h-6 w-6 shrink-0", color)} />
+                  <p className="font-medium">{text}</p>
+                </motion.div>
+              ))}
+
+              <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                className="text-center pt-6">
+                <p className="text-xl font-bold text-destructive">
+                  Você paga pelo lead…<br />e deixa ele desaparecer.
+                </p>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== 3. A VIRADA ===== */}
+      <section className="py-20 md:py-28">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+              <h2 className="text-3xl md:text-5xl font-extrabold mb-6 leading-tight">
+                Vendas não são sobre tráfego.<br />
+                <GradientText>São sobre estrutura.</GradientText>
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10">
+                Empresas que vendem todos os dias têm algo em comum: <span className="text-foreground font-semibold">uma estrutura comercial funcionando o tempo inteiro.</span>
+              </p>
+            </motion.div>
+
+            <div className="grid sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
+              {[
+                { icon: Zap, text: "Respondendo rápido" },
+                { icon: MessageCircle, text: "Acompanhando conversas" },
+                { icon: RefreshCw, text: "Retomando clientes" },
+              ].map(({ icon: Icon, text }, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+                  className="p-6 rounded-2xl bg-green-500/5 border border-green-500/20">
+                  <Icon className="h-8 w-8 text-green-500 mx-auto mb-3" />
+                  <p className="font-semibold">{text}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+              className="mt-8 text-lg text-muted-foreground italic">
+              Mesmo quando ninguém está online.
+            </motion.p>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== 4. A SOLUÇÃO ===== */}
+      <section id="solucao" className="py-20 md:py-28 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-12">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-14">
               <Badge variant="outline" className="mb-4 border-green-500/50 text-green-600 bg-green-50">
-                <Bot className="h-3 w-3 mr-2" /> O que os robôs fazem
+                <Sparkles className="h-3 w-3 mr-2" /> A Solução
               </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Muito mais do que um <GradientText>chatbot comum</GradientText>
+              <h2 className="text-3xl md:text-5xl font-extrabold mb-4">
+                AtomicSales cria sua<br /><GradientText>estrutura de vendas automática</GradientText>
               </h2>
-            </div>
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+                Robôs de IA que trabalham no seu WhatsApp:
+              </p>
+            </motion.div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                { icon: Mic, title: "Escutam áudios", desc: "Transcrevem e entendem mensagens de voz dos clientes automaticamente.", color: "from-purple-500 to-pink-600" },
-                { icon: Image, title: "Leem imagens", desc: "Analisam fotos, prints e documentos enviados pelo WhatsApp.", color: "from-blue-500 to-cyan-600" },
-                { icon: Volume2, title: "Respondem por áudio", desc: "Gravam mensagens de voz humanizadas com probabilidade configurável.", color: "from-green-500 to-emerald-600" },
-                { icon: Globe, title: "Sotaque regional", desc: "Usam linguagem nativa de diferentes estados do Brasil. Gírias e expressões reais.", color: "from-orange-500 to-red-600" },
-                { icon: Brain, title: "Parecem humanos", desc: "Personalidade, idade e tom de voz configuráveis. Pouco parecem robôs.", color: "from-indigo-500 to-blue-600" },
-                { icon: Send, title: "Leem documentos", desc: "Interpretam PDFs, contratos e documentos enviados pelo cliente.", color: "from-teal-500 to-cyan-600" },
+                { icon: Headphones, title: "Atendem clientes", desc: "Resposta instantânea para cada mensagem que chega.", color: "from-green-500 to-emerald-600" },
+                { icon: ClipboardCheck, title: "Qualificam leads", desc: "Identificam quem está pronto para comprar.", color: "from-blue-500 to-cyan-600" },
+                { icon: ShoppingCart, title: "Apresentam ofertas", desc: "Conduzem a conversa até o fechamento da venda.", color: "from-purple-500 to-pink-600" },
+                { icon: Calendar, title: "Fazem follow-up", desc: "Retomam conversas automaticamente nos dias certos.", color: "from-orange-500 to-red-600" },
+                { icon: RefreshCw, title: "Retomam conversas perdidas", desc: "Clientes que sumiram voltam a responder.", color: "from-teal-500 to-cyan-600" },
+                { icon: Clock, title: "24 horas por dia", desc: "Funcionando mesmo quando ninguém está online.", color: "from-indigo-500 to-blue-600" },
               ].map(({ icon: Icon, title, desc, color }, i) => (
                 <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }}>
                   <Card className="h-full group hover:border-green-500/50 transition-all hover:shadow-xl">
@@ -356,263 +394,47 @@ export default function SalesLanding() {
                 </motion.div>
               ))}
             </div>
+
+            <div className="text-center mt-10">
+              <BigIdea />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ===== ROBÔS IA - PERSONALIDADE ===== */}
-      <section id="robos" className="py-16 md:py-24">
+      {/* ===== 5. TIME DE IA ===== */}
+      <section id="time-ia" className="py-20 md:py-28">
         <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12">
-              <Badge variant="outline" className="mb-4">
-                <Bot className="h-3 w-3 mr-2" /> Crie robôs com personalidade
+          <div className="max-w-5xl mx-auto">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-14">
+              <Badge variant="outline" className="mb-4 border-blue-500/50 text-blue-600 bg-blue-50">
+                <Network className="h-3 w-3 mr-2" /> Seu novo time
               </Badge>
-              <h2 className="text-3xl md:text-5xl font-bold mb-4">
-                Colaboradores virtuais <GradientText>que vendem por você</GradientText>
+              <h2 className="text-3xl md:text-5xl font-extrabold mb-4">
+                Seu novo time de vendas
               </h2>
-              <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-                Defina idade, personalidade, sotaque e tipo de atendimento. Cada robô é único e parecem pessoas reais.
+              <p className="text-xl text-muted-foreground">
+                Sem contratar ninguém.
               </p>
-            </div>
+            </motion.div>
 
-            <div className="grid md:grid-cols-2 gap-8 mb-12">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Qual a idade do robô?</CardTitle>
-                  <CardDescription>Define o tom e formalidade</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { age: "18-25 anos", style: "Jovem, informal", icon: Zap },
-                      { age: "26-35 anos", style: "Profissional, acessível", icon: Users },
-                      { age: "36-50 anos", style: "Formal, objetivo", icon: Crown },
-                      { age: "50+ anos", style: "Muito formal", icon: GraduationCap },
-                    ].map(({ age, style, icon: Icon }, i) => (
-                      <div key={i} className="bg-card/50 backdrop-blur border rounded-xl p-4 text-center hover:border-green-500/50 transition-all cursor-pointer group">
-                        <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <Icon className="h-6 w-6 text-green-600" />
-                        </div>
-                        <p className="font-medium">{age}</p>
-                        <p className="text-xs text-muted-foreground">{style}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">O que ele vai fazer?</CardTitle>
-                  <CardDescription>Tipo principal de atendimento</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { label: "💰 Vendas", sub: "Apresentar e fechar", icon: ShoppingCart },
-                      { label: "🔧 Suporte", sub: "Resolver problemas", icon: Wrench },
-                      { label: "📞 SAC", sub: "Atender solicitações", icon: Phone },
-                      { label: "📋 Qualificação", sub: "Qualificar leads", icon: ClipboardCheck },
-                    ].map(({ label, sub, icon: Icon }, i) => (
-                      <div key={i} className="bg-card/50 backdrop-blur border rounded-xl p-4 text-center hover:border-green-500/50 transition-all cursor-pointer group">
-                        <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <Icon className="h-6 w-6 text-green-600" />
-                        </div>
-                        <p className="font-medium">{label}</p>
-                        <p className="text-xs text-muted-foreground">{sub}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Escolha de IA */}
-            <Card className="max-w-3xl mx-auto">
-              <CardHeader className="text-center">
-                <Badge variant="outline" className="mx-auto mb-2 w-fit">
-                  <Cpu className="h-3 w-3 mr-2" /> Escolha a IA
-                </Badge>
-                <CardTitle>Escolha o modelo de IA que combina com você</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    { name: "GPT-5", provider: "OpenAI", color: "bg-emerald-500" },
-                    { name: "Gemini 2.5", provider: "Google", color: "bg-blue-500" },
-                    { name: "GPT-5 Mini", provider: "OpenAI", color: "bg-teal-500" },
-                    { name: "Gemini Flash", provider: "Google", color: "bg-cyan-500" },
-                  ].map((model, i) => (
-                    <div key={i} className="text-center p-3 border rounded-xl hover:border-green-500/50 transition-all cursor-pointer">
-                      <div className={cn("w-10 h-10 mx-auto rounded-xl flex items-center justify-center mb-2", model.color)}>
-                        <Cpu className="h-5 w-5 text-white" />
-                      </div>
-                      <p className="font-medium text-sm">{model.name}</p>
-                      <p className="text-xs text-muted-foreground">{model.provider}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== TIMES DE ROBÔS ===== */}
-      <section className="py-16 md:py-24 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-                <Badge variant="outline" className="mb-4 border-blue-500/50 text-blue-600 bg-blue-50">
-                  <Network className="h-3 w-3 mr-2" /> Times de Robôs
-                </Badge>
-                <h2 className="text-3xl md:text-4xl font-bold mb-6">
-                  Vários robôs trabalhando <GradientText>em equipe</GradientText>
-                </h2>
-                <p className="text-lg text-muted-foreground mb-8">
-                  Crie <strong>times de robôs</strong> onde cada um é especialista em algo.
-                  Um "Maestro" recebe a conversa e roteia para o especialista certo.
-                </p>
-                <div className="space-y-4">
-                  {[
-                    { icon: Route, text: "Robô Maestro como URA inteligente" },
-                    { icon: Target, text: "Robôs especialistas por área" },
-                    { icon: Settings, text: "Ativação por palavras-chave" },
-                  ].map(({ icon: Icon, text }, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                        <Icon className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <span>{text}</span>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-
-              <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-                <Card className="overflow-hidden shadow-2xl">
-                  <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Network className="h-5 w-5" /> Time: Atendimento Completo
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-6 space-y-4">
-                    <div className="flex items-center gap-3 p-3 bg-green-500/5 rounded-xl border border-green-500/20">
-                      <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center"><Crown className="h-5 w-5 text-white" /></div>
-                      <div><p className="font-medium">Maestro (Recepção)</p><p className="text-xs text-muted-foreground">Identifica intenção do cliente</p></div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-muted rounded-xl">
-                      <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center"><ShoppingCart className="h-5 w-5 text-white" /></div>
-                      <div><p className="font-medium">Vendedor</p><p className="text-xs text-muted-foreground">Especialista em vendas</p></div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-muted rounded-xl">
-                      <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center"><Wrench className="h-5 w-5 text-white" /></div>
-                      <div><p className="font-medium">Suporte</p><p className="text-xs text-muted-foreground">Resolve problemas técnicos</p></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== WHATSAPP MULTI-INSTÂNCIA ===== */}
-      <section id="whatsapp" className="py-16 md:py-24">
-        <div className="container mx-auto px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-                <Badge variant="outline" className="mb-4 border-green-500/50 text-green-600 bg-green-50">
-                  <Users className="h-3 w-3 mr-2" /> Multi atendimento WhatsApp
-                </Badge>
-                <h2 className="text-3xl md:text-4xl font-bold mb-6">
-                  <GradientText>Múltiplas instâncias</GradientText> e equipes
-                </h2>
-                <p className="text-lg text-muted-foreground mb-8">
-                  Conecte vários números de WhatsApp. Cada instância pode ter seu próprio robô, configurações e equipe. Tudo centralizado.
-                </p>
-                <div className="space-y-4">
-                  {[
-                    { icon: Phone, text: "Múltiplos números conectados simultaneamente" },
-                    { icon: Users, text: "Equipes diferentes por instância" },
-                    { icon: Bot, text: "Robô específico para cada número" },
-                    { icon: MessageCircle, text: "Transferência entre atendentes em tempo real" },
-                    { icon: BarChart3, text: "Métricas de atendimento por instância" },
-                  ].map(({ icon: Icon, text }, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                        <Icon className="h-4 w-4 text-green-600" />
-                      </div>
-                      <span>{text}</span>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-
-              <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-                <Card className="overflow-hidden shadow-2xl">
-                  <CardHeader className="bg-gradient-to-r from-green-500 to-emerald-600 text-white">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <MessageCircle className="h-5 w-5" /> Central de WhatsApp
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-6 space-y-4">
-                    {[
-                      { name: "Vendas", number: "+55 11 9xxxx-1234", messages: 23 },
-                      { name: "Suporte", number: "+55 11 9xxxx-5678", messages: 12 },
-                      { name: "SAC", number: "+55 21 9xxxx-9012", messages: 8 },
-                    ].map((instance, i) => (
-                      <div key={i} className="flex items-center gap-3 p-3 bg-muted rounded-xl">
-                        <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
-                          <Phone className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium">{instance.name}</p>
-                          <p className="text-xs text-muted-foreground">{instance.number}</p>
-                        </div>
-                        <Badge variant="outline" className="border-green-500 text-green-600">{instance.messages} novas</Badge>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ===== AUTOMAÇÃO: FOLLOW-UP + CADÊNCIAS + CRM ===== */}
-      <section id="automacao" className="py-16 md:py-24 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="max-w-5xl mx-auto text-center">
-            <Badge variant="outline" className="mb-4">
-              <Sparkles className="h-3 w-3 mr-2" /> Automação completa
-            </Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Follow-up, cadências e CRM <GradientText>integrados</GradientText>
-            </h2>
-            <p className="text-lg text-muted-foreground mb-12 max-w-2xl mx-auto">
-              Programe cadências de mensagens, follow-ups automáticos e acompanhe tudo em um CRM visual com funil de vendas.
-            </p>
-
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
               {[
-                { icon: Clock, title: "Follow-up automático", desc: "Programa mensagens de acompanhamento que são enviadas automaticamente. Nunca mais esqueça um lead.", color: "from-orange-500 to-red-600" },
-                { icon: Calendar, title: "Cadências programadas", desc: "Crie sequências de mensagens pré-programadas. Dia 1, dia 3, dia 7... tudo automático.", color: "from-purple-500 to-pink-600" },
-                { icon: Target, title: "CRM com funil visual", desc: "Kanban de vendas integrado ao WhatsApp. Mova leads pelo funil e dispare automações.", color: "from-blue-500 to-cyan-600" },
-              ].map(({ icon: Icon, title, desc, color }, i) => (
-                <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}>
-                  <Card className="h-full hover:border-green-500/50 transition-all hover:shadow-xl">
-                    <CardHeader>
-                      <div className={cn("w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center mb-2", color)}>
-                        <Icon className="h-6 w-6 text-white" />
+                { role: "Recepção", desc: "Identifica o que o cliente quer", icon: Users, color: "bg-green-500" },
+                { role: "Qualificador", desc: "Entende se o lead está pronto para comprar", icon: Target, color: "bg-blue-500" },
+                { role: "Vendedor", desc: "Conduz a conversa para a venda", icon: ShoppingCart, color: "bg-purple-500" },
+                { role: "Follow-up", desc: "Retoma conversas automaticamente", icon: Calendar, color: "bg-orange-500" },
+                { role: "Suporte", desc: "Resolve dúvidas e problemas", icon: Wrench, color: "bg-cyan-500" },
+              ].map(({ role, desc, icon: Icon, color }, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}>
+                  <Card className="h-full hover:border-green-500/50 transition-all hover:shadow-lg">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className={cn("w-12 h-12 rounded-full flex items-center justify-center", color)}>
+                          <Icon className="h-6 w-6 text-white" />
+                        </div>
+                        <h3 className="text-lg font-bold">{role}</h3>
                       </div>
-                      <CardTitle className="text-lg">{title}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
                       <p className="text-muted-foreground text-sm">{desc}</p>
                     </CardContent>
                   </Card>
@@ -623,55 +445,127 @@ export default function SalesLanding() {
         </div>
       </section>
 
-      {/* ===== INTEGRAÇÕES WEBHOOK ===== */}
-      <section className="py-16 md:py-24">
+      {/* ===== 6. INTELIGÊNCIA ===== */}
+      <section className="py-20 md:py-28 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
-            <Badge variant="outline" className="mb-4">
-              <Webhook className="h-3 w-3 mr-2" /> Integrações
-            </Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Conecte com <GradientText>qualquer sistema</GradientText>
-            </h2>
-            <p className="text-lg text-muted-foreground mb-12">
-              Webhooks poderosos para integrar com seu ERP, plataforma de e-commerce, sistema financeiro ou qualquer outro software.
-            </p>
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+              <Badge variant="outline" className="mb-4">
+                <Brain className="h-3 w-3 mr-2" /> Inteligência Real
+              </Badge>
+              <h2 className="text-3xl md:text-5xl font-extrabold mb-4">
+                Eles <GradientText>não parecem robôs</GradientText>
+              </h2>
+            </motion.div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-10">
               {[
-                { icon: Users, label: "Criar Leads" },
-                { icon: MessageCircle, label: "Enviar Mensagens" },
-                { icon: ShoppingCart, label: "Sincronizar Vendas" },
-                { icon: Webhook, label: "Eventos Custom" },
-              ].map(({ icon: Icon, label }, i) => (
-                <Card key={i} className="hover:border-green-500/50 transition-all">
-                  <CardContent className="pt-6 text-center">
-                    <div className="w-12 h-12 mx-auto rounded-xl bg-muted flex items-center justify-center mb-3">
-                      <Icon className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm font-medium">{label}</p>
-                  </CardContent>
-                </Card>
+                { icon: AudioLines, text: "Escutam áudios" },
+                { icon: Image, text: "Analisam imagens" },
+                { icon: Volume2, text: "Respondem por voz" },
+                { icon: Send, text: "Entendem documentos" },
+                { icon: Brain, text: "Linguagem natural" },
+                { icon: MessageCircle, text: "Conversas reais" },
+              ].map(({ icon: Icon, text }, i) => (
+                <motion.div key={i} initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }}
+                  className="p-5 rounded-2xl bg-card border hover:border-green-500/50 transition-all hover:shadow-lg">
+                  <Icon className="h-8 w-8 text-green-500 mx-auto mb-3" />
+                  <p className="font-semibold text-sm">{text}</p>
+                </motion.div>
               ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ===== TESTIMONIALS ===== */}
-      <section className="py-16 md:py-24 bg-muted/30">
+      {/* ===== 7. ESCALA ===== */}
+      <section className="py-20 md:py-28">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+              <h2 className="text-3xl md:text-5xl font-extrabold mb-4">
+                Enquanto um humano atende uma conversa…<br />
+                <GradientText>A IA pode atender dezenas.</GradientText>
+              </h2>
+            </motion.div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12 max-w-3xl mx-auto">
+              {[
+                { icon: Phone, text: "Múltiplos números WhatsApp" },
+                { icon: Layers, text: "Atendimento simultâneo" },
+                { icon: BarChart3, text: "Conversas organizadas" },
+                { icon: Users, text: "Transferência para humano" },
+                { icon: Sparkles, text: "Automações inteligentes" },
+              ].map(({ icon: Icon, text }, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
+                  className="flex items-center gap-3 p-4 bg-card border rounded-xl hover:border-green-500/50 transition-all">
+                  <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+                    <Icon className="h-5 w-5 text-green-600" />
+                  </div>
+                  <span className="font-medium text-sm text-left">{text}</span>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== 8. RECUPERAÇÃO DE VENDAS ===== */}
+      <section className="py-20 md:py-28 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+              <Badge variant="outline" className="mb-4 border-orange-500/50 text-orange-600 bg-orange-50">
+                <DollarSign className="h-3 w-3 mr-2" /> Recuperação de vendas
+              </Badge>
+              <h2 className="text-3xl md:text-5xl font-extrabold mb-6">
+                Quanto custa um <GradientText className="from-orange-500 via-red-500 to-pink-500">lead esquecido?</GradientText>
+              </h2>
+              <p className="text-xl text-muted-foreground mb-4">
+                A maioria das vendas acontece <span className="text-foreground font-semibold">depois do primeiro contato.</span>
+              </p>
+              <p className="text-xl text-muted-foreground mb-8">
+                Mas quase ninguém faz follow-up direito.
+              </p>
+              <div className="p-6 rounded-2xl bg-green-500/10 border border-green-500/30 inline-block">
+                <p className="text-lg font-bold text-green-600">
+                  Com IA, isso acontece automaticamente. ✨
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== 9. POSICIONAMENTO ===== */}
+      <section className="py-20 md:py-28">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+              <h2 className="text-3xl md:text-5xl font-extrabold mb-6 leading-tight">
+                Pare de tentar vender só com tráfego.<br />
+                <GradientText>Construa uma estrutura de vendas automática.</GradientText>
+              </h2>
+              <BigIdea className="mt-8" />
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== 10. DEPOIMENTOS ===== */}
+      <section className="py-20 md:py-28 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <Badge variant="outline" className="mb-4">Depoimentos</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">
-              O que nossos clientes <GradientText>dizem</GradientText>
+            <Badge variant="outline" className="mb-4">Resultados reais</Badge>
+            <h2 className="text-3xl md:text-4xl font-extrabold">
+              O que nossos clientes <GradientText>conquistaram</GradientText>
             </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {[
-              { name: "Mariana Costa", role: "Clínica de Estética", quote: "Os robôs atendem minhas clientes 24h no WhatsApp. Agendam consultas, tiram dúvidas e parecem uma atendente real.", avatar: "MC" },
-              { name: "Amanda Pimentel", role: "InfoProdutora", quote: "O follow-up automático recuperou clientes que estavam perdidos. Nunca mais esquecemos de fazer acompanhamento.", avatar: "AP" },
-              { name: "Carlos Eduardo", role: "E-commerce", quote: "Integramos via webhook e agora todo pedido dispara mensagem automática no WhatsApp do cliente. Zero retrabalho.", avatar: "CE" },
+              { name: "Mariana Costa", role: "Clínica de Estética", quote: "Recuperamos vendas que estavam completamente perdidas. O robô retoma conversas que a equipe nunca faria follow-up.", avatar: "MC" },
+              { name: "Amanda Pimentel", role: "InfoProdutora", quote: "Leads que antes demoravam horas pra receber resposta agora são atendidos em segundos. As vendas dobraram.", avatar: "AP" },
+              { name: "Carlos Eduardo", role: "E-commerce", quote: "Escalamos o atendimento sem contratar mais ninguém. A IA atende dezenas de conversas ao mesmo tempo.", avatar: "CE" },
             ].map((t, i) => (
               <Card key={i} className="border-0 bg-gradient-to-br from-card to-muted/50">
                 <CardContent className="pt-6">
@@ -690,16 +584,35 @@ export default function SalesLanding() {
         </div>
       </section>
 
+      {/* ===== 11. CTA FINAL ===== */}
+      <section className="py-24 md:py-32">
+        <div className="container mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+              <h2 className="text-3xl md:text-5xl font-extrabold mb-6">
+                Crie sua <GradientText>estrutura de vendas automática</GradientText>
+              </h2>
+              <p className="text-lg text-muted-foreground mb-10">
+                Configure seu robô e conecte seu WhatsApp.
+              </p>
+              <Button size="lg" onClick={() => scrollToSection("precos")} className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 px-12 py-7 text-lg">
+                Começar agora <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* ===== PRICING ===== */}
-      <section id="precos" className="py-16 md:py-24">
+      <section id="precos" className="py-16 md:py-24 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <Badge variant="outline" className="mb-4">Planos</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              Multi atendimento WhatsApp <GradientText>com IA</GradientText>
+            <h2 className="text-3xl md:text-5xl font-extrabold mb-4">
+              Sua estrutura de vendas <GradientText>automática</GradientText>
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              Quanto custa um lead esquecido? Uma venda perdida por falta de follow-up? 
+              Quanto custa um lead esquecido? Uma venda perdida por falta de follow-up?
               O Atomic Sales custa menos que um café por dia.
             </p>
 
@@ -790,7 +703,6 @@ export default function SalesLanding() {
             </Card>
           </div>
 
-          {/* Link to full landing */}
           <div className="text-center mt-8">
             <Link to="/completo" className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4">
               Ver todas as funcionalidades da plataforma →
