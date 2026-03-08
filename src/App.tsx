@@ -242,6 +242,7 @@ const App = () => (
                 <Route path="/planos" element={<Planos />} />
                 <Route path="/secretaria-whatsapp" element={<SecretariaWhatsapp />} />
                 <Route path="/2026" element={<Power />} />
+                <Route path="/completo" element={<SalesLandingCompleto />} />
                 <Route path="/para/:niche" element={<NichePage />} />
                 <Route path="/checkout" element={<DirectCheckout />} />
                 <Route path="/signup-success" element={<SignupSuccess />} />
