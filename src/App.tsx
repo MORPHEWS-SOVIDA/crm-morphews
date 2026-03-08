@@ -40,6 +40,7 @@ const Power = lazy(() => import("./pages/Power"));
 const SecretariaWhatsapp = lazy(() => import("./pages/SecretariaWhatsapp"));
 const SalesLanding = lazy(() => import("./pages/SalesLanding"));
 const SalesLandingCompleto = lazy(() => import("./pages/SalesLandingCompleto"));
+const SalesLanding2026 = lazy(() => import("./pages/SalesLanding2026"));
 const NichePage = lazy(() => import("./pages/niches"));
 const PublicLandingPage = lazy(() => import("./pages/ecommerce/PublicLandingPage"));
 const PublicHelper = lazy(() => import("./pages/PublicHelper"));
