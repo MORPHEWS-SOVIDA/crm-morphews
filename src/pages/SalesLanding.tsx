@@ -11,6 +11,7 @@ import {
   Building2, GraduationCap, ShoppingCart, Send, Image
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import atomicLogo from "@/assets/logo-atomic-sales.png";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
