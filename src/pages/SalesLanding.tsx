@@ -221,11 +221,9 @@ export default function SalesLanding() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                <img src="/favicon.jpg" alt="Atomic Sales" className="h-6 w-6 rounded" />
-              </div>
-              <span className="font-bold text-xl">Atomic Sales</span>
+            {/* Mobile: logo left. Desktop: logo centered via absolute */}
+            <Link to="/" className="flex items-center md:absolute md:left-1/2 md:-translate-x-1/2">
+              <img src={atomicLogo} alt="Atomic Sales" className="h-8 md:h-9" />
             </Link>
 
             <nav className="hidden md:flex items-center gap-8">
