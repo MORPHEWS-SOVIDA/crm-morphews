@@ -473,6 +473,18 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     setPendingChange(null);
   };
 
+  const handleQuickMove = (leadId: string, lead: Lead, targetStage: FunnelStageCustom) => {
+    const currentStage = findLeadStage(lead, sortedStages);
+    const newStageEnum = getStageEnumValue(targetStage) as FunnelStage;
+    setPendingChange({
+      leadId,
+      lead,
+      previousStage: lead.stage as FunnelStage,
+      newStage: newStageEnum,
+      targetStageId: targetStage.id,
+    });
+  };
+
   return (
     <>
       <DndContext
