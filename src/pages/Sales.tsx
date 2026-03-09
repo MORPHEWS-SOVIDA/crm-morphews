@@ -231,11 +231,30 @@ export default function Sales() {
       // Search filter
       if (searchTerm) {
         const search = normalizeText(searchTerm);
+        const searchRaw = searchTerm.trim();
         const romaneioStr = String(sale.romaneio_number || '');
+        
+        // Normalize phone: strip non-digits for flexible matching (with/without DDI 55)
+        const searchDigits = searchRaw.replace(/\D/g, '');
+        const phoneDigits = (sale.lead?.whatsapp || '').replace(/\D/g, '');
+        // Allow matching with or without country code 55
+        const phoneWithout55 = phoneDigits.startsWith('55') ? phoneDigits.slice(2) : phoneDigits;
+        const searchWithout55 = searchDigits.startsWith('55') ? searchDigits.slice(2) : searchDigits;
+        
         const matchesSearch = (
+          // Name
           normalizeText(sale.lead?.name || '').includes(search) ||
-          sale.lead?.whatsapp?.includes(searchTerm) ||
-          romaneioStr.includes(searchTerm)
+          // Phone (flexible: with/without 55, partial match)
+          (searchDigits.length >= 4 && (
+            phoneDigits.includes(searchDigits) ||
+            phoneWithout55.includes(searchWithout55)
+          )) ||
+          // Email
+          normalizeText(sale.lead?.email || '').includes(search) ||
+          // Romaneio number
+          romaneioStr.includes(searchRaw) ||
+          // Tracking code (Correios, transportadora)
+          normalizeText(sale.tracking_code || '').includes(search)
         );
         if (!matchesSearch) return false;
       }
