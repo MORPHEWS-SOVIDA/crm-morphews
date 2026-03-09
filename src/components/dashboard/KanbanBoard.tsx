@@ -27,10 +27,18 @@ import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { StageChangeDialog, StageChangeResult } from '@/components/StageChangeDialog';
 import { cn } from '@/lib/utils';
 import { getInstagramProfileUrl } from '@/lib/instagram';
-import { GripVertical, User, DollarSign } from 'lucide-react';
+import { GripVertical, User, DollarSign, ArrowRight, ChevronRight } from 'lucide-react';
 import { Instagram } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 interface KanbanBoardProps {
   leads: Lead[];
@@ -41,6 +49,9 @@ interface KanbanBoardProps {
 
 interface KanbanCardProps {
   lead: Lead;
+  stages?: FunnelStageCustom[];
+  currentStageId?: string;
+  onQuickMove?: (leadId: string, lead: Lead, targetStage: FunnelStageCustom) => void;
 }
 
 function formatCurrency(value: number | null) {
@@ -52,7 +63,7 @@ function formatCurrency(value: number | null) {
   }).format(value);
 }
 
-function KanbanCard({ lead }: KanbanCardProps) {
+function KanbanCard({ lead, stages, currentStageId, onQuickMove }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -136,6 +147,39 @@ function KanbanCard({ lead }: KanbanCardProps) {
                   variant="icon" 
                 />
               )}
+              {stages && onQuickMove && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <button className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Mover para...">
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[180px]">
+                    <DropdownMenuLabel className="text-xs">Mover para</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {stages.filter(s => s.id !== currentStageId).map(stage => {
+                      const isCustom = stage.color.startsWith('#') || stage.color.startsWith('rgb');
+                      return (
+                        <DropdownMenuItem
+                          key={stage.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onQuickMove(lead.id, lead, stage);
+                          }}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <div 
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={isCustom ? { backgroundColor: stage.color } : undefined}
+                          />
+                          <span className="text-sm">{stage.name}</span>
+                          <ChevronRight className="w-3 h-3 ml-auto text-muted-foreground" />
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </div>
         </div>
@@ -156,9 +200,11 @@ function KanbanCardOverlay({ lead }: { lead: Lead }) {
 interface KanbanColumnProps {
   stage: FunnelStageCustom;
   leads: Lead[];
+  allStages: FunnelStageCustom[];
+  onQuickMove: (leadId: string, lead: Lead, targetStage: FunnelStageCustom) => void;
 }
 
-function KanbanColumn({ stage, leads }: KanbanColumnProps) {
+function KanbanColumn({ stage, leads, allStages, onQuickMove }: KanbanColumnProps) {
   // Make the column droppable using the stage ID
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
@@ -207,6 +253,9 @@ function KanbanColumn({ stage, leads }: KanbanColumnProps) {
               <KanbanCard
                 key={lead.id}
                 lead={lead}
+                stages={allStages}
+                currentStageId={stage.id}
+                onQuickMove={onQuickMove}
               />
             ))}
             {leads.length === 0 && (
@@ -424,6 +473,18 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     setPendingChange(null);
   };
 
+  const handleQuickMove = (leadId: string, lead: Lead, targetStage: FunnelStageCustom) => {
+    const currentStage = findLeadStage(lead, sortedStages);
+    const newStageEnum = getStageEnumValue(targetStage) as FunnelStage;
+    setPendingChange({
+      leadId,
+      lead,
+      previousStage: lead.stage as FunnelStage,
+      newStage: newStageEnum,
+      targetStageId: targetStage.id,
+    });
+  };
+
   return (
     <>
       <DndContext
@@ -440,6 +501,8 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
                 key={stage.id}
                 stage={stage}
                 leads={leadsByStage[stage.id] || []}
+                allStages={sortedStages}
+                onQuickMove={handleQuickMove}
               />
             ))}
           </div>
