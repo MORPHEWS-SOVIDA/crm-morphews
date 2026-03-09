@@ -239,14 +239,15 @@ export default function AllDeliveries() {
   };
 
   const openMaps = (sale: Sale) => {
-    if (sale.lead?.google_maps_link) {
-      window.open(sale.lead.google_maps_link, '_blank');
+    const addr = (sale as any).shipping_address || sale.lead;
+    if (addr?.google_maps_link) {
+      window.open(addr.google_maps_link, '_blank');
       return;
     }
     
-    if (!sale.lead?.street) return;
+    if (!addr?.street) return;
     const address = encodeURIComponent(
-      `${sale.lead.street}, ${sale.lead.street_number}, ${sale.lead.neighborhood}, ${sale.lead.city}, ${sale.lead.state}`
+      `${addr.street}, ${addr.street_number}, ${addr.neighborhood}, ${addr.city}, ${addr.state}`
     );
     window.open(`https://www.google.com/maps/search/?api=1&query=${address}`, '_blank');
   };
@@ -585,13 +586,20 @@ export default function AllDeliveries() {
                       </Button>
                     </div>
 
-                    {/* Address */}
-                    {sale.lead?.street && (
-                      <p className="text-xs text-muted-foreground mb-3">
-                        <MapPin className="w-3 h-3 inline mr-1" />
-                        {sale.lead.street}, {sale.lead.street_number} - {sale.lead.neighborhood}, {sale.lead.city}
-                      </p>
-                    )}
+                    {/* Address - from shipping_address or lead */}
+                    {(() => {
+                      const addr = (sale as any).shipping_address || sale.lead;
+                      if (!addr?.street) return null;
+                      return (
+                        <p className="text-xs text-muted-foreground mb-3">
+                          <MapPin className="w-3 h-3 inline mr-1" />
+                          {addr.street}, {addr.street_number}
+                          {addr.complement ? ` - ${addr.complement}` : ''}
+                          {' • '}{addr.neighborhood} • {addr.city}/{addr.state}
+                          {addr.cep ? ` • CEP: ${addr.cep}` : ''}
+                        </p>
+                      );
+                    })()}
 
                     {/* Products */}
                     {sale.items && sale.items.length > 0 && (
