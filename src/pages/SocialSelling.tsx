@@ -52,30 +52,45 @@ export default function SocialSelling() {
     enabled: !!orgId,
   });
 
-  // Fetch activities with period filter
+  // Fetch activities with period filter (paginated to avoid 1000-row limit)
   const { data: activities, isLoading: activitiesLoading } = useQuery({
     queryKey: ['social-selling-activities', orgId, periodFilter],
     queryFn: async () => {
-      let query = (supabase as any)
-        .from('social_selling_activities')
-        .select('*, social_sellers(name), social_selling_profiles(instagram_username)')
-        .eq('organization_id', orgId!);
+      const pageSize = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      let hasMore = true;
 
-      if (periodFilter !== 'all') {
-        const now = new Date();
-        let start: Date;
-        if (periodFilter === 'today') {
-          start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        } else if (periodFilter === '7d') {
-          start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        } else {
-          start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      while (hasMore) {
+        let query = (supabase as any)
+          .from('social_selling_activities')
+          .select('*, social_sellers(name), social_selling_profiles(instagram_username)')
+          .eq('organization_id', orgId!);
+
+        if (periodFilter !== 'all') {
+          const now = new Date();
+          let start: Date;
+          if (periodFilter === 'today') {
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          } else if (periodFilter === '7d') {
+            start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          } else {
+            start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          }
+          query = query.gte('created_at', start.toISOString());
         }
-        query = query.gte('created_at', start.toISOString());
+
+        const { data } = await query
+          .order('created_at', { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        const chunk = data || [];
+        allData.push(...chunk);
+        hasMore = chunk.length === pageSize;
+        from += pageSize;
       }
 
-      const { data } = await query.order('created_at', { ascending: false });
-      return data || [];
+      return allData;
     },
     enabled: !!orgId,
   });
