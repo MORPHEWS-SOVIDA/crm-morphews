@@ -200,9 +200,11 @@ function KanbanCardOverlay({ lead }: { lead: Lead }) {
 interface KanbanColumnProps {
   stage: FunnelStageCustom;
   leads: Lead[];
+  allStages: FunnelStageCustom[];
+  onQuickMove: (leadId: string, lead: Lead, targetStage: FunnelStageCustom) => void;
 }
 
-function KanbanColumn({ stage, leads }: KanbanColumnProps) {
+function KanbanColumn({ stage, leads, allStages, onQuickMove }: KanbanColumnProps) {
   // Make the column droppable using the stage ID
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
