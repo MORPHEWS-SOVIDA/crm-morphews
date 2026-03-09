@@ -123,7 +123,7 @@ export default function SocialSelling() {
         .select('lead_id')
         .eq('organization_id', orgId!);
       
-      const uniqueLeadIds = [...new Set((ssLeadIds || []).map((r: any) => r.lead_id))];
+      const uniqueLeadIds = [...new Set((ssLeadIds || []).map((r: any) => r.lead_id as string))] as string[];
       if (uniqueLeadIds.length === 0) return {};
 
       // Fetch those leads with their funnel_stage_id (paginated)
