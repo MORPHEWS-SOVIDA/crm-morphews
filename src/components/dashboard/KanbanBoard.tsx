@@ -31,6 +31,7 @@ import { GripVertical, User, DollarSign, ChevronRight } from 'lucide-react';
 import { Instagram } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface KanbanBoardProps {
   leads: Lead[];
