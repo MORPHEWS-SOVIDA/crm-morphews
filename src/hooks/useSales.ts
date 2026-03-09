@@ -1189,10 +1189,8 @@ export function useMyDeliveries() {
           (shippingAddressId ? addressById[shippingAddressId] : undefined) ||
           (leadId ? bestAddressByLeadId[leadId] : undefined);
 
-        const shouldOverrideFromResolved =
-          !!shippingAddressId || (lead ? isBlank(lead.street) : true);
-
-        if (lead && resolvedAddr && shouldOverrideFromResolved) {
+        // Always prefer resolved address from lead_addresses when available
+        if (lead && resolvedAddr) {
           lead = {
             ...lead,
             street: resolvedAddr.street ?? lead.street,
