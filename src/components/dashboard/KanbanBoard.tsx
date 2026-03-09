@@ -501,6 +501,8 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
                 key={stage.id}
                 stage={stage}
                 leads={leadsByStage[stage.id] || []}
+                allStages={sortedStages}
+                onQuickMove={handleQuickMove}
               />
             ))}
           </div>
