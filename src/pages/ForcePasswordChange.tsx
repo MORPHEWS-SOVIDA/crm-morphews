@@ -75,6 +75,24 @@ export default function ForcePasswordChange() {
     setIsLoading(true);
 
     try {
+      // Verify session exists before attempting update
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // Try to refresh the session
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData.session) {
+          toast({
+            title: "Sessão expirada",
+            description: "Sua sessão expirou. Faça login novamente com a senha provisória e tente novamente.",
+            variant: "destructive",
+          });
+          navigate("/login", { replace: true });
+          return;
+        }
+      }
+
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) throw error;
@@ -99,6 +117,7 @@ export default function ForcePasswordChange() {
 
       navigate("/");
     } catch (error: any) {
+      console.error("Password change error:", error);
       toast({
         title: "Erro ao alterar senha",
         description: error.message,
