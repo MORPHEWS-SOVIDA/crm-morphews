@@ -113,19 +113,36 @@ export default function SocialSelling() {
   // Fetch funnel stages for lead counts
   const { data: funnelStages } = useFunnelStages();
 
-  // Fetch lead counts per stage
+  // Fetch lead counts per funnel stage (only leads with social selling activities)
   const { data: leadCounts } = useQuery({
     queryKey: ['social-selling-lead-counts', orgId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('leads')
-        .select('stage, id')
-        .eq('organization_id', orgId!)
-        .eq('source', 'social_selling');
+      // Get all leads that have social selling activities
+      const { data: ssLeadIds } = await (supabase as any)
+        .from('social_selling_activities')
+        .select('lead_id')
+        .eq('organization_id', orgId!);
       
+      const uniqueLeadIds = [...new Set((ssLeadIds || []).map((r: any) => r.lead_id))];
+      if (uniqueLeadIds.length === 0) return {};
+
+      // Fetch those leads with their funnel_stage_id (paginated)
+      const pageSize = 500;
+      const allLeads: any[] = [];
+      for (let i = 0; i < uniqueLeadIds.length; i += pageSize) {
+        const batch = uniqueLeadIds.slice(i, i + pageSize);
+        const { data } = await supabase
+          .from('leads')
+          .select('id, funnel_stage_id')
+          .in('id', batch);
+        allLeads.push(...(data || []));
+      }
+
       const counts: Record<string, number> = {};
-      (data || []).forEach(l => {
-        counts[l.stage] = (counts[l.stage] || 0) + 1;
+      allLeads.forEach((l: any) => {
+        if (l.funnel_stage_id) {
+          counts[l.funnel_stage_id] = (counts[l.funnel_stage_id] || 0) + 1;
+        }
       });
       return counts;
     },
