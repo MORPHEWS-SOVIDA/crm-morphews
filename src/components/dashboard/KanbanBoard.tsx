@@ -49,6 +49,9 @@ interface KanbanBoardProps {
 
 interface KanbanCardProps {
   lead: Lead;
+  stages?: FunnelStageCustom[];
+  currentStageId?: string;
+  onQuickMove?: (leadId: string, lead: Lead, targetStage: FunnelStageCustom) => void;
 }
 
 function formatCurrency(value: number | null) {
