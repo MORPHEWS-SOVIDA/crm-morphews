@@ -78,19 +78,40 @@ export default function SocialSellingReport() {
   const { data: activities = [], isLoading } = useQuery({
     queryKey: ['ss-report-activities', orgId, dateFrom, dateTo],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('social_selling_activities')
-        .select(`
-          id, activity_type, created_at, lead_id, instagram_username,
-          seller_id, profile_id,
-          social_sellers(name),
-          social_selling_profiles(instagram_username)
-        `)
-        .eq('organization_id', orgId!)
-        .gte('created_at', dateFrom.toISOString())
-        .lte('created_at', dateTo.toISOString())
-        .order('created_at', { ascending: false });
-      return data || [];
+      // Fetch ALL activities in range (paginate to avoid 1000-row limit)
+      const allActivities: any[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await (supabase as any)
+          .from('social_selling_activities')
+          .select(`
+            id, activity_type, created_at, lead_id, instagram_username,
+            seller_id, profile_id,
+            social_sellers(name),
+            social_selling_profiles(instagram_username)
+          `)
+          .eq('organization_id', orgId!)
+          .gte('created_at', dateFrom.toISOString())
+          .lte('created_at', dateTo.toISOString())
+          .order('created_at', { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        const rows = data || [];
+        allActivities.push(...rows);
+        
+        if (rows.length < pageSize) {
+          hasMore = false;
+        } else {
+          from += pageSize;
+        }
+      }
+
+      return allActivities;
     },
     enabled: !!orgId,
   });
