@@ -27,10 +27,18 @@ import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { StageChangeDialog, StageChangeResult } from '@/components/StageChangeDialog';
 import { cn } from '@/lib/utils';
 import { getInstagramProfileUrl } from '@/lib/instagram';
-import { GripVertical, User, DollarSign } from 'lucide-react';
+import { GripVertical, User, DollarSign, ArrowRight, ChevronRight } from 'lucide-react';
 import { Instagram } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 interface KanbanBoardProps {
   leads: Lead[];
