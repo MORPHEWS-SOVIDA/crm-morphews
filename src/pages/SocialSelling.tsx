@@ -401,11 +401,13 @@ export default function SocialSelling() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {funnelStages.map(stage => (
+                {funnelStages
+                  .filter(stage => (leadCounts[stage.id] || 0) > 0)
+                  .map(stage => (
                   <div key={stage.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${stage.color}`}>
                     <span className={`text-xs font-medium ${stage.text_color}`}>{stage.name}</span>
                     <Badge variant="secondary" className="text-xs">
-                      {leadCounts[stage.enum_value || ''] || 0}
+                      {leadCounts[stage.id] || 0}
                     </Badge>
                   </div>
                 ))}
