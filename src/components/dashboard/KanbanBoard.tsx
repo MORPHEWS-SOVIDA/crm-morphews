@@ -429,6 +429,39 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
         });
       }
 
+      // Sync social selling metrics when moving to "Respondeu Prospecção Ativa"
+      const targetStage = sortedStages.find(s => s.id === pendingChange.targetStageId);
+      if (targetStage?.name === 'Respondeu Prospecção Ativa') {
+        try {
+          // Check if lead has social selling activities (from import)
+          const { data: existingActivities } = await (supabase as any)
+            .from('social_selling_activities')
+            .select('seller_id, profile_id, activity_type')
+            .eq('lead_id', pendingChange.leadId);
+
+          const hasImport = existingActivities?.some((a: any) => a.activity_type === 'import');
+          const hasReply = existingActivities?.some((a: any) => a.activity_type === 'reply_received');
+
+          if (hasImport && !hasReply) {
+            const importActivity = existingActivities.find((a: any) => a.activity_type === 'import');
+            const lead = pendingChange.lead;
+            await (supabase as any)
+              .from('social_selling_activities')
+              .insert({
+                organization_id: profile.organization_id,
+                lead_id: pendingChange.leadId,
+                activity_type: 'reply_received',
+                seller_id: importActivity.seller_id,
+                profile_id: importActivity.profile_id,
+                instagram_username: lead.instagram?.replace(/^@/, '') || null,
+              });
+            console.log('[Kanban] Social selling reply_received activity logged');
+          }
+        } catch (ssError) {
+          console.warn('[Kanban] Failed to sync social selling metrics:', ssError);
+        }
+      }
+
       toast({
         title: "Etapa atualizada",
         description: result.followupReasonId 
