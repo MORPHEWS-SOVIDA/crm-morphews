@@ -52,30 +52,45 @@ export default function SocialSelling() {
     enabled: !!orgId,
   });
 
-  // Fetch activities with period filter
+  // Fetch activities with period filter (paginated to avoid 1000-row limit)
   const { data: activities, isLoading: activitiesLoading } = useQuery({
     queryKey: ['social-selling-activities', orgId, periodFilter],
     queryFn: async () => {
-      let query = (supabase as any)
-        .from('social_selling_activities')
-        .select('*, social_sellers(name), social_selling_profiles(instagram_username)')
-        .eq('organization_id', orgId!);
+      const pageSize = 1000;
+      let allData: any[] = [];
+      let from = 0;
+      let hasMore = true;
 
-      if (periodFilter !== 'all') {
-        const now = new Date();
-        let start: Date;
-        if (periodFilter === 'today') {
-          start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        } else if (periodFilter === '7d') {
-          start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        } else {
-          start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      while (hasMore) {
+        let query = (supabase as any)
+          .from('social_selling_activities')
+          .select('*, social_sellers(name), social_selling_profiles(instagram_username)')
+          .eq('organization_id', orgId!);
+
+        if (periodFilter !== 'all') {
+          const now = new Date();
+          let start: Date;
+          if (periodFilter === 'today') {
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          } else if (periodFilter === '7d') {
+            start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          } else {
+            start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          }
+          query = query.gte('created_at', start.toISOString());
         }
-        query = query.gte('created_at', start.toISOString());
+
+        const { data } = await query
+          .order('created_at', { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        const chunk = data || [];
+        allData.push(...chunk);
+        hasMore = chunk.length === pageSize;
+        from += pageSize;
       }
 
-      const { data } = await query.order('created_at', { ascending: false });
-      return data || [];
+      return allData;
     },
     enabled: !!orgId,
   });
@@ -98,19 +113,36 @@ export default function SocialSelling() {
   // Fetch funnel stages for lead counts
   const { data: funnelStages } = useFunnelStages();
 
-  // Fetch lead counts per stage
+  // Fetch lead counts per funnel stage (only leads with social selling activities)
   const { data: leadCounts } = useQuery({
     queryKey: ['social-selling-lead-counts', orgId],
     queryFn: async () => {
-      const { data } = await (supabase as any)
-        .from('leads')
-        .select('stage, id')
-        .eq('organization_id', orgId!)
-        .eq('source', 'social_selling');
+      // Get all leads that have social selling activities
+      const { data: ssLeadIds } = await (supabase as any)
+        .from('social_selling_activities')
+        .select('lead_id')
+        .eq('organization_id', orgId!);
       
+      const uniqueLeadIds = [...new Set((ssLeadIds || []).map((r: any) => r.lead_id as string))] as string[];
+      if (uniqueLeadIds.length === 0) return {};
+
+      // Fetch those leads with their funnel_stage_id (paginated)
+      const pageSize = 500;
+      const allLeads: any[] = [];
+      for (let i = 0; i < uniqueLeadIds.length; i += pageSize) {
+        const batch = uniqueLeadIds.slice(i, i + pageSize);
+        const { data } = await supabase
+          .from('leads')
+          .select('id, funnel_stage_id')
+          .in('id', batch);
+        allLeads.push(...(data || []));
+      }
+
       const counts: Record<string, number> = {};
-      (data || []).forEach(l => {
-        counts[l.stage] = (counts[l.stage] || 0) + 1;
+      allLeads.forEach((l: any) => {
+        if (l.funnel_stage_id) {
+          counts[l.funnel_stage_id] = (counts[l.funnel_stage_id] || 0) + 1;
+        }
       });
       return counts;
     },
@@ -369,11 +401,13 @@ export default function SocialSelling() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {funnelStages.map(stage => (
+                {funnelStages
+                  .filter(stage => (leadCounts[stage.id] || 0) > 0)
+                  .map(stage => (
                   <div key={stage.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg ${stage.color}`}>
                     <span className={`text-xs font-medium ${stage.text_color}`}>{stage.name}</span>
                     <Badge variant="secondary" className="text-xs">
-                      {leadCounts[stage.enum_value || ''] || 0}
+                      {leadCounts[stage.id] || 0}
                     </Badge>
                   </div>
                 ))}
