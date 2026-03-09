@@ -139,39 +139,25 @@ function KanbanCard({ lead, stages, currentStageId, onQuickMove }: KanbanCardPro
                   variant="icon" 
                 />
               )}
-              {stages && onQuickMove && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <button className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Mover para...">
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-[180px]">
-                    <DropdownMenuLabel className="text-xs">Mover para</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {stages.filter(s => s.id !== currentStageId).map(stage => {
-                      const isCustom = stage.color.startsWith('#') || stage.color.startsWith('rgb');
-                      return (
-                        <DropdownMenuItem
-                          key={stage.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onQuickMove(lead.id, lead, stage);
-                          }}
-                          className="flex items-center gap-2 cursor-pointer"
-                        >
-                          <div 
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                            style={isCustom ? { backgroundColor: stage.color } : undefined}
-                          />
-                          <span className="text-sm">{stage.name}</span>
-                          <ChevronRight className="w-3 h-3 ml-auto text-muted-foreground" />
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+              {stages && onQuickMove && (() => {
+                const currentIndex = stages.findIndex(s => s.id === currentStageId);
+                const nextStage = currentIndex >= 0 && currentIndex < stages.length - 1 
+                  ? stages[currentIndex + 1] 
+                  : null;
+                if (!nextStage) return null;
+                return (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onQuickMove(lead.id, lead, nextStage);
+                    }}
+                    className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    title={`Mover para ${nextStage.name}`}
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
