@@ -54,7 +54,38 @@ export function useExpeditionSales() {
 
       if (error) throw error;
 
-      const sales = (data || []) as unknown as Sale[];
+      let sales = (data || []) as unknown as Sale[];
+
+      // Enrich: fetch primary addresses for sales without shipping_address and without lead.street
+      const salesNeedingAddress = sales.filter(
+        (s: any) => !s.shipping_address && !s.lead?.street && s.lead_id
+      );
+      
+      if (salesNeedingAddress.length > 0) {
+        const leadIds = [...new Set(salesNeedingAddress.map(s => s.lead_id).filter(Boolean) as string[])];
+        const { data: addresses } = await supabase
+          .from('lead_addresses')
+          .select('id, lead_id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link, is_primary')
+          .in('lead_id', leadIds)
+          .order('is_primary', { ascending: false })
+          .order('created_at', { ascending: true });
+
+        if (addresses && addresses.length > 0) {
+          // Map: lead_id -> first (primary) address
+          const addrMap: Record<string, any> = {};
+          for (const addr of addresses) {
+            if (!addrMap[addr.lead_id]) {
+              addrMap[addr.lead_id] = addr;
+            }
+          }
+          sales = sales.map((s: any) => {
+            if (!s.shipping_address && !s.lead?.street && s.lead_id && addrMap[s.lead_id]) {
+              return { ...s, shipping_address: addrMap[s.lead_id] };
+            }
+            return s;
+          }) as Sale[];
+        }
+      }
 
       // Enrich seller names (sales.seller_user_id -> profiles.user_id)
       const sellerIds = Array.from(
