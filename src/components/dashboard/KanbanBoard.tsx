@@ -253,6 +253,9 @@ function KanbanColumn({ stage, leads, allStages, onQuickMove }: KanbanColumnProp
               <KanbanCard
                 key={lead.id}
                 lead={lead}
+                stages={allStages}
+                currentStageId={stage.id}
+                onQuickMove={onQuickMove}
               />
             ))}
             {leads.length === 0 && (
