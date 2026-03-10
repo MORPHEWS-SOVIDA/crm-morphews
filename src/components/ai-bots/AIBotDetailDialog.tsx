@@ -135,11 +135,15 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
     }
   }, [linkedProducts]);
   
-  // Reset form when dialog opens
-  const handleOpenChange = (open: boolean) => {
-    if (open && bot) {
+  // Re-initialize form whenever the bot data changes (including when switching bots)
+  useEffect(() => {
+    if (bot && open) {
       initializeForm();
     }
+  }, [bot?.id, open]);
+  
+  // Reset form when dialog opens
+  const handleOpenChange = (open: boolean) => {
     onOpenChange(open);
   };
   
