@@ -31,9 +31,11 @@ const SAVED_CARDS: { id: string; card_brand: string; card_last_digits: string; i
 
 export function StorefrontCheckout() {
   const navigate = useNavigate();
+  const { cartId: urlCartId } = useParams<{ cartId?: string }>();
   const { storefront } = useOutletContext<{ storefront: StorefrontData }>();
-  const { items, subtotal, clearCart, cartId, updateCustomerData, updateShippingData } = useCart();
+  const { items, subtotal, clearCart, cartId, updateCustomerData, updateShippingData, addItem } = useCart();
   const { getUtmForCheckout } = useUtmTracker();
+  const [restoringCart, setRestoringCart] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('credit_card');
   const [acceptedTerms, setAcceptedTerms] = useState(true); // Pre-accepted for smoother checkout
