@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList, Zap, Cpu, Volume2, Pencil, RotateCcw } from "lucide-react";
+import { Bot, Settings, Brain, Package, MessageSquare, Plus, Trash2, Save, Sparkles, ClipboardList, Zap, Cpu, Volume2, Pencil, RotateCcw, Wand2 } from "lucide-react";
 import { useAIBot, useUpdateAIBot, useAIBotKnowledge, useAddAIBotKnowledge, useRemoveAIBotKnowledge, useAIBotProducts } from "@/hooks/useAIBots";
 import { AvatarGenerator } from "./AvatarGenerator";
 import { BotQualificationConfig } from "./BotQualificationConfig";
@@ -16,6 +16,7 @@ import { BotProductSelector } from "./BotProductSelector";
 import { BotInterpretationConfig } from "./BotInterpretationConfig";
 import { BotVoiceConfig } from "./BotVoiceConfig";
 import { AIModelSelector, CHAT_MODELS } from "@/components/ai/AIModelSelector";
+import { PromptWizard } from "./PromptWizard";
 import { useAuth } from "@/hooks/useAuth";
 
 interface InitialQuestion {
@@ -86,6 +87,9 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
   const [newAnswer, setNewAnswer] = useState('');
+  
+  // Prompt Wizard state
+  const [showPromptWizard, setShowPromptWizard] = useState(false);
   
   // Initialize form when bot loads
   const initializeForm = () => {
@@ -271,14 +275,25 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
 
               {/* O Prompt - protagonista */}
               <Card className="border-primary/30">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Pencil className="h-5 w-5 text-primary" />
-                    Prompt do Sistema
-                  </CardTitle>
-                  <CardDescription>
-                    O prompt é o cérebro do robô. Tudo que ele é e como se comporta está aqui.
-                  </CardDescription>
+                <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Pencil className="h-5 w-5 text-primary" />
+                      Prompt do Sistema
+                    </CardTitle>
+                    <CardDescription>
+                      O prompt é o cérebro do robô. Tudo que ele é e como se comporta está aqui.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowPromptWizard(true)}
+                    className="gap-1"
+                  >
+                    <Wand2 className="h-4 w-4" />
+                    Assistente IA
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Textarea
@@ -289,7 +304,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                     className="font-mono text-sm"
                   />
                   <p className="text-xs text-muted-foreground">
-                    💡 Inclua aqui: personalidade, tom de voz, expressões regionais, regras de atendimento, diferencial da empresa. Este é o conteúdo que a IA lê para saber quem ela é.
+                    💡 Inclua aqui: personalidade, tom de voz, expressões regionais, regras de atendimento, diferencial da empresa. Ou use o Assistente IA para gerar automaticamente.
                   </p>
                 </CardContent>
               </Card>
@@ -552,6 +567,18 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
           </div>
         )}
       </DialogContent>
+      
+      {/* Prompt Wizard */}
+      {bot && (
+        <PromptWizard
+          open={showPromptWizard}
+          onOpenChange={setShowPromptWizard}
+          botName={bot.name}
+          currentServiceType={bot.service_type}
+          currentPrompt={systemPrompt}
+          onPromptGenerated={setSystemPrompt}
+        />
+      )}
     </Dialog>
   );
 }
