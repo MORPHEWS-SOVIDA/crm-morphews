@@ -8,13 +8,21 @@ export interface LeadStageHistory {
   organization_id: string;
   stage: FunnelStage;
   previous_stage: FunnelStage | null;
+  funnel_stage_id: string | null;
   reason: string | null;
   changed_by: string | null;
+  source: string | null;
   created_at: string;
   changed_by_profile?: {
     first_name: string;
     last_name: string;
   } | null;
+  funnel_stage_name?: string | null;
+  funnel_stage_color?: string | null;
+  funnel_stage_text_color?: string | null;
+  previous_funnel_stage_name?: string | null;
+  previous_funnel_stage_color?: string | null;
+  previous_funnel_stage_text_color?: string | null;
 }
 
 export function useLeadStageHistory(leadId: string | undefined) {
@@ -23,7 +31,7 @@ export function useLeadStageHistory(leadId: string | undefined) {
     queryFn: async () => {
       if (!leadId) return [];
       
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('lead_stage_history')
         .select('*')
         .eq('lead_id', leadId)
@@ -34,8 +42,41 @@ export function useLeadStageHistory(leadId: string | undefined) {
         throw error;
       }
 
+      const entries = (data || []) as any[];
+
+      // Collect all funnel_stage_ids to resolve names
+      const stageIds = new Set<string>();
+      for (const entry of entries) {
+        if (entry.funnel_stage_id) stageIds.add(entry.funnel_stage_id);
+      }
+
+      // Also get org_id to fetch all stages for enum fallback
+      const orgId = entries[0]?.organization_id;
+      let stagesMap: Record<string, { name: string; color: string; text_color: string; enum_value: string | null }> = {};
+
+      if (orgId) {
+        const { data: stages } = await (supabase as any)
+          .from('organization_funnel_stages')
+          .select('id, name, color, text_color, enum_value')
+          .eq('organization_id', orgId);
+
+        if (stages) {
+          for (const s of stages) {
+            stagesMap[s.id] = { name: s.name, color: s.color, text_color: s.text_color, enum_value: s.enum_value };
+          }
+        }
+      }
+
+      // Build enum-to-stage lookup for previous_stage resolution
+      const enumToStage: Record<string, { name: string; color: string; text_color: string }> = {};
+      for (const s of Object.values(stagesMap)) {
+        if (s.enum_value) {
+          enumToStage[s.enum_value] = { name: s.name, color: s.color, text_color: s.text_color };
+        }
+      }
+
       // Fetch user profiles for changed_by
-      const changedByIds = [...new Set((data || []).map(h => h.changed_by).filter(Boolean))] as string[];
+      const changedByIds = [...new Set(entries.map((h: any) => h.changed_by).filter(Boolean))] as string[];
       
       let profiles: Record<string, { first_name: string; last_name: string }> = {};
       
@@ -53,11 +94,22 @@ export function useLeadStageHistory(leadId: string | undefined) {
         }
       }
 
-      // Merge profiles into history
-      const historyWithProfiles = (data || []).map(entry => ({
-        ...entry,
-        changed_by_profile: entry.changed_by ? profiles[entry.changed_by] : null,
-      }));
+      // Merge everything
+      const historyWithProfiles = entries.map((entry: any) => {
+        const stageInfo = entry.funnel_stage_id ? stagesMap[entry.funnel_stage_id] : null;
+        const prevInfo = entry.previous_stage ? enumToStage[entry.previous_stage] : null;
+
+        return {
+          ...entry,
+          changed_by_profile: entry.changed_by ? profiles[entry.changed_by] : null,
+          funnel_stage_name: stageInfo?.name || null,
+          funnel_stage_color: stageInfo?.color || null,
+          funnel_stage_text_color: stageInfo?.text_color || null,
+          previous_funnel_stage_name: prevInfo?.name || null,
+          previous_funnel_stage_color: prevInfo?.color || null,
+          previous_funnel_stage_text_color: prevInfo?.text_color || null,
+        };
+      });
 
       return historyWithProfiles as LeadStageHistory[];
     },
@@ -72,8 +124,7 @@ interface AddStageHistoryParams {
   previous_stage?: FunnelStage | null;
   reason?: string | null;
   changed_by?: string | null;
-  // TracZAP integration
-  to_stage_id?: string; // UUID of the target funnel stage for CAPI event trigger
+  to_stage_id?: string;
   source?: 'manual' | 'whatsapp' | 'automation' | 'webhook' | 'ecommerce';
 }
 
@@ -101,10 +152,8 @@ export function useAddStageHistory() {
         throw error;
       }
 
-      // TracZAP: Dispatch stage event to Meta CAPI (non-blocking)
       if (params.to_stage_id) {
         try {
-          // Call TracZAP edge function asynchronously
           supabase.functions.invoke('traczap-stage-event', {
             body: {
               lead_id: params.lead_id,
@@ -122,7 +171,6 @@ export function useAddStageHistory() {
             console.warn('[TracZAP] Event dispatch error:', err);
           });
         } catch (e) {
-          // Non-blocking - don't fail the stage change
           console.warn('[TracZAP] Error invoking function:', e);
         }
       }

@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { History, ChevronDown, ChevronUp, MessageSquare, Clock, User } from 'lucide-react';
+import { History, ChevronDown, ChevronUp, MessageSquare, Clock, User, Bot, Globe, ShoppingCart, Phone } from 'lucide-react';
 import { FUNNEL_STAGES, FunnelStage } from '@/types/lead';
 import { useLeadStageHistory } from '@/hooks/useLeadStageHistory';
-import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 interface LeadStageTimelineProps {
   leadId: string;
@@ -16,22 +16,63 @@ interface LeadStageTimelineProps {
 
 export function LeadStageTimeline({ leadId, currentStage }: LeadStageTimelineProps) {
   const { data: history = [], isLoading } = useLeadStageHistory(leadId);
-  const { data: customStages = [] } = useFunnelStages();
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Helper to get stage info from tenant's custom stages, with fallback to static FUNNEL_STAGES
-  const getStageInfo = (stageEnum: FunnelStage) => {
-    const customStage = customStages.find(s => s.enum_value === stageEnum);
-    if (customStage) {
-      return {
-        label: customStage.name,
-        color: customStage.color,
-        textColor: customStage.text_color,
-      };
+  const getStageDisplay = (entry: typeof history[number], type: 'current' | 'previous') => {
+    if (type === 'current') {
+      if (entry.funnel_stage_name) {
+        return {
+          label: entry.funnel_stage_name,
+          color: entry.funnel_stage_color || 'bg-muted',
+          textColor: entry.funnel_stage_text_color || 'text-foreground',
+        };
+      }
+    } else {
+      if (entry.previous_funnel_stage_name) {
+        return {
+          label: entry.previous_funnel_stage_name,
+          color: entry.previous_funnel_stage_color || 'bg-muted',
+          textColor: entry.previous_funnel_stage_text_color || 'text-foreground',
+        };
+      }
+      if (!entry.previous_stage) return null;
     }
-    // Fallback to static definition
-    const staticStage = FUNNEL_STAGES[stageEnum];
-    return staticStage || { label: stageEnum, color: 'bg-muted', textColor: 'text-foreground' };
+
+    const enumVal = type === 'current' ? entry.stage : entry.previous_stage;
+    if (!enumVal) return null;
+
+    const staticStage = FUNNEL_STAGES[enumVal as FunnelStage];
+    return staticStage || { label: enumVal, color: 'bg-muted', textColor: 'text-foreground' };
+  };
+
+  const getSourceIcon = (source: string | null) => {
+    switch (source) {
+      case 'auto_move':
+      case 'automation':
+        return <Bot className="w-3 h-3" />;
+      case 'webhook':
+      case 'ecommerce':
+        return <ShoppingCart className="w-3 h-3" />;
+      case 'whatsapp':
+        return <Phone className="w-3 h-3" />;
+      case 'social_selling':
+        return <Globe className="w-3 h-3" />;
+      default:
+        return <User className="w-3 h-3" />;
+    }
+  };
+
+  const getSourceLabel = (source: string | null) => {
+    switch (source) {
+      case 'auto_move': return 'Auto-move';
+      case 'automation': return 'Automação';
+      case 'webhook': return 'Webhook';
+      case 'ecommerce': return 'E-commerce';
+      case 'whatsapp': return 'WhatsApp';
+      case 'social_selling': return 'Social Selling';
+      case 'manual': return 'Manual';
+      default: return source || 'Manual';
+    }
   };
 
   if (isLoading) {
@@ -57,6 +98,8 @@ export function LeadStageTimeline({ leadId, currentStage }: LeadStageTimelinePro
       time: format(date, "HH:mm", { locale: ptBR }),
     };
   };
+
+  const isHexOrRgb = (color: string) => color.startsWith('#') || color.startsWith('rgb');
 
   return (
     <div className="bg-card rounded-xl p-6 shadow-card">
@@ -89,31 +132,24 @@ export function LeadStageTimeline({ leadId, currentStage }: LeadStageTimelinePro
             </div>
           ) : (
             <div className="relative">
-              {/* Timeline line */}
               <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
 
               <div className="space-y-4">
                 {history.map((entry, index) => {
-                  const stageInfo = getStageInfo(entry.stage);
-                  const previousStageInfo = entry.previous_stage 
-                    ? getStageInfo(entry.previous_stage)
-                    : null;
+                  const stageDisplay = getStageDisplay(entry, 'current');
+                  const previousDisplay = getStageDisplay(entry, 'previous');
                   const { date, time } = formatDateTime(entry.created_at);
                   const isLatest = index === history.length - 1;
 
-                  // Check if colors are hex/rgb or Tailwind classes
-                  const isHexOrRgb = (color: string) => color.startsWith('#') || color.startsWith('rgb');
-                  
                   return (
                     <div key={entry.id} className="relative pl-10">
-                      {/* Timeline dot */}
                       <div 
                         className={cn(
                           "absolute left-2 w-5 h-5 rounded-full border-2 border-background flex items-center justify-center",
                           !isLatest && "bg-muted",
-                          isLatest && !isHexOrRgb(stageInfo.color) && stageInfo.color
+                          isLatest && stageDisplay && !isHexOrRgb(stageDisplay.color) && stageDisplay.color
                         )}
-                        style={isLatest && isHexOrRgb(stageInfo.color) ? { backgroundColor: stageInfo.color } : undefined}
+                        style={isLatest && stageDisplay && isHexOrRgb(stageDisplay.color) ? { backgroundColor: stageDisplay.color } : undefined}
                       >
                         {isLatest && (
                           <div className="w-2 h-2 rounded-full bg-background" />
@@ -124,43 +160,43 @@ export function LeadStageTimeline({ leadId, currentStage }: LeadStageTimelinePro
                         "rounded-lg p-4 border transition-colors",
                         isLatest ? "border-primary/20 bg-primary/5" : "border-border bg-muted/30"
                       )}>
-                        {/* Stage badge */}
                         <div className="flex flex-wrap items-center gap-2 mb-2">
-                          {previousStageInfo && (
+                          {previousDisplay && (
                             <>
                               <span 
                                 className={cn(
                                   "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium opacity-60",
-                                  !isHexOrRgb(previousStageInfo.color) && previousStageInfo.color,
-                                  !isHexOrRgb(previousStageInfo.textColor) && previousStageInfo.textColor
+                                  !isHexOrRgb(previousDisplay.color) && previousDisplay.color,
+                                  !isHexOrRgb(previousDisplay.textColor) && previousDisplay.textColor
                                 )}
                                 style={{
-                                  ...(isHexOrRgb(previousStageInfo.color) ? { backgroundColor: previousStageInfo.color } : {}),
-                                  ...(isHexOrRgb(previousStageInfo.textColor) ? { color: previousStageInfo.textColor } : {}),
+                                  ...(isHexOrRgb(previousDisplay.color) ? { backgroundColor: previousDisplay.color } : {}),
+                                  ...(isHexOrRgb(previousDisplay.textColor) ? { color: previousDisplay.textColor } : {}),
                                 }}
                               >
-                                {previousStageInfo.label}
+                                {previousDisplay.label}
                               </span>
                               <span className="text-muted-foreground">→</span>
                             </>
                           )}
-                          <span 
-                            className={cn(
-                              "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium",
-                              !isHexOrRgb(stageInfo.color) && stageInfo.color,
-                              !isHexOrRgb(stageInfo.textColor) && stageInfo.textColor
-                            )}
-                            style={{
-                              ...(isHexOrRgb(stageInfo.color) ? { backgroundColor: stageInfo.color } : {}),
-                              ...(isHexOrRgb(stageInfo.textColor) ? { color: stageInfo.textColor } : {}),
-                            }}
-                          >
-                            {stageInfo.label}
-                          </span>
+                          {stageDisplay && (
+                            <span 
+                              className={cn(
+                                "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium",
+                                !isHexOrRgb(stageDisplay.color) && stageDisplay.color,
+                                !isHexOrRgb(stageDisplay.textColor) && stageDisplay.textColor
+                              )}
+                              style={{
+                                ...(isHexOrRgb(stageDisplay.color) ? { backgroundColor: stageDisplay.color } : {}),
+                                ...(isHexOrRgb(stageDisplay.textColor) ? { color: stageDisplay.textColor } : {}),
+                              }}
+                            >
+                              {stageDisplay.label}
+                            </span>
+                          )}
                         </div>
 
-                        {/* Date, time and user */}
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mb-2">
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5" />
                             {date}
@@ -174,9 +210,14 @@ export function LeadStageTimeline({ leadId, currentStage }: LeadStageTimelinePro
                               </span>
                             </span>
                           )}
+                          {entry.source && (
+                            <Badge variant="outline" className="text-[10px] gap-1 h-5">
+                              {getSourceIcon(entry.source)}
+                              {getSourceLabel(entry.source)}
+                            </Badge>
+                          )}
                         </div>
 
-                        {/* Reason/observation */}
                         {entry.reason && (
                           <div className="mt-2 pt-2 border-t border-border/50">
                             <div className="flex items-start gap-2">
