@@ -39,7 +39,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const removeKnowledge = useRemoveAIBotKnowledge();
   const { data: linkedProducts = [] } = useAIBotProducts(botId);
   
-  // Form state for editing
+  // Form state
   const [isActive, setIsActive] = useState<boolean | undefined>();
   const [welcomeMessage, setWelcomeMessage] = useState<string | undefined>();
   const [transferMessage, setTransferMessage] = useState<string | undefined>();
@@ -80,10 +80,8 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const [sendProductVideos, setSendProductVideos] = useState(true);
   const [sendProductLinks, setSendProductLinks] = useState(true);
   
-  // System prompt state
+  // System prompt state - CENTRAL
   const [systemPrompt, setSystemPrompt] = useState('');
-  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
-  const [promptWasEdited, setPromptWasEdited] = useState(false);
   
   // FAQ form state
   const [newQuestion, setNewQuestion] = useState('');
@@ -101,58 +99,44 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setInitialQuestions((bot.initial_questions as InitialQuestion[]) || []);
       setProductScope((bot.product_scope as 'all' | 'selected' | 'none') || 'all');
       setUseRagSearch(bot.use_rag_search ?? false);
-      // Interpretation settings
       setInterpretAudio((bot as any).interpret_audio ?? false);
       setInterpretDocuments((bot as any).interpret_documents ?? false);
       setInterpretImages((bot as any).interpret_images ?? false);
       setDocumentReplyMessage((bot as any).document_reply_message || 'Nossa IA analisou seu documento e identificou as seguintes informações:');
       setImageReplyMessage((bot as any).image_reply_message || 'Nossa IA analisou sua imagem e identificou:');
-      // AI Model
       setAiModelChat((bot as any).ai_model_chat || 'google/gemini-3-flash-preview');
-      // Emoji
       setUseEmojis((bot as any).use_emojis ?? true);
-      // Voice settings
       setVoiceEnabled((bot as any).voice_enabled ?? false);
       setVoiceId((bot as any).voice_id || 'JBFqnCBsd6RMkjVDRZzb');
       setVoiceName((bot as any).voice_name || 'George');
       setAudioResponseProbability((bot as any).audio_response_probability ?? 30);
       setVoiceStyle((bot as any).voice_style || 'natural');
-      // Product media settings
       setSendProductImages((bot as any).send_product_images ?? true);
       setSendProductVideos((bot as any).send_product_videos ?? true);
       setSendProductLinks((bot as any).send_product_links ?? true);
-      // System prompt
       setSystemPrompt(bot.system_prompt || '');
-      setIsEditingPrompt(false);
-      setPromptWasEdited(false);
     }
   };
   
-  // Initialize selected products from linked products
   useEffect(() => {
     if (linkedProducts.length > 0) {
       setSelectedProductIds(linkedProducts.map((p: any) => p.product_id));
     }
   }, [linkedProducts]);
   
-  // Re-initialize form whenever the bot data changes (including when switching bots)
-  // Use bot object reference to catch both bot switches AND data refreshes
   useEffect(() => {
     if (bot && open) {
       initializeForm();
     }
   }, [bot, open]);
   
-  // Reset form when dialog opens
   const handleOpenChange = (open: boolean) => {
     onOpenChange(open);
   };
   
-  // Track if form is ready (bot data matches the selected botId)
   const isFormReady = bot && botId && bot.id === botId;
   
   const handleSave = () => {
-    // CRITICAL: Only save if bot data matches the selected botId to prevent cross-bot contamination
     if (!botId || !isFormReady) return;
     
     updateBot.mutate({
@@ -173,18 +157,15 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       image_reply_message: imageReplyMessage,
       ai_model_chat: aiModelChat,
       use_emojis: useEmojis,
-      // Voice settings
       voice_enabled: voiceEnabled,
       voice_id: voiceId,
       voice_name: voiceName,
       audio_response_probability: audioResponseProbability,
       voice_style: voiceStyle,
-      // Product media settings
       send_product_images: sendProductImages,
       send_product_videos: sendProductVideos,
       send_product_links: sendProductLinks,
-      // System prompt - sempre salva se foi editado
-      ...(promptWasEdited && { system_prompt: systemPrompt }),
+      system_prompt: systemPrompt,
       selectedProductIds: productScope === 'selected' ? selectedProductIds : undefined,
     } as any);
   };
@@ -231,19 +212,19 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
             <Skeleton className="h-32 w-full" />
           </div>
         ) : bot ? (
-          <Tabs defaultValue="general" className="w-full">
+          <Tabs defaultValue="prompt" className="w-full">
             <TabsList className="grid w-full grid-cols-7">
-              <TabsTrigger value="general" className="gap-1">
-                <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline">Geral</span>
+              <TabsTrigger value="prompt" className="gap-1">
+                <Sparkles className="h-4 w-4" />
+                <span className="hidden sm:inline">Prompt</span>
               </TabsTrigger>
               <TabsTrigger value="messages" className="gap-1">
                 <MessageSquare className="h-4 w-4" />
                 <span className="hidden sm:inline">Mensagens</span>
               </TabsTrigger>
-              <TabsTrigger value="qualification" className="gap-1">
-                <ClipboardList className="h-4 w-4" />
-                <span className="hidden sm:inline">Qualificação</span>
+              <TabsTrigger value="knowledge" className="gap-1">
+                <Brain className="h-4 w-4" />
+                <span className="hidden sm:inline">Conhecimento</span>
               </TabsTrigger>
               <TabsTrigger value="interpretation" className="gap-1">
                 <Zap className="h-4 w-4" />
@@ -253,28 +234,25 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                 <Volume2 className="h-4 w-4" />
                 <span className="hidden sm:inline">Voz IA</span>
               </TabsTrigger>
-              <TabsTrigger value="knowledge" className="gap-1">
-                <Brain className="h-4 w-4" />
-                <span className="hidden sm:inline">Conhecimento</span>
-              </TabsTrigger>
               <TabsTrigger value="products" className="gap-1">
                 <Package className="h-4 w-4" />
                 <span className="hidden sm:inline">Produtos</span>
               </TabsTrigger>
+              <TabsTrigger value="advanced" className="gap-1">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Avançado</span>
+              </TabsTrigger>
             </TabsList>
             
-            {/* Tab: Geral */}
-            <TabsContent value="general" className="space-y-4 mt-4">
-              {/* Avatar Generator */}
+            {/* Tab: Prompt (CENTRAL - primeira aba) */}
+            <TabsContent value="prompt" className="space-y-4 mt-4">
+              {/* Avatar */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" />
                     Avatar do Robô
                   </CardTitle>
-                  <CardDescription>
-                    Gere um avatar com IA baseado na personalidade do robô
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="flex justify-center">
                   <AvatarGenerator
@@ -291,11 +269,34 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                 </CardContent>
               </Card>
 
-              <Card>
+              {/* O Prompt - protagonista */}
+              <Card className="border-primary/30">
                 <CardHeader>
-                  <CardTitle className="text-lg">Status do Robô</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Pencil className="h-5 w-5 text-primary" />
+                    Prompt do Sistema
+                  </CardTitle>
+                  <CardDescription>
+                    O prompt é o cérebro do robô. Tudo que ele é e como se comporta está aqui.
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3">
+                  <Textarea
+                    value={systemPrompt}
+                    onChange={(e) => setSystemPrompt(e.target.value)}
+                    placeholder="Defina as instruções para o robô..."
+                    rows={12}
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    💡 Inclua aqui: personalidade, tom de voz, expressões regionais, regras de atendimento, diferencial da empresa. Este é o conteúdo que a IA lê para saber quem ela é.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Status */}
+              <Card>
+                <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Robô Ativo</Label>
@@ -310,7 +311,179 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                   </div>
                 </CardContent>
               </Card>
-
+            </TabsContent>
+            
+            {/* Tab: Mensagens */}
+            <TabsContent value="messages" className="space-y-4 mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Mensagens Padrão</CardTitle>
+                  <CardDescription>
+                    Mensagens fixas usadas em momentos específicos (não fazem parte do prompt)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Mensagem de Boas-vindas</Label>
+                    <Textarea
+                      value={welcomeMessage ?? bot.welcome_message ?? ''}
+                      onChange={(e) => setWelcomeMessage(e.target.value)}
+                      placeholder="Olá! Sou o assistente virtual..."
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground">Enviada quando o cliente inicia a conversa</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Mensagem de Transferência</Label>
+                    <Textarea
+                      value={transferMessage ?? bot.transfer_message ?? ''}
+                      onChange={(e) => setTransferMessage(e.target.value)}
+                      placeholder="Vou transferir você para um atendente..."
+                      rows={2}
+                    />
+                    <p className="text-xs text-muted-foreground">Enviada quando o robô transfere para humano</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Mensagem Fora do Horário</Label>
+                    <Textarea
+                      value={outOfHoursMessage ?? bot.out_of_hours_message ?? ''}
+                      onChange={(e) => setOutOfHoursMessage(e.target.value)}
+                      placeholder="Obrigado pelo contato! Nosso horário..."
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground">Enviada fora do horário de atendimento</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            {/* Tab: Conhecimento (FAQ) */}
+            <TabsContent value="knowledge" className="space-y-4 mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Base de Conhecimento</CardTitle>
+                  <CardDescription>
+                    Perguntas e respostas que o robô consulta automaticamente. São injetadas quando o assunto do cliente corresponde — não fazem parte do prompt.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Qualificação */}
+                  <BotQualificationConfig
+                    botId={botId!}
+                    enabled={qualificationEnabled}
+                    initialQuestions={initialQuestions}
+                    onEnabledChange={setQualificationEnabled}
+                    onQuestionsChange={setInitialQuestions}
+                  />
+                  
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium mb-3">FAQs</h4>
+                    
+                    {/* Lista de FAQs existentes */}
+                    {knowledge.filter((k: any) => k.knowledge_type === 'faq').map((faq: any) => (
+                      <div key={faq.id} className="p-3 border rounded-lg space-y-2 mb-2">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">❓ {faq.question}</p>
+                            <p className="text-sm text-muted-foreground mt-1">💬 {faq.answer}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeKnowledge.mutate({ id: faq.id, botId: botId! })}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Adicionar novo FAQ */}
+                    <div className="border-t pt-4 space-y-3">
+                      <Label>Adicionar Nova Pergunta</Label>
+                      <Input
+                        value={newQuestion}
+                        onChange={(e) => setNewQuestion(e.target.value)}
+                        placeholder="Qual é a pergunta?"
+                      />
+                      <Textarea
+                        value={newAnswer}
+                        onChange={(e) => setNewAnswer(e.target.value)}
+                        placeholder="Qual é a resposta?"
+                        rows={2}
+                      />
+                      <Button
+                        onClick={handleAddFAQ}
+                        disabled={!newQuestion.trim() || !newAnswer.trim()}
+                        size="sm"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Adicionar
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            {/* Tab: Interpretação */}
+            <TabsContent value="interpretation" className="space-y-4 mt-4">
+              <BotInterpretationConfig
+                interpretAudio={interpretAudio}
+                interpretDocuments={interpretDocuments}
+                interpretImages={interpretImages}
+                documentReplyMessage={documentReplyMessage}
+                imageReplyMessage={imageReplyMessage}
+                onInterpretAudioChange={setInterpretAudio}
+                onInterpretDocumentsChange={setInterpretDocuments}
+                onInterpretImagesChange={setInterpretImages}
+                onDocumentReplyMessageChange={setDocumentReplyMessage}
+                onImageReplyMessageChange={setImageReplyMessage}
+              />
+            </TabsContent>
+            
+            {/* Tab: Voz IA */}
+            <TabsContent value="voice" className="space-y-4 mt-4">
+              <BotVoiceConfig
+                voiceEnabled={voiceEnabled}
+                voiceId={voiceId}
+                voiceName={voiceName}
+                audioResponseProbability={audioResponseProbability}
+                voiceStyle={voiceStyle}
+                onVoiceEnabledChange={setVoiceEnabled}
+                onVoiceIdChange={(id, name) => {
+                  setVoiceId(id);
+                  setVoiceName(name);
+                }}
+                onAudioResponseProbabilityChange={setAudioResponseProbability}
+                onVoiceStyleChange={setVoiceStyle}
+                organizationId={profile?.organization_id}
+              />
+            </TabsContent>
+            
+            {/* Tab: Produtos */}
+            <TabsContent value="products" className="space-y-4 mt-4">
+              <BotProductSelector
+                botId={botId!}
+                productScope={productScope}
+                selectedProductIds={selectedProductIds}
+                useRagSearch={useRagSearch}
+                onProductScopeChange={setProductScope}
+                onSelectedProductsChange={setSelectedProductIds}
+                onUseRagSearchChange={setUseRagSearch}
+                sendProductImages={sendProductImages}
+                sendProductVideos={sendProductVideos}
+                sendProductLinks={sendProductLinks}
+                onSendProductImagesChange={setSendProductImages}
+                onSendProductVideosChange={setSendProductVideos}
+                onSendProductLinksChange={setSendProductLinks}
+              />
+            </TabsContent>
+            
+            {/* Tab: Avançado */}
+            <TabsContent value="advanced" className="space-y-4 mt-4">
               {/* AI Model Selection */}
               <Card>
                 <CardHeader>
@@ -365,227 +538,6 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                   </div>
                 </CardContent>
               </Card>
-              
-              <Card>
-                <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                  <div>
-                    <CardTitle className="text-lg">Prompt do Sistema</CardTitle>
-                    <CardDescription>
-                      {isEditingPrompt 
-                        ? 'Edite o prompt manualmente' 
-                        : 'Gerado automaticamente baseado nas suas configurações'}
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    {isEditingPrompt ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSystemPrompt(bot.system_prompt || '');
-                          setIsEditingPrompt(false);
-                          setPromptWasEdited(false);
-                        }}
-                      >
-                        <RotateCcw className="h-4 w-4 mr-1" />
-                        Restaurar
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsEditingPrompt(true)}
-                      >
-                        <Pencil className="h-4 w-4 mr-1" />
-                        Editar
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {isEditingPrompt ? (
-                    <div className="space-y-2">
-                      <Textarea
-                        value={systemPrompt}
-                        onChange={(e) => {
-                          setSystemPrompt(e.target.value);
-                          setPromptWasEdited(true);
-                        }}
-                        placeholder="Defina as instruções para o robô..."
-                        rows={10}
-                        className="font-mono text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Este prompt será usado como instrução principal para o robô. Alterações manuais serão preservadas.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-muted rounded-lg text-sm whitespace-pre-wrap max-h-48 overflow-y-auto">
-                      {bot.system_prompt}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Tab: Mensagens */}
-            <TabsContent value="messages" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Mensagens Padrão</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Mensagem de Boas-vindas</Label>
-                    <Textarea
-                      value={welcomeMessage ?? bot.welcome_message ?? ''}
-                      onChange={(e) => setWelcomeMessage(e.target.value)}
-                      placeholder="Olá! Sou o assistente virtual..."
-                      rows={3}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Mensagem de Transferência</Label>
-                    <Textarea
-                      value={transferMessage ?? bot.transfer_message ?? ''}
-                      onChange={(e) => setTransferMessage(e.target.value)}
-                      placeholder="Vou transferir você para um atendente..."
-                      rows={2}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Mensagem Fora do Horário</Label>
-                    <Textarea
-                      value={outOfHoursMessage ?? bot.out_of_hours_message ?? ''}
-                      onChange={(e) => setOutOfHoursMessage(e.target.value)}
-                      placeholder="Obrigado pelo contato! Nosso horário..."
-                      rows={3}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Tab: Qualificação */}
-            <TabsContent value="qualification" className="space-y-4 mt-4">
-              <BotQualificationConfig
-                botId={botId!}
-                enabled={qualificationEnabled}
-                initialQuestions={initialQuestions}
-                onEnabledChange={setQualificationEnabled}
-                onQuestionsChange={setInitialQuestions}
-              />
-            </TabsContent>
-            
-            {/* Tab: Interpretação */}
-            <TabsContent value="interpretation" className="space-y-4 mt-4">
-              <BotInterpretationConfig
-                interpretAudio={interpretAudio}
-                interpretDocuments={interpretDocuments}
-                interpretImages={interpretImages}
-                documentReplyMessage={documentReplyMessage}
-                imageReplyMessage={imageReplyMessage}
-                onInterpretAudioChange={setInterpretAudio}
-                onInterpretDocumentsChange={setInterpretDocuments}
-                onInterpretImagesChange={setInterpretImages}
-                onDocumentReplyMessageChange={setDocumentReplyMessage}
-                onImageReplyMessageChange={setImageReplyMessage}
-              />
-            </TabsContent>
-            
-            {/* Tab: Voz IA */}
-            <TabsContent value="voice" className="space-y-4 mt-4">
-              <BotVoiceConfig
-                voiceEnabled={voiceEnabled}
-                voiceId={voiceId}
-                voiceName={voiceName}
-                audioResponseProbability={audioResponseProbability}
-                voiceStyle={voiceStyle}
-                onVoiceEnabledChange={setVoiceEnabled}
-                onVoiceIdChange={(id, name) => {
-                  setVoiceId(id);
-                  setVoiceName(name);
-                }}
-                onAudioResponseProbabilityChange={setAudioResponseProbability}
-                onVoiceStyleChange={setVoiceStyle}
-                organizationId={profile?.organization_id}
-              />
-            </TabsContent>
-            
-            <TabsContent value="knowledge" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">FAQs</CardTitle>
-                  <CardDescription>
-                    Perguntas e respostas que o robô conhece
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Lista de FAQs existentes */}
-                  {knowledge.filter((k: any) => k.knowledge_type === 'faq').map((faq: any) => (
-                    <div key={faq.id} className="p-3 border rounded-lg space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">❓ {faq.question}</p>
-                          <p className="text-sm text-muted-foreground mt-1">💬 {faq.answer}</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeKnowledge.mutate({ id: faq.id, botId: botId! })}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Adicionar novo FAQ */}
-                  <div className="border-t pt-4 space-y-3">
-                    <Label>Adicionar Nova Pergunta</Label>
-                    <Input
-                      value={newQuestion}
-                      onChange={(e) => setNewQuestion(e.target.value)}
-                      placeholder="Qual é a pergunta?"
-                    />
-                    <Textarea
-                      value={newAnswer}
-                      onChange={(e) => setNewAnswer(e.target.value)}
-                      placeholder="Qual é a resposta?"
-                      rows={2}
-                    />
-                    <Button
-                      onClick={handleAddFAQ}
-                      disabled={!newQuestion.trim() || !newAnswer.trim()}
-                      size="sm"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Adicionar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Tab: Produtos */}
-            <TabsContent value="products" className="space-y-4 mt-4">
-              <BotProductSelector
-                botId={botId!}
-                productScope={productScope}
-                selectedProductIds={selectedProductIds}
-                useRagSearch={useRagSearch}
-                onProductScopeChange={setProductScope}
-                onSelectedProductsChange={setSelectedProductIds}
-                onUseRagSearchChange={setUseRagSearch}
-                sendProductImages={sendProductImages}
-                sendProductVideos={sendProductVideos}
-                sendProductLinks={sendProductLinks}
-                onSendProductImagesChange={setSendProductImages}
-                onSendProductVideosChange={setSendProductVideos}
-                onSendProductLinksChange={setSendProductLinks}
-              />
             </TabsContent>
           </Tabs>
         ) : null}
