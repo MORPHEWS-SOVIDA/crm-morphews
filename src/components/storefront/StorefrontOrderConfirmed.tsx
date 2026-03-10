@@ -21,14 +21,14 @@ export function StorefrontOrderConfirmed() {
             />
           </div>
 
-          <h1 className="text-2xl font-bold mb-2">Pedido Confirmado!</h1>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: 'inherit' }}>Pedido Confirmado!</h1>
           
-          <p className="text-muted-foreground mb-6">
+          <p className="mb-6 opacity-80">
             Obrigado pela sua compra! Você receberá um e-mail com os detalhes do seu pedido.
           </p>
 
-          <div className="bg-muted/50 rounded-lg p-4 mb-6">
-            <p className="text-sm text-muted-foreground">
+          <div className="rounded-lg p-4 mb-6" style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
+            <p className="text-sm opacity-70 mb-1">
               Em caso de dúvidas, entre em contato pelo WhatsApp:
             </p>
             {storefront.whatsapp_number && (
@@ -36,7 +36,7 @@ export function StorefrontOrderConfirmed() {
                 href={`https://wa.me/${storefront.whatsapp_number.replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium hover:underline"
+                className="font-semibold hover:underline"
                 style={{ color: storefront.primary_color }}
               >
                 {storefront.whatsapp_number}
@@ -45,7 +45,7 @@ export function StorefrontOrderConfirmed() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button variant="outline" asChild>
+            <Button variant="outline" asChild className="border-current">
               <Link to={`/loja/${storefront.slug}`}>
                 <Home className="h-4 w-4 mr-2" />
                 Voltar à Loja
@@ -53,7 +53,7 @@ export function StorefrontOrderConfirmed() {
             </Button>
             <Button 
               asChild
-              style={{ backgroundColor: storefront.primary_color }}
+              style={{ backgroundColor: storefront.primary_color, color: '#ffffff' }}
             >
               <Link to={`/loja/${storefront.slug}/produtos`}>
                 Continuar Comprando
