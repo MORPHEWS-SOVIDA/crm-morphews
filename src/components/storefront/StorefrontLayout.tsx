@@ -305,7 +305,10 @@ export function StorefrontLayout() {
         <meta property="og:description" content={pageDescription} />
         {storefront.logo_url && <meta property="og:image" content={storefront.logo_url} />}
       </Helmet>
-      <div className="min-h-screen flex flex-col">
+      {storefront.custom_css && (
+        <style dangerouslySetInnerHTML={{ __html: storefront.custom_css }} />
+      )}
+      <div className="storefront-wrapper min-h-screen flex flex-col">
         <StorefrontHeader storefront={storefront} />
         <main className="flex-1">
           <Outlet context={{ storefront }} />
