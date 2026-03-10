@@ -10,8 +10,8 @@ export interface AIModel {
   shortName: string;
   provider: 'google' | 'openai';
   description: string;
-  speedRating: 1 | 2 | 3; // 1 = slow, 3 = fast
-  costRating: 1 | 2 | 3; // 1 = cheap, 3 = expensive
+  speedRating: 1 | 2 | 3;
+  costRating: 1 | 2 | 3;
   recommended?: boolean;
   bestFor?: string;
 }
@@ -19,81 +19,29 @@ export interface AIModel {
 export const AI_MODELS: AIModel[] = [
   {
     key: 'google/gemini-3-flash-preview',
-    name: 'Gemini 3 Flash Preview',
-    shortName: 'Gemini 3 Flash',
+    name: 'Inteligente',
+    shortName: 'Inteligente',
     provider: 'google',
-    description: 'Novo padrão - rápido, inteligente e econômico',
-    speedRating: 3,
-    costRating: 1,
-    recommended: true,
-    bestFor: 'Chat geral'
-  },
-  {
-    key: 'google/gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    shortName: 'Gemini 2.5 Flash',
-    provider: 'google',
-    description: 'Ótimo para imagens e documentos',
-    speedRating: 3,
-    costRating: 1,
-    bestFor: 'Multimodal'
-  },
-  {
-    key: 'google/gemini-2.5-pro',
-    name: 'Gemini 2.5 Pro',
-    shortName: 'Gemini 2.5 Pro',
-    provider: 'google',
-    description: 'Máxima precisão, ideal para análises complexas',
-    speedRating: 2,
-    costRating: 3,
-    bestFor: 'Análise detalhada'
-  },
-  {
-    key: 'google/gemini-3-pro-preview',
-    name: 'Gemini 3 Pro Preview',
-    shortName: 'Gemini 3 Pro',
-    provider: 'google',
-    description: 'Próxima geração Pro - muito inteligente',
-    speedRating: 2,
-    costRating: 3,
-    bestFor: 'Raciocínio complexo'
-  },
-  {
-    key: 'openai/gpt-5.2',
-    name: 'GPT-5.2',
-    shortName: 'GPT-5.2',
-    provider: 'openai',
-    description: 'Último modelo OpenAI, raciocínio avançado',
-    speedRating: 2,
-    costRating: 3,
-    bestFor: 'Problemas complexos'
-  },
-  {
-    key: 'openai/gpt-5-mini',
-    name: 'GPT-5 Mini',
-    shortName: 'GPT-5 Mini',
-    provider: 'openai',
-    description: 'Equilíbrio entre qualidade e velocidade',
+    description: 'Melhor qualidade de resposta, ideal para vendas e atendimento complexo',
     speedRating: 3,
     costRating: 2,
-    bestFor: 'Uso geral OpenAI'
+    recommended: true,
+    bestFor: 'Recomendado'
   },
   {
     key: 'openai/gpt-5-nano',
-    name: 'GPT-5 Nano',
-    shortName: 'GPT-5 Nano',
-    provider: 'openai',
-    description: 'Ultra rápido e econômico',
+    name: 'Econômico',
+    shortName: 'Econômico',
+    provider: 'google',
+    description: 'Respostas mais rápidas e menor consumo de energia. Bom para FAQs simples',
     speedRating: 3,
     costRating: 1,
-    bestFor: 'Alta velocidade'
+    bestFor: 'Economia de energia'
   },
 ];
 
 // Models optimized for vision/document tasks
-export const VISION_MODELS = AI_MODELS.filter(m => 
-  ['google/gemini-2.5-flash', 'google/gemini-2.5-pro', 'google/gemini-3-flash-preview', 'google/gemini-3-pro-preview', 'openai/gpt-5.2', 'openai/gpt-5-mini'].includes(m.key)
-);
+export const VISION_MODELS = AI_MODELS;
 
 // Models for chat
 export const CHAT_MODELS = AI_MODELS;
@@ -136,15 +84,6 @@ const CostIndicator = ({ rating }: { rating: number }) => (
   </div>
 );
 
-const ProviderIcon = ({ provider }: { provider: 'google' | 'openai' }) => (
-  <span className={cn(
-    "text-xs font-medium px-1.5 py-0.5 rounded",
-    provider === 'google' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
-  )}>
-    {provider === 'google' ? 'Google' : 'OpenAI'}
-  </span>
-);
-
 export function AIModelSelector({ 
   value, 
   onChange, 
@@ -154,7 +93,9 @@ export function AIModelSelector({
   className,
   compact = false
 }: AIModelSelectorProps) {
-  const selectedModel = models.find(m => m.key === value) || models[0];
+  // Map old model keys to new ones
+  const normalizedValue = models.find(m => m.key === value)?.key || models[0].key;
+  const selectedModel = models.find(m => m.key === normalizedValue) || models[0];
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -168,7 +109,7 @@ export function AIModelSelector({
         <p className="text-xs text-muted-foreground">{description}</p>
       )}
       
-      <Select value={value} onValueChange={onChange}>
+      <Select value={normalizedValue} onValueChange={onChange}>
         <SelectTrigger className={cn("w-full", compact ? "h-9" : "h-auto min-h-[52px]")}>
           <SelectValue>
             {selectedModel && (
@@ -178,18 +119,15 @@ export function AIModelSelector({
                 )}
                 <span className="font-medium">{selectedModel.shortName}</span>
                 {!compact && (
-                  <>
-                    <ProviderIcon provider={selectedModel.provider} />
-                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                      {selectedModel.bestFor}
-                    </span>
-                  </>
+                  <span className="text-xs text-muted-foreground hidden sm:inline">
+                    {selectedModel.bestFor}
+                  </span>
                 )}
               </div>
             )}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent className="w-[400px] max-w-[calc(100vw-2rem)]">
+        <SelectContent className="w-[380px] max-w-[calc(100vw-2rem)]">
           {models.map((model) => (
             <SelectItem 
               key={model.key} 
@@ -205,7 +143,6 @@ export function AIModelSelector({
                     </Badge>
                   )}
                   <span className="font-medium">{model.name}</span>
-                  <ProviderIcon provider={model.provider} />
                 </div>
                 <p className="text-xs text-muted-foreground">{model.description}</p>
                 <div className="flex items-center gap-4 mt-1">
