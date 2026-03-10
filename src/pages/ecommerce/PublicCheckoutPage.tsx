@@ -94,7 +94,7 @@ export default function PublicCheckoutPage() {
   // Cart sync for abandoned cart tracking
   const [cartId, setCartId] = useState<string | null>(null);
   const [sessionId] = useState(() => crypto.randomUUID());
-  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Capture affiliate code from URL
   const affiliateCode = useMemo(() => {

@@ -44,7 +44,7 @@ export function AudioRecorder({ onAudioReady, isRecording, setIsRecording }: Aud
   const [supportedFormat, setSupportedFormat] = useState<string>('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
