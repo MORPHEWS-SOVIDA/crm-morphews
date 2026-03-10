@@ -163,6 +163,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       document_reply_message: documentReplyMessage,
       image_reply_message: imageReplyMessage,
       ai_model_chat: aiModelChat,
+      use_emojis: useEmojis,
       // Voice settings
       voice_enabled: voiceEnabled,
       voice_id: voiceId,
