@@ -22,7 +22,7 @@ export function SocialSellingProfileFilter({
   onSelectProfile,
   compact,
 }: SocialSellingProfileFilterProps) {
-  const { organizationId } = useTenant();
+  const { tenantId: organizationId } = useTenant();
 
   const { data: profiles = [] } = useQuery({
     queryKey: ['social-selling-profiles-filter', organizationId],

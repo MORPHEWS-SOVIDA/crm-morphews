@@ -7,7 +7,7 @@ import { useTenant } from '@/hooks/useTenant';
  * When profileId is null, returns null (no filtering needed).
  */
 export function useLeadsBySSProfile(profileId: string | null) {
-  const { organizationId } = useTenant();
+  const { tenantId: organizationId } = useTenant();
 
   const { data: leadIds, isLoading } = useQuery({
     queryKey: ['leads-by-ss-profile', organizationId, profileId],
