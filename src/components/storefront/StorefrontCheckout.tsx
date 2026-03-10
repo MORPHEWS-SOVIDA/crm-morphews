@@ -274,6 +274,15 @@ export function StorefrontCheckout() {
     return hasBasicFields && hasAddressFields && hasCardData && acceptedTerms;
   }, [formData, paymentMethod, isOneClickCheckout, cardData, acceptedTerms, checkoutConfig.collectAddress]);
 
+  if (restoringCart) {
+    return (
+      <div className="container mx-auto px-4 py-12 text-center">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+        <p className="mt-4 text-muted-foreground">Carregando carrinho...</p>
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-12 text-center">
