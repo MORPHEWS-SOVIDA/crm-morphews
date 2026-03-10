@@ -1098,8 +1098,14 @@ function buildFAQContext(faqs: Array<{question: string, answer: string}>): strin
   const faqText = faqs.map(f => `P: ${f.question}\nR: ${f.answer}`).join('\n\n');
   
   return `
-PERGUNTAS FREQUENTES (use para responder dúvidas comuns):
-${faqText}`;
+═══ BASE DE CONHECIMENTO OBRIGATÓRIA (FAQs) ═══
+REGRA CRÍTICA: Quando a mensagem do usuário corresponder a uma das perguntas abaixo (mesmo que parcialmente ou com palavras diferentes), você DEVE usar a resposta cadastrada como base da sua resposta.
+- Se a resposta contiver um link (URL/vídeo), você DEVE incluir esse link na sua resposta.
+- Você pode adaptar o tom e adicionar empatia, mas o CONTEÚDO e os LINKS da resposta cadastrada são OBRIGATÓRIOS.
+- NUNCA ignore uma FAQ que corresponda à pergunta do usuário.
+
+${faqText}
+═══ FIM DA BASE DE CONHECIMENTO ═══`;
 }
 
 function buildSemanticContext(results: SemanticSearchResult[]): string {
