@@ -65,6 +65,9 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   // AI Model state
   const [aiModelChat, setAiModelChat] = useState('google/gemini-3-flash-preview');
   
+  // Emoji state
+  const [useEmojis, setUseEmojis] = useState(true);
+  
   // Voice state
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceId, setVoiceId] = useState('JBFqnCBsd6RMkjVDRZzb');
