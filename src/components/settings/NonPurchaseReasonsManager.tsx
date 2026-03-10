@@ -228,7 +228,7 @@ export function NonPurchaseReasonsManager() {
               Adicionar Motivo
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Novo Followup Automático</DialogTitle>
             </DialogHeader>
@@ -379,7 +379,7 @@ export function NonPurchaseReasonsManager() {
                       <Pencil className="w-4 h-4" />
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-lg">
+                  <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Editar Motivo</DialogTitle>
                     </DialogHeader>
