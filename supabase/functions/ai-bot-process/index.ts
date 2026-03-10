@@ -1098,11 +1098,12 @@ function buildFAQContext(faqs: Array<{question: string, answer: string}>): strin
   const faqText = faqs.map(f => `P: ${f.question}\nR: ${f.answer}`).join('\n\n');
   
   return `
-═══ BASE DE CONHECIMENTO OBRIGATÓRIA (FAQs) ═══
-REGRA CRÍTICA: Quando a mensagem do usuário corresponder a uma das perguntas abaixo (mesmo que parcialmente ou com palavras diferentes), você DEVE usar a resposta cadastrada como base da sua resposta.
-- Se a resposta contiver um link (URL/vídeo), você DEVE incluir esse link na sua resposta.
-- Você pode adaptar o tom e adicionar empatia, mas o CONTEÚDO e os LINKS da resposta cadastrada são OBRIGATÓRIOS.
-- NUNCA ignore uma FAQ que corresponda à pergunta do usuário.
+═══ BASE DE CONHECIMENTO (FAQs) ═══
+REGRAS DE USO DAS FAQs:
+1. Use uma FAQ SOMENTE quando a mensagem do usuário tratar ESPECIFICAMENTE do mesmo assunto da pergunta cadastrada.
+2. Se o usuário NÃO perguntou sobre o tema de nenhuma FAQ, NÃO mencione nenhuma resposta de FAQ. Responda normalmente.
+3. Quando houver correspondência direta, use a resposta cadastrada como base e inclua os links/URLs se existirem.
+4. NUNCA misture FAQs em respostas genéricas ou de boas-vindas. FAQs só devem aparecer quando o usuário perguntar sobre aquele tema específico.
 
 ${faqText}
 ═══ FIM DA BASE DE CONHECIMENTO ═══`;
