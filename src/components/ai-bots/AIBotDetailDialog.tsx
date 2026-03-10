@@ -16,6 +16,7 @@ import { BotProductSelector } from "./BotProductSelector";
 import { BotInterpretationConfig } from "./BotInterpretationConfig";
 import { BotVoiceConfig } from "./BotVoiceConfig";
 import { AIModelSelector, CHAT_MODELS } from "@/components/ai/AIModelSelector";
+import { PromptWizard } from "./PromptWizard";
 import { useAuth } from "@/hooks/useAuth";
 
 interface InitialQuestion {
