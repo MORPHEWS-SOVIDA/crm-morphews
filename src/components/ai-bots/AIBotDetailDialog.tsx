@@ -109,6 +109,8 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setImageReplyMessage((bot as any).image_reply_message || 'Nossa IA analisou sua imagem e identificou:');
       // AI Model
       setAiModelChat((bot as any).ai_model_chat || 'google/gemini-3-flash-preview');
+      // Emoji
+      setUseEmojis((bot as any).use_emojis ?? true);
       // Voice settings
       setVoiceEnabled((bot as any).voice_enabled ?? false);
       setVoiceId((bot as any).voice_id || 'JBFqnCBsd6RMkjVDRZzb');
