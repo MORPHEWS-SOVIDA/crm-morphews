@@ -93,6 +93,64 @@ export function StorefrontCheckout() {
     return initial;
   });
 
+  // Restore cart from database when accessed via /checkout/:cartId URL
+  useEffect(() => {
+    if (!urlCartId || items.length > 0 || restoringCart) return;
+    
+    const restoreCart = async () => {
+      setRestoringCart(true);
+      try {
+        const { data: cart, error } = await supabase
+          .from('ecommerce_carts')
+          .select('items, customer_name, customer_email, customer_phone, customer_cpf, shipping_cep, shipping_address, shipping_city, shipping_state')
+          .eq('id', urlCartId)
+          .single();
+        
+        if (error || !cart) {
+          console.warn('[Checkout] Cart not found:', urlCartId);
+          setRestoringCart(false);
+          return;
+        }
+
+        // Restore customer data into form
+        if (cart.customer_name || cart.customer_email) {
+          setFormData(prev => ({
+            ...prev,
+            name: cart.customer_name || prev.name,
+            email: cart.customer_email || prev.email,
+            phone: cart.customer_phone || prev.phone,
+            cpf: cart.customer_cpf || prev.cpf,
+            cep: cart.shipping_cep || prev.cep,
+            street: cart.shipping_address || prev.street,
+            city: cart.shipping_city || prev.city,
+            state: cart.shipping_state || prev.state,
+          }));
+        }
+
+        // Restore cart items
+        const cartItems = (cart.items as any[]) || [];
+        for (const item of cartItems) {
+          if (item.product_id && item.quantity && item.price_cents) {
+            addItem({
+              productId: item.product_id,
+              storefrontProductId: item.storefront_product_id || item.product_id,
+              name: item.name || 'Produto',
+              imageUrl: item.image_url || null,
+              quantity: item.quantity,
+              kitSize: item.kit_size || 1,
+              unitPrice: item.price_cents,
+            }, storefront.slug, storefront.id);
+          }
+        }
+      } catch (err) {
+        console.error('[Checkout] Error restoring cart:', err);
+      }
+      setRestoringCart(false);
+    };
+
+    restoreCart();
+  }, [urlCartId, items.length, restoringCart, storefront.slug, storefront.id, addItem]);
+
   // Universal tracking for server-side CAPI
   const trackingConfig = useMemo(() => ({
     organizationId: storefront.organization_id,
