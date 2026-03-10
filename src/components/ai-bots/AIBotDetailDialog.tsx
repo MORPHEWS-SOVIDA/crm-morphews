@@ -593,7 +593,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
         {/* Save Button */}
         {bot && (
           <div className="flex justify-end pt-4 border-t">
-            <Button onClick={handleSave} disabled={updateBot.isPending}>
+            <Button onClick={handleSave} disabled={updateBot.isPending || !isFormReady}>
               <Save className="h-4 w-4 mr-2" />
               {updateBot.isPending ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
