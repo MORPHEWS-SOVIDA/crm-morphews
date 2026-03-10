@@ -397,6 +397,11 @@ export default function DashboardKanban() {
                     Sem movimentação há {selectedInactivityDays} dias
                   </span>
                 )}
+                {selectedSSProfileId && (
+                  <span className="bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-2 py-1 rounded flex items-center gap-1">
+                    📸 Filtro por perfil Instagram
+                  </span>
+                )}
               </div>
             )}
           </div>
