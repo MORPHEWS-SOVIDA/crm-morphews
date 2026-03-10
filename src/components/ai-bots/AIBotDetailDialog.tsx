@@ -567,6 +567,18 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
           </div>
         )}
       </DialogContent>
+      
+      {/* Prompt Wizard */}
+      {bot && (
+        <PromptWizard
+          open={showPromptWizard}
+          onOpenChange={setShowPromptWizard}
+          botName={bot.name}
+          currentServiceType={bot.service_type}
+          currentPrompt={systemPrompt}
+          onPromptGenerated={setSystemPrompt}
+        />
+      )}
     </Dialog>
   );
 }
