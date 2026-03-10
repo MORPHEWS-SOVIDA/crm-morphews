@@ -428,6 +428,7 @@ serve(async (req) => {
       fbclid: utm?.fbclid || null,
       gclid: utm?.gclid || null,
       ttclid: utm?.ttclid || null,
+      is_ecommerce_origin: true,
     };
 
     // Add shipping address reference if we created one
@@ -446,11 +447,13 @@ serve(async (req) => {
     // 6. Create sale items - with error logging
     console.log(`[Checkout] Creating ${productItems.length} sale items for sale ${sale.id}`);
     for (const item of productItems) {
+      const productInfo = productMap[item.product_id];
       const { error: itemError } = await supabase
         .from('sale_items')
         .insert({
           sale_id: sale.id,
           product_id: item.product_id,
+          product_name: productInfo?.name || item.product_name || 'Produto',
           quantity: item.quantity,
           unit_price_cents: item.price_cents,
           total_cents: item.price_cents * item.quantity,

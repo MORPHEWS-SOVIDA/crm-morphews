@@ -14862,6 +14862,7 @@ export type Database = {
           id: string
           invoice_pdf_url: string | null
           invoice_xml_url: string | null
+          is_ecommerce_origin: boolean | null
           lead_id: string
           missing_payment_proof: boolean | null
           modified_at_closing: boolean | null
@@ -14968,6 +14969,7 @@ export type Database = {
           id?: string
           invoice_pdf_url?: string | null
           invoice_xml_url?: string | null
+          is_ecommerce_origin?: boolean | null
           lead_id: string
           missing_payment_proof?: boolean | null
           modified_at_closing?: boolean | null
@@ -15074,6 +15076,7 @@ export type Database = {
           id?: string
           invoice_pdf_url?: string | null
           invoice_xml_url?: string | null
+          is_ecommerce_origin?: boolean | null
           lead_id?: string
           missing_payment_proof?: boolean | null
           modified_at_closing?: boolean | null
