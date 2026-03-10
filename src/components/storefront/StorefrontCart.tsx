@@ -35,6 +35,59 @@ function formatCurrencyParts(cents: number): { main: string; decimals: string } 
 export function StorefrontCart() {
   const { storefront } = useOutletContext<{ storefront: StorefrontData }>();
   const { items, updateQuantity, removeItem, subtotal, clearCart, storefrontSlug, storefrontId, addItem } = useCart();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Decode ?cart= base64 param (from external sites like shapefy.shop)
+  useEffect(() => {
+    const cartParam = searchParams.get('cart');
+    if (!cartParam) return;
+
+    try {
+      const decoded = JSON.parse(decodeURIComponent(atob(cartParam)));
+      console.log('[Cart] 📦 Received external cart data:', JSON.stringify(decoded, null, 2));
+      console.log('[Cart] Items count:', decoded.items?.length || 0);
+      console.log('[Cart] Customer:', decoded.customer?.name, decoded.customer?.email);
+
+      // Restore cart items
+      const cartItems = decoded.items || [];
+      for (const item of cartItems) {
+        if (item.product_id && item.quantity) {
+          addItem({
+            productId: item.product_id,
+            storefrontProductId: item.storefront_product_id || item.product_id,
+            name: item.name || 'Produto',
+            imageUrl: item.image_url || null,
+            quantity: item.quantity,
+            kitSize: item.kit_size || 1,
+            unitPrice: item.unit_price_cents || item.price_cents || 0,
+          }, storefront.slug, storefront.id);
+        }
+      }
+
+      // Save customer data for checkout to pick up
+      if (decoded.customer) {
+        localStorage.setItem('checkout_customer', JSON.stringify({
+          name: decoded.customer.name || '',
+          email: decoded.customer.email || '',
+          phone: decoded.customer.whatsapp || decoded.customer.phone || '',
+          cpf: decoded.customer.cpf || '',
+        }));
+      }
+
+      // Clean URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('cart');
+      window.history.replaceState({}, '', newUrl.pathname);
+
+      // Auto-redirect to checkout if customer data is present
+      if (decoded.customer?.name && decoded.customer?.email) {
+        navigate(`/loja/${storefront.slug}/checkout`, { replace: true });
+      }
+    } catch (err) {
+      console.error('[Cart] Error decoding cart param:', err);
+    }
+  }, [searchParams, storefront.slug, storefront.id, addItem, navigate]);
 
   const cartProductIds = items.map(item => item.productId);
   
