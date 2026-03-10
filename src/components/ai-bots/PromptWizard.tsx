@@ -4,10 +4,26 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Sparkles, Loader2, Wand2 } from "lucide-react";
+import { Sparkles, Loader2, Wand2, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+export interface BotSettings {
+  useEmojis?: boolean;
+  interpretAudio?: boolean;
+  interpretImages?: boolean;
+  interpretDocuments?: boolean;
+  voiceEnabled?: boolean;
+  voiceStyle?: string;
+  maxMessages?: number;
+  qualificationEnabled?: boolean;
+  qualificationQuestions?: { questionText: string }[];
+  productScope?: string;
+  sendProductImages?: boolean;
+  sendProductVideos?: boolean;
+  sendProductLinks?: boolean;
+}
 
 interface PromptWizardProps {
   open: boolean;
@@ -15,7 +31,9 @@ interface PromptWizardProps {
   botName: string;
   currentServiceType: string;
   currentPrompt: string;
+  botSettings: BotSettings;
   onPromptGenerated: (prompt: string) => void;
+  onSaveAll: () => void;
 }
 
 const SERVICE_TYPES = [
@@ -26,7 +44,7 @@ const SERVICE_TYPES = [
   { value: 'qualification', label: '📋 Qualificação' },
 ];
 
-export function PromptWizard({ open, onOpenChange, botName, currentServiceType, currentPrompt, onPromptGenerated }: PromptWizardProps) {
+export function PromptWizard({ open, onOpenChange, botName, currentServiceType, currentPrompt, botSettings, onPromptGenerated, onSaveAll }: PromptWizardProps) {
   const [serviceType, setServiceType] = useState(currentServiceType || 'sales');
   const [description, setDescription] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -42,6 +60,20 @@ export function PromptWizard({ open, onOpenChange, botName, currentServiceType, 
           serviceType,
           description,
           currentPrompt: currentPrompt || undefined,
+          // Pass all behavioral settings
+          useEmojis: botSettings.useEmojis,
+          interpretAudio: botSettings.interpretAudio,
+          interpretImages: botSettings.interpretImages,
+          interpretDocuments: botSettings.interpretDocuments,
+          voiceEnabled: botSettings.voiceEnabled,
+          voiceStyle: botSettings.voiceStyle,
+          maxMessages: botSettings.maxMessages,
+          qualificationEnabled: botSettings.qualificationEnabled,
+          qualificationQuestions: botSettings.qualificationQuestions,
+          productScope: botSettings.productScope,
+          sendProductImages: botSettings.sendProductImages,
+          sendProductVideos: botSettings.sendProductVideos,
+          sendProductLinks: botSettings.sendProductLinks,
         },
       });
 
@@ -57,14 +89,17 @@ export function PromptWizard({ open, onOpenChange, botName, currentServiceType, 
     }
   };
 
-  const handleApply = () => {
+  const handleApplyAndSave = () => {
     onPromptGenerated(generatedPrompt);
+    // Small delay to let state propagate, then save
+    setTimeout(() => {
+      onSaveAll();
+    }, 100);
     onOpenChange(false);
-    // Reset
     setStep('describe');
     setDescription('');
     setGeneratedPrompt('');
-    toast.success('Prompt aplicado! Não esqueça de salvar.');
+    toast.success('Prompt gerado e configurações salvas!');
   };
 
   const handleClose = () => {
@@ -73,6 +108,17 @@ export function PromptWizard({ open, onOpenChange, botName, currentServiceType, 
     setDescription('');
     setGeneratedPrompt('');
   };
+
+  // Build summary of active settings
+  const settingsSummary: string[] = [];
+  if (botSettings.useEmojis) settingsSummary.push('😊 Emojis ativos');
+  if (botSettings.interpretAudio) settingsSummary.push('🎙️ Interpreta áudios');
+  if (botSettings.interpretImages) settingsSummary.push('📷 Interpreta imagens');
+  if (botSettings.interpretDocuments) settingsSummary.push('📄 Interpreta documentos');
+  if (botSettings.voiceEnabled) settingsSummary.push('🔊 Voz IA ativa');
+  if (botSettings.qualificationEnabled) settingsSummary.push('📋 Qualificação ativa');
+  if (botSettings.productScope === 'all') settingsSummary.push('📦 Todos os produtos');
+  else if (botSettings.productScope === 'selected') settingsSummary.push('📦 Produtos selecionados');
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -104,6 +150,20 @@ export function PromptWizard({ open, onOpenChange, botName, currentServiceType, 
               </RadioGroup>
             </div>
 
+            {/* Settings summary */}
+            {settingsSummary.length > 0 && (
+              <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
+                <p className="text-xs font-medium text-primary mb-2">⚙️ Configurações que serão incorporadas no prompt:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {settingsSummary.map((s, i) => (
+                    <span key={i} className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Descreva como quer que o robô se comporte</Label>
               <Textarea
@@ -115,7 +175,7 @@ export function PromptWizard({ open, onOpenChange, botName, currentServiceType, 
                 autoFocus
               />
               <p className="text-xs text-muted-foreground">
-                💡 Quanto mais detalhes, melhor o prompt gerado. Inclua: tom de voz, expressões regionais, regras de negócio, diferenciais.
+                💡 Quanto mais detalhes, melhor o prompt gerado. As configurações das outras abas (emojis, voz, interpretação, produtos) serão automaticamente incorporadas.
               </p>
             </div>
 
@@ -144,7 +204,7 @@ export function PromptWizard({ open, onOpenChange, botName, currentServiceType, 
         {step === 'review' && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Revise o prompt gerado. Você pode editar antes de aplicar.
+              Revise o prompt gerado. Ele já incorpora todas as configurações. Você pode editar antes de aplicar.
             </p>
 
             <Textarea
@@ -156,15 +216,15 @@ export function PromptWizard({ open, onOpenChange, botName, currentServiceType, 
 
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep('describe')} className="flex-1">
-                ← Voltar e descrever novamente
+                ← Voltar
               </Button>
               <Button onClick={handleGenerate} variant="outline" disabled={isGenerating} className="gap-1">
                 {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 Regenerar
               </Button>
-              <Button onClick={handleApply} className="flex-1 gap-2">
-                <Wand2 className="h-4 w-4" />
-                Aplicar Prompt
+              <Button onClick={handleApplyAndSave} className="flex-1 gap-2">
+                <Save className="h-4 w-4" />
+                Aplicar e Salvar
               </Button>
             </div>
           </div>

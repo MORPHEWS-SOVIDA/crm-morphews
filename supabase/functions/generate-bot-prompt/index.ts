@@ -12,7 +12,27 @@ serve(async (req) => {
   }
 
   try {
-    const { name, serviceType, description, currentPrompt } = await req.json();
+    const {
+      name,
+      serviceType,
+      description,
+      currentPrompt,
+      // All behavioral settings
+      useEmojis,
+      responseLength,
+      interpretAudio,
+      interpretImages,
+      interpretDocuments,
+      voiceEnabled,
+      voiceStyle,
+      maxMessages,
+      qualificationEnabled,
+      qualificationQuestions,
+      productScope,
+      sendProductImages,
+      sendProductVideos,
+      sendProductLinks,
+    } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -27,6 +47,50 @@ serve(async (req) => {
 
     const serviceLabel = serviceLabels[serviceType] || serviceType;
 
+    // Build context about capabilities
+    const capabilities: string[] = [];
+    
+    if (useEmojis === true) {
+      capabilities.push("- O robô DEVE usar emojis nas respostas para tornar a conversa mais natural e acolhedora");
+    } else if (useEmojis === false) {
+      capabilities.push("- O robô NÃO deve usar emojis nas respostas, manter comunicação limpa e profissional");
+    }
+
+    if (interpretAudio) capabilities.push("- O robô consegue ouvir e interpretar áudios enviados pelo cliente");
+    if (interpretImages) capabilities.push("- O robô consegue analisar imagens/fotos enviadas pelo cliente");
+    if (interpretDocuments) capabilities.push("- O robô consegue ler e interpretar documentos (PDF, etc.) enviados pelo cliente");
+    
+    if (voiceEnabled) {
+      const styleLabel = voiceStyle === 'natural' ? 'natural e humano' : voiceStyle === 'formal' ? 'formal e profissional' : 'descontraído';
+      capabilities.push(`- O robô pode responder por áudio com estilo ${styleLabel} — deve ocasionalmente sugerir "posso te mandar um áudio explicando?" quando o assunto for complexo`);
+    }
+
+    if (maxMessages) {
+      capabilities.push(`- Após ${maxMessages} mensagens sem resolução, o robô deve encaminhar para um atendente humano de forma natural`);
+    }
+
+    if (qualificationEnabled && qualificationQuestions?.length > 0) {
+      const questions = qualificationQuestions.map((q: any) => q.questionText).join(", ");
+      capabilities.push(`- No início da conversa, o robô deve fazer perguntas de qualificação de forma natural: ${questions}`);
+    }
+
+    if (productScope === 'all' || productScope === 'selected') {
+      const mediaActions: string[] = [];
+      if (sendProductImages) mediaActions.push("fotos");
+      if (sendProductVideos) mediaActions.push("vídeos");
+      if (sendProductLinks) mediaActions.push("links");
+      if (mediaActions.length > 0) {
+        capabilities.push(`- Quando falar sobre produtos, o robô pode enviar ${mediaActions.join(", ")} automaticamente — deve mencionar os produtos com naturalidade`);
+      }
+      capabilities.push("- O robô tem acesso ao catálogo de produtos e deve saber recomendar e tirar dúvidas sobre eles");
+    } else if (productScope === 'none') {
+      capabilities.push("- O robô NÃO tem acesso a produtos e não deve tentar vender ou recomendar produtos");
+    }
+
+    const capabilitiesBlock = capabilities.length > 0
+      ? `\n\nCapacidades e regras de comportamento que o robô TEM (incorpore naturalmente no prompt):\n${capabilities.join("\n")}`
+      : "";
+
     const systemPrompt = `Você é um especialista em criar system prompts para robôs de atendimento via WhatsApp.
 
 Sua tarefa é gerar um system prompt completo e pronto para uso, em português brasileiro.
@@ -37,8 +101,9 @@ Regras:
 - Se a descrição mencionar expressões regionais, sotaque ou gírias, incorpore no prompt
 - Se a descrição mencionar regras específicas de negócio, inclua como instruções claras
 - O prompt deve ser autocontido - tudo que o robô precisa saber para se comportar corretamente
-- NÃO inclua instruções sobre produtos ou FAQ (esses são injetados separadamente pelo sistema)
+- NÃO inclua instruções sobre produtos específicos ou FAQ (esses são injetados separadamente pelo sistema)
 - NÃO inclua a mensagem de boas-vindas no prompt (é configurada separadamente)
+- INCORPORE as capacidades e regras de comportamento fornecidas como parte natural do prompt, não como lista separada
 - Escreva de forma clara e organizada, usando seções com títulos quando fizer sentido
 - Retorne APENAS o texto do prompt, sem explicações ou comentários adicionais`;
 
@@ -47,7 +112,8 @@ Regras:
 Nome: ${name}
 Tipo de serviço: ${serviceLabel}
 ${description ? `\nDescrição do usuário:\n${description}` : ""}
-${currentPrompt ? `\nPrompt atual (use como referência para manter o que já funciona):\n${currentPrompt}` : ""}
+${capabilitiesBlock}
+${currentPrompt ? `\nPrompt atual (use como referência para manter o que já funciona, mas atualize com as novas capacidades):\n${currentPrompt}` : ""}
 
 Gere o system prompt completo:`;
 
