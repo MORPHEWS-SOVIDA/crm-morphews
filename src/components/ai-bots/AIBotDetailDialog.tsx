@@ -152,7 +152,8 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const isFormReady = bot && botId && bot.id === botId;
   
   const handleSave = () => {
-    if (!botId) return;
+    // CRITICAL: Only save if bot data matches the selected botId to prevent cross-bot contamination
+    if (!botId || !isFormReady) return;
     
     updateBot.mutate({
       id: botId,
