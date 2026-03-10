@@ -32,6 +32,7 @@ const SAVED_CARDS: { id: string; card_brand: string; card_last_digits: string; i
 export function StorefrontCheckout() {
   const navigate = useNavigate();
   const { cartId: urlCartId } = useParams<{ cartId?: string }>();
+  const [searchParams] = useSearchParams();
   const { storefront } = useOutletContext<{ storefront: StorefrontData }>();
   const { items, subtotal, clearCart, cartId, updateCustomerData, updateShippingData, addItem } = useCart();
   const { getUtmForCheckout } = useUtmTracker();
