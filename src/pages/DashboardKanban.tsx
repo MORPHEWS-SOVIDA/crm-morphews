@@ -38,10 +38,12 @@ export default function DashboardKanban() {
   const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
   const [selectedManager, setSelectedManager] = useState<string | null>(null);
   const [selectedInactivityDays, setSelectedInactivityDays] = useState<number | null>(null);
+  const [selectedSSProfileId, setSelectedSSProfileId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [hasAutoSelectedSellers, setHasAutoSelectedSellers] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const { leadIds: ssProfileLeadIds } = useLeadsBySSProfile(selectedSSProfileId);
 
   // Auto-select team members for sales managers when they access the page
   useEffect(() => {
