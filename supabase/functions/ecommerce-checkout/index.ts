@@ -611,7 +611,7 @@ serve(async (req) => {
       await supabase
         .from('ecommerce_carts')
         .update({
-          status: 'converted',
+          status: 'payment_initiated', // Changed: only mark as converted AFTER payment is confirmed
           converted_sale_id: sale.id,
           lead_id: lead.id,
         })

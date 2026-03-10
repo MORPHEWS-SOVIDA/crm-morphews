@@ -23,8 +23,13 @@ import { toast } from 'sonner';
 interface CartItem {
   product_id: string;
   product_name?: string;
+  name?: string;
+  image_url?: string;
   quantity: number;
-  price_cents: number;
+  price_cents?: number;
+  unit_price_cents?: number;
+  total_price_cents?: number;
+  kit_size?: number;
 }
 
 interface CartDetailDialogProps {
@@ -292,19 +297,30 @@ export function CartDetailDialog({ open, onOpenChange, cart, onSendRecoveryWhats
               <CardContent className="pt-6">
                 {items.length > 0 ? (
                   <div className="space-y-4">
-                    {items.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{item.product_name || `Produto ${item.product_id.slice(0, 8)}`}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Qtd: {item.quantity} x {formatCurrency(item.price_cents)}
-                          </p>
+                    {items.map((item, index) => {
+                      const displayName = item.product_name || item.name || `Produto ${item.product_id?.slice(0, 8) || '?'}`;
+                      const unitPrice = item.price_cents || item.unit_price_cents || 0;
+                      const totalPrice = item.total_price_cents || (unitPrice * (item.quantity || 1));
+                      const kitSize = item.kit_size || 1;
+                      const displayQty = kitSize > 1 ? `${kitSize} un` : `${item.quantity || 1}`;
+                      
+                      return (
+                        <div key={index} className="flex items-center gap-3 p-4 border rounded-lg">
+                          {item.image_url && (
+                            <img src={item.image_url} alt={displayName} className="w-12 h-12 rounded object-cover" />
+                          )}
+                          <div className="flex-1">
+                            <p className="font-medium">{displayName}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {displayQty} x {formatCurrency(unitPrice)}
+                            </p>
+                          </div>
+                          <div className="text-right font-semibold">
+                            {formatCurrency(totalPrice)}
+                          </div>
                         </div>
-                        <div className="text-right font-semibold">
-                          {formatCurrency(item.price_cents * item.quantity)}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     <div className="flex justify-between font-bold pt-4 border-t">
                       <span>Total do Carrinho</span>
                       <span className="text-lg">{formatCurrency(cart.total_cents)}</span>
