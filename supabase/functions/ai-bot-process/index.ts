@@ -360,31 +360,32 @@ async function transcribeAudio(mediaUrl: string): Promise<{ text: string; tokens
     const audioBlob = await audioResponse.blob();
     const audioBuffer = await audioBlob.arrayBuffer();
     
-    // Create form data for OpenAI Whisper
+    // Create form data for Groq Whisper (free, fast, no API key issues)
     const formData = new FormData();
     formData.append('file', new Blob([audioBuffer], { type: 'audio/ogg' }), 'audio.ogg');
-    formData.append('model', 'whisper-1');
+    formData.append('model', 'whisper-large-v3-turbo');
     formData.append('language', 'pt');
     formData.append('response_format', 'json');
     
-    const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    // Try Groq Whisper first (free and fast)
+    const whisperResponse = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
       },
       body: formData,
     });
     
     if (!whisperResponse.ok) {
       const errorText = await whisperResponse.text();
-      console.error('❌ Whisper error:', whisperResponse.status, errorText);
-      throw new Error(`Whisper error: ${whisperResponse.status}`);
+      console.error('❌ Groq Whisper error:', whisperResponse.status, errorText);
+      throw new Error(`Groq Whisper error: ${whisperResponse.status}`);
     }
     
     const result = await whisperResponse.json();
     const transcribedText = result.text || '';
     
-    console.log('✅ Audio transcribed:', transcribedText.substring(0, 100) + '...');
+    console.log('✅ Audio transcribed via Groq:', transcribedText.substring(0, 100) + '...');
     
     // Estimativa de tokens: ~100 tokens para transcrição
     return { text: transcribedText, tokensUsed: 100 };
