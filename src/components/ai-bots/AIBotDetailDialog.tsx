@@ -341,6 +341,19 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                       Após esse número de mensagens, o robô transfere para um humano
                     </p>
                   </div>
+                  
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <div>
+                      <Label>Usar Emojis</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Permitir que o robô use emojis nas respostas
+                      </p>
+                    </div>
+                    <Switch
+                      checked={useEmojis}
+                      onCheckedChange={setUseEmojis}
+                    />
+                  </div>
                 </CardContent>
               </Card>
               
