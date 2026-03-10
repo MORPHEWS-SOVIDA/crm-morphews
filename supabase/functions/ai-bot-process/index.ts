@@ -83,6 +83,8 @@ interface AIBot {
   send_product_images: boolean | null;
   send_product_videos: boolean | null;
   send_product_links: boolean | null;
+  // Emoji preference
+  use_emojis: boolean | null;
 }
 
 interface BotProduct {
