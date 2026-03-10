@@ -157,9 +157,13 @@ export default function DashboardKanban() {
         return lastUpdate < cutoffDate;
       });
     }
+    // Filter by social selling profile
+    if (ssProfileLeadIds) {
+      result = result.filter(lead => ssProfileLeadIds.has(lead.id));
+    }
     
     return result;
-  }, [leads, selectedSellers, selectedInactivityDays, teamMembers, selectedManager, searchTerm]);
+  }, [leads, selectedSellers, selectedInactivityDays, teamMembers, selectedManager, searchTerm, ssProfileLeadIds]);
 
   const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedManager !== null || selectedInactivityDays !== null || searchTerm.trim().length > 0;
 
