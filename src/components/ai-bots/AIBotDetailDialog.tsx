@@ -136,16 +136,20 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   }, [linkedProducts]);
   
   // Re-initialize form whenever the bot data changes (including when switching bots)
+  // Use bot object reference to catch both bot switches AND data refreshes
   useEffect(() => {
     if (bot && open) {
       initializeForm();
     }
-  }, [bot?.id, open]);
+  }, [bot, open]);
   
   // Reset form when dialog opens
   const handleOpenChange = (open: boolean) => {
     onOpenChange(open);
   };
+  
+  // Track if form is ready (bot data matches the selected botId)
+  const isFormReady = bot && botId && bot.id === botId;
   
   const handleSave = () => {
     if (!botId) return;
