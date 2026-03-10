@@ -287,6 +287,7 @@ const App = () => (
                   <Route path="produto/:productId" element={<StorefrontProductPage />} />
                   <Route path="carrinho" element={<StorefrontCart />} />
                   <Route path="checkout" element={<StorefrontCheckout />} />
+                  <Route path="checkout/:cartId" element={<StorefrontCheckout />} />
                   <Route path="pagina/:pageSlug" element={<StorefrontPage />} />
                   <Route path="pedido-confirmado" element={<StorefrontOrderConfirmed />} />
                   <Route path="pix-pagamento" element={<StorefrontPixPayment />} />
