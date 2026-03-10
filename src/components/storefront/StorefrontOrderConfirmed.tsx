@@ -45,7 +45,7 @@ export function StorefrontOrderConfirmed() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button variant="outline" asChild className="border-current">
+            <Button variant="outline" asChild style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#ffffff', backgroundColor: 'rgba(255,255,255,0.1)' }}>
               <Link to={`/loja/${storefront.slug}`}>
                 <Home className="h-4 w-4 mr-2" />
                 Voltar à Loja
