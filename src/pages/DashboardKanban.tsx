@@ -8,6 +8,8 @@ import { ResponsavelFilter } from '@/components/dashboard/ResponsavelFilter';
 import { SellerMultiSelect } from '@/components/dashboard/SellerMultiSelect';
 import { ManagerFilter } from '@/components/dashboard/ManagerFilter';
 import { InactivityFilter } from '@/components/dashboard/InactivityFilter';
+import { SocialSellingProfileFilter } from '@/components/dashboard/SocialSellingProfileFilter';
+import { useLeadsBySSProfile } from '@/hooks/useLeadsBySSProfile';
 import { useLeads } from '@/hooks/useLeads';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useIsMobile } from '@/hooks/use-mobile';
