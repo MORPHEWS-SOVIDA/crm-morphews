@@ -94,9 +94,60 @@ export function StorefrontCheckout() {
     return initial;
   });
 
-  // Restore cart from database when accessed via /checkout/:cartId URL
+  // Restore cart from base64 query param (?cart=<base64>) or from database (/checkout/:cartId)
   useEffect(() => {
-    if (!urlCartId || items.length > 0 || restoringCart) return;
+    if (items.length > 0 || restoringCart) return;
+
+    // Method 1: Base64 encoded cart data in query param (from external sites like shapefy.shop)
+    const cartParam = searchParams.get('cart');
+    if (cartParam) {
+      try {
+        setRestoringCart(true);
+        const decoded = JSON.parse(decodeURIComponent(atob(cartParam)));
+        console.log('[Checkout] Restoring cart from URL param:', decoded);
+
+        // Restore customer data
+        if (decoded.customer) {
+          setFormData(prev => ({
+            ...prev,
+            name: decoded.customer.name || prev.name,
+            email: decoded.customer.email || prev.email,
+            phone: decoded.customer.whatsapp || decoded.customer.phone || prev.phone,
+            cpf: decoded.customer.cpf || prev.cpf,
+          }));
+        }
+
+        // Restore cart items
+        const cartItems = decoded.items || [];
+        for (const item of cartItems) {
+          if (item.product_id && item.quantity) {
+            addItem({
+              productId: item.product_id,
+              storefrontProductId: item.storefront_product_id || item.product_id,
+              name: item.name || 'Produto',
+              imageUrl: item.image_url || null,
+              quantity: item.quantity,
+              kitSize: item.kit_size || 1,
+              unitPrice: item.unit_price_cents || item.price_cents || 0,
+            }, storefront.slug, storefront.id);
+          }
+        }
+
+        // Clean URL without reloading (remove ?cart param)
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('cart');
+        window.history.replaceState({}, '', newUrl.pathname);
+        
+        setRestoringCart(false);
+        return;
+      } catch (err) {
+        console.error('[Checkout] Error decoding cart param:', err);
+        setRestoringCart(false);
+      }
+    }
+
+    // Method 2: Cart ID in URL path (/checkout/:cartId) - fetch from database
+    if (!urlCartId) return;
     
     const restoreCart = async () => {
       setRestoringCart(true);
@@ -131,7 +182,7 @@ export function StorefrontCheckout() {
         // Restore cart items
         const cartItems = (cart.items as any[]) || [];
         for (const item of cartItems) {
-          if (item.product_id && item.quantity && item.price_cents) {
+          if (item.product_id && item.quantity && (item.price_cents || item.unit_price_cents)) {
             addItem({
               productId: item.product_id,
               storefrontProductId: item.storefront_product_id || item.product_id,
@@ -139,7 +190,7 @@ export function StorefrontCheckout() {
               imageUrl: item.image_url || null,
               quantity: item.quantity,
               kitSize: item.kit_size || 1,
-              unitPrice: item.price_cents,
+              unitPrice: item.unit_price_cents || item.price_cents,
             }, storefront.slug, storefront.id);
           }
         }
@@ -150,7 +201,7 @@ export function StorefrontCheckout() {
     };
 
     restoreCart();
-  }, [urlCartId, items.length, restoringCart, storefront.slug, storefront.id, addItem]);
+  }, [urlCartId, searchParams, items.length, restoringCart, storefront.slug, storefront.id, addItem]);
 
   // Universal tracking for server-side CAPI
   const trackingConfig = useMemo(() => ({
