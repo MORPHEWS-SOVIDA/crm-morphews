@@ -369,6 +369,11 @@ export default function DashboardKanban() {
                         onSelectDays={setSelectedInactivityDays}
                         compact
                       />
+                      <SocialSellingProfileFilter
+                        selectedProfileId={selectedSSProfileId}
+                        onSelectProfile={setSelectedSSProfileId}
+                        compact
+                      />
                     </>
                   )}
                 </div>
