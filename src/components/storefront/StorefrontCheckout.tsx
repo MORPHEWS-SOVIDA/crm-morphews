@@ -104,7 +104,8 @@ export function StorefrontCheckout() {
       try {
         setRestoringCart(true);
         const decoded = JSON.parse(decodeURIComponent(atob(cartParam)));
-        console.log('[Checkout] Restoring cart from URL param:', decoded);
+        console.log('[Checkout] 📦 Restoring cart from URL param:', JSON.stringify(decoded, null, 2));
+        console.log('[Checkout] Items:', decoded.items?.length, 'Customer:', decoded.customer?.name);
 
         // Restore customer data
         if (decoded.customer) {
