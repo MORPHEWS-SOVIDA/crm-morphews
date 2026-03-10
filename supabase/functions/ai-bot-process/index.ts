@@ -1189,9 +1189,13 @@ EVITE:
 ${leadMemory ? '- Perguntar informações que você já sabe sobre o cliente!' : ''}`;
 
   // System prompt completo e rico
+  // Use personalityPrompt as primary (includes full personality_description & company_differential)
+  // Only add system_prompt if it was manually edited (different from auto-generated)
+  const hasCustomSystemPrompt = bot.system_prompt && bot.system_prompt.length > 0;
+  
   const systemPrompt = `${personalityPrompt}
 
-${bot.system_prompt || 'Você é um assistente de atendimento prestativo e empático.'}
+${hasCustomSystemPrompt ? `\n${bot.system_prompt}\n` : ''}
 
 CONTEXTO ATUAL:
 - Cliente: ${leadMemory?.lead_name || contactName}
