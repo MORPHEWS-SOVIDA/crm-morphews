@@ -31,8 +31,14 @@ export class FallbackEngine {
       .order('priority', { ascending: true });
 
     if (gateways && Array.isArray(gateways)) {
+      const PLACEHOLDER_KEYS = ['NATIVE_INTEGRATION', 'PLACEHOLDER', 'TODO', ''];
       for (const gw of gateways) {
         const gateway = gw as Record<string, unknown>;
+        const apiKey = String(gateway.api_key_encrypted || '');
+        if (PLACEHOLDER_KEYS.includes(apiKey)) {
+          console.warn(`[FallbackEngine] Skipping gateway ${gateway.gateway_type}: invalid API key`);
+          continue;
+        }
         this.gateways.set(gateway.gateway_type as GatewayType, gateway as unknown as GatewayConfig);
       }
     }

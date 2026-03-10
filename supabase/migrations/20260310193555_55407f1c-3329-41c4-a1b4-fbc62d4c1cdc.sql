@@ -1,0 +1,1 @@
+UPDATE platform_gateway_config SET is_active = false WHERE gateway_type = 'stripe' AND api_key_encrypted = 'NATIVE_INTEGRATION';
