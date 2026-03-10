@@ -23,8 +23,13 @@ import { toast } from 'sonner';
 interface CartItem {
   product_id: string;
   product_name?: string;
+  name?: string;
+  image_url?: string;
   quantity: number;
-  price_cents: number;
+  price_cents?: number;
+  unit_price_cents?: number;
+  total_price_cents?: number;
+  kit_size?: number;
 }
 
 interface CartDetailDialogProps {
