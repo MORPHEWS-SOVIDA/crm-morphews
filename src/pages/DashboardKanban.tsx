@@ -380,7 +380,7 @@ export default function DashboardKanban() {
               )}
             </div>
             {/* Show filter indicators */}
-            {(selectedManager || selectedSellers.length > 0 || selectedInactivityDays) && (
+            {(selectedManager || selectedSellers.length > 0 || selectedInactivityDays || selectedSSProfileId) && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                 {selectedManager && (
                   <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded flex items-center gap-1">
