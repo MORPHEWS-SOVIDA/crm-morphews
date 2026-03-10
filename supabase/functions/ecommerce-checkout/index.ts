@@ -428,6 +428,7 @@ serve(async (req) => {
       fbclid: utm?.fbclid || null,
       gclid: utm?.gclid || null,
       ttclid: utm?.ttclid || null,
+      is_ecommerce_origin: true,
     };
 
     // Add shipping address reference if we created one

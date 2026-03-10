@@ -335,6 +335,7 @@ export function useSales(filters?: { status?: SaleStatus; limit?: number }) {
         `)
         .eq('organization_id', organizationId)
         .neq('status', 'ecommerce_pending') // Hide e-commerce orders awaiting payment from ERP
+        .or('is_ecommerce_origin.eq.false,is_ecommerce_origin.is.null,and(is_ecommerce_origin.eq.true,status.neq.cancelled)') // Hide cancelled e-commerce orders from ERP
         .order('created_at', { ascending: false })
         .limit(limit);
 
