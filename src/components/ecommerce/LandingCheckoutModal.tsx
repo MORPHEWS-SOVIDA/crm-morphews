@@ -64,7 +64,7 @@ export function LandingCheckoutModal({
   const { getUtmForCheckout } = useUtmTracker();
   const [cartId, setCartId] = useState<string | null>(null);
   const [sessionId] = useState(() => getOrCreateSessionId());
-  const syncTimeoutRef = useRef<NodeJS.Timeout>();
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   
   const [formData, setFormData] = useState({
     name: '',
