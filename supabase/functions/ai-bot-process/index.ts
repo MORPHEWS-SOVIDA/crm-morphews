@@ -2151,10 +2151,10 @@ async function processMessage(
     return { success: true, action: 'transferred', message: 'Transfer keyword detected' };
   }
 
-  // 3. Verificar limite de mensagens - aumentado para dar mais tempo ao robô qualificar
-  // Mínimo de 5 mensagens antes de transferir por limite
+  // 3. Verificar limite de mensagens
+  // Respeitar o valor configurado pelo usuário (mínimo de 1)
   const effectiveMaxMessages = bot.max_messages_before_transfer 
-    ? Math.max(bot.max_messages_before_transfer, 5) 
+    ? Math.max(bot.max_messages_before_transfer, 1) 
     : 15; // Se não configurado, usar 15 como padrão
     
   if (context.botMessagesCount >= effectiveMaxMessages) {
