@@ -137,6 +137,62 @@ serve(async (req) => {
           productMap[p.id] = { name: p.name, image_url: p.image_url };
         }
       }
+
+      // If some product_ids were NOT found in lead_products, try resolving via storefront_products
+      // This handles cases where external sites send storefront_product_id instead of lead_product_id
+      const unresolvedIds = productIds.filter(id => !productMap[id]);
+      if (unresolvedIds.length > 0) {
+        console.warn(`[Checkout] ${unresolvedIds.length} product IDs not found in lead_products, trying storefront_products resolution...`);
+        const { data: spMappings } = await supabase
+          .from('storefront_products')
+          .select('id, product_id, product:lead_products(id, name, image_url)')
+          .in('id', unresolvedIds);
+        
+        if (spMappings) {
+          for (const sp of spMappings) {
+            const realProduct = sp.product as unknown as { id: string; name: string; image_url?: string } | null;
+            if (realProduct) {
+              console.log(`[Checkout] Resolved storefront_product ${sp.id} → lead_product ${realProduct.id} (${realProduct.name})`);
+              productMap[sp.id] = { name: realProduct.name, image_url: realProduct.image_url };
+              // Remap the product_id in productItems to the real lead_products ID
+              for (const item of productItems) {
+                if (item.product_id === sp.id) {
+                  item.product_id = realProduct.id;
+                  item.product_name = realProduct.name;
+                  item.product_image_url = realProduct.image_url;
+                  productMap[realProduct.id] = { name: realProduct.name, image_url: realProduct.image_url };
+                }
+              }
+            }
+          }
+        }
+
+        // Last resort: try matching by name from cart items
+        const stillUnresolved = productItems.filter(i => !productMap[i.product_id]);
+        if (stillUnresolved.length > 0) {
+          const itemNames = stillUnresolved.map(i => i.product_name).filter(Boolean);
+          if (itemNames.length > 0) {
+            console.warn(`[Checkout] Trying name-based resolution for: ${itemNames.join(', ')}`);
+            for (const item of stillUnresolved) {
+              if (item.product_name) {
+                const { data: matchedProducts } = await supabase
+                  .from('lead_products')
+                  .select('id, name, image_url')
+                  .eq('organization_id', organizationId!)
+                  .ilike('name', item.product_name)
+                  .limit(1);
+                
+                if (matchedProducts && matchedProducts.length > 0) {
+                  const mp = matchedProducts[0];
+                  console.log(`[Checkout] Name-resolved "${item.product_name}" → ${mp.id} (${mp.name})`);
+                  item.product_id = mp.id;
+                  productMap[mp.id] = { name: mp.name, image_url: mp.image_url };
+                }
+              }
+            }
+          }
+        }
+      }
     }
 
     if (!organizationId) {
