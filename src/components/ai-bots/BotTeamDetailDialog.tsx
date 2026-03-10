@@ -181,7 +181,7 @@ export function BotTeamDetailDialog({ teamId, open, onOpenChange }: BotTeamDetai
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 max-h-[calc(90vh-180px)] pr-4">
+        <ScrollArea className="flex-1 min-h-0 pr-4">
           <div className="space-y-6 pb-4">
             {/* Settings Panel (collapsible) */}
             {showSettings && (
