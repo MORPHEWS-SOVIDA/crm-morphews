@@ -298,6 +298,7 @@ export default function DashboardKanban() {
                   setSelectedManager(null);
                   setSelectedInactivityDays(null);
                   setSearchTerm('');
+                  setSelectedSSProfileId(null);
                 }}
                 className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
               >
