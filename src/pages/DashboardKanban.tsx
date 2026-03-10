@@ -165,7 +165,7 @@ export default function DashboardKanban() {
     return result;
   }, [leads, selectedSellers, selectedInactivityDays, teamMembers, selectedManager, searchTerm, ssProfileLeadIds]);
 
-  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedManager !== null || selectedInactivityDays !== null || searchTerm.trim().length > 0;
+  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedManager !== null || selectedInactivityDays !== null || searchTerm.trim().length > 0 || selectedSSProfileId !== null;
 
   // Handler para seleção de gerente - atualiza vendedores automaticamente
   const handleManagerSelect = (managerId: string | null, memberIds: string[]) => {
