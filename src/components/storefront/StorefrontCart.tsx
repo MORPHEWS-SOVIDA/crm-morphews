@@ -1,4 +1,5 @@
-import { Link, useOutletContext } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useOutletContext, useSearchParams, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Trash2, Plus, Minus, ArrowLeft, ArrowRight, Package, Truck, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
