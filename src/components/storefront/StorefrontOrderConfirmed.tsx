@@ -21,14 +21,14 @@ export function StorefrontOrderConfirmed() {
             />
           </div>
 
-          <h1 className="text-2xl font-bold mb-2" style={{ color: 'inherit' }}>Pedido Confirmado!</h1>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: '#ffffff' }}>Pedido Confirmado!</h1>
           
-          <p className="mb-6 opacity-80">
+          <p className="mb-6" style={{ color: '#d1d5db' }}>
             Obrigado pela sua compra! Você receberá um e-mail com os detalhes do seu pedido.
           </p>
 
-          <div className="rounded-lg p-4 mb-6" style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
-            <p className="text-sm opacity-70 mb-1">
+          <div className="rounded-lg p-4 mb-6" style={{ backgroundColor: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)' }}>
+            <p className="text-sm mb-1" style={{ color: '#d1d5db' }}>
               Em caso de dúvidas, entre em contato pelo WhatsApp:
             </p>
             {storefront.whatsapp_number && (
