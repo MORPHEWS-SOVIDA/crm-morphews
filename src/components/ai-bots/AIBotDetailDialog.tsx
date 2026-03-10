@@ -65,6 +65,9 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   // AI Model state
   const [aiModelChat, setAiModelChat] = useState('google/gemini-3-flash-preview');
   
+  // Emoji state
+  const [useEmojis, setUseEmojis] = useState(true);
+  
   // Voice state
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceId, setVoiceId] = useState('JBFqnCBsd6RMkjVDRZzb');
@@ -106,6 +109,8 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       setImageReplyMessage((bot as any).image_reply_message || 'Nossa IA analisou sua imagem e identificou:');
       // AI Model
       setAiModelChat((bot as any).ai_model_chat || 'google/gemini-3-flash-preview');
+      // Emoji
+      setUseEmojis((bot as any).use_emojis ?? true);
       // Voice settings
       setVoiceEnabled((bot as any).voice_enabled ?? false);
       setVoiceId((bot as any).voice_id || 'JBFqnCBsd6RMkjVDRZzb');
@@ -158,6 +163,7 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
       document_reply_message: documentReplyMessage,
       image_reply_message: imageReplyMessage,
       ai_model_chat: aiModelChat,
+      use_emojis: useEmojis,
       // Voice settings
       voice_enabled: voiceEnabled,
       voice_id: voiceId,
@@ -334,6 +340,19 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                     <p className="text-xs text-muted-foreground">
                       Após esse número de mensagens, o robô transfere para um humano
                     </p>
+                  </div>
+                  
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    <div>
+                      <Label>Usar Emojis</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Permitir que o robô use emojis nas respostas
+                      </p>
+                    </div>
+                    <Switch
+                      checked={useEmojis}
+                      onCheckedChange={setUseEmojis}
+                    />
                   </div>
                 </CardContent>
               </Card>

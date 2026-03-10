@@ -718,6 +718,7 @@ export type Database = {
           transfer_message: string | null
           transfer_on_confusion: boolean | null
           updated_at: string
+          use_emojis: boolean
           use_rag_search: boolean | null
           voice_enabled: boolean | null
           voice_id: string | null
@@ -767,6 +768,7 @@ export type Database = {
           transfer_message?: string | null
           transfer_on_confusion?: boolean | null
           updated_at?: string
+          use_emojis?: boolean
           use_rag_search?: boolean | null
           voice_enabled?: boolean | null
           voice_id?: string | null
@@ -816,6 +818,7 @@ export type Database = {
           transfer_message?: string | null
           transfer_on_confusion?: boolean | null
           updated_at?: string
+          use_emojis?: boolean
           use_rag_search?: boolean | null
           voice_enabled?: boolean | null
           voice_id?: string | null
