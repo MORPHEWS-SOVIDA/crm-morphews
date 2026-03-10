@@ -557,12 +557,16 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
           </Tabs>
         ) : null}
         
-        {/* Save Button */}
+        {/* Action Buttons */}
         {bot && (
-          <div className="flex justify-end pt-4 border-t">
-            <Button onClick={handleSave} disabled={updateBot.isPending || !isFormReady}>
+          <div className="flex justify-between pt-4 border-t gap-2">
+            <Button variant="outline" onClick={handleSave} disabled={updateBot.isPending || !isFormReady}>
               <Save className="h-4 w-4 mr-2" />
-              {updateBot.isPending ? 'Salvando...' : 'Salvar Alterações'}
+              {updateBot.isPending ? 'Salvando...' : 'Salvar'}
+            </Button>
+            <Button onClick={() => setShowPromptWizard(true)} disabled={!isFormReady} className="gap-2">
+              <Wand2 className="h-4 w-4" />
+              ✨ Gerar Prompt com IA e Salvar
             </Button>
           </div>
         )}
@@ -576,7 +580,23 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
           botName={bot.name}
           currentServiceType={bot.service_type}
           currentPrompt={systemPrompt}
+          botSettings={{
+            useEmojis,
+            interpretAudio,
+            interpretImages,
+            interpretDocuments,
+            voiceEnabled,
+            voiceStyle,
+            maxMessages,
+            qualificationEnabled,
+            qualificationQuestions: initialQuestions,
+            productScope,
+            sendProductImages,
+            sendProductVideos,
+            sendProductLinks,
+          }}
           onPromptGenerated={setSystemPrompt}
+          onSaveAll={handleSave}
         />
       )}
     </Dialog>
