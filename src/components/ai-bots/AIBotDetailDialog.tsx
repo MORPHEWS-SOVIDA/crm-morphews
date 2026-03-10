@@ -88,6 +88,9 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
   const [newQuestion, setNewQuestion] = useState('');
   const [newAnswer, setNewAnswer] = useState('');
   
+  // Prompt Wizard state
+  const [showPromptWizard, setShowPromptWizard] = useState(false);
+  
   // Initialize form when bot loads
   const initializeForm = () => {
     if (bot) {
