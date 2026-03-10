@@ -8,6 +8,8 @@ import { ResponsavelFilter } from '@/components/dashboard/ResponsavelFilter';
 import { SellerMultiSelect } from '@/components/dashboard/SellerMultiSelect';
 import { ManagerFilter } from '@/components/dashboard/ManagerFilter';
 import { InactivityFilter } from '@/components/dashboard/InactivityFilter';
+import { SocialSellingProfileFilter } from '@/components/dashboard/SocialSellingProfileFilter';
+import { useLeadsBySSProfile } from '@/hooks/useLeadsBySSProfile';
 import { useLeads } from '@/hooks/useLeads';
 import { useFunnelStages } from '@/hooks/useFunnelStages';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -36,10 +38,12 @@ export default function DashboardKanban() {
   const [selectedSellers, setSelectedSellers] = useState<string[]>([]);
   const [selectedManager, setSelectedManager] = useState<string | null>(null);
   const [selectedInactivityDays, setSelectedInactivityDays] = useState<number | null>(null);
+  const [selectedSSProfileId, setSelectedSSProfileId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [hasAutoSelectedSellers, setHasAutoSelectedSellers] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const { leadIds: ssProfileLeadIds } = useLeadsBySSProfile(selectedSSProfileId);
 
   // Auto-select team members for sales managers when they access the page
   useEffect(() => {
@@ -153,11 +157,15 @@ export default function DashboardKanban() {
         return lastUpdate < cutoffDate;
       });
     }
+    // Filter by social selling profile
+    if (ssProfileLeadIds) {
+      result = result.filter(lead => ssProfileLeadIds.has(lead.id));
+    }
     
     return result;
-  }, [leads, selectedSellers, selectedInactivityDays, teamMembers, selectedManager, searchTerm]);
+  }, [leads, selectedSellers, selectedInactivityDays, teamMembers, selectedManager, searchTerm, ssProfileLeadIds]);
 
-  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedManager !== null || selectedInactivityDays !== null || searchTerm.trim().length > 0;
+  const hasFilters = selectedStars !== null || selectedStage !== null || selectedResponsavel !== null || selectedSellers.length > 0 || selectedManager !== null || selectedInactivityDays !== null || searchTerm.trim().length > 0 || selectedSSProfileId !== null;
 
   // Handler para seleção de gerente - atualiza vendedores automaticamente
   const handleManagerSelect = (managerId: string | null, memberIds: string[]) => {
@@ -290,6 +298,7 @@ export default function DashboardKanban() {
                   setSelectedManager(null);
                   setSelectedInactivityDays(null);
                   setSearchTerm('');
+                  setSelectedSSProfileId(null);
                 }}
                 className="px-4 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
               >
@@ -360,13 +369,18 @@ export default function DashboardKanban() {
                         onSelectDays={setSelectedInactivityDays}
                         compact
                       />
+                      <SocialSellingProfileFilter
+                        selectedProfileId={selectedSSProfileId}
+                        onSelectProfile={setSelectedSSProfileId}
+                        compact
+                      />
                     </>
                   )}
                 </div>
               )}
             </div>
             {/* Show filter indicators */}
-            {(selectedManager || selectedSellers.length > 0 || selectedInactivityDays) && (
+            {(selectedManager || selectedSellers.length > 0 || selectedInactivityDays || selectedSSProfileId) && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                 {selectedManager && (
                   <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded flex items-center gap-1">
@@ -381,6 +395,11 @@ export default function DashboardKanban() {
                 {selectedInactivityDays && (
                   <span className="bg-warning/20 text-warning-foreground px-2 py-1 rounded">
                     Sem movimentação há {selectedInactivityDays} dias
+                  </span>
+                )}
+                {selectedSSProfileId && (
+                  <span className="bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-2 py-1 rounded flex items-center gap-1">
+                    📸 Filtro por perfil Instagram
                   </span>
                 )}
               </div>
