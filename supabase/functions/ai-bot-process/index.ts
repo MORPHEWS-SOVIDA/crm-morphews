@@ -2151,10 +2151,10 @@ async function processMessage(
     return { success: true, action: 'transferred', message: 'Transfer keyword detected' };
   }
 
-  // 3. Verificar limite de mensagens - aumentado para dar mais tempo ao robô qualificar
-  // Mínimo de 5 mensagens antes de transferir por limite
+  // 3. Verificar limite de mensagens
+  // Respeitar o valor configurado pelo usuário (mínimo de 1)
   const effectiveMaxMessages = bot.max_messages_before_transfer 
-    ? Math.max(bot.max_messages_before_transfer, 5) 
+    ? Math.max(bot.max_messages_before_transfer, 1) 
     : 15; // Se não configurado, usar 15 como padrão
     
   if (context.botMessagesCount >= effectiveMaxMessages) {
@@ -2514,9 +2514,10 @@ serve(async (req) => {
       qualificationCompleted: conversation?.bot_qualification_completed || false,
     };
 
-    // Se é primeira mensagem e tem welcome message, enviar primeiro
+    // Se é primeira mensagem e tem welcome message, enviar a welcome e PARAR
+    // (não processar AI para evitar duas mensagens seguidas)
     if (isFirstMessage && bot.welcome_message) {
-      console.log('👋 Sending welcome message');
+      console.log('👋 Sending welcome message (skipping AI response for first message)');
       await sendWhatsAppMessage(
         instanceName,
         chatId,
@@ -2528,6 +2529,22 @@ serve(async (req) => {
       
       // Consumir energia pelo welcome
       await checkAndConsumeEnergy(organizationId, bot.id, conversationId, 50, 'welcome_message');
+      
+      // Atualizar contadores
+      await supabase
+        .from('whatsapp_conversations')
+        .update({
+          bot_messages_count: (context?.botMessagesCount || 0) + 1,
+        })
+        .eq('id', conversationId);
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        action: 'welcome_sent', 
+        message: 'Welcome message sent, waiting for next user message' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Processar mensagem baseado no tipo
