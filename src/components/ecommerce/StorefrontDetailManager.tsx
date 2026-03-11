@@ -10,7 +10,7 @@ import { StorefrontProductsTab } from './tabs/StorefrontProductsTab';
 import { StorefrontSettingsTab } from './tabs/StorefrontSettingsTab';
 import { StorefrontTestimonialsTab } from './tabs/StorefrontTestimonialsTab';
 import { StorefrontEmailSequences } from './StorefrontEmailSequences';
-import { AffiliatesTab } from './affiliates/AffiliatesTab';
+import { StorefrontCoproducersTab } from './tabs/StorefrontCoproducersTab';
 interface StorefrontDetailManagerProps {
   storefrontId: string;
   onBack: () => void;
@@ -133,10 +133,9 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
         </TabsContent>
 
         <TabsContent value="affiliates" className="mt-6">
-          <AffiliatesTab
-            assetType="storefront"
-            assetId={storefrontId}
-            assetSlug={storefront.slug}
+          <StorefrontCoproducersTab
+            storefrontId={storefrontId}
+            storefrontName={storefront.name}
           />
         </TabsContent>
 
