@@ -17,7 +17,7 @@ interface OrderItem {
 }
 
 interface NotificationPayload {
-  type: 'order_created' | 'payment_confirmed' | 'payment_failed' | 'order_shipped' | 'order_delivered' | 'pix_pending' | 'boleto_pending';
+  type: 'order_created' | 'payment_confirmed' | 'payment_failed' | 'order_shipped' | 'order_delivered' | 'pix_pending' | 'boleto_pending' | 'sale_notification_owner';
   sale_id: string;
   organization_id?: string;
   // Extra data for PIX/boleto

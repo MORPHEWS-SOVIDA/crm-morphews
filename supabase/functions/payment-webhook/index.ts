@@ -146,7 +146,7 @@ serve(async (req) => {
         .update({ status: 'paid' })
         .eq('converted_sale_id', saleRecord.id);
       
-      // Send payment confirmed email notification (non-blocking)
+      // Send payment confirmed email notification to CUSTOMER (non-blocking)
       try {
         const notifUrl = `${supabaseUrl}/functions/v1/ecommerce-notifications`;
         fetch(notifUrl, {
@@ -165,6 +165,27 @@ serve(async (req) => {
           .catch(e => console.error(`[PaymentWebhook] Notification error:`, e));
       } catch (e) {
         console.error('[PaymentWebhook] Failed to trigger payment confirmed notification:', e);
+      }
+
+      // Send sale notification to TENANT OWNER (non-blocking)
+      try {
+        const notifUrl = `${supabaseUrl}/functions/v1/ecommerce-notifications`;
+        fetch(notifUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            type: 'sale_notification_owner',
+            sale_id: saleRecord.id,
+            organization_id: saleRecord.organization_id,
+            payment_method: paymentMethod || 'unknown',
+          }),
+        }).then(r => console.log(`[PaymentWebhook] Owner sale notification sent: ${r.status}`))
+          .catch(e => console.error(`[PaymentWebhook] Owner notification error:`, e));
+      } catch (e) {
+        console.error('[PaymentWebhook] Failed to trigger owner notification:', e);
       }
       
       // Move lead to configured funnel stage and schedule automatic messages
