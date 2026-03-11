@@ -25,6 +25,7 @@ import {
 import { useProducts } from '@/hooks/useProducts';
 import { useProductCombos } from '@/hooks/useProductCombos';
 import { StorefrontProductEditDialog } from '../StorefrontProductEditDialog';
+import { useBulkProductCoproducers } from '@/hooks/useCoproducers';
 
 interface StorefrontProductsTabProps {
   storefrontId: string;
