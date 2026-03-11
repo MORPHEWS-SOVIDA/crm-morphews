@@ -72,6 +72,11 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
   } = useEvolutionInstances();
 
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  // Marca Própria org ID - permite edição de instâncias
+  const MARCA_PROPRIA_ORG_ID = "2d272c40-22e9-40e2-8cdc-3be142f61717";
+  const canEditInstances = profile?.organization_id === MARCA_PROPRIA_ORG_ID;
 
   const [newInstanceName, setNewInstanceName] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -92,6 +97,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [evolutionSettingsDialogOpen, setEvolutionSettingsDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedInstanceForDialog, setSelectedInstanceForDialog] = useState<EvolutionInstance | null>(null);
 
   // Estado para dialog de Instagram
