@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Package, Layers, Search, Check, Pencil } from 'lucide-react';
+import { Plus, Package, Layers, Search, Check, Pencil, Users2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,7 @@ import {
 import { useProducts } from '@/hooks/useProducts';
 import { useProductCombos } from '@/hooks/useProductCombos';
 import { StorefrontProductEditDialog } from '../StorefrontProductEditDialog';
+import { useBulkProductCoproducers } from '@/hooks/useCoproducers';
 
 interface StorefrontProductsTabProps {
   storefrontId: string;
@@ -57,6 +58,9 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
     storefrontProducts?.filter(sp => sp.product_id).map(sp => sp.product_id!) || [], 
     [storefrontProducts]
   );
+
+  // Fetch coproducer data for all products in this storefront
+  const { data: coproducerMap } = useBulkProductCoproducers(existingProductIds);
 
   const existingComboIds = useMemo(() => 
     storefrontProducts?.filter(sp => sp.combo_id).map(sp => sp.combo_id!) || [], 
@@ -306,6 +310,12 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
                       {!sp.is_visible && (
                         <Badge variant="outline" className="text-xs text-muted-foreground">
                           Oculto
+                        </Badge>
+                      )}
+                      {sp.product_id && coproducerMap?.[sp.product_id] && (
+                        <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                          <Users2 className="h-3 w-3 mr-1" />
+                          {coproducerMap[sp.product_id].map(c => c.name).join(', ')}
                         </Badge>
                       )}
                     </div>
