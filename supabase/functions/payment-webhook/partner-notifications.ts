@@ -467,7 +467,7 @@ export async function notifyAllPartnersForSale(
   // Get sale details for customer name and organization
   const { data: sale } = await supabase
     .from('sales')
-    .select('lead_id, total_cents, organization_id')
+    .select('lead_id, total_cents, organization_id, payment_method')
     .eq('id', saleId)
     .single();
 
@@ -495,16 +495,30 @@ export async function notifyAllPartnersForSale(
     customerName = lead?.name || 'Cliente';
   }
 
-  // Get first product name
+  // Get all sale items
   const { data: saleItems } = await supabase
     .from('sale_items')
-    .select('product_name')
-    .eq('sale_id', saleId)
-    .limit(1);
+    .select('product_name, quantity, total_cents')
+    .eq('sale_id', saleId);
 
-  if (saleItems && saleItems.length > 0) {
-    productName = saleItems[0].product_name;
+  const items = (saleItems || []).map((si: any) => ({
+    product_name: si.product_name,
+    quantity: si.quantity,
+    total_cents: si.total_cents,
+  }));
+
+  if (items.length > 0) {
+    productName = items[0].product_name;
   }
+
+  // Get order number
+  const { data: orderData } = await supabase
+    .from('ecommerce_orders')
+    .select('order_number')
+    .eq('sale_id', saleId)
+    .maybeSingle();
+
+  const orderNumber = orderData?.order_number || saleId.slice(0, 8).toUpperCase();
 
   // Notify each partner
   for (const partner of partners) {
@@ -519,6 +533,10 @@ export async function notifyAllPartnersForSale(
       productName,
       organizationId,
       organizationName,
+      items,
+      totalCents: sale?.total_cents || 0,
+      orderNumber,
+      paymentMethod: sale?.payment_method || '',
     });
   }
 
