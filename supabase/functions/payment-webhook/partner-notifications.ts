@@ -21,6 +21,11 @@ interface PartnerNotification {
   productName?: string;
   organizationId?: string;
   organizationName?: string;
+  // Enhanced sale details
+  items?: { product_name: string; quantity: number; total_cents: number }[];
+  totalCents?: number;
+  orderNumber?: string;
+  paymentMethod?: string;
 }
 
 interface AdminWhatsAppConfig {
