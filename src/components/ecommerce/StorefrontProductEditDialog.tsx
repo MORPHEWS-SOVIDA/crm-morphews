@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import type { StorefrontProduct } from '@/hooks/ecommerce';
 import { useProductPriceKits } from '@/hooks/useProductPriceKits';
+import { CoproducerCommissionTab } from './CoproducerCommissionTab';
 
 interface ProductData {
   id: string;
