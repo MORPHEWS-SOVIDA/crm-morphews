@@ -59,6 +59,9 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
     [storefrontProducts]
   );
 
+  // Fetch coproducer data for all products in this storefront
+  const { data: coproducerMap } = useBulkProductCoproducers(existingProductIds);
+
   const existingComboIds = useMemo(() => 
     storefrontProducts?.filter(sp => sp.combo_id).map(sp => sp.combo_id!) || [], 
     [storefrontProducts]
