@@ -12,11 +12,13 @@ import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useEvolutionInstances, InstanceFilter, ChannelType } from "@/hooks/useEvolutionInstances";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Smartphone, Wifi, WifiOff, Archive, ArchiveRestore, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings, Info, Cog, ChevronDown, MessageCircle } from "lucide-react";
+import { Plus, Smartphone, Wifi, WifiOff, Archive, ArchiveRestore, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings, Info, Cog, ChevronDown, MessageCircle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { InstancePermissions } from "./InstancePermissions";
 import { InstanceSettingsDialog } from "./InstanceSettingsDialog";
 import { EvolutionSettingsDialog } from "./EvolutionSettingsDialog";
+import { InstanceEditDialog } from "./InstanceEditDialog";
+import { useAuth } from "@/hooks/useAuth";
 
 // Ícone do Instagram inline
 const InstagramIcon = ({ className }: { className?: string }) => (
@@ -70,6 +72,11 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
   } = useEvolutionInstances();
 
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+
+  // Marca Própria org ID - permite edição de instâncias
+  const MARCA_PROPRIA_ORG_ID = "2d272c40-22e9-40e2-8cdc-3be142f61717";
+  const canEditInstances = profile?.organization_id === MARCA_PROPRIA_ORG_ID;
 
   const [newInstanceName, setNewInstanceName] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -90,6 +97,7 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
   const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [evolutionSettingsDialogOpen, setEvolutionSettingsDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedInstanceForDialog, setSelectedInstanceForDialog] = useState<EvolutionInstance | null>(null);
 
   // Estado para dialog de Instagram
@@ -800,6 +808,21 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                         >
                           <Users className="h-4 w-4" />
                         </Button>
+                        {/* Botão Editar (só Marca Própria) */}
+                        {canEditInstances && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedInstanceForDialog(instance);
+                              setEditDialogOpen(true);
+                            }}
+                            title="Editar informações da instância"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                         {/* Botão Arquivar */}
                         <Button
                           size="sm"
@@ -901,6 +924,18 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
           instanceName={selectedInstanceForDialog.name}
           open={evolutionSettingsDialogOpen}
           onOpenChange={setEvolutionSettingsDialogOpen}
+        />
+      )}
+
+      {/* Dialog de Edição da Instância (só Marca Própria) */}
+      {selectedInstanceForDialog && canEditInstances && (
+        <InstanceEditDialog
+          instanceId={selectedInstanceForDialog.id}
+          instanceName={selectedInstanceForDialog.name}
+          instancePhoneNumber={selectedInstanceForDialog.phone_number}
+          instanceEvolutionId={selectedInstanceForDialog.evolution_instance_id}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
         />
       )}
     </div>
