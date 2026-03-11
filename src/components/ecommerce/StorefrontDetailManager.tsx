@@ -133,10 +133,9 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
         </TabsContent>
 
         <TabsContent value="affiliates" className="mt-6">
-          <AffiliatesTab
-            assetType="storefront"
-            assetId={storefrontId}
-            assetSlug={storefront.slug}
+          <StorefrontCoproducersTab
+            storefrontId={storefrontId}
+            storefrontName={storefront.name}
           />
         </TabsContent>
 
