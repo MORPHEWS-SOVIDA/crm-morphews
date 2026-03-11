@@ -21,6 +21,11 @@ interface PartnerNotification {
   productName?: string;
   organizationId?: string;
   organizationName?: string;
+  // Enhanced sale details
+  items?: { product_name: string; quantity: number; total_cents: number }[];
+  totalCents?: number;
+  orderNumber?: string;
+  paymentMethod?: string;
 }
 
 interface AdminWhatsAppConfig {
@@ -271,7 +276,7 @@ async function sendEmailNotification(
             </p>
             
             <div class="amount-box">
-              <div class="label">Sua comissão</div>
+              <div class="label">Sua comissão nesta venda</div>
               <div class="value">${formatCurrency(notification.commissionCents)}</div>
             </div>
             
@@ -284,16 +289,57 @@ async function sendEmailNotification(
                 <span class="details-label">Seu papel</span>
                 <span class="details-value">${partnerTypeLabel}</span>
               </div>
-              ${notification.productName ? `
+              ${notification.orderNumber ? `
+              <div class="details-row">
+                <span class="details-label">Pedido</span>
+                <span class="details-value">#${notification.orderNumber}</span>
+              </div>
+              ` : ''}
+              ${notification.paymentMethod ? `
+              <div class="details-row">
+                <span class="details-label">Pagamento</span>
+                <span class="details-value">${notification.paymentMethod === 'pix' ? 'PIX' : notification.paymentMethod === 'credit_card' ? 'Cartão' : notification.paymentMethod === 'boleto' ? 'Boleto' : notification.paymentMethod}</span>
+              </div>
+              ` : ''}
+              ${notification.totalCents ? `
+              <div class="details-row">
+                <span class="details-label">Valor da venda</span>
+                <span class="details-value">${formatCurrency(notification.totalCents)}</span>
+              </div>
+              ` : ''}
+            </div>
+
+            ${notification.items && notification.items.length > 0 ? `
+            <h3 style="font-size: 16px; color: #334155; margin: 24px 0 12px 0;">📦 Itens vendidos</h3>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+              <thead>
+                <tr style="background-color: #f8fafc;">
+                  <th style="padding: 10px 8px; text-align: left; font-size: 12px; color: #64748b; text-transform: uppercase;">Produto</th>
+                  <th style="padding: 10px 8px; text-align: center; font-size: 12px; color: #64748b; text-transform: uppercase;">Qtd</th>
+                  <th style="padding: 10px 8px; text-align: right; font-size: 12px; color: #64748b; text-transform: uppercase;">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${notification.items.map(item => `
+                <tr>
+                  <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #333;">${item.product_name}</td>
+                  <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #555; text-align: center;">${item.quantity}</td>
+                  <td style="padding: 10px 8px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #333; text-align: right;">${formatCurrency(item.total_cents)}</td>
+                </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            ` : notification.productName ? `
+            <div class="details">
               <div class="details-row">
                 <span class="details-label">Produto</span>
                 <span class="details-value">${notification.productName}</span>
               </div>
-              ` : ''}
             </div>
+            ` : ''}
             
             <div class="cta">
-              <a href="https://atomic.ia.br/login">Acessar painel</a>
+              <a href="https://atomic.ia.br/login">Acessar meu painel</a>
             </div>
             
             <p style="color: #64748b; text-align: center; font-size: 14px;">
@@ -421,7 +467,7 @@ export async function notifyAllPartnersForSale(
   // Get sale details for customer name and organization
   const { data: sale } = await supabase
     .from('sales')
-    .select('lead_id, total_cents, organization_id')
+    .select('lead_id, total_cents, organization_id, payment_method')
     .eq('id', saleId)
     .single();
 
@@ -449,16 +495,30 @@ export async function notifyAllPartnersForSale(
     customerName = lead?.name || 'Cliente';
   }
 
-  // Get first product name
+  // Get all sale items
   const { data: saleItems } = await supabase
     .from('sale_items')
-    .select('product_name')
-    .eq('sale_id', saleId)
-    .limit(1);
+    .select('product_name, quantity, total_cents')
+    .eq('sale_id', saleId);
 
-  if (saleItems && saleItems.length > 0) {
-    productName = saleItems[0].product_name;
+  const items = (saleItems || []).map((si: any) => ({
+    product_name: si.product_name,
+    quantity: si.quantity,
+    total_cents: si.total_cents,
+  }));
+
+  if (items.length > 0) {
+    productName = items[0].product_name;
   }
+
+  // Get order number
+  const { data: orderData } = await supabase
+    .from('ecommerce_orders')
+    .select('order_number')
+    .eq('sale_id', saleId)
+    .maybeSingle();
+
+  const orderNumber = orderData?.order_number || saleId.slice(0, 8).toUpperCase();
 
   // Notify each partner
   for (const partner of partners) {
@@ -473,6 +533,10 @@ export async function notifyAllPartnersForSale(
       productName,
       organizationId,
       organizationName,
+      items,
+      totalCents: sale?.total_cents || 0,
+      orderNumber,
+      paymentMethod: sale?.payment_method || '',
     });
   }
 
