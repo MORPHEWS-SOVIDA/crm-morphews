@@ -94,9 +94,31 @@ export function StorefrontCheckout() {
     return initial;
   });
 
-  // Restore cart from base64 query param (?cart=<base64>) or from database (/checkout/:cartId)
+  // Restore cart from base64 query param (?cart=<base64>), simple query params, or from database (/checkout/:cartId)
   useEffect(() => {
     if (items.length > 0 || restoringCart) return;
+
+    // Read simple customer query params (from external sites)
+    const qpName = searchParams.get('name');
+    const qpEmail = searchParams.get('email');
+    const qpPhone = searchParams.get('phone') || searchParams.get('whatsapp');
+    const qpCpf = searchParams.get('cpf');
+
+    // Pre-fill customer data from simple query params
+    if (qpName || qpEmail || qpPhone) {
+      setFormData(prev => ({
+        ...prev,
+        name: qpName || prev.name,
+        email: qpEmail || prev.email,
+        phone: qpPhone || prev.phone,
+        cpf: qpCpf || prev.cpf,
+      }));
+
+      // Clean customer params from URL
+      const newUrl = new URL(window.location.href);
+      ['name', 'email', 'phone', 'whatsapp', 'cpf'].forEach(p => newUrl.searchParams.delete(p));
+      window.history.replaceState({}, '', newUrl.toString());
+    }
 
     // Method 1: Base64 encoded cart data in query param (from external sites like shapefy.shop)
     const cartParam = searchParams.get('cart');
@@ -107,14 +129,14 @@ export function StorefrontCheckout() {
         console.log('[Checkout] 📦 Restoring cart from URL param:', JSON.stringify(decoded, null, 2));
         console.log('[Checkout] Items:', decoded.items?.length, 'Customer:', decoded.customer?.name);
 
-        // Restore customer data
+        // Restore customer data (query params take priority, already set above)
         if (decoded.customer) {
           setFormData(prev => ({
             ...prev,
-            name: decoded.customer.name || prev.name,
-            email: decoded.customer.email || prev.email,
-            phone: decoded.customer.whatsapp || decoded.customer.phone || prev.phone,
-            cpf: decoded.customer.cpf || prev.cpf,
+            name: prev.name || decoded.customer.name || '',
+            email: prev.email || decoded.customer.email || '',
+            phone: prev.phone || decoded.customer.whatsapp || decoded.customer.phone || '',
+            cpf: prev.cpf || decoded.customer.cpf || '',
           }));
         }
 
@@ -135,9 +157,9 @@ export function StorefrontCheckout() {
         }
 
         // Clean URL without reloading (remove ?cart param)
-        const newUrl = new URL(window.location.href);
-        newUrl.searchParams.delete('cart');
-        window.history.replaceState({}, '', newUrl.pathname);
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('cart');
+        window.history.replaceState({}, '', cleanUrl.pathname);
         
         setRestoringCart(false);
         return;
