@@ -7,13 +7,34 @@ const corsHeaders = {
 };
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
-const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") || "";
-const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") || "";
+
+interface OrderItem {
+  product_name: string;
+  quantity: number;
+  unit_price_cents: number;
+  total_cents: number;
+  product_image_url?: string;
+}
 
 interface NotificationPayload {
-  type: 'order_created' | 'payment_confirmed' | 'payment_failed' | 'order_shipped' | 'order_delivered';
+  type: 'order_created' | 'payment_confirmed' | 'payment_failed' | 'order_shipped' | 'order_delivered' | 'pix_pending' | 'boleto_pending';
   sale_id: string;
   organization_id?: string;
+  // Extra data for PIX/boleto
+  pix_code?: string;
+  pix_expiration?: string;
+  boleto_barcode?: string;
+  boleto_url?: string;
+  boleto_expiration?: string;
+  // Order items for rich emails
+  items?: OrderItem[];
+  subtotal_cents?: number;
+  shipping_cents?: number;
+  total_cents?: number;
+  payment_method?: string;
+  order_number?: string;
+  customer_name?: string;
+  customer_email?: string;
 }
 
 serve(async (req) => {
@@ -29,24 +50,24 @@ serve(async (req) => {
     const payload: NotificationPayload = await req.json();
     const { type, sale_id } = payload;
 
-    console.log(`Processing notification: ${type} for sale ${sale_id}`);
+    console.log(`[EcomNotif] Processing: ${type} for sale ${sale_id}`);
 
-    // Fetch sale with lead info
+    // Fetch sale with items
     const { data: sale, error: saleError } = await supabase
       .from('sales')
-      .select('id, total_cents, status, payment_status, organization_id, lead_id')
+      .select('id, total_cents, subtotal_cents, shipping_cost_cents, status, payment_status, payment_method, organization_id, lead_id')
       .eq('id', sale_id)
       .single();
 
     if (saleError || !sale) {
-      console.error("Sale not found:", saleError);
+      console.error("[EcomNotif] Sale not found:", saleError);
       return new Response(
         JSON.stringify({ error: "Sale not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Fetch lead separately
+    // Fetch lead
     const { data: leadData } = await supabase
       .from('leads')
       .select('id, name, email, whatsapp')
@@ -55,38 +76,84 @@ serve(async (req) => {
 
     const lead = leadData as { id: string; name: string; email: string; whatsapp: string } | null;
 
-    // Fetch organization separately
+    // Fetch organization
     const { data: orgData } = await supabase
       .from('organizations')
-      .select('name, email, whatsapp_notification_instance_id')
+      .select('name, email')
       .eq('id', sale.organization_id)
       .single();
 
-    const org = orgData as { name: string; email: string; whatsapp_notification_instance_id?: string } | null;
+    const org = orgData as { name: string; email: string } | null;
 
-    if (!lead) {
-      console.log("No lead associated with sale");
+    // Use email from payload, lead, or skip
+    const recipientEmail = payload.customer_email || lead?.email;
+    const customerName = payload.customer_name || lead?.name || 'Cliente';
+
+    if (!recipientEmail) {
+      console.log("[EcomNotif] No email for customer, skipping");
       return new Response(
-        JSON.stringify({ success: true, message: "No lead to notify" }),
+        JSON.stringify({ success: true, message: "No email to notify" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get notification templates
-    const templates = getNotificationTemplates(type, {
-      customerName: lead.name,
-      orderId: sale_id.slice(0, 8).toUpperCase(),
-      totalCents: sale.total_cents,
-      storeName: org?.name || 'Loja',
+    // Fetch sale items if not provided
+    let items: OrderItem[] = payload.items || [];
+    if (items.length === 0) {
+      const { data: saleItems } = await supabase
+        .from('sale_items')
+        .select('product_name, quantity, unit_price_cents, total_cents')
+        .eq('sale_id', sale_id);
+      
+      if (saleItems) {
+        items = saleItems.map(si => ({
+          product_name: si.product_name,
+          quantity: si.quantity,
+          unit_price_cents: si.unit_price_cents,
+          total_cents: si.total_cents,
+        }));
+      }
+    }
+
+    // Get order number
+    let orderNumber = payload.order_number || '';
+    if (!orderNumber) {
+      const { data: orderData } = await supabase
+        .from('ecommerce_orders')
+        .select('order_number')
+        .eq('sale_id', sale_id)
+        .maybeSingle();
+      orderNumber = orderData?.order_number || sale_id.slice(0, 8).toUpperCase();
+    }
+
+    const totalCents = payload.total_cents || sale.total_cents || 0;
+    const subtotalCents = payload.subtotal_cents || sale.subtotal_cents || totalCents;
+    const shippingCents = payload.shipping_cents || sale.shipping_cost_cents || 0;
+    const storeName = org?.name || 'Loja';
+    const firstName = customerName.split(' ')[0];
+
+    // Build and send email
+    const emailHtml = buildEmailHtml(type, {
+      firstName,
+      customerName,
+      orderNumber,
+      items,
+      subtotalCents,
+      shippingCents,
+      totalCents,
+      storeName,
+      pixCode: payload.pix_code,
+      pixExpiration: payload.pix_expiration,
+      boletoBarcode: payload.boleto_barcode,
+      boletoUrl: payload.boleto_url,
+      boletoExpiration: payload.boleto_expiration,
+      paymentMethod: payload.payment_method || sale.payment_method || '',
     });
 
-    const results = {
-      email: false,
-      whatsapp: false,
-    };
+    const emailSubject = getEmailSubject(type, orderNumber, storeName);
 
-    // Send Email
-    if (lead.email && RESEND_API_KEY) {
+    let emailSent = false;
+    if (RESEND_API_KEY) {
       try {
         const emailRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -95,80 +162,34 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: `${org?.name || 'Loja'} <noreply@atomic.ia.br>`,
-            to: [lead.email],
-            subject: templates.email.subject,
-            html: templates.email.html,
+            from: `${storeName} <noreply@atomic.ia.br>`,
+            to: [recipientEmail],
+            subject: emailSubject,
+            html: emailHtml,
           }),
         });
 
         if (emailRes.ok) {
-          results.email = true;
-          console.log(`Email sent to ${lead.email}`);
+          emailSent = true;
+          console.log(`[EcomNotif] Email sent to ${recipientEmail} (${type})`);
         } else {
-          console.error("Email send failed:", await emailRes.text());
+          const errText = await emailRes.text();
+          console.error("[EcomNotif] Email send failed:", errText);
         }
       } catch (e) {
-        console.error("Email error:", e);
+        console.error("[EcomNotif] Email error:", e);
       }
-    }
-
-    // Send WhatsApp
-    if (lead.whatsapp && EVOLUTION_API_URL && EVOLUTION_API_KEY && org?.whatsapp_notification_instance_id) {
-      try {
-        // Get instance name
-        const { data: instance } = await supabase
-          .from('whatsapp_instances')
-          .select('instance_name')
-          .eq('id', org.whatsapp_notification_instance_id)
-          .single();
-
-        if (instance?.instance_name) {
-          const whatsappRes = await fetch(`${EVOLUTION_API_URL}/message/sendText/${instance.instance_name}`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: EVOLUTION_API_KEY,
-            },
-            body: JSON.stringify({
-              number: normalizePhone(lead.whatsapp),
-              text: templates.whatsapp,
-            }),
-          });
-
-          if (whatsappRes.ok) {
-            results.whatsapp = true;
-            console.log(`WhatsApp sent to ${lead.whatsapp}`);
-          } else {
-            console.error("WhatsApp send failed:", await whatsappRes.text());
-          }
-        }
-      } catch (e) {
-        console.error("WhatsApp error:", e);
-      }
-    }
-
-    // Log notification (ignore errors if table doesn't exist)
-    try {
-      await supabase.from('notification_logs').insert({
-        organization_id: sale.organization_id,
-        lead_id: lead.id,
-        sale_id: sale_id,
-        notification_type: type,
-        email_sent: results.email,
-        whatsapp_sent: results.whatsapp,
-      });
-    } catch (e) {
-      // Ignore - table may not exist
+    } else {
+      console.warn("[EcomNotif] No RESEND_API_KEY configured, skipping email");
     }
 
     return new Response(
-      JSON.stringify({ success: true, results }),
+      JSON.stringify({ success: true, email_sent: emailSent }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("Notification error:", error);
+    console.error("[EcomNotif] Error:", error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),
@@ -177,12 +198,50 @@ serve(async (req) => {
   }
 });
 
-function normalizePhone(phone: string): string {
-  let digits = phone.replace(/\D/g, '');
-  if (!digits.startsWith('55')) {
-    digits = '55' + digits;
+// =====================================================
+// EMAIL SUBJECT
+// =====================================================
+
+function getEmailSubject(type: string, orderNumber: string, storeName: string): string {
+  switch (type) {
+    case 'pix_pending':
+      return `PIX para pagamento - Pedido #${orderNumber} - ${storeName}`;
+    case 'boleto_pending':
+      return `Boleto para pagamento - Pedido #${orderNumber} - ${storeName}`;
+    case 'payment_confirmed':
+      return `✅ Pagamento confirmado! Pedido #${orderNumber} - ${storeName}`;
+    case 'order_created':
+      return `Pedido #${orderNumber} recebido - ${storeName}`;
+    case 'payment_failed':
+      return `⚠️ Problema no pagamento - Pedido #${orderNumber}`;
+    case 'order_shipped':
+      return `🚚 Pedido #${orderNumber} enviado! - ${storeName}`;
+    case 'order_delivered':
+      return `✅ Pedido #${orderNumber} entregue! - ${storeName}`;
+    default:
+      return `Pedido #${orderNumber} - ${storeName}`;
   }
-  return digits;
+}
+
+// =====================================================
+// EMAIL HTML BUILDER
+// =====================================================
+
+interface EmailData {
+  firstName: string;
+  customerName: string;
+  orderNumber: string;
+  items: OrderItem[];
+  subtotalCents: number;
+  shippingCents: number;
+  totalCents: number;
+  storeName: string;
+  pixCode?: string;
+  pixExpiration?: string;
+  boletoBarcode?: string;
+  boletoUrl?: string;
+  boletoExpiration?: string;
+  paymentMethod: string;
 }
 
 function formatCurrency(cents: number): string {
@@ -192,81 +251,296 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
-function getNotificationTemplates(
-  type: string,
-  data: { customerName: string; orderId: string; totalCents: number; storeName: string }
-) {
-  const { customerName, orderId, totalCents, storeName } = data;
-  const total = formatCurrency(totalCents);
-  const firstName = customerName.split(' ')[0];
+function buildItemsTable(items: OrderItem[]): string {
+  if (items.length === 0) return '';
+  
+  const rows = items.map(item => `
+    <tr>
+      <td style="padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 14px; color: #333;">
+        ${item.product_name}
+      </td>
+      <td style="padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 14px; color: #555; text-align: center;">
+        ${item.quantity}
+      </td>
+      <td style="padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 14px; color: #333; text-align: right;">
+        ${formatCurrency(item.total_cents)}
+      </td>
+    </tr>
+  `).join('');
 
-  const templates: Record<string, { email: { subject: string; html: string }; whatsapp: string }> = {
-    order_created: {
-      email: {
-        subject: `Pedido #${orderId} recebido - ${storeName}`,
-        html: `
-          <h1>Olá ${firstName}!</h1>
-          <p>Recebemos seu pedido <strong>#${orderId}</strong> no valor de <strong>${total}</strong>.</p>
-          <p>Estamos aguardando a confirmação do pagamento.</p>
-          <p>Obrigado por comprar com a ${storeName}!</p>
-        `,
-      },
-      whatsapp: `🛒 *Pedido Recebido!*\n\nOlá ${firstName}! Seu pedido *#${orderId}* no valor de *${total}* foi recebido.\n\nAguardando confirmação de pagamento.\n\n_${storeName}_`,
-    },
-    payment_confirmed: {
-      email: {
-        subject: `Pagamento confirmado - Pedido #${orderId}`,
-        html: `
-          <h1>Pagamento Confirmado! 🎉</h1>
-          <p>Olá ${firstName}!</p>
-          <p>Seu pagamento de <strong>${total}</strong> foi confirmado para o pedido <strong>#${orderId}</strong>.</p>
-          <p>Estamos preparando seu pedido para envio.</p>
-          <p>Obrigado por comprar com a ${storeName}!</p>
-        `,
-      },
-      whatsapp: `✅ *Pagamento Confirmado!*\n\nOlá ${firstName}! O pagamento do seu pedido *#${orderId}* foi confirmado.\n\nValor: *${total}*\n\nEstamos preparando seu pedido!\n\n_${storeName}_`,
-    },
-    payment_failed: {
-      email: {
-        subject: `Problema no pagamento - Pedido #${orderId}`,
-        html: `
-          <h1>Problema no Pagamento</h1>
-          <p>Olá ${firstName}!</p>
-          <p>Infelizmente não conseguimos processar o pagamento do pedido <strong>#${orderId}</strong>.</p>
-          <p>Por favor, tente novamente ou entre em contato conosco.</p>
-          <p>Estamos à disposição!</p>
-          <p><em>${storeName}</em></p>
-        `,
-      },
-      whatsapp: `⚠️ *Problema no Pagamento*\n\nOlá ${firstName}! Não conseguimos processar o pagamento do pedido *#${orderId}*.\n\nPor favor, tente novamente ou entre em contato.\n\n_${storeName}_`,
-    },
-    order_shipped: {
-      email: {
-        subject: `Seu pedido #${orderId} foi enviado! 🚚`,
-        html: `
-          <h1>Pedido Enviado! 🚚</h1>
-          <p>Olá ${firstName}!</p>
-          <p>Seu pedido <strong>#${orderId}</strong> foi enviado e está a caminho!</p>
-          <p>Em breve você receberá o código de rastreamento.</p>
-          <p><em>${storeName}</em></p>
-        `,
-      },
-      whatsapp: `🚚 *Pedido Enviado!*\n\nOlá ${firstName}! Seu pedido *#${orderId}* foi enviado e está a caminho!\n\n_${storeName}_`,
-    },
-    order_delivered: {
-      email: {
-        subject: `Pedido #${orderId} entregue! ✅`,
-        html: `
-          <h1>Pedido Entregue! ✅</h1>
-          <p>Olá ${firstName}!</p>
-          <p>Seu pedido <strong>#${orderId}</strong> foi entregue com sucesso!</p>
-          <p>Esperamos que você aproveite sua compra.</p>
-          <p>Obrigado por comprar com a ${storeName}!</p>
-        `,
-      },
-      whatsapp: `✅ *Pedido Entregue!*\n\nOlá ${firstName}! Seu pedido *#${orderId}* foi entregue!\n\nEsperamos que aproveite sua compra 😊\n\n_${storeName}_`,
-    },
-  };
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin: 20px 0;">
+      <thead>
+        <tr style="background-color: #f8f9fa;">
+          <th style="padding: 10px 8px; text-align: left; font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Produto</th>
+          <th style="padding: 10px 8px; text-align: center; font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Qtd</th>
+          <th style="padding: 10px 8px; text-align: right; font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Valor</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+}
 
-  return templates[type] || templates.order_created;
+function buildTotalsSection(data: EmailData): string {
+  let html = '<div style="margin: 20px 0; padding: 16px; background-color: #f8f9fa; border-radius: 8px;">';
+  
+  if (data.subtotalCents !== data.totalCents) {
+    html += `<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+      <span style="font-size: 14px; color: #555;">Subtotal:</span>
+      <span style="font-size: 14px; color: #333;">${formatCurrency(data.subtotalCents)}</span>
+    </div>`;
+  }
+  
+  if (data.shippingCents > 0) {
+    html += `<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+      <span style="font-size: 14px; color: #555;">Frete:</span>
+      <span style="font-size: 14px; color: #333;">${formatCurrency(data.shippingCents)}</span>
+    </div>`;
+  }
+  
+  html += `<div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 2px solid #ddd;">
+    <span style="font-size: 16px; font-weight: bold; color: #111;">Total:</span>
+    <span style="font-size: 16px; font-weight: bold; color: #111;">${formatCurrency(data.totalCents)}</span>
+  </div>`;
+  
+  html += '</div>';
+  return html;
+}
+
+function buildEmailHtml(type: string, data: EmailData): string {
+  let bodyContent = '';
+  
+  switch (type) {
+    case 'pix_pending':
+      bodyContent = buildPixPendingBody(data);
+      break;
+    case 'boleto_pending':
+      bodyContent = buildBoletoPendingBody(data);
+      break;
+    case 'payment_confirmed':
+      bodyContent = buildPaymentConfirmedBody(data);
+      break;
+    case 'order_created':
+      bodyContent = buildOrderCreatedBody(data);
+      break;
+    case 'payment_failed':
+      bodyContent = buildPaymentFailedBody(data);
+      break;
+    case 'order_shipped':
+      bodyContent = buildOrderShippedBody(data);
+      break;
+    case 'order_delivered':
+      bodyContent = buildOrderDeliveredBody(data);
+      break;
+    default:
+      bodyContent = buildOrderCreatedBody(data);
+  }
+
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 40px 20px;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.07);">
+              <!-- Header -->
+              <tr>
+                <td style="background-color: #111827; padding: 30px 40px; text-align: center;">
+                  <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">
+                    ${data.storeName}
+                  </h1>
+                </td>
+              </tr>
+              <!-- Body -->
+              <tr>
+                <td style="padding: 40px;">
+                  ${bodyContent}
+                </td>
+              </tr>
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #f8f9fa; padding: 24px 40px; text-align: center;">
+                  <p style="margin: 0; font-size: 12px; color: #999;">
+                    Este e-mail foi enviado automaticamente pela ${data.storeName}.<br>
+                    Em caso de dúvidas, entre em contato conosco.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
+// =====================================================
+// EMAIL BODY BUILDERS
+// =====================================================
+
+function buildPixPendingBody(data: EmailData): string {
+  const pixSection = data.pixCode ? `
+    <div style="margin: 24px 0; padding: 24px; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 12px; border: 2px solid #10b981;">
+      <h3 style="margin: 0 0 8px 0; color: #065f46; font-size: 16px;">🟢 Código PIX (Copia e Cola)</h3>
+      <p style="margin: 0 0 12px 0; font-size: 13px; color: #047857;">Copie o código abaixo e cole no app do seu banco:</p>
+      <div style="background: #ffffff; border: 1px dashed #10b981; border-radius: 8px; padding: 16px; word-break: break-all; font-family: monospace; font-size: 12px; color: #333; line-height: 1.5;">
+        ${data.pixCode}
+      </div>
+      ${data.pixExpiration ? `<p style="margin: 12px 0 0 0; font-size: 12px; color: #6b7280;">⏰ Este código expira em: ${data.pixExpiration}</p>` : ''}
+    </div>
+  ` : '';
+
+  return `
+    <h2 style="margin: 0 0 8px 0; font-size: 24px; color: #111;">Olá ${data.firstName}! 👋</h2>
+    <p style="margin: 0 0 20px 0; font-size: 16px; color: #555;">Seu pedido <strong>#${data.orderNumber}</strong> foi recebido. Use o código PIX abaixo para realizar o pagamento:</p>
+    
+    ${pixSection}
+    
+    <h3 style="margin: 24px 0 0 0; font-size: 16px; color: #333;">📋 Resumo do Pedido</h3>
+    ${buildItemsTable(data.items)}
+    ${buildTotalsSection(data)}
+    
+    <p style="margin: 20px 0 0 0; font-size: 14px; color: #666;">
+      Assim que identificarmos o pagamento, enviaremos um e-mail de confirmação.
+    </p>
+  `;
+}
+
+function buildBoletoPendingBody(data: EmailData): string {
+  const boletoSection = `
+    <div style="margin: 24px 0; padding: 24px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px; border: 2px solid #3b82f6;">
+      <h3 style="margin: 0 0 8px 0; color: #1e40af; font-size: 16px;">📄 Dados do Boleto</h3>
+      ${data.boletoBarcode ? `
+        <p style="margin: 0 0 8px 0; font-size: 13px; color: #1e40af;">Linha digitável:</p>
+        <div style="background: #ffffff; border: 1px dashed #3b82f6; border-radius: 8px; padding: 16px; word-break: break-all; font-family: monospace; font-size: 13px; color: #333; letter-spacing: 1px;">
+          ${data.boletoBarcode}
+        </div>
+      ` : ''}
+      ${data.boletoUrl ? `
+        <div style="margin-top: 16px; text-align: center;">
+          <a href="${data.boletoUrl}" target="_blank" style="display: inline-block; background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 600;">
+            📥 Abrir Boleto
+          </a>
+        </div>
+      ` : ''}
+      ${data.boletoExpiration ? `<p style="margin: 12px 0 0 0; font-size: 12px; color: #6b7280;">⏰ Vencimento: ${data.boletoExpiration}</p>` : ''}
+    </div>
+  `;
+
+  return `
+    <h2 style="margin: 0 0 8px 0; font-size: 24px; color: #111;">Olá ${data.firstName}! 👋</h2>
+    <p style="margin: 0 0 20px 0; font-size: 16px; color: #555;">Seu pedido <strong>#${data.orderNumber}</strong> foi recebido. Segue o boleto para pagamento:</p>
+    
+    ${boletoSection}
+    
+    <h3 style="margin: 24px 0 0 0; font-size: 16px; color: #333;">📋 Resumo do Pedido</h3>
+    ${buildItemsTable(data.items)}
+    ${buildTotalsSection(data)}
+    
+    <p style="margin: 20px 0 0 0; font-size: 14px; color: #666;">
+      O pagamento pode levar até 2 dias úteis para ser compensado. Assim que identificarmos, enviaremos um e-mail de confirmação.
+    </p>
+  `;
+}
+
+function buildPaymentConfirmedBody(data: EmailData): string {
+  const paymentLabel = data.paymentMethod === 'pix' ? 'PIX' : data.paymentMethod === 'credit_card' ? 'Cartão de Crédito' : data.paymentMethod === 'boleto' ? 'Boleto' : 'Pagamento';
+  
+  return `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 50%; width: 64px; height: 64px; line-height: 64px; font-size: 32px;">
+        ✅
+      </div>
+    </div>
+    
+    <h2 style="margin: 0 0 8px 0; font-size: 24px; color: #111; text-align: center;">Pagamento Confirmado! 🎉</h2>
+    <p style="margin: 0 0 24px 0; font-size: 16px; color: #555; text-align: center;">
+      Olá <strong>${data.firstName}</strong>, seu pagamento via <strong>${paymentLabel}</strong> foi confirmado com sucesso!
+    </p>
+    
+    <div style="margin: 20px 0; padding: 16px; background-color: #ecfdf5; border-radius: 8px; border-left: 4px solid #10b981;">
+      <p style="margin: 0; font-size: 14px; color: #065f46;">
+        <strong>Pedido #${data.orderNumber}</strong> — Estamos preparando seu pedido!
+      </p>
+    </div>
+    
+    <h3 style="margin: 24px 0 0 0; font-size: 16px; color: #333;">📦 Itens do Pedido</h3>
+    ${buildItemsTable(data.items)}
+    ${buildTotalsSection(data)}
+    
+    <p style="margin: 24px 0 0 0; font-size: 14px; color: #666; text-align: center;">
+      Obrigado por comprar com a <strong>${data.storeName}</strong>! 💚<br>
+      Você receberá atualizações sobre o envio por e-mail.
+    </p>
+  `;
+}
+
+function buildOrderCreatedBody(data: EmailData): string {
+  return `
+    <h2 style="margin: 0 0 8px 0; font-size: 24px; color: #111;">Olá ${data.firstName}! 👋</h2>
+    <p style="margin: 0 0 20px 0; font-size: 16px; color: #555;">Recebemos seu pedido <strong>#${data.orderNumber}</strong>.</p>
+    
+    <h3 style="margin: 24px 0 0 0; font-size: 16px; color: #333;">📋 Resumo do Pedido</h3>
+    ${buildItemsTable(data.items)}
+    ${buildTotalsSection(data)}
+    
+    <p style="margin: 20px 0 0 0; font-size: 14px; color: #666;">
+      Estamos aguardando a confirmação do pagamento. Obrigado por comprar com a ${data.storeName}!
+    </p>
+  `;
+}
+
+function buildPaymentFailedBody(data: EmailData): string {
+  return `
+    <h2 style="margin: 0 0 8px 0; font-size: 24px; color: #111;">Olá ${data.firstName},</h2>
+    <div style="margin: 20px 0; padding: 16px; background-color: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444;">
+      <p style="margin: 0; font-size: 14px; color: #991b1b;">
+        Infelizmente não conseguimos processar o pagamento do pedido <strong>#${data.orderNumber}</strong>.
+      </p>
+    </div>
+    <p style="font-size: 14px; color: #555;">
+      Por favor, tente novamente ou entre em contato conosco para ajudarmos.
+    </p>
+    <p style="font-size: 14px; color: #666;"><em>${data.storeName}</em></p>
+  `;
+}
+
+function buildOrderShippedBody(data: EmailData): string {
+  return `
+    <h2 style="margin: 0 0 8px 0; font-size: 24px; color: #111;">Pedido Enviado! 🚚</h2>
+    <p style="margin: 0 0 20px 0; font-size: 16px; color: #555;">
+      Olá <strong>${data.firstName}</strong>, seu pedido <strong>#${data.orderNumber}</strong> foi enviado e está a caminho!
+    </p>
+    ${buildItemsTable(data.items)}
+    <p style="font-size: 14px; color: #666;">
+      Em breve você receberá o código de rastreamento.<br>
+      <em>${data.storeName}</em>
+    </p>
+  `;
+}
+
+function buildOrderDeliveredBody(data: EmailData): string {
+  return `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="font-size: 48px;">📦✅</div>
+    </div>
+    <h2 style="margin: 0 0 8px 0; font-size: 24px; color: #111; text-align: center;">Pedido Entregue!</h2>
+    <p style="margin: 0 0 20px 0; font-size: 16px; color: #555; text-align: center;">
+      Olá <strong>${data.firstName}</strong>, seu pedido <strong>#${data.orderNumber}</strong> foi entregue com sucesso!
+    </p>
+    ${buildItemsTable(data.items)}
+    <p style="font-size: 14px; color: #666; text-align: center;">
+      Esperamos que aproveite sua compra! 😊<br>
+      Obrigado por comprar com a <strong>${data.storeName}</strong>!
+    </p>
+  `;
 }

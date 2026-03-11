@@ -682,6 +682,51 @@ serve(async (req) => {
         });
     }
 
+    // 13. Send email notification for PIX/Boleto (non-blocking)
+    if (paymentResult.response.success && customer.email) {
+      const notifType = payment_method === 'pix' ? 'pix_pending' 
+                       : payment_method === 'boleto' ? 'boleto_pending' 
+                       : null;
+      
+      if (notifType) {
+        try {
+          const notifUrl = `${supabaseUrl}/functions/v1/ecommerce-notifications`;
+          fetch(notifUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              type: notifType,
+              sale_id: sale.id,
+              organization_id: organizationId,
+              customer_name: customer.name,
+              customer_email: customer.email,
+              pix_code: paymentResult.response.pix_code,
+              pix_expiration: paymentResult.response.pix_expiration,
+              boleto_barcode: paymentResult.response.boleto_barcode,
+              boleto_url: paymentResult.response.payment_url,
+              items: productItems.map(item => ({
+                product_name: productMap[item.product_id]?.name || 'Produto',
+                quantity: item.quantity,
+                unit_price_cents: item.price_cents,
+                total_cents: item.price_cents * item.quantity,
+              })),
+              subtotal_cents: subtotalCents,
+              shipping_cents: shippingCents,
+              total_cents: totalCents,
+              order_number: orderNumber,
+              payment_method: payment_method,
+            }),
+          }).then(r => console.log(`[Checkout] Notification ${notifType} sent: ${r.status}`))
+            .catch(e => console.error(`[Checkout] Notification error:`, e));
+        } catch (e) {
+          console.error('[Checkout] Failed to trigger notification:', e);
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: paymentResult.response.success,
