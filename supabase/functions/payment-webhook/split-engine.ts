@@ -674,12 +674,33 @@ export async function processSaleSplitsV3(
 
       if (coproducerData && coproducerData.length > 0) {
         for (const coprod of coproducerData) {
-          const commissionPercent = Number(coprod.commission_percentage) || 0;
-          // Calculate coproducer amount on NET base (subtotal - platform fee), not on gross subtotal.
-          // When multiple items exist, allocate net base proportionally by item weight.
-          const itemShare = baseCents > 0 ? (item.total_cents / baseCents) : 0;
-          const itemNetBase = Math.round(baseForAffiliateCommission * itemShare);
-          let coproducerAmount = Math.round(itemNetBase * (commissionPercent / 100));
+          let coproducerAmount = 0;
+          let commissionDesc = '';
+          const commissionType = (coprod as Record<string, unknown>).commission_type as string || 'percentage';
+
+          if (commissionType === 'fixed_per_quantity') {
+            // Fixed commission based on quantity tiers (1, 3, or 5 units)
+            const qty = item.quantity || 1;
+            const fixed1 = Number((coprod as Record<string, unknown>).commission_fixed_1_cents) || 0;
+            const fixed3 = Number((coprod as Record<string, unknown>).commission_fixed_3_cents) || 0;
+            const fixed5 = Number((coprod as Record<string, unknown>).commission_fixed_5_cents) || 0;
+
+            if (qty >= 5) {
+              coproducerAmount = fixed5;
+            } else if (qty >= 3) {
+              coproducerAmount = fixed3;
+            } else {
+              coproducerAmount = fixed1;
+            }
+            commissionDesc = `Coprodução fixa R$${(coproducerAmount / 100).toFixed(2)} (${qty}un)`;
+          } else {
+            // Percentage-based commission (original logic)
+            const commissionPercent = Number(coprod.commission_percentage) || 0;
+            const itemShare = baseCents > 0 ? (item.total_cents / baseCents) : 0;
+            const itemNetBase = Math.round(baseForAffiliateCommission * itemShare);
+            coproducerAmount = Math.round(itemNetBase * (commissionPercent / 100));
+            commissionDesc = `Coprodução ${commissionPercent}%`;
+          }
           
           // CAP: Never exceed remaining amount
           coproducerAmount = Math.min(coproducerAmount, remaining);
@@ -694,25 +715,24 @@ export async function processSaleSplitsV3(
               virtualAccountId: virtualAccount.id as string,
               splitType: 'coproducer',
               amountCents: coproducerAmount,
-              percentage: commissionPercent,
+              percentage: 0,
               priority: 2,
               liableForRefund: true,
               liableForChargeback: true,
-              releaseAt: addDays(rules.hold_days_affiliate), // Same hold as affiliate
+              releaseAt: addDays(rules.hold_days_affiliate),
               referenceId,
-              description: `Coprodução ${commissionPercent}% - Produto ${item.product_id.slice(0, 8)} - Venda #${saleId.slice(0, 8)}`,
+              description: `${commissionDesc} - Produto ${item.product_id.slice(0, 8)} - Venda #${saleId.slice(0, 8)}`,
             });
 
             if (created) {
               result.coproducer_amount += coproducerAmount;
               remaining -= coproducerAmount;
-              console.log(`[SplitEngine] Coproducer split: R$${(coproducerAmount / 100).toFixed(2)} (${commissionPercent}%)`);
+              console.log(`[SplitEngine] Coproducer split: R$${(coproducerAmount / 100).toFixed(2)} (${commissionType})`);
               
               // Add coproducer to notification list
               const holderEmail = virtualAccount?.holder_email as string | undefined;
               const holderName = virtualAccount?.holder_name as string || 'Co-produtor';
               if (holderEmail) {
-                // Try to get phone from profiles if user_id exists
                 let holderPhone: string | undefined;
                 const userId = virtualAccount?.user_id as string | undefined;
                 if (userId) {
