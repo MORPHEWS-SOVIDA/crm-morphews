@@ -12,11 +12,13 @@ import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useEvolutionInstances, InstanceFilter, ChannelType } from "@/hooks/useEvolutionInstances";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Smartphone, Wifi, WifiOff, Archive, ArchiveRestore, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings, Info, Cog, ChevronDown, MessageCircle } from "lucide-react";
+import { Plus, Smartphone, Wifi, WifiOff, Archive, ArchiveRestore, QrCode, RefreshCw, LogOut, Loader2, Settings2, Users, Settings, Info, Cog, ChevronDown, MessageCircle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { InstancePermissions } from "./InstancePermissions";
 import { InstanceSettingsDialog } from "./InstanceSettingsDialog";
 import { EvolutionSettingsDialog } from "./EvolutionSettingsDialog";
+import { InstanceEditDialog } from "./InstanceEditDialog";
+import { useAuth } from "@/hooks/useAuth";
 
 // Ícone do Instagram inline
 const InstagramIcon = ({ className }: { className?: string }) => (
