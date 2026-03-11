@@ -440,6 +440,14 @@ export function StorefrontProductEditDialog({
             </Card>
           </TabsContent>
 
+          {/* Coproducer Tab */}
+          <TabsContent value="coproducer" className="space-y-4 mt-4">
+            <CoproducerCommissionTab
+              productId={product?.id}
+              productName={product?.name || 'Produto'}
+            />
+          </TabsContent>
+
           {/* Display Tab */}
           <TabsContent value="display" className="space-y-4 mt-4">
             <Card>
