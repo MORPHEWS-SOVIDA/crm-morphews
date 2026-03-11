@@ -85,6 +85,11 @@ serve(async (req) => {
 
     const org = orgData as { name: string; email: string } | null;
 
+    // === OWNER NOTIFICATION: different flow ===
+    if (type === 'sale_notification_owner') {
+      return await handleOwnerNotification(supabase, sale, lead, org, payload, sale_id);
+    }
+
     // Use email from payload, lead, or skip
     const recipientEmail = payload.customer_email || lead?.email;
     const customerName = payload.customer_name || lead?.name || 'Cliente';
