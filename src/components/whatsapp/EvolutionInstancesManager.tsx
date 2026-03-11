@@ -926,6 +926,18 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
           onOpenChange={setEvolutionSettingsDialogOpen}
         />
       )}
+
+      {/* Dialog de Edição da Instância (só Marca Própria) */}
+      {selectedInstanceForDialog && canEditInstances && (
+        <InstanceEditDialog
+          instanceId={selectedInstanceForDialog.id}
+          instanceName={selectedInstanceForDialog.name}
+          instancePhoneNumber={selectedInstanceForDialog.phone_number}
+          instanceEvolutionId={selectedInstanceForDialog.evolution_instance_id}
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+        />
+      )}
     </div>
   );
 }
