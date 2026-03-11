@@ -2032,7 +2032,11 @@ export type Database = {
       }
       coproducers: {
         Row: {
+          commission_fixed_1_cents: number | null
+          commission_fixed_3_cents: number | null
+          commission_fixed_5_cents: number | null
           commission_percentage: number
+          commission_type: string
           created_at: string
           id: string
           is_active: boolean | null
@@ -2040,7 +2044,11 @@ export type Database = {
           virtual_account_id: string
         }
         Insert: {
+          commission_fixed_1_cents?: number | null
+          commission_fixed_3_cents?: number | null
+          commission_fixed_5_cents?: number | null
           commission_percentage: number
+          commission_type?: string
           created_at?: string
           id?: string
           is_active?: boolean | null
@@ -2048,7 +2056,11 @@ export type Database = {
           virtual_account_id: string
         }
         Update: {
+          commission_fixed_1_cents?: number | null
+          commission_fixed_3_cents?: number | null
+          commission_fixed_5_cents?: number | null
           commission_percentage?: number
+          commission_type?: string
           created_at?: string
           id?: string
           is_active?: boolean | null
