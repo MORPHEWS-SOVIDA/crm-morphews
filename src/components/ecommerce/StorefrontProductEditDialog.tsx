@@ -191,22 +191,26 @@ export function StorefrontProductEditDialog({
         </DialogHeader>
 
         <Tabs defaultValue="general" className="mt-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="general" className="gap-2">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="general" className="gap-1.5 text-xs sm:text-sm">
               <Info className="h-4 w-4" />
-              Geral
+              <span className="hidden sm:inline">Geral</span>
             </TabsTrigger>
-            <TabsTrigger value="pricing" className="gap-2">
+            <TabsTrigger value="pricing" className="gap-1.5 text-xs sm:text-sm">
               <DollarSign className="h-4 w-4" />
-              Preços
+              <span className="hidden sm:inline">Preços</span>
             </TabsTrigger>
-            <TabsTrigger value="display" className="gap-2">
+            <TabsTrigger value="coproducer" className="gap-1.5 text-xs sm:text-sm">
+              <Users2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Co-produtor</span>
+            </TabsTrigger>
+            <TabsTrigger value="display" className="gap-1.5 text-xs sm:text-sm">
               <Eye className="h-4 w-4" />
-              Exibição
+              <span className="hidden sm:inline">Exibição</span>
             </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2">
+            <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm">
               <Settings className="h-4 w-4" />
-              Config
+              <span className="hidden sm:inline">Config</span>
             </TabsTrigger>
           </TabsList>
 
