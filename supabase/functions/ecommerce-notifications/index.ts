@@ -551,3 +551,258 @@ function buildOrderDeliveredBody(data: EmailData): string {
     </p>
   `;
 }
+
+// =====================================================
+// OWNER NOTIFICATION HANDLER
+// =====================================================
+
+async function handleOwnerNotification(
+  supabase: any,
+  sale: any,
+  lead: any,
+  org: any,
+  payload: NotificationPayload,
+  sale_id: string
+): Promise<Response> {
+  const storeName = org?.name || 'Loja';
+  const customerName = lead?.name || 'Cliente';
+  const customerEmail = lead?.email || '';
+  const customerPhone = lead?.whatsapp || '';
+
+  // Find org owner email(s) from organization_members
+  const { data: members } = await supabase
+    .from('organization_members')
+    .select('user_id, role')
+    .eq('organization_id', sale.organization_id)
+    .eq('role', 'owner');
+
+  const ownerEmails: string[] = [];
+  if (members && members.length > 0) {
+    for (const member of members) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email, first_name')
+        .eq('user_id', member.user_id)
+        .single();
+      if (profile?.email) ownerEmails.push(profile.email);
+    }
+  }
+
+  // Fallback to org email
+  if (ownerEmails.length === 0 && org?.email) {
+    ownerEmails.push(org.email);
+  }
+
+  if (ownerEmails.length === 0) {
+    console.log("[EcomNotif] No owner email found for org", sale.organization_id);
+    return new Response(
+      JSON.stringify({ success: true, message: "No owner email" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Fetch sale items
+  const { data: saleItems } = await supabase
+    .from('sale_items')
+    .select('product_name, quantity, unit_price_cents, total_cents')
+    .eq('sale_id', sale_id);
+
+  const items: OrderItem[] = (saleItems || []).map((si: any) => ({
+    product_name: si.product_name,
+    quantity: si.quantity,
+    unit_price_cents: si.unit_price_cents,
+    total_cents: si.total_cents,
+  }));
+
+  // Get order number
+  const { data: orderData } = await supabase
+    .from('ecommerce_orders')
+    .select('order_number, shipping_address')
+    .eq('sale_id', sale_id)
+    .maybeSingle();
+
+  const orderNumber = orderData?.order_number || sale_id.slice(0, 8).toUpperCase();
+  const shippingAddress = orderData?.shipping_address as Record<string, string> | null;
+
+  const totalCents = sale.total_cents || 0;
+  const subtotalCents = sale.subtotal_cents || totalCents;
+  const shippingCents = sale.shipping_cost_cents || 0;
+  const paymentMethod = payload.payment_method || sale.payment_method || '';
+  const paymentLabel = paymentMethod === 'pix' ? 'Pix' : paymentMethod === 'credit_card' ? 'Cartão de Crédito' : paymentMethod === 'boleto' ? 'Boleto' : paymentMethod;
+
+  // Build address section
+  let addressHtml = '';
+  if (shippingAddress) {
+    const parts = [
+      shippingAddress.street,
+      shippingAddress.number ? `, ${shippingAddress.number}` : '',
+      shippingAddress.complement ? ` - ${shippingAddress.complement}` : '',
+    ].join('');
+    addressHtml = `
+      <div style="margin: 20px 0; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+        <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">📍 Endereço de Entrega</h3>
+        ${shippingAddress.document ? `<p style="margin: 0 0 4px 0; font-size: 14px; color: #333;"><strong>CPF:</strong> ${shippingAddress.document}</p>` : ''}
+        <p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${parts}</p>
+        ${shippingAddress.neighborhood ? `<p style="margin: 0 0 4px 0; font-size: 14px; color: #333;">${shippingAddress.neighborhood}</p>` : ''}
+        <p style="margin: 0; font-size: 14px; color: #333;">${shippingAddress.city || ''} - ${shippingAddress.state || ''} ${shippingAddress.zip ? `CEP ${shippingAddress.zip}` : ''}</p>
+      </div>
+    `;
+  }
+
+  const ownerEmailHtml = `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f5; padding: 40px 20px;">
+        <tr><td align="center">
+          <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.07);">
+            <!-- Header -->
+            <tr>
+              <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px 40px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 8px;">🎉</div>
+                <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Você tem uma nova venda \\o/</h1>
+                <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">Pedido nº ${orderNumber}</p>
+              </td>
+            </tr>
+            <!-- Body -->
+            <tr>
+              <td style="padding: 40px;">
+                <!-- Cliente -->
+                <div style="margin-bottom: 24px;">
+                  <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">👤 Cliente</h3>
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding: 6px 0; font-size: 14px; color: #666; width: 80px;">Nome</td>
+                      <td style="padding: 6px 0; font-size: 14px; color: #111; font-weight: 500;">${customerName}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 0; font-size: 14px; color: #666;">E-mail</td>
+                      <td style="padding: 6px 0; font-size: 14px; color: #111;">${customerEmail}</td>
+                    </tr>
+                    ${customerPhone ? `
+                    <tr>
+                      <td style="padding: 6px 0; font-size: 14px; color: #666;">Celular</td>
+                      <td style="padding: 6px 0; font-size: 14px; color: #111;">${customerPhone}</td>
+                    </tr>
+                    ` : ''}
+                  </table>
+                </div>
+
+                <!-- Endereço -->
+                ${addressHtml}
+
+                <!-- Pedido -->
+                <div style="margin-top: 24px;">
+                  <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">📦 Pedido</h3>
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <thead>
+                      <tr style="background-color: #f8f9fa;">
+                        <th style="padding: 10px 8px; text-align: left; font-size: 12px; color: #666; text-transform: uppercase;">Produto</th>
+                        <th style="padding: 10px 8px; text-align: center; font-size: 12px; color: #666; text-transform: uppercase;">Qtd</th>
+                        <th style="padding: 10px 8px; text-align: right; font-size: 12px; color: #666; text-transform: uppercase;">Preço</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${items.map(item => `
+                      <tr>
+                        <td style="padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 14px; color: #333;">${item.product_name}</td>
+                        <td style="padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 14px; color: #555; text-align: center;">${item.quantity}</td>
+                        <td style="padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 14px; color: #333; text-align: right;">${formatCurrency(item.total_cents)}</td>
+                      </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Totais -->
+                <div style="margin: 20px 0; padding: 16px; background-color: #f8f9fa; border-radius: 8px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding: 6px 8px; font-size: 14px; color: #555;">Pagamento:</td>
+                      <td style="padding: 6px 8px; font-size: 14px; color: #333; text-align: right;">${paymentLabel}</td>
+                    </tr>
+                    ${shippingCents > 0 ? `
+                    <tr>
+                      <td style="padding: 6px 8px; font-size: 14px; color: #555;">Frete:</td>
+                      <td style="padding: 6px 8px; font-size: 14px; color: #333; text-align: right;">${formatCurrency(shippingCents)}</td>
+                    </tr>
+                    ` : `
+                    <tr>
+                      <td style="padding: 6px 8px; font-size: 14px; color: #555;">Frete:</td>
+                      <td style="padding: 6px 8px; font-size: 14px; color: #10b981; text-align: right;">Grátis</td>
+                    </tr>
+                    `}
+                    ${subtotalCents !== totalCents ? `
+                    <tr>
+                      <td style="padding: 6px 8px; font-size: 14px; color: #555;">Subtotal:</td>
+                      <td style="padding: 6px 8px; font-size: 14px; color: #333; text-align: right;">${formatCurrency(subtotalCents)}</td>
+                    </tr>
+                    ` : ''}
+                    <tr>
+                      <td style="padding: 8px; font-size: 18px; font-weight: bold; color: #111; border-top: 2px solid #ddd;">Total:</td>
+                      <td style="padding: 8px; font-size: 18px; font-weight: bold; color: #111; text-align: right; border-top: 2px solid #ddd;">${formatCurrency(totalCents)}</td>
+                    </tr>
+                  </table>
+                </div>
+
+                <!-- CTA -->
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="https://atomic.ia.br/vendas" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600;">
+                    Ver detalhes do pedido
+                  </a>
+                </div>
+              </td>
+            </tr>
+            <!-- Footer -->
+            <tr>
+              <td style="background-color: #f8f9fa; padding: 24px 40px; text-align: center;">
+                <p style="margin: 0; font-size: 12px; color: #999;">
+                  Este e-mail foi enviado automaticamente pela ${storeName}.<br>
+                  © ${new Date().getFullYear()} Atomic Sales. Todos os direitos reservados.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+  `;
+
+  const subject = `🎉 Parabéns! Nova venda - Pedido #${orderNumber} - ${storeName}`;
+
+  let emailSent = false;
+  if (RESEND_API_KEY) {
+    try {
+      const emailRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: `${storeName} <vendas@atomic.ia.br>`,
+          to: ownerEmails,
+          subject,
+          html: ownerEmailHtml,
+        }),
+      });
+
+      if (emailRes.ok) {
+        emailSent = true;
+        console.log(`[EcomNotif] Owner notification sent to ${ownerEmails.join(', ')} for sale ${sale_id}`);
+      } else {
+        const errText = await emailRes.text();
+        console.error("[EcomNotif] Owner email send failed:", errText);
+      }
+    } catch (e) {
+      console.error("[EcomNotif] Owner email error:", e);
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ success: true, email_sent: emailSent, recipients: ownerEmails }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
