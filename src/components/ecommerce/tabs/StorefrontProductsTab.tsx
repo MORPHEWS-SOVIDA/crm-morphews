@@ -312,6 +312,12 @@ export function StorefrontProductsTab({ storefrontId, storefront }: StorefrontPr
                           Oculto
                         </Badge>
                       )}
+                      {sp.product_id && coproducerMap?.[sp.product_id] && (
+                        <Badge variant="outline" className="text-xs border-primary/30 text-primary">
+                          <Users2 className="h-3 w-3 mr-1" />
+                          {coproducerMap[sp.product_id].map(c => c.name).join(', ')}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
