@@ -808,6 +808,21 @@ export function EvolutionInstancesManager({ onSelectInstance, selectedInstanceId
                         >
                           <Users className="h-4 w-4" />
                         </Button>
+                        {/* Botão Editar (só Marca Própria) */}
+                        {canEditInstances && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedInstanceForDialog(instance);
+                              setEditDialogOpen(true);
+                            }}
+                            title="Editar informações da instância"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                         {/* Botão Arquivar */}
                         <Button
                           size="sm"
