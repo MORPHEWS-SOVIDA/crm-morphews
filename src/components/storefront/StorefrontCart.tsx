@@ -38,50 +38,76 @@ export function StorefrontCart() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Decode ?cart= base64 param (from external sites like shapefy.shop)
+  // Decode ?cart= base64 param AND/OR simple query params (from external sites)
   useEffect(() => {
     const cartParam = searchParams.get('cart');
-    if (!cartParam) return;
+    // Simple query params for customer data (name, email, phone, cpf)
+    const qpName = searchParams.get('name');
+    const qpEmail = searchParams.get('email');
+    const qpPhone = searchParams.get('phone') || searchParams.get('whatsapp');
+    const qpCpf = searchParams.get('cpf');
+
+    if (!cartParam && !qpName) return;
 
     try {
-      const decoded = JSON.parse(decodeURIComponent(atob(cartParam)));
-      console.log('[Cart] 📦 Received external cart data:', JSON.stringify(decoded, null, 2));
-      console.log('[Cart] Items count:', decoded.items?.length || 0);
-      console.log('[Cart] Customer:', decoded.customer?.name, decoded.customer?.email);
+      let customerData: Record<string, string> = {};
+      
+      // Read customer from simple query params (higher priority, easier for external sites)
+      if (qpName || qpEmail || qpPhone) {
+        customerData = {
+          name: qpName || '',
+          email: qpEmail || '',
+          phone: qpPhone || '',
+          cpf: qpCpf || '',
+        };
+      }
 
-      // Restore cart items
-      const cartItems = decoded.items || [];
-      for (const item of cartItems) {
-        if (item.product_id && item.quantity) {
-          addItem({
-            productId: item.product_id,
-            storefrontProductId: item.storefront_product_id || item.product_id,
-            name: item.name || 'Produto',
-            imageUrl: item.image_url || null,
-            quantity: item.quantity,
-            kitSize: item.kit_size || 1,
-            unitPrice: item.unit_price_cents || item.price_cents || 0,
-          }, storefront.slug, storefront.id);
+      if (cartParam) {
+        const decoded = JSON.parse(decodeURIComponent(atob(cartParam)));
+        console.log('[Cart] 📦 Received external cart data:', JSON.stringify(decoded, null, 2));
+        console.log('[Cart] Items count:', decoded.items?.length || 0);
+        console.log('[Cart] Customer:', decoded.customer?.name, decoded.customer?.email);
+
+        // Merge customer from base64 (lower priority than query params)
+        if (decoded.customer) {
+          customerData = {
+            name: customerData.name || decoded.customer.name || '',
+            email: customerData.email || decoded.customer.email || '',
+            phone: customerData.phone || decoded.customer.whatsapp || decoded.customer.phone || '',
+            cpf: customerData.cpf || decoded.customer.cpf || '',
+          };
+        }
+
+        // Restore cart items
+        const cartItems = decoded.items || [];
+        for (const item of cartItems) {
+          if (item.product_id && item.quantity) {
+            addItem({
+              productId: item.product_id,
+              storefrontProductId: item.storefront_product_id || item.product_id,
+              name: item.name || 'Produto',
+              imageUrl: item.image_url || null,
+              quantity: item.quantity,
+              kitSize: item.kit_size || 1,
+              unitPrice: item.unit_price_cents || item.price_cents || 0,
+            }, storefront.slug, storefront.id);
+          }
         }
       }
 
       // Save customer data for checkout to pick up
-      if (decoded.customer) {
-        localStorage.setItem('checkout_customer', JSON.stringify({
-          name: decoded.customer.name || '',
-          email: decoded.customer.email || '',
-          phone: decoded.customer.whatsapp || decoded.customer.phone || '',
-          cpf: decoded.customer.cpf || '',
-        }));
+      if (customerData.name || customerData.email || customerData.phone) {
+        localStorage.setItem('checkout_customer', JSON.stringify(customerData));
+        console.log('[Cart] 👤 Customer data saved:', customerData);
       }
 
       // Clean URL
       const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('cart');
+      ['cart', 'name', 'email', 'phone', 'whatsapp', 'cpf'].forEach(p => newUrl.searchParams.delete(p));
       window.history.replaceState({}, '', newUrl.pathname);
 
       // Auto-redirect to checkout if customer data is present
-      if (decoded.customer?.name && decoded.customer?.email) {
+      if (customerData.name && customerData.email) {
         navigate(`/loja/${storefront.slug}/checkout`, { replace: true });
       }
     } catch (err) {
