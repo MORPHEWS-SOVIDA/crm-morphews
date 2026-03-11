@@ -223,6 +223,8 @@ function getEmailSubject(type: string, orderNumber: string, storeName: string): 
       return `🚚 Pedido #${orderNumber} enviado! - ${storeName}`;
     case 'order_delivered':
       return `✅ Pedido #${orderNumber} entregue! - ${storeName}`;
+    case 'sale_notification_owner':
+      return `🎉 Parabéns! Nova venda - Pedido #${orderNumber} - ${storeName}`;
     default:
       return `Pedido #${orderNumber} - ${storeName}`;
   }
