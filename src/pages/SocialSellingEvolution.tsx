@@ -195,13 +195,30 @@ export default function SocialSellingEvolution() {
   const logActivity = useMutation({
     mutationFn: async ({ leadId, activityType, whatsapp }: { leadId: string; activityType: ActivityType; whatsapp?: string }) => {
       const meta = leadMetaMap[leadId];
-      if (!meta) throw new Error('Lead sem dados de social selling');
 
       // Check for duplicate
       const existing = (activities || []).find(
         (a: any) => a.lead_id === leadId && a.activity_type === activityType
       );
       if (existing) throw new Error('Atividade já registrada para este lead');
+
+      // If no prior activity, try to resolve profile_id from the lead's instagram
+      let sellerId = meta?.seller_id || null;
+      let profileId = meta?.profile_id || null;
+
+      if (!profileId && profiles?.length) {
+        // Try to match by lead's instagram against known profiles
+        const lead = (leads || []).find((l: any) => l.id === leadId);
+        if (lead?.instagram) {
+          const normalizedIg = lead.instagram.toLowerCase().replace(/^@/, '');
+          // If there's only one profile or the user has a profile filter active, use that
+          if (profileFilter !== 'all') {
+            profileId = profileFilter;
+          } else if (profiles.length === 1) {
+            profileId = profiles[0].id;
+          }
+        }
+      }
 
       // Insert activity
       const { error } = await (supabase as any)
@@ -210,8 +227,8 @@ export default function SocialSellingEvolution() {
           organization_id: orgId!,
           lead_id: leadId,
           activity_type: activityType,
-          seller_id: meta.seller_id,
-          profile_id: meta.profile_id,
+          seller_id: sellerId,
+          profile_id: profileId,
           instagram_username: (leads || []).find((l: any) => l.id === leadId)?.instagram || null,
         });
       if (error) throw error;
