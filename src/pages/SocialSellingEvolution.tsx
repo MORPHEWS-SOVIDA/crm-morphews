@@ -19,6 +19,7 @@ import {
   ArrowLeft, Search, MessageSquare, Phone, UserCheck, Loader2,
   CheckCircle2, Instagram, Send, CalendarCheck, PhoneCall, ExternalLink
 } from 'lucide-react';
+import { normalizeInstagramHandle } from '@/lib/instagram';
 
 type ActivityType = 'reply_received' | 'whatsapp_shared' | 'call_scheduled' | 'call_done';
 
@@ -195,6 +196,7 @@ export default function SocialSellingEvolution() {
   const logActivity = useMutation({
     mutationFn: async ({ leadId, activityType, whatsapp }: { leadId: string; activityType: ActivityType; whatsapp?: string }) => {
       const meta = leadMetaMap[leadId];
+      const lead = (leads || []).find((l: any) => l.id === leadId);
 
       // Check for duplicate
       const existing = (activities || []).find(
@@ -202,23 +204,110 @@ export default function SocialSellingEvolution() {
       );
       if (existing) throw new Error('Atividade já registrada para este lead');
 
-      // If no prior activity, try to resolve profile_id from the lead's instagram
       let sellerId = meta?.seller_id || null;
       let profileId = meta?.profile_id || null;
 
-      if (!profileId && profiles?.length) {
-        // Try to match by lead's instagram against known profiles
-        const lead = (leads || []).find((l: any) => l.id === leadId);
-        if (lead?.instagram) {
-          const normalizedIg = lead.instagram.toLowerCase().replace(/^@/, '');
-          // If there's only one profile or the user has a profile filter active, use that
-          if (profileFilter !== 'all') {
-            profileId = profileFilter;
-          } else if (profiles.length === 1) {
-            profileId = profiles[0].id;
-          }
+      let assigneeFirstName: string | null = null;
+      let assigneeFullName: string | null = null;
+
+      if (lead?.assigned_to && (!profileId || !sellerId)) {
+        const { data: assigneeProfile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('user_id', lead.assigned_to)
+          .maybeSingle();
+
+        if (assigneeProfile) {
+          assigneeFirstName = assigneeProfile.first_name || null;
+          assigneeFullName = [assigneeProfile.first_name, assigneeProfile.last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim() || null;
         }
       }
+
+      const normalizePersonName = (value?: string | null) =>
+        (value || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .trim();
+
+      // Resolve profile when lead has no previous social-selling activity
+      if (!profileId) {
+        if (profileFilter !== 'all') {
+          profileId = profileFilter;
+        }
+
+        if (!profileId) {
+          const normalizedLeadInstagram = normalizeInstagramHandle(lead?.instagram);
+          if (normalizedLeadInstagram) {
+            const profileByInstagram = (profiles || []).find(
+              (p: any) => normalizeInstagramHandle(p.instagram_username) === normalizedLeadInstagram
+            );
+            profileId = profileByInstagram?.id || null;
+          }
+        }
+
+        if (!profileId && assigneeFullName) {
+          const normalizedAssigneeFull = normalizePersonName(assigneeFullName);
+          const normalizedAssigneeFirst = normalizePersonName(assigneeFirstName);
+
+          const profileByAssignee = (profiles || []).find((p: any) => {
+            const normalizedDisplayName = normalizePersonName(p.display_name);
+            const normalizedUsername = normalizePersonName(p.instagram_username);
+            return (
+              (!!normalizedAssigneeFull && normalizedDisplayName.includes(normalizedAssigneeFull)) ||
+              (!!normalizedAssigneeFirst && (
+                normalizedDisplayName.includes(normalizedAssigneeFirst) ||
+                normalizedUsername.includes(normalizedAssigneeFirst)
+              ))
+            );
+          });
+
+          profileId = profileByAssignee?.id || null;
+        }
+
+        if (!profileId && (profiles || []).length === 1) {
+          profileId = profiles[0].id;
+        }
+      }
+
+      // Resolve seller when lead has no previous social-selling activity
+      if (!sellerId && profileId) {
+        const { data: recentSeller } = await (supabase as any)
+          .from('social_selling_activities')
+          .select('seller_id')
+          .eq('organization_id', orgId!)
+          .eq('profile_id', profileId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        sellerId = recentSeller?.seller_id || null;
+      }
+
+      if (!sellerId && assigneeFullName) {
+        const normalizedAssigneeFull = normalizePersonName(assigneeFullName);
+        const normalizedAssigneeFirst = normalizePersonName(assigneeFirstName);
+
+        const sellerByName = (sellers || []).find((s: any) => {
+          const normalizedSellerName = normalizePersonName(s.name);
+          return (
+            (!!normalizedAssigneeFull && normalizedSellerName.includes(normalizedAssigneeFull)) ||
+            (!!normalizedAssigneeFirst && normalizedSellerName.includes(normalizedAssigneeFirst))
+          );
+        });
+
+        sellerId = sellerByName?.id || null;
+      }
+
+      if (!sellerId && (sellers || []).length === 1) {
+        sellerId = sellers[0].id;
+      }
+
+      if (!profileId) throw new Error('Não foi possível identificar o perfil de social selling deste lead');
+      if (!sellerId) throw new Error('Não foi possível identificar o seller deste lead');
 
       // Insert activity
       const { error } = await (supabase as any)
@@ -229,7 +318,7 @@ export default function SocialSellingEvolution() {
           activity_type: activityType,
           seller_id: sellerId,
           profile_id: profileId,
-          instagram_username: (leads || []).find((l: any) => l.id === leadId)?.instagram || null,
+          instagram_username: lead?.instagram || null,
         });
       if (error) throw error;
 
