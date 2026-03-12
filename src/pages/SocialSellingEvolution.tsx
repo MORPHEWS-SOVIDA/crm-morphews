@@ -19,8 +19,7 @@ import {
   ArrowLeft, Search, MessageSquare, Phone, UserCheck, Loader2,
   CheckCircle2, Instagram, Send, CalendarCheck, PhoneCall, ExternalLink
 } from 'lucide-react';
-
-type ActivityType = 'reply_received' | 'whatsapp_shared' | 'call_scheduled' | 'call_done';
+import { normalizeInstagramHandle } from '@/lib/instagram';
 
 const ACTIVITY_BUTTONS: { type: ActivityType; label: string; icon: React.ReactNode; color: string }[] = [
   { type: 'reply_received', label: 'Respondeu', icon: <MessageSquare className="h-3.5 w-3.5" />, color: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400' },
