@@ -1773,6 +1773,35 @@ Deno.serve(async (req) => {
           sellerUserId = null;
         }
       }
+
+      // Fallback: created_by is NOT NULL, so we must find a valid user
+      if (!sellerUserId) {
+        const { data: orgOwner } = await supabase
+          .from('organization_members')
+          .select('user_id')
+          .eq('organization_id', typedIntegration.organization_id)
+          .eq('role', 'owner')
+          .limit(1)
+          .maybeSingle();
+        
+        if (orgOwner?.user_id) {
+          sellerUserId = orgOwner.user_id;
+          console.log(`Using org owner ${sellerUserId} as fallback for created_by`);
+        } else {
+          // Last resort: any active member
+          const { data: anyMember } = await supabase
+            .from('organization_members')
+            .select('user_id')
+            .eq('organization_id', typedIntegration.organization_id)
+            .limit(1)
+            .maybeSingle();
+          
+          if (anyMember?.user_id) {
+            sellerUserId = anyMember.user_id;
+            console.log(`Using org member ${sellerUserId} as fallback for created_by`);
+          }
+        }
+      }
       
       // Get first address for the lead
       const { data: leadAddress } = await supabase
