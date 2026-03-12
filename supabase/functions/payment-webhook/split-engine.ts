@@ -1150,10 +1150,23 @@ export async function processSaleSplitsV3(
   // STEP G: NOTIFY ALL PARTNERS (async, non-blocking)
   // =====================================================
   if (partnersToNotify.length > 0) {
-    console.log(`[SplitEngine] Notifying ${partnersToNotify.length} partners for sale ${saleId}`);
+    // Consolidate duplicate partners (e.g. same coproducer across multiple items)
+    const consolidatedMap = new Map<string, typeof partnersToNotify[0]>();
+    for (const p of partnersToNotify) {
+      const key = `${p.type}:${p.email || p.phone || p.name}`;
+      const existing = consolidatedMap.get(key);
+      if (existing) {
+        existing.commissionCents += p.commissionCents;
+      } else {
+        consolidatedMap.set(key, { ...p });
+      }
+    }
+    const consolidatedPartners = Array.from(consolidatedMap.values());
+    
+    console.log(`[SplitEngine] Notifying ${consolidatedPartners.length} partners (consolidated from ${partnersToNotify.length}) for sale ${saleId}`);
     
     // Run notifications in background (don't await to avoid blocking webhook response)
-    notifyAllPartnersForSale(supabase, saleId, partnersToNotify)
+    notifyAllPartnersForSale(supabase, saleId, consolidatedPartners)
       .then(() => console.log(`[SplitEngine] Partner notifications completed for sale ${saleId}`))
       .catch((err) => console.error(`[SplitEngine] Partner notification error:`, err));
   }
