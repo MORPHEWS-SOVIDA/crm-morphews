@@ -56,10 +56,12 @@ export function OrgFeatureOverridesEditor() {
       
       const { data, error } = await supabase
         .from("subscriptions")
-        .select("plan_id, subscription_plans(name)")
+        .select("plan_id, subscription_plans(name), status")
         .eq("organization_id", selectedOrgId)
-        .eq("status", "active")
-        .single();
+        .in("status", ["active", "trialing"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       
       if (error && error.code !== "PGRST116") throw error;
       return data as Subscription | null;
