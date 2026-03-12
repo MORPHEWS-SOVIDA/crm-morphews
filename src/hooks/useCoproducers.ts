@@ -22,6 +22,13 @@ export interface Coproducer {
   };
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+}
+
 export function useProductCoproducers(productId: string | undefined) {
   return useQuery({
     queryKey: ['coproducers', productId],
@@ -98,10 +105,12 @@ export function useUpdateCoproducerCommission() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coproducers'] });
+      queryClient.invalidateQueries({ queryKey: ['coproducers-bulk'] });
+      queryClient.invalidateQueries({ queryKey: ['storefront-coproducers'] });
       toast.success('Comissão atualizada!');
     },
-    onError: () => {
-      toast.error('Erro ao atualizar comissão.');
+    onError: (error) => {
+      toast.error(getErrorMessage(error, 'Erro ao atualizar comissão.'));
     },
   });
 }
@@ -147,6 +156,29 @@ export function useCreateCoproducer() {
       commission_fixed_3_cents?: number;
       commission_fixed_5_cents?: number;
     }) => {
+      const { data: existing, error: existingError } = await supabase
+        .from('coproducers')
+        .select('id, is_active')
+        .eq('virtual_account_id', virtual_account_id)
+        .eq('product_id', product_id)
+        .maybeSingle();
+
+      if (existingError && existingError.code !== 'PGRST116') {
+        throw existingError;
+      }
+
+      if (existing) {
+        if (!existing.is_active) {
+          const { error: reactivateError } = await supabase
+            .from('coproducers')
+            .update({ is_active: true })
+            .eq('id', existing.id);
+
+          if (reactivateError) throw reactivateError;
+        }
+        return;
+      }
+
       const { error } = await supabase
         .from('coproducers')
         .insert({
@@ -164,10 +196,12 @@ export function useCreateCoproducer() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coproducers'] });
+      queryClient.invalidateQueries({ queryKey: ['coproducers-bulk'] });
+      queryClient.invalidateQueries({ queryKey: ['storefront-coproducers'] });
       toast.success('Co-produtor adicionado!');
     },
-    onError: () => {
-      toast.error('Erro ao adicionar co-produtor.');
+    onError: (error) => {
+      toast.error(getErrorMessage(error, 'Erro ao adicionar co-produtor.'));
     },
   });
 }
@@ -186,10 +220,13 @@ export function useRemoveCoproducer() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coproducers'] });
+      queryClient.invalidateQueries({ queryKey: ['coproducers-bulk'] });
+      queryClient.invalidateQueries({ queryKey: ['storefront-coproducers'] });
       toast.success('Co-produtor removido.');
     },
-    onError: () => {
-      toast.error('Erro ao remover co-produtor.');
+    onError: (error) => {
+      toast.error(getErrorMessage(error, 'Erro ao remover co-produtor.'));
     },
   });
 }
+
