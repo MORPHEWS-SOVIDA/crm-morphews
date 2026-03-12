@@ -1,35 +1,18 @@
 import { useMemo } from 'react';
-import { Users2, DollarSign, Package, Loader2 } from 'lucide-react';
+import { Users2, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useStorefrontProducts } from '@/hooks/ecommerce';
+import {
+  StorefrontCoproducerProductRow,
+  type StorefrontCoproducerProduct,
+} from '@/components/ecommerce/tabs/StorefrontCoproducerProductRow';
 
 interface StorefrontCoproducersTabProps {
   storefrontId: string;
   storefrontName: string;
-}
-
-interface CoproducerWithProduct {
-  id: string;
-  product_id: string;
-  product_name: string;
-  product_image_url: string | null;
-  commission_type: string;
-  commission_percentage: number;
-  commission_fixed_1_cents: number;
-  commission_fixed_3_cents: number;
-  commission_fixed_5_cents: number;
-  holder_name: string;
-  holder_email: string;
-}
-
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(cents / 100);
 }
 
 export function StorefrontCoproducersTab({ storefrontId, storefrontName }: StorefrontCoproducersTabProps) {
@@ -55,7 +38,6 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
     },
   });
 
-  // Build product info map from storefront products
   const productMap = useMemo(() => {
     const map: Record<string, { name: string; image_url: string | null }> = {};
     storefrontProducts?.forEach(sp => {
@@ -69,23 +51,13 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
     return map;
   }, [storefrontProducts]);
 
-  // Group coproducers by partner
   const groupedByPartner = useMemo(() => {
     if (!coproducers) return [];
 
     const partnerMap = new Map<string, {
       name: string;
       email: string;
-      products: {
-        productId: string;
-        productName: string;
-        productImage: string | null;
-        commissionType: string;
-        commissionPercentage: number;
-        fixed1: number;
-        fixed3: number;
-        fixed5: number;
-      }[];
+      products: StorefrontCoproducerProduct[];
     }>();
 
     for (const c of coproducers) {
@@ -101,6 +73,7 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
       const pInfo = productMap[c.product_id] || { name: 'Produto', image_url: null };
 
       partnerMap.get(key)!.products.push({
+        coproducerId: c.id,
         productId: c.product_id,
         productName: pInfo.name,
         productImage: pInfo.image_url,
@@ -145,7 +118,7 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
         <CardContent className="py-3 px-4">
           <p className="text-sm text-muted-foreground">
             <Users2 className="h-4 w-4 inline mr-1.5 -mt-0.5" />
-            Co-produtores da loja <strong>{storefrontName}</strong>. Os valores são configurados por produto na aba "Co-produtor" da edição de cada produto.
+            Co-produtores da loja <strong>{storefrontName}</strong>. Você pode editar os valores de 1, 3 e 5 unidades diretamente abaixo.
           </p>
         </CardContent>
       </Card>
@@ -171,59 +144,7 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
           <CardContent>
             <div className="space-y-3">
               {partner.products.map((prod) => (
-                <div
-                  key={prod.productId}
-                  className="flex items-start gap-3 p-3 rounded-lg border bg-muted/20"
-                >
-                  {/* Product image */}
-                  {prod.productImage ? (
-                    <img
-                      src={prod.productImage}
-                      alt={prod.productName}
-                      className="h-12 w-12 rounded-md object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-                      <Package className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  )}
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{prod.productName}</p>
-
-                    {prod.commissionType === 'fixed_per_quantity' ? (
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {prod.fixed1 > 0 && (
-                          <Badge variant="outline" className="text-xs font-mono gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            1 un → {formatCurrency(prod.fixed1)}
-                          </Badge>
-                        )}
-                        {prod.fixed3 > 0 && (
-                          <Badge variant="outline" className="text-xs font-mono gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            3 un → {formatCurrency(prod.fixed3)}
-                          </Badge>
-                        )}
-                        {prod.fixed5 > 0 && (
-                          <Badge variant="outline" className="text-xs font-mono gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            5 un → {formatCurrency(prod.fixed5)}
-                          </Badge>
-                        )}
-                        {prod.fixed1 === 0 && prod.fixed3 === 0 && prod.fixed5 === 0 && (
-                          <span className="text-xs text-muted-foreground italic">
-                            Valores não configurados
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Comissão: <span className="font-bold">{prod.commissionPercentage}%</span> sobre o valor líquido
-                      </p>
-                    )}
-                  </div>
-                </div>
+                <StorefrontCoproducerProductRow key={prod.coproducerId} product={prod} />
               ))}
             </div>
           </CardContent>
