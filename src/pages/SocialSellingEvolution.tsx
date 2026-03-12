@@ -23,7 +23,7 @@ import { normalizeInstagramHandle } from '@/lib/instagram';
 
 type ActivityType = 'reply_received' | 'whatsapp_shared' | 'call_scheduled' | 'call_done';
 
-const ACTIVITY_BUTTONS: { type: ActivityType; label: string; icon: React.ReactNode; color: string }[] = {
+const ACTIVITY_BUTTONS: { type: ActivityType; label: string; icon: React.ReactNode; color: string }[] = [
   { type: 'reply_received', label: 'Respondeu', icon: <MessageSquare className="h-3.5 w-3.5" />, color: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400' },
   { type: 'whatsapp_shared', label: 'WhatsApp', icon: <UserCheck className="h-3.5 w-3.5" />, color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400' },
   { type: 'call_scheduled', label: 'Call Agendada', icon: <CalendarCheck className="h-3.5 w-3.5" />, color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
