@@ -1264,6 +1264,15 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                {/* Coproducer simplified sales view */}
+                <Route
+                  path="/ecommerce/minhas-vendas"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                      <EcommerceCoproducerSales />
+                    </ProtectedRoute>
+                  }
+                />
                 {/* Ecommerce Vendas - partners can see their sales */}
                 <Route
                   path="/ecommerce/vendas"
