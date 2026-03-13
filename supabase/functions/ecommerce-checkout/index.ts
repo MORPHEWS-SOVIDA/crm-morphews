@@ -514,6 +514,7 @@ serve(async (req) => {
       organization_id: organizationId,
       lead_id: lead.id,
       created_by: defaultUserId,
+      seller_user_id: defaultUserId, // Assign seller (uses storefront default if configured)
       status: 'ecommerce_pending', // NEW: E-commerce pending status (hidden from ERP)
       payment_status: 'pending',
       delivery_type: deliveryType, // FIXED: Set delivery_type based on shipping
