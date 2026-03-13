@@ -206,6 +206,7 @@ export default function EcommerceCoproducerOrderDetail() {
                   <div key={item.id} className="flex items-center justify-between py-2 border-b last:border-0">
                     <div>
                       <p className="font-medium">{item.product_name}</p>
+                    </div>
                     <div className="text-right text-sm text-muted-foreground">
                       {item.quantity}x
                     </div>
