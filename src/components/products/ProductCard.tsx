@@ -80,19 +80,27 @@ export function ProductCard({ product, onView, onEdit, onDelete, onClone, canMan
           {/* Preços */}
           <div className="grid grid-cols-2 gap-2 text-sm">
             {kitPrices ? (
-              // Show kit-based prices
-              kitPrices.map((kit, index) => (
-                <div key={index} className="flex justify-between">
-                  <span className="text-muted-foreground">{kit.quantity} un:</span>
-                  <span className="font-medium">{formatCurrency(kit.price)}</span>
-                </div>
-              ))
+              // Show 1-unit base price + kit prices
+              <>
+                {((product as any).base_price_cents > 0 || product.price_1_unit > 0) && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">1 un:</span>
+                    <span className="font-medium">{formatCurrency((product as any).base_price_cents || product.price_1_unit)}</span>
+                  </div>
+                )}
+                {kitPrices.map((kit, index) => (
+                  <div key={index} className="flex justify-between">
+                    <span className="text-muted-foreground">{kit.quantity} un:</span>
+                    <span className="font-medium">{formatCurrency(kit.price)}</span>
+                  </div>
+                ))}
+              </>
             ) : (
               // Show legacy prices for non-kit products
               <>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">1 un:</span>
-                  <span className="font-medium">{formatCurrency(product.price_1_unit)}</span>
+                  <span className="font-medium">{formatCurrency((product as any).base_price_cents || product.price_1_unit)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">3 un:</span>
