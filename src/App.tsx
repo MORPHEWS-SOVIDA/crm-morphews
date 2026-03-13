@@ -1291,6 +1291,14 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/ecommerce/coprodutor-vendas/:orderId"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                      <EcommerceCoproducerOrderDetail />
+                    </ProtectedRoute>
+                  }
+                />
                 {/* Ecommerce Carrinhos - partners can see their referred carts */}
                 <Route
                   path="/ecommerce/carrinhos"
