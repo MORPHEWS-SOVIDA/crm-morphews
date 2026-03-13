@@ -302,7 +302,7 @@ export function MobileNav() {
     
     // Priority order: most used modules
     const priorityPaths = isPartner
-      ? ['/', '/ecommerce', '/ecommerce/minhas-vendas', '/ecommerce/carrinhos', '/whatsapp/chat']
+      ? ['/', '/ecommerce/coprodutor-vendas', '/ecommerce/carteira']
       : ['/', '/leads', '/vendas', '/whatsapp/chat', '/add-receptivo', '/minhas-entregas', '/expedicao'];
     
     for (const path of priorityPaths) {
