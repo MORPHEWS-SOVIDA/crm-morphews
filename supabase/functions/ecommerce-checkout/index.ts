@@ -245,22 +245,36 @@ serve(async (req) => {
     // Get a default user from the organization for assignment (required for lead and sale)
     let defaultUserId: string | null = null;
     
-    const { data: orgMembers } = await supabase
-      .from('user_organizations')
-      .select('user_id')
-      .eq('organization_id', organizationId)
-      .limit(1);
-    
-    defaultUserId = orgMembers?.[0]?.user_id || null;
-    
+    // Priority 1: If storefront has a default seller, use it
+    if (storefront_id) {
+      const { data: sf } = await supabase
+        .from('tenant_storefronts')
+        .select('default_seller_user_id')
+        .eq('id', storefront_id)
+        .single();
+      if (sf?.default_seller_user_id) {
+        defaultUserId = sf.default_seller_user_id;
+        console.log(`[Checkout] Using storefront default seller: ${defaultUserId}`);
+      }
+    }
+
+    // Priority 2: First org member
     if (!defaultUserId) {
-      // Fallback: get organization owner from profiles
+      const { data: orgMembers } = await supabase
+        .from('user_organizations')
+        .select('user_id')
+        .eq('organization_id', organizationId)
+        .limit(1);
+      defaultUserId = orgMembers?.[0]?.user_id || null;
+    }
+    
+    // Priority 3: Org owner from profiles
+    if (!defaultUserId) {
       const { data: orgOwner } = await supabase
         .from('profiles')
         .select('user_id')
         .eq('organization_id', organizationId)
         .limit(1);
-      
       defaultUserId = orgOwner?.[0]?.user_id || null;
     }
     
@@ -500,6 +514,7 @@ serve(async (req) => {
       organization_id: organizationId,
       lead_id: lead.id,
       created_by: defaultUserId,
+      seller_user_id: defaultUserId, // Assign seller (uses storefront default if configured)
       status: 'ecommerce_pending', // NEW: E-commerce pending status (hidden from ERP)
       payment_status: 'pending',
       delivery_type: deliveryType, // FIXED: Set delivery_type based on shipping
@@ -617,6 +632,7 @@ serve(async (req) => {
         ttclid: utm?.ttclid || null,
         affiliate_id: affiliatePartnerId || null, // Now stores partner_association.id
         payment_method: payment_method,
+        shipping_method: body.shipping_method_name || null,
       })
       .select('id')
       .single();

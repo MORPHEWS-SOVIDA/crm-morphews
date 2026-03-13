@@ -3877,6 +3877,7 @@ export type Database = {
           shipping_cep: string | null
           shipping_city: string | null
           shipping_complement: string | null
+          shipping_method: string | null
           shipping_neighborhood: string | null
           shipping_number: string | null
           shipping_state: string | null
@@ -3926,6 +3927,7 @@ export type Database = {
           shipping_cep?: string | null
           shipping_city?: string | null
           shipping_complement?: string | null
+          shipping_method?: string | null
           shipping_neighborhood?: string | null
           shipping_number?: string | null
           shipping_state?: string | null
@@ -3975,6 +3977,7 @@ export type Database = {
           shipping_cep?: string | null
           shipping_city?: string | null
           shipping_complement?: string | null
+          shipping_method?: string | null
           shipping_neighborhood?: string | null
           shipping_number?: string | null
           shipping_state?: string | null
@@ -17918,6 +17921,7 @@ export type Database = {
           checkout_config: Json | null
           created_at: string
           custom_css: string | null
+          default_seller_user_id: string | null
           facebook_pixel_id: string | null
           favicon_url: string | null
           footer_config: Json | null
@@ -17947,6 +17951,7 @@ export type Database = {
           checkout_config?: Json | null
           created_at?: string
           custom_css?: string | null
+          default_seller_user_id?: string | null
           facebook_pixel_id?: string | null
           favicon_url?: string | null
           footer_config?: Json | null
@@ -17976,6 +17981,7 @@ export type Database = {
           checkout_config?: Json | null
           created_at?: string
           custom_css?: string | null
+          default_seller_user_id?: string | null
           facebook_pixel_id?: string | null
           favicon_url?: string | null
           footer_config?: Json | null

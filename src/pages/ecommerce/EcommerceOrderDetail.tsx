@@ -353,10 +353,10 @@ export default function EcommerceOrderDetail() {
               <div className="flex justify-between text-sm">
                 <span>Subtotal</span>
                 <span>{formatCurrency(order.subtotal_cents || 0)}</span>
-              </div>
+               </div>
               <div className="flex justify-between text-sm">
-                <span>Frete</span>
-                <span>{formatCurrency(order.shipping_cents || 0)}</span>
+                <span>Frete {order.shipping_method ? `(${order.shipping_method})` : ''}</span>
+                <span>{(order.shipping_cents || 0) === 0 ? 'Grátis' : formatCurrency(order.shipping_cents || 0)}</span>
               </div>
               {(order.discount_cents || 0) > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
