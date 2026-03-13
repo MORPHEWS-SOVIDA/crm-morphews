@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
+import { useCurrentMember } from '@/hooks/useCurrentMember';
 import { DonnaHelperButton } from '@/components/helper';
 import { TeamChatFloatingButton, TeamChatNotificationProvider } from '@/components/team-chat';
 import { MelhorEnvioBalanceAlert } from '@/components/alerts/MelhorEnvioBalanceAlert';
