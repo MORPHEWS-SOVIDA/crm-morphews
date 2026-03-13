@@ -196,6 +196,7 @@ const EcommerceCarrinhos = lazy(() => import("./pages/ecommerce/EcommerceCarrinh
 const EcommerceVendas = lazy(() => import("./pages/ecommerce/EcommerceVendas"));
 const EcommerceCoproducerSales = lazy(() => import("./pages/ecommerce/EcommerceCoproducerSales"));
 const EcommerceOrderDetail = lazy(() => import("./pages/ecommerce/EcommerceOrderDetail"));
+const EcommerceCoproducerOrderDetail = lazy(() => import("./pages/ecommerce/EcommerceCoproducerOrderDetail"));
 const EcommerceEmails = lazy(() => import("./pages/ecommerce/EcommerceEmails"));
 const EcommerceParceiros = lazy(() => import("./pages/ecommerce/EcommerceParceiros"));
 const EcommerceCarteira = lazy(() => import("./pages/ecommerce/EcommerceCarteira"));
@@ -1287,6 +1288,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
                       <EcommerceOrderDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/coprodutor-vendas/:orderId"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                      <EcommerceCoproducerOrderDetail />
                     </ProtectedRoute>
                   }
                 />
