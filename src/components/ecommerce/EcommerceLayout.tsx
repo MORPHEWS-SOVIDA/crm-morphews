@@ -32,7 +32,7 @@ const adminNavItems = [
 
 // Limited menu for coproducer partners - only their sales and wallet
 const coproducerNavItems = [
-  { path: '/ecommerce/minhas-vendas', label: 'Minhas Vendas', icon: ShoppingBag },
+  { path: '/ecommerce/coprodutor-vendas', label: 'Minhas Vendas', icon: ShoppingBag },
   { path: '/ecommerce/carteira', label: 'Carteira', icon: Wallet },
 ];
 
