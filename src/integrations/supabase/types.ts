@@ -22972,6 +22972,10 @@ export type Database = {
         Args: { _sale_id: string; _user_id: string }
         Returns: boolean
       }
+      user_is_coproducer_for_order: {
+        Args: { _order_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user"

@@ -92,10 +92,10 @@ export default function EcommerceVendas() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // Get current user's affiliate ID if they are a partner
+  // Get current user's affiliate ID if they are an affiliate partner
   const { data: myAffiliateId } = useQuery({
     queryKey: ['my-affiliate-id', profile?.user_id],
-    enabled: !!profile?.user_id && isPartner,
+    enabled: !!profile?.user_id && isPartner && role === 'partner_affiliate',
     queryFn: async () => {
       const { data, error } = await supabase
         .from('organization_affiliates')
@@ -109,10 +109,41 @@ export default function EcommerceVendas() {
     },
   });
 
+  // Get storefront IDs where this user is a coproducer
+  const { data: myStorefrontIds } = useQuery({
+    queryKey: ['my-coproducer-storefronts', profile?.user_id],
+    enabled: !!profile?.user_id && role === 'partner_coproducer',
+    queryFn: async () => {
+      // First get the user's virtual account id from profiles
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('partner_virtual_account_id')
+        .eq('user_id', profile!.user_id)
+        .single();
+      
+      if (!prof?.partner_virtual_account_id) return [];
+
+      // Find storefronts where this virtual account is a coproducer
+      const { data, error } = await supabase
+        .from('coproducers')
+        .select('product_id, storefront_products!inner(storefront_id)')
+        .eq('virtual_account_id', prof.partner_virtual_account_id)
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      const ids = [...new Set(data?.map((d: any) => d.storefront_products?.storefront_id).filter(Boolean))];
+      return ids as string[];
+    },
+  });
+
+  const partnerReady = !isPartner || 
+    (role === 'partner_affiliate' && !!myAffiliateId) || 
+    (role === 'partner_coproducer' && !!myStorefrontIds && myStorefrontIds.length > 0) ||
+    (!['partner_affiliate', 'partner_coproducer'].includes(role || ''));
+
   const { data: orders, isLoading } = useQuery({
-    queryKey: ['ecommerce-orders', isPartner, myAffiliateId],
-    // For partners, only query when we have their affiliate ID
-    enabled: !isPartner || !!myAffiliateId,
+    queryKey: ['ecommerce-orders', isPartner, myAffiliateId, myStorefrontIds],
+    enabled: partnerReady,
     queryFn: async () => {
       let query = supabase
         .from('ecommerce_orders')
@@ -125,9 +156,13 @@ export default function EcommerceVendas() {
         .order('created_at', { ascending: false })
         .limit(100);
       
-      // If user is a partner/affiliate, filter by their affiliate_id
-      if (isPartner && myAffiliateId) {
+      // If user is an affiliate partner, filter by their affiliate_id
+      if (role === 'partner_affiliate' && myAffiliateId) {
         query = query.eq('affiliate_id', myAffiliateId);
+      }
+      // If user is a coproducer partner, filter by their storefronts
+      else if (role === 'partner_coproducer' && myStorefrontIds && myStorefrontIds.length > 0) {
+        query = query.in('storefront_id', myStorefrontIds);
       }
       
       const { data, error } = await query;
