@@ -194,6 +194,7 @@ const EcommerceQuiz = lazy(() => import("./pages/ecommerce/EcommerceQuiz"));
 const QuizEditor = lazy(() => import("./pages/ecommerce/QuizEditor"));
 const EcommerceCarrinhos = lazy(() => import("./pages/ecommerce/EcommerceCarrinhos"));
 const EcommerceVendas = lazy(() => import("./pages/ecommerce/EcommerceVendas"));
+const EcommerceCoproducerSales = lazy(() => import("./pages/ecommerce/EcommerceCoproducerSales"));
 const EcommerceOrderDetail = lazy(() => import("./pages/ecommerce/EcommerceOrderDetail"));
 const EcommerceEmails = lazy(() => import("./pages/ecommerce/EcommerceEmails"));
 const EcommerceParceiros = lazy(() => import("./pages/ecommerce/EcommerceParceiros"));
