@@ -421,6 +421,7 @@ export function StorefrontCheckout() {
           product_id: item.productId,
           quantity: item.quantity * item.kitSize,
           price_cents: item.unitPrice,
+          product_name: item.name || undefined,
         })),
         customer: {
           name: formData.name,

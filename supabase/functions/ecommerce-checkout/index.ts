@@ -167,26 +167,59 @@ serve(async (req) => {
           }
         }
 
-        // Last resort: try matching by name from cart items
+        // Last resort: try matching by name from cart items or by storefront product catalog
         const stillUnresolved = productItems.filter(i => !productMap[i.product_id]);
         if (stillUnresolved.length > 0) {
-          const itemNames = stillUnresolved.map(i => i.product_name).filter(Boolean);
-          if (itemNames.length > 0) {
-            console.warn(`[Checkout] Trying name-based resolution for: ${itemNames.join(', ')}`);
+          // Strategy 1: If storefront_id exists, try to find product by name in the storefront's catalog
+          if (storefront_id) {
             for (const item of stillUnresolved) {
-              if (item.product_name) {
-                const { data: matchedProducts } = await supabase
-                  .from('lead_products')
-                  .select('id, name, image_url')
-                  .eq('organization_id', organizationId!)
-                  .ilike('name', item.product_name)
-                  .limit(1);
+              const itemName = item.product_name;
+              if (itemName) {
+                console.warn(`[Checkout] Trying storefront catalog resolution for "${itemName}" in storefront ${storefront_id}`);
+                const { data: spMatch } = await supabase
+                  .from('storefront_products')
+                  .select('product_id, product:lead_products(id, name, image_url)')
+                  .eq('storefront_id', storefront_id)
+                  .limit(100);
                 
-                if (matchedProducts && matchedProducts.length > 0) {
-                  const mp = matchedProducts[0];
-                  console.log(`[Checkout] Name-resolved "${item.product_name}" → ${mp.id} (${mp.name})`);
-                  item.product_id = mp.id;
-                  productMap[mp.id] = { name: mp.name, image_url: mp.image_url };
+                if (spMatch) {
+                  for (const sp of spMatch) {
+                    const realProduct = sp.product as unknown as { id: string; name: string; image_url?: string } | null;
+                    if (realProduct && realProduct.name.toLowerCase() === itemName.toLowerCase()) {
+                      console.log(`[Checkout] Storefront-resolved "${itemName}" → ${realProduct.id} (${realProduct.name})`);
+                      item.product_id = realProduct.id;
+                      item.product_name = realProduct.name;
+                      item.product_image_url = realProduct.image_url;
+                      productMap[realProduct.id] = { name: realProduct.name, image_url: realProduct.image_url };
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // Strategy 2: Direct name search in lead_products
+          const finalUnresolved = productItems.filter(i => !productMap[i.product_id]);
+          if (finalUnresolved.length > 0) {
+            const itemNames = finalUnresolved.map(i => i.product_name).filter(Boolean);
+            if (itemNames.length > 0) {
+              console.warn(`[Checkout] Trying name-based resolution for: ${itemNames.join(', ')}`);
+              for (const item of finalUnresolved) {
+                if (item.product_name) {
+                  const { data: matchedProducts } = await supabase
+                    .from('lead_products')
+                    .select('id, name, image_url')
+                    .eq('organization_id', organizationId!)
+                    .ilike('name', item.product_name)
+                    .limit(1);
+                  
+                  if (matchedProducts && matchedProducts.length > 0) {
+                    const mp = matchedProducts[0];
+                    console.log(`[Checkout] Name-resolved "${item.product_name}" → ${mp.id} (${mp.name})`);
+                    item.product_id = mp.id;
+                    productMap[mp.id] = { name: mp.name, image_url: mp.image_url };
+                  }
                 }
               }
             }
