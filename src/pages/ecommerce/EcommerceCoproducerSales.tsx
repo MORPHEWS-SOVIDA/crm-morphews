@@ -100,7 +100,6 @@ export default function EcommerceCoproducerSales() {
           net_amount_cents,
           split_type,
           created_at,
-          hold_until,
           sale:sales(
             id,
             status,
@@ -116,7 +115,7 @@ export default function EcommerceCoproducerSales() {
       if (error) throw error;
 
       // Now get the ecommerce_order info for each sale
-      const saleIds = (data || []).map(d => d.sale_id).filter(Boolean);
+      const saleIds = (data || []).map((d: any) => d.sale_id).filter(Boolean);
       let ordersMap: Record<string, any> = {};
       
       if (saleIds.length > 0) {
@@ -126,11 +125,11 @@ export default function EcommerceCoproducerSales() {
           .in('sale_id', saleIds);
         
         for (const o of orders || []) {
-          if (o.sale_id) ordersMap[o.sale_id] = o;
+          if ((o as any).sale_id) ordersMap[(o as any).sale_id] = o;
         }
       }
 
-      return (data || []).map(s => ({
+      return (data || []).map((s: any) => ({
         ...s,
         order: ordersMap[s.sale_id] || null,
       })) as CoproducerSale[];

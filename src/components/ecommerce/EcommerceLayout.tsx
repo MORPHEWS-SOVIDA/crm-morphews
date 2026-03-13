@@ -60,7 +60,9 @@ export function EcommerceLayout({ children, title, description }: EcommerceLayou
   const isPartner = role?.startsWith('partner_') ?? false;
   
   // Use appropriate nav items based on user type
-  const navItems = isPartner ? partnerNavItems : adminNavItems;
+  const navItems = isPartner 
+    ? (role === 'partner_coproducer' ? coproducerNavItems : affiliateNavItems) 
+    : adminNavItems;
 
   return (
     <Layout>
