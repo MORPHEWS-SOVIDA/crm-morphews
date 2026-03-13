@@ -11,6 +11,38 @@ import { ProductRecommendations } from './ProductRecommendations';
 import { useTenantInstallmentFees, calculateInstallmentWithInterest } from '@/hooks/ecommerce/useTenantInstallmentFees';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+
+// Resolve product prices and details from DB when external cart items have price 0
+async function resolveProductDetails(
+  productId: string,
+  storefrontId: string
+): Promise<{ name: string; imageUrl: string | null; unitPrice: number } | null> {
+  try {
+    const { data } = await supabase
+      .from('storefront_products')
+      .select(`
+        custom_price_cents,
+        product:lead_products(
+          name, ecommerce_title, image_url, ecommerce_images,
+          price_1_unit, base_price_cents
+        )
+      `)
+      .eq('storefront_id', storefrontId)
+      .eq('product_id', productId)
+      .eq('is_visible', true)
+      .single();
+
+    if (!data?.product) return null;
+    const p = data.product as any;
+    const price = data.custom_price_cents || p.price_1_unit || p.base_price_cents || 0;
+    const name = p.ecommerce_title || p.name || 'Produto';
+    const imageUrl = p.ecommerce_images?.[0] || p.image_url || null;
+    return { name, imageUrl, unitPrice: price };
+  } catch {
+    return null;
+  }
+}
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -79,22 +111,40 @@ export function StorefrontCart() {
         }
 
         // Restore cart items (support both full and compact key formats)
+        // Resolve prices from DB when external items don't include pricing
         const cartItems = decoded.items || [];
-        for (const item of cartItems) {
-          const productId = item.product_id || item.pid;
-          const quantity = item.quantity || item.q;
-          if (productId && quantity) {
-            addItem({
-              productId,
-              storefrontProductId: item.storefront_product_id || item.spid || productId,
-              name: item.name || item.n || 'Produto',
-              imageUrl: item.image_url || item.img || null,
-              quantity,
-              kitSize: item.kit_size || item.ks || 1,
-              unitPrice: item.unit_price_cents || item.upc || item.price_cents || 0,
-            }, storefront.slug, storefront.id);
+        const resolveAndAddItems = async () => {
+          for (const item of cartItems) {
+            const productId = item.product_id || item.pid;
+            const quantity = item.quantity || item.q;
+            if (productId && quantity) {
+              let unitPrice = item.unit_price_cents || item.upc || item.price_cents || 0;
+              let itemName = item.name || item.n || '';
+              let imageUrl = item.image_url || item.img || null;
+
+              // If price is 0 or name is missing, resolve from DB
+              if (!unitPrice || !itemName || itemName === 'Produto') {
+                const resolved = await resolveProductDetails(productId, storefront.id);
+                if (resolved) {
+                  unitPrice = unitPrice || resolved.unitPrice;
+                  itemName = (!itemName || itemName === 'Produto') ? resolved.name : itemName;
+                  imageUrl = imageUrl || resolved.imageUrl;
+                }
+              }
+
+              addItem({
+                productId,
+                storefrontProductId: item.storefront_product_id || item.spid || productId,
+                name: itemName || 'Produto',
+                imageUrl,
+                quantity,
+                kitSize: item.kit_size || item.ks || 1,
+                unitPrice,
+              }, storefront.slug, storefront.id);
+            }
           }
-        }
+        };
+        resolveAndAddItems();
       }
 
       // Save customer data for checkout to pick up

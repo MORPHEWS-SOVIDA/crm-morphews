@@ -140,23 +140,49 @@ export function StorefrontCheckout() {
           }));
         }
 
-        // Restore cart items (support both full and compact key formats)
+        // Restore cart items - resolve prices from DB when missing
         const cartItems = decoded.items || [];
-        for (const item of cartItems) {
-          const productId = item.product_id || item.pid;
-          const quantity = item.quantity || item.q;
-          if (productId && quantity) {
-            addItem({
-              productId,
-              storefrontProductId: item.storefront_product_id || item.spid || productId,
-              name: item.name || item.n || 'Produto',
-              imageUrl: item.image_url || item.img || null,
-              quantity,
-              kitSize: item.kit_size || item.ks || 1,
-              unitPrice: item.unit_price_cents || item.upc || item.price_cents || 0,
-            }, storefront.slug, storefront.id);
+        const resolveAndAdd = async () => {
+          for (const item of cartItems) {
+            const productId = item.product_id || item.pid;
+            const quantity = item.quantity || item.q;
+            if (productId && quantity) {
+              let unitPrice = item.unit_price_cents || item.upc || item.price_cents || 0;
+              let itemName = item.name || item.n || '';
+              let imageUrl = item.image_url || item.img || null;
+
+              // Resolve from DB if price/name missing
+              if (!unitPrice || !itemName || itemName === 'Produto') {
+                try {
+                  const { data } = await supabase
+                    .from('storefront_products')
+                    .select(`custom_price_cents, product:lead_products(name, ecommerce_title, image_url, ecommerce_images, price_1_unit, base_price_cents)`)
+                    .eq('storefront_id', storefront.id)
+                    .eq('product_id', productId)
+                    .eq('is_visible', true)
+                    .single();
+                  if (data?.product) {
+                    const p = data.product as any;
+                    unitPrice = unitPrice || data.custom_price_cents || p.price_1_unit || p.base_price_cents || 0;
+                    itemName = (!itemName || itemName === 'Produto') ? (p.ecommerce_title || p.name) : itemName;
+                    imageUrl = imageUrl || p.ecommerce_images?.[0] || p.image_url || null;
+                  }
+                } catch {}
+              }
+
+              addItem({
+                productId,
+                storefrontProductId: item.storefront_product_id || item.spid || productId,
+                name: itemName || 'Produto',
+                imageUrl,
+                quantity,
+                kitSize: item.kit_size || item.ks || 1,
+                unitPrice,
+              }, storefront.slug, storefront.id);
+            }
           }
-        }
+        };
+        resolveAndAdd();
 
         // Clean URL without reloading (remove ?cart param)
         const cleanUrl = new URL(window.location.href);
