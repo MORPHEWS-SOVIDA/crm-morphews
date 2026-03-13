@@ -111,18 +111,26 @@ export default function EcommerceVendas() {
 
   // Get storefront IDs where this user is a coproducer
   const { data: myStorefrontIds } = useQuery({
-    queryKey: ['my-coproducer-storefronts', profile?.user_id, profile?.partner_virtual_account_id],
-    enabled: !!profile?.user_id && role === 'partner_coproducer' && !!profile?.partner_virtual_account_id,
+    queryKey: ['my-coproducer-storefronts', profile?.user_id],
+    enabled: !!profile?.user_id && role === 'partner_coproducer',
     queryFn: async () => {
-      // Find storefronts where this user's virtual account is a coproducer
+      // First get the user's virtual account id from profiles
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('partner_virtual_account_id')
+        .eq('user_id', profile!.user_id)
+        .single();
+      
+      if (!prof?.partner_virtual_account_id) return [];
+
+      // Find storefronts where this virtual account is a coproducer
       const { data, error } = await supabase
         .from('coproducers')
         .select('product_id, storefront_products!inner(storefront_id)')
-        .eq('virtual_account_id', profile!.partner_virtual_account_id!)
+        .eq('virtual_account_id', prof.partner_virtual_account_id)
         .eq('is_active', true);
       
       if (error) throw error;
-      // Extract unique storefront IDs
       const ids = [...new Set(data?.map((d: any) => d.storefront_products?.storefront_id).filter(Boolean))];
       return ids as string[];
     },
