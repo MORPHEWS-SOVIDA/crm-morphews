@@ -782,7 +782,7 @@ async function handleOwnerNotification(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: `${storeName} <vendas@atomic.ia.br>`,
+          from: `${storeName} <vendas@updates.atomic.ia.br>`,
           to: ownerEmails,
           subject,
           html: ownerEmailHtml,
