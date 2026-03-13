@@ -16,16 +16,15 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { data: permissions } = useMyPermissions();
   const { data: orgFeatures } = useOrgFeatures();
+  const { data: currentMember } = useCurrentMember();
   
-  // Check if user can see the helper:
-  // 1. User permission must be true (default true if not set)
-  // 2. Org feature "donna_helper" must be enabled (default false if not set for this feature specifically)
   const userCanSeeHelper = permissions?.helper_donna_view !== false;
-  const orgHasDonnaFeature = orgFeatures?.donna_helper === true; // Default to false for donna
+  const orgHasDonnaFeature = orgFeatures?.donna_helper === true;
   const canSeeHelper = userCanSeeHelper && orgHasDonnaFeature;
   
-  // Check if org has Conecta Time feature enabled
-  const hasConectaTime = orgFeatures?.conecta_time === true;
+  // Check if org has Conecta Time feature enabled AND user is not a partner
+  const isPartner = currentMember?.role?.startsWith('partner_');
+  const hasConectaTime = orgFeatures?.conecta_time === true && !isPartner;
   
   // If user has hide_sidebar preference, show minimal layout
   if (permissions?.hide_sidebar) {
