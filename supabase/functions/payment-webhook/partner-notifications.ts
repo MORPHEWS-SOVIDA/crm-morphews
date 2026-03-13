@@ -362,7 +362,7 @@ async function sendEmailNotification(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Atomic Sales <vendas@atomic.ia.br>",
+        from: "Atomic Sales <vendas@updates.atomic.ia.br>",
         to: [notification.partnerEmail],
         subject,
         html: htmlContent,
