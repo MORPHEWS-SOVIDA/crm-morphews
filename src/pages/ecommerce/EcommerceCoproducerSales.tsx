@@ -256,7 +256,7 @@ export default function EcommerceCoproducerSales() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => navigate(`/ecommerce/vendas/${sale.order!.id}`)}
+                            onClick={() => navigate(`/ecommerce/coprodutor-vendas/${sale.order!.id}`)}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
