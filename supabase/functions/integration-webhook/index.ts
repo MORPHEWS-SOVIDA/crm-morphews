@@ -190,10 +190,6 @@ function validateBrazilianPhone(phone: string): { valid: boolean; normalized: st
     if (!number.startsWith('9')) {
       return { valid: false, normalized: digits, message: 'Celular deve começar com 9 após DDD' };
     }
-    const secondDigit = number.charAt(1);
-    if (!['6', '7', '8', '9'].includes(secondDigit)) {
-      return { valid: false, normalized: digits, message: 'Celular inválido após o 9' };
-    }
   }
   
   // For 12-digit numbers (landline): should start with 2, 3, 4, or 5
