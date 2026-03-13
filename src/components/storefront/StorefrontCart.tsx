@@ -111,22 +111,40 @@ export function StorefrontCart() {
         }
 
         // Restore cart items (support both full and compact key formats)
+        // Resolve prices from DB when external items don't include pricing
         const cartItems = decoded.items || [];
-        for (const item of cartItems) {
-          const productId = item.product_id || item.pid;
-          const quantity = item.quantity || item.q;
-          if (productId && quantity) {
-            addItem({
-              productId,
-              storefrontProductId: item.storefront_product_id || item.spid || productId,
-              name: item.name || item.n || 'Produto',
-              imageUrl: item.image_url || item.img || null,
-              quantity,
-              kitSize: item.kit_size || item.ks || 1,
-              unitPrice: item.unit_price_cents || item.upc || item.price_cents || 0,
-            }, storefront.slug, storefront.id);
+        const resolveAndAddItems = async () => {
+          for (const item of cartItems) {
+            const productId = item.product_id || item.pid;
+            const quantity = item.quantity || item.q;
+            if (productId && quantity) {
+              let unitPrice = item.unit_price_cents || item.upc || item.price_cents || 0;
+              let itemName = item.name || item.n || '';
+              let imageUrl = item.image_url || item.img || null;
+
+              // If price is 0 or name is missing, resolve from DB
+              if (!unitPrice || !itemName || itemName === 'Produto') {
+                const resolved = await resolveProductDetails(productId, storefront.id);
+                if (resolved) {
+                  unitPrice = unitPrice || resolved.unitPrice;
+                  itemName = (!itemName || itemName === 'Produto') ? resolved.name : itemName;
+                  imageUrl = imageUrl || resolved.imageUrl;
+                }
+              }
+
+              addItem({
+                productId,
+                storefrontProductId: item.storefront_product_id || item.spid || productId,
+                name: itemName || 'Produto',
+                imageUrl,
+                quantity,
+                kitSize: item.kit_size || item.ks || 1,
+                unitPrice,
+              }, storefront.slug, storefront.id);
+            }
           }
-        }
+        };
+        resolveAndAddItems();
       }
 
       // Save customer data for checkout to pick up
