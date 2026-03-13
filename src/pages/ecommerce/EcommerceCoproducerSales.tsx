@@ -251,11 +251,6 @@ export default function EcommerceCoproducerSales() {
                           <div className="text-lg font-bold text-green-600">
                             +{formatCurrency(sale.net_amount_cents)}
                           </div>
-                          {sale.hold_until && new Date(sale.hold_until) > new Date() && (
-                            <div className="text-xs text-muted-foreground">
-                              Disponível em {format(new Date(sale.hold_until), "dd/MM", { locale: ptBR })}
-                            </div>
-                          )}
                         </div>
                         {sale.order?.id && (
                           <Button
