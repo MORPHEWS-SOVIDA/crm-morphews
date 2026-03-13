@@ -79,7 +79,7 @@ export default function EcommerceCoproducerOrderDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ecommerce_order_items')
-        .select('id, product_name, variant_name, quantity, unit_price_cents')
+        .select('id, product_name, quantity, unit_price_cents')
         .eq('order_id', orderId!);
       if (error) throw error;
       return data || [];
