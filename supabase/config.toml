@@ -182,3 +182,6 @@ verify_jwt = false
 
 [functions.instagram-prospect-webhook]
 verify_jwt = false
+
+[functions.ecommerce-notifications]
+verify_jwt = false
