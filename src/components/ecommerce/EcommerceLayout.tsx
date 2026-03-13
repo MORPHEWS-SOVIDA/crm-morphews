@@ -30,11 +30,9 @@ const adminNavItems = [
   { path: '/ecommerce/carteira', label: 'Carteira', icon: Wallet },
 ];
 
-// Limited menu for coproducer partners
+// Limited menu for coproducer partners - only their sales and wallet
 const coproducerNavItems = [
-  { path: '/ecommerce', label: 'Meus Links', icon: Link2 },
-  { path: '/ecommerce/minhas-vendas', label: 'Vendas', icon: ShoppingBag },
-  { path: '/ecommerce/carrinhos', label: 'Carrinhos', icon: ShoppingCart },
+  { path: '/ecommerce/minhas-vendas', label: 'Minhas Vendas', icon: ShoppingBag },
   { path: '/ecommerce/carteira', label: 'Carteira', icon: Wallet },
 ];
 
