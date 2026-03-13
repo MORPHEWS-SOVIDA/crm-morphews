@@ -431,6 +431,7 @@ export function StorefrontCheckout() {
         },
         // IMPORTANT: backend needs shipping cost to charge correct total (PIX/BOLETO/CARD)
         shipping_cost_cents: shippingCents,
+        shipping_method_name: selectedShipping?.service_name || (hasFreeShipping ? 'Frete Grátis' : undefined),
         shipping: checkoutConfig.collectAddress !== false ? {
           address: formData.street,
           city: formData.city,
