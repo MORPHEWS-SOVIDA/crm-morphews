@@ -341,7 +341,7 @@ export default function AffiliatePortal() {
           <NavItem 
             icon={BarChart3} 
             label="Minhas Vendas" 
-            onClick={() => navigate('/ecommerce/vendas')}
+            onClick={() => navigate('/ecommerce/minhas-vendas')}
           />
           <NavItem 
             icon={ShoppingBag} 

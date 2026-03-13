@@ -30,8 +30,16 @@ const adminNavItems = [
   { path: '/ecommerce/carteira', label: 'Carteira', icon: Wallet },
 ];
 
-// Limited menu for partners (affiliates, coproducers, etc)
-const partnerNavItems = [
+// Limited menu for coproducer partners
+const coproducerNavItems = [
+  { path: '/ecommerce', label: 'Meus Links', icon: Link2 },
+  { path: '/ecommerce/minhas-vendas', label: 'Vendas', icon: ShoppingBag },
+  { path: '/ecommerce/carrinhos', label: 'Carrinhos', icon: ShoppingCart },
+  { path: '/ecommerce/carteira', label: 'Carteira', icon: Wallet },
+];
+
+// Limited menu for affiliate partners
+const affiliateNavItems = [
   { path: '/ecommerce', label: 'Meus Links', icon: Link2 },
   { path: '/ecommerce/vendas', label: 'Vendas', icon: ShoppingBag },
   { path: '/ecommerce/carrinhos', label: 'Carrinhos', icon: ShoppingCart },
@@ -52,7 +60,9 @@ export function EcommerceLayout({ children, title, description }: EcommerceLayou
   const isPartner = role?.startsWith('partner_') ?? false;
   
   // Use appropriate nav items based on user type
-  const navItems = isPartner ? partnerNavItems : adminNavItems;
+  const navItems = isPartner 
+    ? (role === 'partner_coproducer' ? coproducerNavItems : affiliateNavItems) 
+    : adminNavItems;
 
   return (
     <Layout>
