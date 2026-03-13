@@ -64,14 +64,7 @@ export function validateBrazilianPhone(phone: string): { valid: boolean; message
         message: 'Celular com 13 dígitos deve começar com 9 após o DDD. Ex: 5511999998888' 
       };
     }
-    // The digit after 9 should be 6, 7, 8, or 9 (valid mobile prefixes)
-    const secondDigit = number.charAt(1);
-    if (!['6', '7', '8', '9'].includes(secondDigit)) {
-      return { 
-        valid: false, 
-        message: 'Celular inválido: após o 9, deve vir 6, 7, 8 ou 9. Ex: 5511999998888' 
-      };
-    }
+    // All digits after 9 are valid for Brazilian mobile numbers
   }
   
   // For 12-digit numbers (landline): should NOT start with 9
