@@ -123,15 +123,25 @@ export default function EcommerceVendas() {
       
       if (!prof?.partner_virtual_account_id) return [];
 
-      // Find storefronts where this virtual account is a coproducer
-      const { data, error } = await supabase
+      // Find product_ids where this virtual account is a coproducer
+      const { data: coprods, error: coprodError } = await supabase
         .from('coproducers')
-        .select('product_id, storefront_products!inner(storefront_id)')
+        .select('product_id')
         .eq('virtual_account_id', prof.partner_virtual_account_id)
         .eq('is_active', true);
       
-      if (error) throw error;
-      const ids = [...new Set(data?.map((d: any) => d.storefront_products?.storefront_id).filter(Boolean))];
+      if (coprodError) throw coprodError;
+      const productIds = coprods?.map(c => c.product_id).filter(Boolean) || [];
+      if (productIds.length === 0) return [];
+
+      // Find storefronts that carry these products
+      const { data: sfProds, error: sfError } = await supabase
+        .from('storefront_products')
+        .select('storefront_id')
+        .in('product_id', productIds);
+      
+      if (sfError) throw sfError;
+      const ids = [...new Set(sfProds?.map(sp => sp.storefront_id).filter(Boolean))];
       return ids as string[];
     },
   });
