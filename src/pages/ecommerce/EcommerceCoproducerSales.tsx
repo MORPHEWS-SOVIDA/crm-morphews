@@ -147,10 +147,7 @@ export default function EcommerceCoproducerSales() {
   // Stats
   const totalEarnings = sales?.reduce((sum, s) => sum + (s.net_amount_cents || 0), 0) || 0;
   const totalSales = sales?.length || 0;
-  const availableNow = sales?.filter(s => {
-    if (!s.hold_until) return true;
-    return new Date(s.hold_until) <= new Date();
-  }).reduce((sum, s) => sum + (s.net_amount_cents || 0), 0) || 0;
+  const availableNow = totalEarnings; // simplified - all earnings
 
   if (isLoading) {
     return (
