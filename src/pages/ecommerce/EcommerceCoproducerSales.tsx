@@ -32,7 +32,6 @@ interface CoproducerSale {
   net_amount_cents: number;
   split_type: string;
   created_at: string;
-  hold_until: string | null;
   sale: {
     id: string;
     status: string;
