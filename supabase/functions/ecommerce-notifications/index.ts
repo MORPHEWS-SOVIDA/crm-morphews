@@ -167,7 +167,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: `${storeName} <noreply@atomic.ia.br>`,
+            from: `${storeName} <noreply@updates.atomic.ia.br>`,
             to: [recipientEmail],
             subject: emailSubject,
             html: emailHtml,
