@@ -11,6 +11,38 @@ import { ProductRecommendations } from './ProductRecommendations';
 import { useTenantInstallmentFees, calculateInstallmentWithInterest } from '@/hooks/ecommerce/useTenantInstallmentFees';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+
+// Resolve product prices and details from DB when external cart items have price 0
+async function resolveProductDetails(
+  productId: string,
+  storefrontId: string
+): Promise<{ name: string; imageUrl: string | null; unitPrice: number } | null> {
+  try {
+    const { data } = await supabase
+      .from('storefront_products')
+      .select(`
+        custom_price_cents,
+        product:lead_products(
+          name, ecommerce_title, image_url, ecommerce_images,
+          price_1_unit, base_price_cents
+        )
+      `)
+      .eq('storefront_id', storefrontId)
+      .eq('product_id', productId)
+      .eq('is_visible', true)
+      .single();
+
+    if (!data?.product) return null;
+    const p = data.product as any;
+    const price = data.custom_price_cents || p.price_1_unit || p.base_price_cents || 0;
+    const name = p.ecommerce_title || p.name || 'Produto';
+    const imageUrl = p.ecommerce_images?.[0] || p.image_url || null;
+    return { name, imageUrl, unitPrice: price };
+  } catch {
+    return null;
+  }
+}
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
