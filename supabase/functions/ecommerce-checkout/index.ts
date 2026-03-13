@@ -632,6 +632,7 @@ serve(async (req) => {
         ttclid: utm?.ttclid || null,
         affiliate_id: affiliatePartnerId || null, // Now stores partner_association.id
         payment_method: payment_method,
+        shipping_method: body.shipping_method_name || null,
       })
       .select('id')
       .single();
