@@ -12,10 +12,35 @@ serve(async (req) => {
   }
 
   try {
-    const internalSecret = Deno.env.get("INTERNAL_AUTH_SECRET");
-    const providedSecret = req.headers.get("x-internal-secret");
-    
-    if (!internalSecret || providedSecret !== internalSecret) {
+    // One-time provisioning function - secured by checking caller is master admin
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // Verify caller is master admin
+    const supabaseAnon = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { authorization: authHeader } } }
+    );
+    const { data: userRes } = await supabaseAnon.auth.getUser();
+    if (!userRes?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { data: isMaster } = await supabaseAdmin.rpc("is_master_admin", { _user_id: userRes.user.id });
+    if (!isMaster) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
