@@ -300,12 +300,17 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
                     value={systemPrompt}
                     onChange={(e) => setSystemPrompt(e.target.value)}
                     placeholder="Defina as instruções para o robô..."
-                    rows={12}
-                    className="font-mono text-sm"
+                    rows={16}
+                    className="font-mono text-sm min-h-[300px]"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    💡 Inclua aqui: personalidade, tom de voz, expressões regionais, regras de atendimento, diferencial da empresa. Ou use o Assistente IA para gerar automaticamente.
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      💡 Inclua aqui: personalidade, tom de voz, expressões regionais, regras de atendimento, diferencial da empresa. Ou use o Assistente IA para gerar automaticamente.
+                    </p>
+                    <span className={`text-xs font-mono ${systemPrompt.length > 8000 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {systemPrompt.length.toLocaleString('pt-BR')} caracteres
+                    </span>
+                  </div>
                 </CardContent>
               </Card>
 
