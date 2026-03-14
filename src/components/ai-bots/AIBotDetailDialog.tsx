@@ -567,11 +567,24 @@ export function AIBotDetailDialog({ botId, open, onOpenChange }: AIBotDetailDial
           <div className="flex justify-between pt-4 border-t gap-2">
             <Button variant="outline" onClick={handleSave} disabled={updateBot.isPending || !isFormReady}>
               <Save className="h-4 w-4 mr-2" />
-              {updateBot.isPending ? 'Salvando...' : 'Salvar'}
+              {updateBot.isPending ? 'Salvando...' : 'Salvar Configurações'}
             </Button>
-            <Button onClick={() => setShowPromptWizard(true)} disabled={!isFormReady} className="gap-2">
+            <Button 
+              variant="secondary"
+              onClick={() => {
+                if (systemPrompt.length > 500) {
+                  const confirmed = window.confirm(
+                    `⚠️ Atenção: seu prompt atual tem ${systemPrompt.length.toLocaleString()} caracteres.\n\nO Assistente IA vai SUBSTITUIR o prompt atual por um novo gerado automaticamente.\n\nDeseja continuar?`
+                  );
+                  if (!confirmed) return;
+                }
+                setShowPromptWizard(true);
+              }} 
+              disabled={!isFormReady} 
+              className="gap-2"
+            >
               <Wand2 className="h-4 w-4" />
-              ✨ Gerar Prompt com IA e Salvar
+              Regenerar Prompt com IA
             </Button>
           </div>
         )}
