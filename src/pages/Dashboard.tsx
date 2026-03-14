@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { SmartLayout } from '@/components/layout/SmartLayout';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import { StarsFilter } from '@/components/dashboard/StarsFilter';
