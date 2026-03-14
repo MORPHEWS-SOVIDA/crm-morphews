@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { SmartLayout } from '@/components/layout/SmartLayout';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import { StarsFilter } from '@/components/dashboard/StarsFilter';
@@ -116,7 +116,31 @@ export default function Dashboard() {
     );
   }
 
-  // If user only has delivery permissions, show simplified dashboard
+  // Auto-redirect partner coproducers to their dedicated sales dashboard
+  if (isPartner && role === 'partner_coproducer') {
+    navigate('/ecommerce/coprodutor-vendas', { replace: true });
+    return (
+      <SmartLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </SmartLayout>
+    );
+  }
+
+  // Auto-redirect partner affiliates to their links/sales page
+  if (isPartner && role === 'partner_affiliate') {
+    navigate('/ecommerce/vendas', { replace: true });
+    return (
+      <SmartLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </SmartLayout>
+    );
+  }
+
+
   if (!canSeeLeads && canSeeDeliveries) {
     return (
       <SmartLayout>
