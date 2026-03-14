@@ -186,5 +186,3 @@ verify_jwt = false
 [functions.ecommerce-notifications]
 verify_jwt = false
 
-[functions.send-test-email]
-verify_jwt = false
