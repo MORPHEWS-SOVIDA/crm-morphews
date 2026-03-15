@@ -50,9 +50,9 @@ serve(async (req) => {
     });
   } catch (error: any) {
     console.error("Error creating portal session:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error.message || "Erro ao abrir portal do cliente" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 200,
     });
   }
 });

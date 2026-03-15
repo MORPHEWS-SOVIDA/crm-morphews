@@ -1151,7 +1151,7 @@ serve(async (req) => {
     const msg = error instanceof Error ? error.message : "Erro desconhecido";
     console.error("evolution-instance-manager error:", msg);
     return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

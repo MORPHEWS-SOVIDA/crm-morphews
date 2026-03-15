@@ -220,16 +220,16 @@ serve(async (req) => {
 
     if (!gateway || gateway.gateway_type !== "pagarme") {
       return new Response(
-        JSON.stringify({ error: "Gateway de pagamento não configurado" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Gateway de pagamento não configurado para esta organização" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const pagarmeApiKey = gateway.api_key_encrypted;
     if (!pagarmeApiKey) {
       return new Response(
-        JSON.stringify({ error: "Chave do gateway não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Chave secreta do gateway não configurada. Configure nas integrações." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -447,8 +447,8 @@ serve(async (req) => {
     if (transactionError) {
       console.error("Transaction insert error:", transactionError);
       return new Response(
-        JSON.stringify({ error: "Erro ao registrar transação" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Erro ao registrar transação no banco de dados" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -530,10 +530,10 @@ serve(async (req) => {
 
   } catch (error: unknown) {
     console.error("Process payment link error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Erro interno do servidor";
+    const errorMessage = error instanceof Error ? error.message : "Erro interno no processamento do pagamento";
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

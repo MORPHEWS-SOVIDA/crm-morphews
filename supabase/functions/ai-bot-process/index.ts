@@ -2748,11 +2748,11 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('❌ AI Bot Process error:', error);
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: error.message || "Erro no processamento do bot",
       success: false,
       action: 'error'
     }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
