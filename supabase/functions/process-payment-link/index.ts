@@ -530,10 +530,10 @@ serve(async (req) => {
 
   } catch (error: unknown) {
     console.error("Process payment link error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Erro interno do servidor";
+    const errorMessage = error instanceof Error ? error.message : "Erro interno no processamento do pagamento";
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

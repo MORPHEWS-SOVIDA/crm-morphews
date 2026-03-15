@@ -166,9 +166,9 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("SMS checkout error:", error);
     return new Response(
-      JSON.stringify({ error: (error as Error).message }),
+      JSON.stringify({ error: (error as Error).message || "Erro no checkout SMS" }),
       {
-        status: 500,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

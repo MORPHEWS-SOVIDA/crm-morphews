@@ -241,8 +241,8 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error("Error in reset-password-request:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Erro ao processar solicitação" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: error.message || "Erro ao processar solicitação de reset de senha" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
