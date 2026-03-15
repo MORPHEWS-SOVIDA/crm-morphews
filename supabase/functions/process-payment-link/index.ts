@@ -228,8 +228,8 @@ serve(async (req) => {
     const pagarmeApiKey = gateway.api_key_encrypted;
     if (!pagarmeApiKey) {
       return new Response(
-        JSON.stringify({ error: "Chave do gateway não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Chave secreta do gateway não configurada. Configure nas integrações." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
