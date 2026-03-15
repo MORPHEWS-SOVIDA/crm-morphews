@@ -378,6 +378,9 @@ serve(async (req) => {
 
       if (authError) {
         console.error("Error creating user:", authError);
+        if (authError.message?.includes("already been registered") || authError.message?.includes("already exists")) {
+          throw new Error("Este e-mail já está cadastrado. Faça login ou use outro e-mail.");
+        }
         throw new Error("Erro ao criar usuário: " + authError.message);
       }
 
