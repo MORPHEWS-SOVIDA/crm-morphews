@@ -361,13 +361,8 @@ serve(async (req) => {
     if (isNoCardTrial) {
       console.log("Processing NO-CARD TRIAL signup for:", email, "Trial days:", plan.trial_days);
 
-      // Check if user already exists
-      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find(u => u.email === email);
-      
-      if (existingUser) {
-        throw new Error("Este e-mail já está cadastrado. Faça login ou use outro e-mail.");
-      }
+      // Check if user already exists (use createUser and handle duplicate error)
+      // Note: listUsers() is paginated and unreliable for existence checks
 
       // Generate temp password
       const tempPassword = generateTempPassword();
