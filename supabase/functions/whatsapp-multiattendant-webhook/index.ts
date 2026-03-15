@@ -1245,6 +1245,6 @@ serve(async (req) => {
     return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error: any) {
     console.error("Webhook error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 });
+    return new Response(JSON.stringify({ error: error.message || "Erro no webhook" }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
   }
 });
