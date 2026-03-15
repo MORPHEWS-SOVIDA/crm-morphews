@@ -636,9 +636,11 @@ serve(async (req) => {
     });
   } catch (error: any) {
     console.error("Error creating checkout:", error);
+    // Return 200 with error field so the client can read the actual error message
+    // (non-2xx causes supabase SDK to return generic "Edge Function returned a non-2xx status")
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 200,
     });
   }
 });
