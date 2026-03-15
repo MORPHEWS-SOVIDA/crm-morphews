@@ -447,8 +447,8 @@ serve(async (req) => {
     if (transactionError) {
       console.error("Transaction insert error:", transactionError);
       return new Response(
-        JSON.stringify({ error: "Erro ao registrar transação" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Erro ao registrar transação no banco de dados" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
