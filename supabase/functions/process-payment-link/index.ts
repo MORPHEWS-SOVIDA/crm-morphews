@@ -220,8 +220,8 @@ serve(async (req) => {
 
     if (!gateway || gateway.gateway_type !== "pagarme") {
       return new Response(
-        JSON.stringify({ error: "Gateway de pagamento não configurado" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Gateway de pagamento não configurado para esta organização" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
