@@ -185,8 +185,8 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error("Demo User Provision Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    return new Response(JSON.stringify({ error: error.message || "Erro desconhecido no provisionamento" }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
