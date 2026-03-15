@@ -26,9 +26,9 @@ Deno.serve(async (req) => {
 
     if (!stripeSecretKey) {
       return new Response(
-        JSON.stringify({ error: "Stripe não configurado" }),
+        JSON.stringify({ error: "Stripe não configurado. Configure a chave do Stripe nas integrações." }),
         {
-          status: 500,
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
