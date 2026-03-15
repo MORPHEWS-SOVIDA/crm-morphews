@@ -185,13 +185,8 @@ serve(async (req) => {
     if (plan.price_cents === 0) {
       console.log("Processing FREE plan signup for:", email);
 
-      // Check if user already exists
-      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find(u => u.email === email);
-      
-      if (existingUser) {
-        throw new Error("Este e-mail já está cadastrado. Faça login ou use outro e-mail.");
-      }
+      // Check if user already exists (use createUser and handle duplicate error)
+      // Note: listUsers() is paginated and unreliable for existence checks
 
       // Generate temp password
       const tempPassword = generateTempPassword();
@@ -209,6 +204,9 @@ serve(async (req) => {
 
       if (authError) {
         console.error("Error creating user:", authError);
+        if (authError.message?.includes("already been registered") || authError.message?.includes("already exists")) {
+          throw new Error("Este e-mail já está cadastrado. Faça login ou use outro e-mail.");
+        }
         throw new Error("Erro ao criar usuário: " + authError.message);
       }
 
@@ -361,13 +359,8 @@ serve(async (req) => {
     if (isNoCardTrial) {
       console.log("Processing NO-CARD TRIAL signup for:", email, "Trial days:", plan.trial_days);
 
-      // Check if user already exists
-      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find(u => u.email === email);
-      
-      if (existingUser) {
-        throw new Error("Este e-mail já está cadastrado. Faça login ou use outro e-mail.");
-      }
+      // Check if user already exists (use createUser and handle duplicate error)
+      // Note: listUsers() is paginated and unreliable for existence checks
 
       // Generate temp password
       const tempPassword = generateTempPassword();
@@ -385,6 +378,9 @@ serve(async (req) => {
 
       if (authError) {
         console.error("Error creating user:", authError);
+        if (authError.message?.includes("already been registered") || authError.message?.includes("already exists")) {
+          throw new Error("Este e-mail já está cadastrado. Faça login ou use outro e-mail.");
+        }
         throw new Error("Erro ao criar usuário: " + authError.message);
       }
 
@@ -646,9 +642,11 @@ serve(async (req) => {
     });
   } catch (error: any) {
     console.error("Error creating checkout:", error);
+    // Return 200 with error field so the client can read the actual error message
+    // (non-2xx causes supabase SDK to return generic "Edge Function returned a non-2xx status")
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 200,
     });
   }
 });
