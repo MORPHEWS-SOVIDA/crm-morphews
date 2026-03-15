@@ -55,8 +55,8 @@ serve(async (req) => {
 
       if (saleError) {
         console.error("[ecommerce-sale-status] DB error:", saleError);
-        return new Response(JSON.stringify({ success: false, error: "Database error" }), {
-          status: 500,
+        return new Response(JSON.stringify({ success: false, error: `Erro no banco de dados: ${saleError.message}` }), {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
