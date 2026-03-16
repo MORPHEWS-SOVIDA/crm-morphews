@@ -156,11 +156,15 @@ export default function LeadDetail() {
     if (!id || !lead || !stageChangeDialog.newStage) return;
     
     try {
-      // Update the lead stage
-      await updateLead.mutateAsync({ id, stage: stageChangeDialog.newStage });
+      // Update the lead stage + funnel_stage_id
+      const updatePayload: Record<string, any> = { id, stage: stageChangeDialog.newStage };
+      if (stageChangeDialog.newStageId) {
+        updatePayload.funnel_stage_id = stageChangeDialog.newStageId;
+      }
+      await updateLead.mutateAsync(updatePayload);
       
       // Find the target stage ID for TracZAP integration
-      const targetStage = funnelStages.find(s => s.enum_value === stageChangeDialog.newStage);
+      const targetStageId = stageChangeDialog.newStageId || funnelStages.find(s => s.enum_value === stageChangeDialog.newStage)?.id;
       
       // Record the stage change in history (TracZAP event is triggered automatically)
       await addStageHistory.mutateAsync({
@@ -170,8 +174,7 @@ export default function LeadDetail() {
         previous_stage: lead.stage,
         reason: result.reason,
         changed_by: user?.id || null,
-        // TracZAP: Pass stage ID for CAPI event
-        to_stage_id: targetStage?.id,
+        to_stage_id: targetStageId,
         source: 'manual',
       });
       
@@ -186,7 +189,7 @@ export default function LeadDetail() {
         });
       }
       
-      setStageChangeDialog({ open: false, newStage: null });
+      setStageChangeDialog({ open: false, newStage: null, newStageId: null });
     } catch (error) {
       console.error('Error changing stage:', error);
     }
