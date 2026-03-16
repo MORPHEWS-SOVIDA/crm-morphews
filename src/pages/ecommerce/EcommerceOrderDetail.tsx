@@ -291,16 +291,41 @@ export default function EcommerceOrderDetail() {
               </p>
             </div>
           </div>
-          {canRefund && (
-            <Button 
-              variant="destructive" 
-              onClick={() => setRefundDialogOpen(true)}
-              className="gap-2"
-            >
-              <XCircle className="h-4 w-4" />
-              Reembolsar transação
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {order.lead_id && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate(`/leads/${order.lead_id}`)}
+                className="gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Ver Lead
+              </Button>
+            )}
+            {order.sale_id && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate(`/vendas/${order.sale_id}`)}
+                className="gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Ver Venda
+              </Button>
+            )}
+            {canRefund && (
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={() => setRefundDialogOpen(true)}
+                className="gap-2"
+              >
+                <XCircle className="h-4 w-4" />
+                Reembolsar
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Customer & Summary Cards */}
