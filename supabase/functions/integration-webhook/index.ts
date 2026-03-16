@@ -754,13 +754,48 @@ Deno.serve(async (req) => {
     const VALID_LEAD_COLUMNS = new Set([
       'name', 'email', 'whatsapp', 'observations', 'stage', 'stars', 
       'organization_id', 'assigned_to', 'webhook_data', 'created_at', 'updated_at',
-      'cpf_cnpj', 'instagram', 'specialty', 'city', 'state', 'source'
+      'cpf_cnpj', 'instagram', 'specialty', 'city', 'state', 'source',
+      'funnel_stage_id'
     ]);
+
+    // ============================================================
+    // RESOLVE default_stage UUID -> enum_value + funnel_stage_id
+    // default_stage is a UUID referencing organization_funnel_stages
+    // but leads.stage expects an enum value (e.g. 'cloud', 'unclassified')
+    // ============================================================
+    let resolvedStageEnum = 'cloud';
+    let resolvedFunnelStageId: string | null = null;
+
+    if (typedIntegration.default_stage) {
+      const { data: stageRow } = await supabase
+        .from('organization_funnel_stages')
+        .select('id, enum_value, stage_type')
+        .eq('id', typedIntegration.default_stage)
+        .maybeSingle();
+
+      if (stageRow) {
+        resolvedFunnelStageId = stageRow.id;
+        // Use explicit enum_value, fallback to stage_type-based default
+        if (stageRow.enum_value) {
+          resolvedStageEnum = stageRow.enum_value;
+        } else {
+          switch (stageRow.stage_type) {
+            case 'cloud': resolvedStageEnum = 'cloud'; break;
+            case 'trash': resolvedStageEnum = 'trash'; break;
+            default: resolvedStageEnum = 'unclassified'; break;
+          }
+        }
+        console.log(`Resolved default_stage UUID ${typedIntegration.default_stage} -> enum: ${resolvedStageEnum}, funnel_stage_id: ${resolvedFunnelStageId}`);
+      } else {
+        console.warn(`default_stage UUID ${typedIntegration.default_stage} not found in organization_funnel_stages, using 'cloud' fallback`);
+      }
+    }
     
     // Build lead data from mappings
     const leadData: Record<string, any> = {
       organization_id: typedIntegration.organization_id,
-      stage: typedIntegration.default_stage || 'cloud',
+      stage: resolvedStageEnum,
+      funnel_stage_id: resolvedFunnelStageId,
       stars: 0,
     };
 
@@ -1007,7 +1042,7 @@ Deno.serve(async (req) => {
       // EXISTING LEAD: Update stage + data (CRITICAL: single stage rule)
       // ============================================================
       const previousStage = existingLead.stage;
-      const newStage = leadData.stage || typedIntegration.default_stage || previousStage;
+      const newStage = resolvedStageEnum || previousStage;
 
       const updateData: Record<string, any> = {
         updated_at: new Date().toISOString(),
@@ -1017,7 +1052,10 @@ Deno.serve(async (req) => {
       // Update stage if different (integration event changes the stage)
       if (newStage && newStage !== previousStage) {
         updateData.stage = newStage;
-        console.log(`Changing lead stage: ${previousStage} -> ${newStage}`);
+        if (resolvedFunnelStageId) {
+          updateData.funnel_stage_id = resolvedFunnelStageId;
+        }
+        console.log(`Changing lead stage: ${previousStage} -> ${newStage} (funnel_stage_id: ${resolvedFunnelStageId})`);
 
         // Record stage change in history for audit trail
         try {
@@ -1026,8 +1064,10 @@ Deno.serve(async (req) => {
             organization_id: typedIntegration.organization_id,
             stage: newStage,
             previous_stage: previousStage,
+            funnel_stage_id: resolvedFunnelStageId,
             reason: `Evento de integração: ${typedIntegration.name}`,
             changed_by: null, // System change
+            source: 'webhook',
           });
         } catch (historyError) {
           console.log('Could not insert stage history (table may not exist):', historyError);
@@ -1285,7 +1325,8 @@ Deno.serve(async (req) => {
             const updateData: Record<string, any> = {
               updated_at: new Date().toISOString(),
               webhook_data: payload,
-              stage: leadData.stage || typedIntegration.default_stage || dupLead.stage,
+              stage: resolvedStageEnum || dupLead.stage,
+              ...(resolvedFunnelStageId ? { funnel_stage_id: resolvedFunnelStageId } : {}),
             };
             if (leadData.name && leadData.name !== dupLead.name) updateData.name = leadData.name;
             if (leadData.email) updateData.email = leadData.email;
