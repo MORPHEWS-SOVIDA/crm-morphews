@@ -1325,7 +1325,8 @@ Deno.serve(async (req) => {
             const updateData: Record<string, any> = {
               updated_at: new Date().toISOString(),
               webhook_data: payload,
-              stage: leadData.stage || typedIntegration.default_stage || dupLead.stage,
+              stage: resolvedStageEnum || dupLead.stage,
+              ...(resolvedFunnelStageId ? { funnel_stage_id: resolvedFunnelStageId } : {}),
             };
             if (leadData.name && leadData.name !== dupLead.name) updateData.name = leadData.name;
             if (leadData.email) updateData.email = leadData.email;
