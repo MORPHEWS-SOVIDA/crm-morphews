@@ -134,9 +134,17 @@ export default function LeadDetail() {
   const handleUpdate = (field: string, value: string | number | boolean | null) => {
     if (!id) return;
     
-    // If changing stage, open dialog instead
+    // If changing stage via funnel_stage_id, open dialog instead
+    if (field === 'funnel_stage_id' && lead && value !== lead.funnel_stage_id) {
+      const targetStage = funnelStages.find(s => s.id === value);
+      const enumValue = targetStage?.enum_value || lead.stage;
+      setStageChangeDialog({ open: true, newStage: enumValue as FunnelStage, newStageId: value as string });
+      return;
+    }
+    
+    // Legacy enum stage change
     if (field === 'stage' && lead && value !== lead.stage) {
-      setStageChangeDialog({ open: true, newStage: value as FunnelStage });
+      setStageChangeDialog({ open: true, newStage: value as FunnelStage, newStageId: null });
       return;
     }
     
