@@ -935,8 +935,12 @@ export default function LeadDetail() {
       {/* Stage Change Dialog */}
       {lead && stageChangeDialog.newStage && (() => {
         // Find tenant custom stage info for the dialog
-        const prevCustomStage = funnelStages.find(s => s.enum_value === lead.stage);
-        const newCustomStage = funnelStages.find(s => s.enum_value === stageChangeDialog.newStage);
+        const prevCustomStage = lead.funnel_stage_id 
+          ? funnelStages.find(s => s.id === lead.funnel_stage_id)
+          : funnelStages.find(s => s.enum_value === lead.stage);
+        const newCustomStage = stageChangeDialog.newStageId
+          ? funnelStages.find(s => s.id === stageChangeDialog.newStageId)
+          : funnelStages.find(s => s.enum_value === stageChangeDialog.newStage);
         
         return (
           <StageChangeDialog
