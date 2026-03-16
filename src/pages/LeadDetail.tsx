@@ -97,7 +97,8 @@ export default function LeadDetail() {
   const [stageChangeDialog, setStageChangeDialog] = useState<{
     open: boolean;
     newStage: FunnelStage | null;
-  }>({ open: false, newStage: null });
+    newStageId: string | null;
+  }>({ open: false, newStage: null, newStageId: null });
   
   // Check if current user can see sensitive data (CPF/CNPJ)
   const canSeeSensitiveData = isAdmin || (user && lead?.created_by === user.id);
@@ -134,9 +135,17 @@ export default function LeadDetail() {
   const handleUpdate = (field: string, value: string | number | boolean | null) => {
     if (!id) return;
     
-    // If changing stage, open dialog instead
+    // If changing stage via funnel_stage_id, open dialog instead
+    if (field === 'funnel_stage_id' && lead && value !== lead.funnel_stage_id) {
+      const targetStage = funnelStages.find(s => s.id === value);
+      const enumValue = targetStage?.enum_value || lead.stage;
+      setStageChangeDialog({ open: true, newStage: enumValue as FunnelStage, newStageId: value as string });
+      return;
+    }
+    
+    // Legacy enum stage change
     if (field === 'stage' && lead && value !== lead.stage) {
-      setStageChangeDialog({ open: true, newStage: value as FunnelStage });
+      setStageChangeDialog({ open: true, newStage: value as FunnelStage, newStageId: null });
       return;
     }
     
@@ -147,11 +156,15 @@ export default function LeadDetail() {
     if (!id || !lead || !stageChangeDialog.newStage) return;
     
     try {
-      // Update the lead stage
-      await updateLead.mutateAsync({ id, stage: stageChangeDialog.newStage });
+      // Update the lead stage + funnel_stage_id
+      const updates: any = { stage: stageChangeDialog.newStage };
+      if (stageChangeDialog.newStageId) {
+        updates.funnel_stage_id = stageChangeDialog.newStageId;
+      }
+      await updateLead.mutateAsync({ id, ...updates });
       
       // Find the target stage ID for TracZAP integration
-      const targetStage = funnelStages.find(s => s.enum_value === stageChangeDialog.newStage);
+      const targetStageId = stageChangeDialog.newStageId || funnelStages.find(s => s.enum_value === stageChangeDialog.newStage)?.id;
       
       // Record the stage change in history (TracZAP event is triggered automatically)
       await addStageHistory.mutateAsync({
@@ -161,8 +174,7 @@ export default function LeadDetail() {
         previous_stage: lead.stage,
         reason: result.reason,
         changed_by: user?.id || null,
-        // TracZAP: Pass stage ID for CAPI event
-        to_stage_id: targetStage?.id,
+        to_stage_id: targetStageId,
         source: 'manual',
       });
       
@@ -177,7 +189,7 @@ export default function LeadDetail() {
         });
       }
       
-      setStageChangeDialog({ open: false, newStage: null });
+      setStageChangeDialog({ open: false, newStage: null, newStageId: null });
     } catch (error) {
       console.error('Error changing stage:', error);
     }
@@ -289,8 +301,8 @@ export default function LeadDetail() {
                     Etapa atual
                   </p>
                   <Select
-                    value={lead.stage}
-                    onValueChange={(selectedEnumValue) => handleUpdate('stage', selectedEnumValue as FunnelStage)}
+                    value={currentStage?.id || lead.funnel_stage_id || ''}
+                    onValueChange={(stageId) => handleUpdate('funnel_stage_id', stageId)}
                   >
                     <SelectTrigger 
                       className="w-auto border-0 bg-transparent p-0 h-auto text-2xl font-bold hover:bg-white/10 rounded"
@@ -299,21 +311,19 @@ export default function LeadDetail() {
                       <SelectValue>{stageName}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {funnelStages
-                        .filter(stage => stage.enum_value) // Only show stages with valid enum_value
-                        .map((stage) => (
-                          <SelectItem 
-                            key={stage.id} 
-                            value={stage.enum_value!}
-                            className="flex items-center gap-2"
-                          >
-                            <span 
-                              className="w-3 h-3 rounded-full inline-block mr-2"
-                              style={{ backgroundColor: stage.color }}
-                            />
-                            {stage.name}
-                          </SelectItem>
-                        ))}
+                      {funnelStages.map((stage) => (
+                        <SelectItem 
+                          key={stage.id} 
+                          value={stage.id}
+                          className="flex items-center gap-2"
+                        >
+                          <span 
+                            className="w-3 h-3 rounded-full inline-block mr-2"
+                            style={{ backgroundColor: stage.color }}
+                          />
+                          {stage.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -925,13 +935,17 @@ export default function LeadDetail() {
       {/* Stage Change Dialog */}
       {lead && stageChangeDialog.newStage && (() => {
         // Find tenant custom stage info for the dialog
-        const prevCustomStage = funnelStages.find(s => s.enum_value === lead.stage);
-        const newCustomStage = funnelStages.find(s => s.enum_value === stageChangeDialog.newStage);
+        const prevCustomStage = lead.funnel_stage_id 
+          ? funnelStages.find(s => s.id === lead.funnel_stage_id)
+          : funnelStages.find(s => s.enum_value === lead.stage);
+        const newCustomStage = stageChangeDialog.newStageId
+          ? funnelStages.find(s => s.id === stageChangeDialog.newStageId)
+          : funnelStages.find(s => s.enum_value === stageChangeDialog.newStage);
         
         return (
           <StageChangeDialog
             open={stageChangeDialog.open}
-            onOpenChange={(open) => !open && setStageChangeDialog({ open: false, newStage: null })}
+            onOpenChange={(open) => !open && setStageChangeDialog({ open: false, newStage: null, newStageId: null })}
             previousStage={lead.stage}
             newStage={stageChangeDialog.newStage}
             onConfirm={handleStageChange}
