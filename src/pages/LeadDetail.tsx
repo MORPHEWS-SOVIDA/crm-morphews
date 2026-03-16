@@ -943,7 +943,7 @@ export default function LeadDetail() {
         return (
           <StageChangeDialog
             open={stageChangeDialog.open}
-            onOpenChange={(open) => !open && setStageChangeDialog({ open: false, newStage: null })}
+            onOpenChange={(open) => !open && setStageChangeDialog({ open: false, newStage: null, newStageId: null })}
             previousStage={lead.stage}
             newStage={stageChangeDialog.newStage}
             onConfirm={handleStageChange}
