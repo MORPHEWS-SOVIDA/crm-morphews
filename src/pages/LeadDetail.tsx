@@ -301,8 +301,8 @@ export default function LeadDetail() {
                     Etapa atual
                   </p>
                   <Select
-                    value={lead.stage}
-                    onValueChange={(selectedEnumValue) => handleUpdate('stage', selectedEnumValue as FunnelStage)}
+                    value={currentStage?.id || lead.funnel_stage_id || ''}
+                    onValueChange={(stageId) => handleUpdate('funnel_stage_id', stageId)}
                   >
                     <SelectTrigger 
                       className="w-auto border-0 bg-transparent p-0 h-auto text-2xl font-bold hover:bg-white/10 rounded"
@@ -311,21 +311,19 @@ export default function LeadDetail() {
                       <SelectValue>{stageName}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {funnelStages
-                        .filter(stage => stage.enum_value) // Only show stages with valid enum_value
-                        .map((stage) => (
-                          <SelectItem 
-                            key={stage.id} 
-                            value={stage.enum_value!}
-                            className="flex items-center gap-2"
-                          >
-                            <span 
-                              className="w-3 h-3 rounded-full inline-block mr-2"
-                              style={{ backgroundColor: stage.color }}
-                            />
-                            {stage.name}
-                          </SelectItem>
-                        ))}
+                      {funnelStages.map((stage) => (
+                        <SelectItem 
+                          key={stage.id} 
+                          value={stage.id}
+                          className="flex items-center gap-2"
+                        >
+                          <span 
+                            className="w-3 h-3 rounded-full inline-block mr-2"
+                            style={{ backgroundColor: stage.color }}
+                          />
+                          {stage.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
