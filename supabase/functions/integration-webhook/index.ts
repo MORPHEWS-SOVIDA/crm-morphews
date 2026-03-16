@@ -754,13 +754,48 @@ Deno.serve(async (req) => {
     const VALID_LEAD_COLUMNS = new Set([
       'name', 'email', 'whatsapp', 'observations', 'stage', 'stars', 
       'organization_id', 'assigned_to', 'webhook_data', 'created_at', 'updated_at',
-      'cpf_cnpj', 'instagram', 'specialty', 'city', 'state', 'source'
+      'cpf_cnpj', 'instagram', 'specialty', 'city', 'state', 'source',
+      'funnel_stage_id'
     ]);
+
+    // ============================================================
+    // RESOLVE default_stage UUID -> enum_value + funnel_stage_id
+    // default_stage is a UUID referencing organization_funnel_stages
+    // but leads.stage expects an enum value (e.g. 'cloud', 'unclassified')
+    // ============================================================
+    let resolvedStageEnum = 'cloud';
+    let resolvedFunnelStageId: string | null = null;
+
+    if (typedIntegration.default_stage) {
+      const { data: stageRow } = await supabase
+        .from('organization_funnel_stages')
+        .select('id, enum_value, stage_type')
+        .eq('id', typedIntegration.default_stage)
+        .maybeSingle();
+
+      if (stageRow) {
+        resolvedFunnelStageId = stageRow.id;
+        // Use explicit enum_value, fallback to stage_type-based default
+        if (stageRow.enum_value) {
+          resolvedStageEnum = stageRow.enum_value;
+        } else {
+          switch (stageRow.stage_type) {
+            case 'cloud': resolvedStageEnum = 'cloud'; break;
+            case 'trash': resolvedStageEnum = 'trash'; break;
+            default: resolvedStageEnum = 'unclassified'; break;
+          }
+        }
+        console.log(`Resolved default_stage UUID ${typedIntegration.default_stage} -> enum: ${resolvedStageEnum}, funnel_stage_id: ${resolvedFunnelStageId}`);
+      } else {
+        console.warn(`default_stage UUID ${typedIntegration.default_stage} not found in organization_funnel_stages, using 'cloud' fallback`);
+      }
+    }
     
     // Build lead data from mappings
     const leadData: Record<string, any> = {
       organization_id: typedIntegration.organization_id,
-      stage: typedIntegration.default_stage || 'cloud',
+      stage: resolvedStageEnum,
+      funnel_stage_id: resolvedFunnelStageId,
       stars: 0,
     };
 
