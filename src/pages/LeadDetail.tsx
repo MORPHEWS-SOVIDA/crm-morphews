@@ -97,7 +97,8 @@ export default function LeadDetail() {
   const [stageChangeDialog, setStageChangeDialog] = useState<{
     open: boolean;
     newStage: FunnelStage | null;
-  }>({ open: false, newStage: null });
+    newStageId: string | null;
+  }>({ open: false, newStage: null, newStageId: null });
   
   // Check if current user can see sensitive data (CPF/CNPJ)
   const canSeeSensitiveData = isAdmin || (user && lead?.created_by === user.id);
