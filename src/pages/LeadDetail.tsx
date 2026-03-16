@@ -157,11 +157,11 @@ export default function LeadDetail() {
     
     try {
       // Update the lead stage + funnel_stage_id
-      const updatePayload: Record<string, any> = { id, stage: stageChangeDialog.newStage };
+      const updates: any = { stage: stageChangeDialog.newStage };
       if (stageChangeDialog.newStageId) {
-        updatePayload.funnel_stage_id = stageChangeDialog.newStageId;
+        updates.funnel_stage_id = stageChangeDialog.newStageId;
       }
-      await updateLead.mutateAsync(updatePayload);
+      await updateLead.mutateAsync({ id, ...updates });
       
       // Find the target stage ID for TracZAP integration
       const targetStageId = stageChangeDialog.newStageId || funnelStages.find(s => s.enum_value === stageChangeDialog.newStage)?.id;
