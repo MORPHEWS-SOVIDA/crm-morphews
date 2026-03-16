@@ -1042,7 +1042,7 @@ Deno.serve(async (req) => {
       // EXISTING LEAD: Update stage + data (CRITICAL: single stage rule)
       // ============================================================
       const previousStage = existingLead.stage;
-      const newStage = leadData.stage || typedIntegration.default_stage || previousStage;
+      const newStage = resolvedStageEnum || previousStage;
 
       const updateData: Record<string, any> = {
         updated_at: new Date().toISOString(),
@@ -1052,7 +1052,10 @@ Deno.serve(async (req) => {
       // Update stage if different (integration event changes the stage)
       if (newStage && newStage !== previousStage) {
         updateData.stage = newStage;
-        console.log(`Changing lead stage: ${previousStage} -> ${newStage}`);
+        if (resolvedFunnelStageId) {
+          updateData.funnel_stage_id = resolvedFunnelStageId;
+        }
+        console.log(`Changing lead stage: ${previousStage} -> ${newStage} (funnel_stage_id: ${resolvedFunnelStageId})`);
 
         // Record stage change in history for audit trail
         try {
@@ -1061,8 +1064,10 @@ Deno.serve(async (req) => {
             organization_id: typedIntegration.organization_id,
             stage: newStage,
             previous_stage: previousStage,
+            funnel_stage_id: resolvedFunnelStageId,
             reason: `Evento de integração: ${typedIntegration.name}`,
             changed_by: null, // System change
+            source: 'webhook',
           });
         } catch (historyError) {
           console.log('Could not insert stage history (table may not exist):', historyError);
