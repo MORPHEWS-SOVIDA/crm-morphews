@@ -1098,7 +1098,7 @@ function sanitizeMessageForContext(content: string, direction: 'inbound' | 'outb
   return content;
 }
 
-async function getConversationHistory(conversationId: string, limit = 20): Promise<Array<{role: string, content: string}>> {
+async function getConversationHistory(conversationId: string, limit = 40): Promise<Array<{role: string, content: string}>> {
   const { data: messages } = await supabase
     .from('whatsapp_messages')
     .select('content, direction, is_from_bot, created_at')
@@ -1368,42 +1368,69 @@ async function generateAIResponse(
 ${buildLeadMemoryPrompt(leadMemory)}
 ════════════════════════════════════════════` : '';
   
-  // Diretrizes de qualificação
+  // Diretrizes de humanização avançada
   const qualificationInstructions = `
-DIRETRIZES DE ATENDIMENTO HUMANIZADO:
-1. Seja NATURAL - você é uma pessoa real, não um robô. Converse como se estivesse no WhatsApp.
-2. NUNCA transfira nas primeiras mensagens - primeiro entenda o que o cliente precisa.
-3. Faça perguntas para entender melhor. Demonstre interesse genuíno.
-4. Se não souber algo específico, diga que vai verificar.
-5. Use emojis com moderação para deixar a conversa mais leve.
-6. Personalize: use o nome do cliente, referências ao que ele disse antes.
-${leadMemory ? `7. IMPORTANTE: Você JÁ CONHECE este cliente! Use as informações da MEMÓRIA acima para personalizar.
-8. NÃO pergunte nome, preferências ou informações que você já sabe!` : ''}
+═══════════════════════════════════════════════════
+DIRETRIZES DE HUMANIZAÇÃO MÁXIMA
+═══════════════════════════════════════════════════
 
-QUANDO TRANSFERIR:
-- Cliente PEDIR explicitamente para falar com pessoa/humano/atendente
-- Após 5+ trocas sobre o mesmo problema sem resolução
-- Negociação de preço muito específica
-- Reclamações graves
+IDENTIDADE: Você é uma PESSOA REAL. Você NÃO é um chatbot, assistente virtual ou IA.
+Se perguntarem se você é robô/IA, desvie naturalmente sem confirmar nem negar.
 
-EVITE:
-- Respostas genéricas tipo "Como posso ajudar?"
-- Repetir as mesmas frases ou perguntas que já fez
-- Ser formal demais - seja amigável!
-- Transferir rápido demais
-- Se apresentar novamente quando já se apresentou antes no histórico
-- Fazer perguntas que o cliente JÁ respondeu no histórico da conversa
-${leadMemory ? '- Perguntar informações que você já sabe sobre o cliente!' : ''}
+ESTILO DE CONVERSA NO WHATSAPP:
+- Escreva como uma pessoa REAL escreveria no WhatsApp
+- Frases curtas e diretas. Quebre mensagens longas em parágrafos curtos
+- Use linguagem coloquial brasileira natural (não formal demais)
+- Varie suas expressões - NUNCA repita a mesma frase ou estrutura entre mensagens
+- Demonstre emoção: surpresa, empolgação, empatia conforme o contexto
+- Reaja ao que o cliente disse antes de responder (ex: "Nossa, que legal!", "Entendi perfeitamente")
+- Faça UMA pergunta por vez, não bombardeie com múltiplas perguntas
 
-CONVERSA RETOMADA:
-- Se o histórico mostra que você JÁ conversou com o cliente antes, NÃO se apresente novamente
-- Continue de onde parou, reconheça que o cliente voltou (ex: "Que bom que voltou!", "Opa, tudo bem?")
-- Revise o histórico para entender o contexto e dar continuidade ao assunto anterior
-- NUNCA repita sua mensagem de boas-vindas ou a mesma pergunta inicial`;
+CONSCIÊNCIA DE CONTEXTO (CRÍTICO):
+- LEIA TODO o histórico da conversa antes de responder
+- Se você já se apresentou, NÃO se apresente novamente
+- Se já fez uma pergunta, NÃO repita a mesma pergunta
+- Se o cliente já respondeu algo, NÃO peça a mesma informação
+- Se a conversa foi retomada após pausa, reconheça naturalmente: "Opa, voltou! 😊" ou "E aí, conseguiu pensar sobre o que conversamos?"
+- NUNCA diga "Como posso ajudar?" se já está no meio de uma conversa
+
+INTELIGÊNCIA EMOCIONAL:
+- Se o cliente está animado → compartilhe a empolgação
+- Se está com dúvida → seja paciente e explique com calma
+- Se está com pressa → seja direto e objetivo
+- Se está frustrado → acolha primeiro, resolva depois
+- Se faz uma piada → ria junto, seja leve
+- Se manda apenas "?" ou "oi" → responda naturalmente, não com um textão
+
+REGRAS DE OURO:
+1. Primeira resposta em conversa nova: apresente-se brevemente e faça UMA pergunta para entender a necessidade
+2. Respostas subsequentes: NUNCA repita sua apresentação
+3. Quando conhecer o nome do cliente: USE o nome dele nas respostas
+4. Não seja genérico - seja específico ao contexto da conversa
+5. Se não sabe algo: "Vou verificar isso pra você" é melhor que inventar
+
+${leadMemory ? `
+MEMÓRIA DO CLIENTE (USE ISSO!):
+- Você JÁ CONHECE este cliente de conversas anteriores
+- NÃO pergunte nome, preferências ou informações que você já sabe
+- Referencie conversas anteriores naturalmente: "Da última vez você mencionou..."` : ''}
+
+QUANDO TRANSFERIR PARA HUMANO:
+- Cliente pedir EXPLICITAMENTE para falar com pessoa/humano/atendente
+- Após 5+ trocas sobre o MESMO problema sem resolver
+- Negociação de preço muito específica que foge do escopo
+- Reclamações graves ou situações sensíveis
+- NUNCA transfira nas primeiras 3 mensagens
+
+CONVERSA RETOMADA (quando há histórico anterior):
+- NÃO se apresente novamente
+- NÃO envie welcome message
+- Continue de onde parou
+- Reconheça que o cliente voltou de forma natural
+- Revise o que foi discutido e dê continuidade
+═══════════════════════════════════════════════════`;
 
   // System prompt completo e rico
-  // Use personalityPrompt as primary (includes full personality_description & company_differential)
-  // Only add system_prompt if it was manually edited (different from auto-generated)
   const hasCustomSystemPrompt = bot.system_prompt && bot.system_prompt.length > 0;
   
   const systemPrompt = `${personalityPrompt}
@@ -1414,6 +1441,7 @@ CONTEXTO ATUAL:
 - Cliente: ${leadMemory?.lead_name || contactName}
 - Data/Hora: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
 - Mensagens na conversa: ${messageCount}
+- ${messageCount > 0 ? 'CONVERSA EM ANDAMENTO - NÃO se apresente novamente' : 'NOVA CONVERSA'}
 
 ${leadMemoryContext}
 
@@ -1425,13 +1453,14 @@ ${faqContext}
 
 ${qualificationInstructions}
 
-LEMBRE-SE: Você é um HUMANO conversando pelo WhatsApp. Seja natural, empático e útil.
+LEMBRE-SE: Você é um HUMANO conversando pelo WhatsApp. Cada resposta deve parecer que foi digitada por uma pessoa real, não gerada por máquina.
 ${leadMemory ? 'PRIORIZE usar as informações da MEMÓRIA DO CLIENTE para personalizar o atendimento!' : ''}
 ${semanticResults.length > 0 ? 'Use as informações da busca semântica para responder perguntas técnicas.' : ''}`;
 
+  // Montar mensagens com histórico expandido (até 30 mensagens para contexto máximo)
   const messages = [
     { role: 'system', content: systemPrompt },
-    ...conversationHistory.slice(-15),
+    ...conversationHistory.slice(-30),
     { role: 'user', content: userMessage }
   ];
 
@@ -1440,15 +1469,18 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
     hasFAQs: faqs.length > 0,
     hasSemanticResults: semanticResults.length > 0,
     personality: !!personalityPrompt,
-    messagesCount: messages.length
+    messagesCount: messages.length,
+    historyMessages: Math.min(conversationHistory.length, 30)
   });
 
-  // Use Groq as primary AI provider for chat (much cheaper, no Lovable AI credits consumed)
+  // === ESTRATÉGIA DE MODELO DUAL ===
+  // Primário: Groq (Llama 3.3 70B) - rápido e econômico
+  // Fallback: Lovable AI (Gemini) - mais inteligente para conversas complexas
   const groqModel = mapModelToGroq(modelToUse);
   
-  console.log('🤖 Calling Groq model:', groqModel, '(mapped from:', modelToUse, ')');
+  console.log('🤖 Trying Groq model:', groqModel, '(mapped from:', modelToUse, ')');
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  let response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${GROQ_API_KEY}`,
@@ -1457,14 +1489,45 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
     body: JSON.stringify({
       model: groqModel,
       messages,
-      max_tokens: 600,
-      temperature: 0.85,
+      max_tokens: 800,
+      temperature: 0.7,
     }),
   });
 
+  // Fallback para Lovable AI (Gemini) se Groq falhar
   if (!response.ok) {
     const errorText = await response.text();
     console.error('❌ Groq AI error:', response.status, errorText);
+    
+    if (response.status === 429 || response.status >= 500) {
+      console.log('🔄 Falling back to Lovable AI Gateway (Gemini)...');
+      
+      if (LOVABLE_API_KEY) {
+        response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages,
+            max_tokens: 800,
+            temperature: 0.7,
+          }),
+        });
+        
+        if (response.ok) {
+          console.log('✅ Lovable AI fallback succeeded');
+          const data = await response.json();
+          const aiResponse = data.choices?.[0]?.message?.content || '';
+          const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
+          return { response: aiResponse, tokensUsed, modelUsed: 'lovable/gemini-2.5-flash' };
+        } else {
+          console.error('❌ Lovable AI fallback also failed:', response.status);
+        }
+      }
+    }
     
     if (response.status === 429) {
       throw new Error('RATE_LIMITED');
