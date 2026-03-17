@@ -7,7 +7,10 @@ import {
   Route, 
   Settings, 
   Trash2,
-  MoreVertical 
+  MoreVertical,
+  AlertTriangle,
+  CheckCircle2,
+  Brain,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,6 +30,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { BotTeamWithDetails } from "@/hooks/useBotTeams";
 
 interface BotTeamCardProps {
@@ -36,7 +44,31 @@ interface BotTeamCardProps {
   isDeleting?: boolean;
 }
 
+function getTeamHealthStatus(team: BotTeamWithDetails): {
+  status: 'ok' | 'warning' | 'error';
+  issues: string[];
+} {
+  const issues: string[] = [];
+  
+  if (!team.initial_bot_id) {
+    issues.push('Sem robô secretária definido');
+  }
+  if ((team.members_count || 0) < 2) {
+    issues.push('Adicione pelo menos 2 robôs ao time');
+  }
+  if ((team.routes_count || 0) === 0) {
+    issues.push('Nenhuma rota de ativação configurada');
+  }
+
+  return {
+    status: issues.length === 0 ? 'ok' : issues.length >= 2 ? 'error' : 'warning',
+    issues,
+  };
+}
+
 export function BotTeamCard({ team, onSelect, onDelete, isDeleting }: BotTeamCardProps) {
+  const health = getTeamHealthStatus(team);
+
   return (
     <Card 
       className={`transition-all hover:shadow-lg cursor-pointer ${
@@ -111,6 +143,37 @@ export function BotTeamCard({ team, onSelect, onDelete, isDeleting }: BotTeamCar
       </CardHeader>
       
       <CardContent className="space-y-3">
+        {/* Health Status Banner */}
+        {health.status !== 'ok' && team.is_active && (
+          <div className={`flex items-start gap-2 p-2.5 rounded-lg text-sm ${
+            health.status === 'error' 
+              ? 'bg-destructive/10 text-destructive border border-destructive/20' 
+              : 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-500/20'
+          }`}>
+            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div className="space-y-0.5">
+              {health.issues.map((issue, i) => (
+                <p key={i}>{issue}</p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {health.status === 'ok' && team.is_active && (
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 text-green-700 dark:text-green-400 text-sm border border-green-500/20">
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+            <span>Time configurado e pronto</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Brain className="h-4 w-4 ml-auto flex-shrink-0 opacity-70" />
+              </TooltipTrigger>
+              <TooltipContent>
+                Roteamento inteligente por IA ativo
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
         {/* Team Stats */}
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-1 text-muted-foreground">

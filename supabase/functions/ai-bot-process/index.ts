@@ -284,6 +284,131 @@ function matchRouteByKeywords(message: string, routes: BotTeamRoute[]): BotTeamR
 }
 
 /**
+ * AI-powered intent classification for bot team routing.
+ * When keyword matching fails, uses a lightweight AI model to classify
+ * the user's intent and match against route intent_descriptions.
+ */
+async function matchRouteByAIIntent(
+  userMessage: string,
+  conversationHistory: Array<{role: string, content: string}>,
+  routes: BotTeamRoute[],
+  currentBotName: string
+): Promise<BotTeamRoute | null> {
+  // Filter routes that have intent descriptions
+  const intentRoutes = routes.filter(r => 
+    r.intent_description && r.intent_description.trim().length > 0
+  );
+  
+  if (intentRoutes.length === 0) {
+    console.log('🧠 No intent-based routes configured, skipping AI classification');
+    return null;
+  }
+
+  console.log(`🧠 AI Intent classification: analyzing message against ${intentRoutes.length} intent routes`);
+
+  try {
+    // Fetch bot names for the routes to give AI better context
+    const botIds = intentRoutes.map(r => r.target_bot_id);
+    const { data: botNames } = await supabase
+      .from('ai_bots')
+      .select('id, name, service_type')
+      .in('id', botIds);
+
+    const botNameMap: Record<string, { name: string; service_type: string }> = {};
+    if (botNames) {
+      for (const b of botNames) {
+        botNameMap[b.id] = { name: b.name, service_type: b.service_type };
+      }
+    }
+
+    // Build the classification prompt with route options
+    const routeOptions = intentRoutes.map((route, index) => {
+      const botInfo = botNameMap[route.target_bot_id];
+      return `${index + 1}. ID: "${route.id}" | Especialista: ${botInfo?.name || 'Bot'} (${botInfo?.service_type || 'geral'}) | Quando ativar: ${route.intent_description}`;
+    }).join('\n');
+
+    // Include last 3 messages for context
+    const recentContext = conversationHistory.slice(-3).map(m => 
+      `${m.role === 'user' ? 'Cliente' : currentBotName}: ${m.content}`
+    ).join('\n');
+
+    const classificationPrompt = `Você é um sistema de roteamento inteligente. Analise a conversa e determine se o cliente deve ser direcionado para um especialista.
+
+CONVERSA RECENTE:
+${recentContext}
+
+ÚLTIMA MENSAGEM DO CLIENTE:
+${userMessage}
+
+ESPECIALISTAS DISPONÍVEIS:
+${routeOptions}
+
+REGRAS:
+- Analise o CONTEXTO COMPLETO da conversa, não apenas a última mensagem
+- Se o cliente demonstra interesse claro em um dos temas dos especialistas, retorne o ID da rota
+- Se a conversa ainda está em fase de triagem/saudação inicial, retorne "none"
+- Se não há correspondência clara com nenhum especialista, retorne "none"
+- Considere sinônimos e intenções implícitas (ex: "quero comprar" = vendas, "não funciona" = suporte)
+
+Responda APENAS com o ID da rota escolhida ou "none". Nada mais.`;
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant', // Fast & cheap for classification
+        messages: [
+          { role: 'system', content: 'You are a routing classifier. Respond only with a route ID or "none".' },
+          { role: 'user', content: classificationPrompt }
+        ],
+        max_tokens: 100,
+        temperature: 0.1,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('❌ AI intent classification failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const classificationResult = (data.choices?.[0]?.message?.content || '').trim().replace(/['"]/g, '');
+    
+    console.log('🧠 AI Classification result:', classificationResult);
+
+    if (classificationResult === 'none' || !classificationResult) {
+      return null;
+    }
+
+    // Find the matched route
+    const matchedRoute = intentRoutes.find(r => r.id === classificationResult);
+    if (matchedRoute) {
+      const botInfo = botNameMap[matchedRoute.target_bot_id];
+      console.log(`🧠 ✅ AI matched intent → ${botInfo?.name || matchedRoute.target_bot_id} (route: ${matchedRoute.id})`);
+      return matchedRoute;
+    }
+
+    // Fallback: try partial matching (sometimes AI returns just part of the ID)
+    const partialMatch = intentRoutes.find(r => 
+      classificationResult.includes(r.id) || r.id.includes(classificationResult)
+    );
+    if (partialMatch) {
+      console.log(`🧠 ✅ AI partial match → route: ${partialMatch.id}`);
+      return partialMatch;
+    }
+
+    console.log('🧠 AI classification did not match any route ID');
+    return null;
+  } catch (error) {
+    console.error('❌ AI intent classification error:', error);
+    return null;
+  }
+}
+
+/**
  * Troca o robô ativo na conversa para um especialista do time
  */
 async function switchToSpecialistBot(
@@ -2127,13 +2252,38 @@ async function processMessage(
       routesCount: teamRouting.routes.length
     });
     
-    // Verificar se a mensagem corresponde a alguma rota por keyword
-    const matchedRoute = matchRouteByKeywords(userMessage, teamRouting.routes);
+    // STEP 1: Try keyword matching first (fast, no AI cost)
+    let matchedRoute = matchRouteByKeywords(userMessage, teamRouting.routes);
+    
+    // STEP 2: If no keyword match, try AI intent classification (smart routing)
+    if (!matchedRoute) {
+      console.log('🔑 No keyword match, trying AI intent classification...');
+      const conversationHistoryForRouting = await getConversationHistory(context.conversationId, 6);
+      matchedRoute = await matchRouteByAIIntent(
+        userMessage,
+        conversationHistoryForRouting,
+        teamRouting.routes,
+        bot.name
+      );
+      
+      if (matchedRoute) {
+        // Consume a small amount of energy for the AI classification
+        await checkAndConsumeEnergy(
+          context.organizationId,
+          bot.id,
+          context.conversationId,
+          50, // ~50 tokens for classification
+          'ai_intent_routing',
+          'groq/llama-3.1-8b-instant'
+        );
+      }
+    }
     
     if (matchedRoute) {
-      console.log('🎯 Matched route by keyword!', {
+      console.log('🎯 Route matched!', {
         routeId: matchedRoute.id,
         targetBotId: matchedRoute.target_bot_id,
+        matchType: matchedRoute.condition_type === 'keyword' ? 'keyword' : 'ai_intent',
         keywords: matchedRoute.keywords
       });
       
@@ -2174,7 +2324,7 @@ async function processMessage(
               matchedRoute.target_bot_id
             );
             
-            return { success: true, action: 'retry_requested', message: 'Specialist failed, asked customer to repeat' };
+            return { success: true, action: 'retry_requested' as any, message: 'Specialist failed, asked customer to repeat' };
           }
         }
       }
