@@ -157,9 +157,12 @@ export function BotTeamCard({ team, onSelect, onDelete, isDeleting }: BotTeamCar
               : 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-500/20'
           }`}>
             <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {health.issues.map((issue, i) => (
-                <p key={i}>{issue}</p>
+                <p key={i} className="font-medium">{issue}</p>
+              ))}
+              {health.tips.map((tip, i) => (
+                <p key={`tip-${i}`} className="text-xs opacity-80">💡 {tip}</p>
               ))}
             </div>
           </div>
