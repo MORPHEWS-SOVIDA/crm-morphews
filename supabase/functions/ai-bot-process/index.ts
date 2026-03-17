@@ -2916,9 +2916,16 @@ serve(async (req) => {
       qualificationCompleted: conversation?.bot_qualification_completed || false,
     };
 
-    // WELCOME MESSAGE - APENAS para conversas genuinamente NOVAS (sem histórico anterior)
-    // Conversas reabertas NÃO recebem welcome - o bot deve reconhecer o contexto existente
-    if (isFirstMessage && !isReopened && bot.welcome_message) {
+    // WELCOME MESSAGE - APENAS para conversas genuinamente NOVAS
+    // Proteção dupla: além do payload, valida no banco se o bot ainda não respondeu nada
+    const shouldSendWelcome = Boolean(
+      isFirstMessage &&
+      !isReopened &&
+      bot.welcome_message &&
+      (context?.botMessagesCount || 0) === 0
+    );
+
+    if (shouldSendWelcome) {
       console.log('👋 Sending welcome message (genuinely new conversation)');
       await sendWhatsAppMessage(
         instanceName,

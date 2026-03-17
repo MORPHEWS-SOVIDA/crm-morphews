@@ -1414,10 +1414,10 @@ serve(async (req) => {
           if (shouldProcessWithBot) {
             console.log("🤖 Processing message with AI bot:", botIdToUse, "type:", msgData.type, "isWithinSchedule:", isWithinSchedule);
             
-            // CORREÇÃO: Diferenciar conversa NOVA (sem histórico anterior) de conversa REABERTA
-            // Para conversas reabertas, NÃO marcar como primeira mensagem - o bot deve usar o histórico
-            // isFirstMessage = true APENAS se a conversa acabou de ser CRIADA (não reaberta)
-            const isFirstMessage = !wasClosed && !conversation.assigned_user_id;
+            // CORREÇÃO: considerar primeira mensagem APENAS quando o bot ainda não respondeu nada
+            // assigned_user_id pode ficar null em conversas com bot, então não serve para detectar início
+            // usamos bot_messages_count = 0 como fonte da verdade
+            const isFirstMessage = !wasClosed && ((conversation.bot_messages_count ?? 0) === 0);
             const isReopened = wasClosed;
 
             // Preparar payload para o bot - incluir info de mídia se for áudio ou imagem
