@@ -1473,11 +1473,40 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
     historyMessages: Math.min(conversationHistory.length, 30)
   });
 
-  // === ESTRATÉGIA DE MODELO DUAL ===
-  // Primário: Groq (Llama 3.3 70B) - rápido e econômico
-  // Fallback: Lovable AI (Gemini) - mais inteligente para conversas complexas
-  const groqModel = mapModelToGroq(modelToUse);
+  // === ESTRATÉGIA DE MODELO INTELIGENTE ===
+  // Se o modelo configurado é Gemini Pro/2.5-pro → usar Lovable AI diretamente (mais inteligente)
+  // Senão → usar Groq (Llama) como primário com fallback para Lovable AI
+  const isProModel = modelToUse.includes('gemini-2.5-pro') || modelToUse.includes('gemini-3.1-pro') || modelToUse.includes('gpt-5');
   
+  if (isProModel && LOVABLE_API_KEY) {
+    console.log('🧠 Using Lovable AI Gateway DIRECTLY (Pro model):', modelToUse);
+    
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelToUse,
+        messages,
+        max_tokens: 800,
+        temperature: 0.65,
+      }),
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const aiResponse = data.choices?.[0]?.message?.content || '';
+      const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
+      console.log('✅ Pro AI Response:', aiResponse.substring(0, 100) + '...');
+      return { response: aiResponse, tokensUsed, modelUsed: `lovable/${modelToUse}` };
+    }
+    
+    console.error('❌ Pro model failed:', response.status, '- falling back to Groq');
+  }
+
+  const groqModel = mapModelToGroq(modelToUse);
   console.log('🤖 Trying Groq model:', groqModel, '(mapped from:', modelToUse, ')');
 
   let response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
