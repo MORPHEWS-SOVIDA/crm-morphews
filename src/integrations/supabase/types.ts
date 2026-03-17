@@ -980,6 +980,59 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_provider_failure_logs: {
+        Row: {
+          bot_id: string | null
+          consecutive_failures: number | null
+          conversation_id: string | null
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          fallback_provider: string | null
+          fallback_succeeded: boolean | null
+          id: string
+          model: string | null
+          organization_id: string | null
+          provider: string
+        }
+        Insert: {
+          bot_id?: string | null
+          consecutive_failures?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          fallback_provider?: string | null
+          fallback_succeeded?: boolean | null
+          id?: string
+          model?: string | null
+          organization_id?: string | null
+          provider: string
+        }
+        Update: {
+          bot_id?: string | null
+          consecutive_failures?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          fallback_provider?: string | null
+          fallback_succeeded?: boolean | null
+          id?: string
+          model?: string | null
+          organization_id?: string | null
+          provider?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_provider_failure_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_move_rotation_targets: {
         Row: {
           created_at: string
