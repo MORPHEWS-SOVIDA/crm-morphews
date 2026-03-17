@@ -2747,16 +2747,18 @@ serve(async (req) => {
       phoneNumber,
       chatId,
       isFirstMessage,
+      isReopened = false, // Nova flag - conversa reaberta (tinha histórico anterior)
       messageType = 'text',
       mediaUrl,
       mediaMimeType,
-      isWithinSchedule = true, // Novo campo do webhook - indica se está dentro do horário agendado
+      isWithinSchedule = true,
     } = body;
 
     console.log('🤖 AI Bot Process request:', {
       botId,
       conversationId,
       isFirstMessage,
+      isReopened,
       messageType,
       hasMedia: !!mediaUrl,
       isWithinSchedule,
@@ -2814,10 +2816,10 @@ serve(async (req) => {
       qualificationCompleted: conversation?.bot_qualification_completed || false,
     };
 
-    // Se é primeira mensagem e tem welcome message, enviar a welcome e PARAR
-    // (não processar AI para evitar duas mensagens seguidas)
-    if (isFirstMessage && bot.welcome_message) {
-      console.log('👋 Sending welcome message (skipping AI response for first message)');
+    // WELCOME MESSAGE - APENAS para conversas genuinamente NOVAS (sem histórico anterior)
+    // Conversas reabertas NÃO recebem welcome - o bot deve reconhecer o contexto existente
+    if (isFirstMessage && !isReopened && bot.welcome_message) {
+      console.log('👋 Sending welcome message (genuinely new conversation)');
       await sendWhatsAppMessage(
         instanceName,
         chatId,
@@ -2845,6 +2847,11 @@ serve(async (req) => {
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Para conversas reabertas, logar que vamos processar com IA usando o histórico
+    if (isReopened) {
+      console.log('🔄 Reopened conversation - processing with AI using full conversation history (no welcome repeat)');
     }
 
     // Processar mensagem baseado no tipo
