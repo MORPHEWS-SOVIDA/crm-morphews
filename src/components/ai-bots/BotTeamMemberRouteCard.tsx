@@ -391,7 +391,37 @@ export function BotTeamMemberRouteCard({
 
                 {conditionType === "intent" && (
                   <div className="space-y-2">
-                    <Label>Descrição da Intenção</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Descrição da Intenção</Label>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          setIsSuggesting(true);
+                          try {
+                            const { data } = await supabase.functions.invoke("suggest-route-intent", {
+                              body: { botId: member.bot_id },
+                            });
+                            if (data?.suggestion) {
+                              setIntentDescription(data.suggestion);
+                            }
+                          } catch (e) {
+                            console.error("Erro ao sugerir:", e);
+                          } finally {
+                            setIsSuggesting(false);
+                          }
+                        }}
+                        disabled={isSuggesting}
+                        className="gap-1 h-7 text-xs"
+                      >
+                        {isSuggesting ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        Sugerir com IA
+                      </Button>
+                    </div>
                     <Textarea
                       value={intentDescription}
                       onChange={(e) => setIntentDescription(e.target.value)}
@@ -399,7 +429,7 @@ export function BotTeamMemberRouteCard({
                       rows={3}
                     />
                     <p className="text-xs text-muted-foreground">
-                      A IA vai analisar se a conversa bate com essa descrição
+                      A IA vai analisar se a conversa bate com essa descrição. Clique "Sugerir com IA" para gerar automaticamente.
                     </p>
                   </div>
                 )}
