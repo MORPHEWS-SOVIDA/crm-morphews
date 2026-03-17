@@ -291,6 +291,7 @@ serve(async (req) => {
           name: customer.name,
           email: customer.email,
           whatsapp: normalizedPhone,
+          cpf_cnpj: customer.document || null,
           lead_source: storefront_id ? 'ecommerce' : 'landing_page',
           assigned_to: defaultUserId,
           // Attribution UTM data
