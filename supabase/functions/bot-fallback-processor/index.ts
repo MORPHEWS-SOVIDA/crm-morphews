@@ -156,6 +156,47 @@ serve(async (req) => {
           continue;
         }
 
+        // Validate bot is linked to this instance
+        const { data: scheduleLink } = await supabase
+          .from('instance_bot_schedules')
+          .select('id, bot_id, team_id')
+          .eq('instance_id', msg.whatsapp_instance_id)
+          .eq('is_active', true);
+
+        if (scheduleLink && scheduleLink.length > 0) {
+          const directLink = scheduleLink.some(s => s.bot_id === msg.fallback_bot_id);
+          
+          if (!directLink) {
+            const teamIds = scheduleLink.filter(s => s.team_id).map(s => s.team_id);
+            let isTeamMember = false;
+            
+            if (teamIds.length > 0) {
+              const { data: teamMembers } = await supabase
+                .from('bot_team_members')
+                .select('bot_id')
+                .in('team_id', teamIds)
+                .eq('bot_id', msg.fallback_bot_id);
+              isTeamMember = (teamMembers && teamMembers.length > 0);
+              
+              if (!isTeamMember) {
+                const { data: teams } = await supabase
+                  .from('bot_teams')
+                  .select('id')
+                  .in('id', teamIds)
+                  .or(`initial_bot_id.eq.${msg.fallback_bot_id},fallback_bot_id.eq.${msg.fallback_bot_id}`);
+                isTeamMember = (teams && teams.length > 0);
+              }
+            }
+            
+            if (!isTeamMember) {
+              console.log(`Message ${msg.id}: fallback bot not linked to instance`);
+              await markFallbackSkipped(msg.id, "Robô não vinculado à instância");
+              skippedCount++;
+              continue;
+            }
+          }
+        }
+
         // All checks passed - activate the bot!
         console.log(`Message ${msg.id}: activating bot ${msg.fallback_bot_id} for conversation ${conversation.id}`);
 
