@@ -3127,9 +3127,21 @@ serve(async (req) => {
       });
     }
 
-    // Para conversas reabertas, logar que vamos processar com IA usando o histórico
+    // Para conversas reabertas, logar e injetar guardrail no system prompt
     if (isReopened) {
       console.log('🔄 Reopened conversation - processing with AI using full conversation history (no welcome repeat)');
+      // Append reopened conversation guardrails to system_prompt to prevent specialist repetition
+      bot.system_prompt += `
+
+═══ CONVERSA RETOMADA ═══
+Este cliente VOLTOU a conversar. Ele já teve interação anterior.
+REGRAS ABSOLUTAS para conversas retomadas:
+1. NÃO repita boas-vindas ou apresentações que já foram feitas
+2. NÃO prometa novamente "chamar especialista" ou "verificar com o time" se já disse isso antes
+3. Se nas mensagens anteriores você mencionou especialista/time e ninguém veio, reconheça naturalmente e VOCÊ MESMA continue atendendo
+4. Retome de onde parou, usando o histórico como contexto
+5. Seja natural: "Oi de novo!" ou "Que bom que voltou!" é suficiente
+═══════════════════════════`;
     }
 
     // Processar mensagem baseado no tipo
