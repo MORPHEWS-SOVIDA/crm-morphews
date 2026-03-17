@@ -1523,41 +1523,79 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
     historyMessages: recentHistory.length
   });
 
+  // Helper: log provider failure for monitoring
+  async function logProviderFailure(provider: string, model: string, errorCode: string, errorMsg: string, fallbackProvider: string | null, fallbackOk: boolean) {
+    try {
+      await supabase.from('ai_provider_failure_logs').insert({
+        organization_id: bot.organization_id,
+        conversation_id: conversationHistory.length > 0 ? 'ctx' : null,
+        bot_id: bot.id,
+        provider,
+        model,
+        error_code: errorCode,
+        error_message: errorMsg.substring(0, 500),
+        fallback_provider: fallbackProvider,
+        fallback_succeeded: fallbackOk,
+      });
+    } catch (e) {
+      console.error('⚠️ Failed to log provider failure:', e);
+    }
+  }
+
   async function callModel(chatMessages: Array<{ role: string; content: string }>, overrideTemperature?: number): Promise<{ response: string; tokensUsed: number; modelUsed: string }> {
     const isProModel = modelToUse.includes('gemini-2.5-pro') || modelToUse.includes('gemini-3.1-pro') || modelToUse.includes('gpt-5');
 
-    if (isProModel && LOVABLE_API_KEY) {
-      console.log('🧠 Using Lovable AI Gateway DIRECTLY (Pro model):', modelToUse);
+    // ====================================================================
+    // STRATEGY: Lovable AI Gateway (Gemini) is PRIMARY for all models
+    // Groq is FALLBACK only (avoids 100k token/day rate limits)
+    // ====================================================================
 
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: modelToUse,
-          messages: chatMessages,
-          max_tokens: 1200,
-          temperature: overrideTemperature ?? 0.55,
-        }),
-      });
+    if (LOVABLE_API_KEY) {
+      const gatewayModel = isProModel ? modelToUse : 'google/gemini-2.5-flash';
+      console.log('🧠 PRIMARY: Lovable AI Gateway:', gatewayModel);
 
-      if (response.ok) {
-        const data = await response.json();
-        const aiResponse = normalizeAIResponse(data.choices?.[0]?.message?.content || '');
-        const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
-        console.log('✅ Pro AI Response:', aiResponse.substring(0, 100) + '...');
-        return { response: aiResponse, tokensUsed, modelUsed: `lovable/${modelToUse}` };
+      try {
+        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: gatewayModel,
+            messages: chatMessages,
+            max_tokens: isProModel ? 1200 : 900,
+            temperature: overrideTemperature ?? (isProModel ? 0.55 : 0.65),
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const aiResponse = normalizeAIResponse(data.choices?.[0]?.message?.content || '');
+          const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
+          console.log('✅ AI Response via Lovable Gateway:', gatewayModel, aiResponse.substring(0, 100) + '...');
+          return { response: aiResponse, tokensUsed, modelUsed: `lovable/${gatewayModel}` };
+        }
+
+        const errorText = await response.text();
+        console.error('❌ Lovable Gateway failed:', response.status, errorText);
+        await logProviderFailure('lovable', gatewayModel, String(response.status), errorText, 'groq', false);
+
+        if (response.status === 402) {
+          throw new Error('PAYMENT_REQUIRED');
+        }
+      } catch (err: any) {
+        if (err?.message === 'PAYMENT_REQUIRED') throw err;
+        console.error('❌ Lovable Gateway exception:', err);
+        await logProviderFailure('lovable', gatewayModel, 'exception', String(err), 'groq', false);
       }
-
-      console.error('❌ Pro model failed:', response.status, '- falling back to Groq');
     }
 
+    // FALLBACK: Groq
     const groqModel = mapModelToGroq(modelToUse);
-    console.log('🤖 Trying Groq model:', groqModel, '(mapped from:', modelToUse, ')');
+    console.log('🔄 FALLBACK: Groq model:', groqModel);
 
-    let response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`,
@@ -1573,37 +1611,8 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Groq AI error:', response.status, errorText);
-
-      if (response.status === 429 || response.status >= 500) {
-        console.log('🔄 Falling back to Lovable AI Gateway (Gemini)...');
-
-        if (LOVABLE_API_KEY) {
-          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'google/gemini-2.5-flash',
-              messages: chatMessages,
-              max_tokens: 900,
-              temperature: overrideTemperature ?? 0.65,
-            }),
-          });
-
-          if (response.ok) {
-            console.log('✅ Lovable AI fallback succeeded');
-            const data = await response.json();
-            const aiResponse = normalizeAIResponse(data.choices?.[0]?.message?.content || '');
-            const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
-            return { response: aiResponse, tokensUsed, modelUsed: 'lovable/gemini-2.5-flash' };
-          }
-
-          console.error('❌ Lovable AI fallback also failed:', response.status);
-        }
-      }
+      console.error('❌ Groq FALLBACK also failed:', response.status, errorText);
+      await logProviderFailure('groq', groqModel, String(response.status), errorText, null, false);
 
       if (response.status === 429) {
         throw new Error('RATE_LIMITED');
@@ -1611,11 +1620,14 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
       throw new Error(`AI_ERROR: ${response.status}`);
     }
 
+    // Log that primary failed but fallback succeeded
+    await logProviderFailure('lovable', modelToUse, 'primary_failed', 'Fell back to Groq', 'groq', true);
+
     const data = await response.json();
     const aiResponse = normalizeAIResponse(data.choices?.[0]?.message?.content || '');
     const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
 
-    console.log('✅ AI Response generated with Groq', groqModel, ':', aiResponse.substring(0, 100) + '...');
+    console.log('✅ AI Response via Groq fallback:', groqModel, aiResponse.substring(0, 100) + '...');
     return { response: aiResponse, tokensUsed, modelUsed: `groq/${groqModel}` };
   }
 
