@@ -47,22 +47,28 @@ interface BotTeamCardProps {
 function getTeamHealthStatus(team: BotTeamWithDetails): {
   status: 'ok' | 'warning' | 'error';
   issues: string[];
+  tips: string[];
 } {
   const issues: string[] = [];
+  const tips: string[] = [];
   
   if (!team.initial_bot_id) {
     issues.push('Sem robô secretária definido');
+    tips.push('Abra as configurações e selecione qual robô será a secretária');
   }
   if ((team.members_count || 0) < 2) {
     issues.push('Adicione pelo menos 2 robôs ao time');
+    tips.push('Adicione robôs especialistas para a secretária poder direcionar');
   }
   if ((team.routes_count || 0) === 0) {
     issues.push('Nenhuma rota de ativação configurada');
+    tips.push('Configure rotas do tipo "Intenção (IA)" para cada especialista — a IA sugere automaticamente!');
   }
 
   return {
     status: issues.length === 0 ? 'ok' : issues.length >= 2 ? 'error' : 'warning',
     issues,
+    tips,
   };
 }
 
@@ -151,9 +157,12 @@ export function BotTeamCard({ team, onSelect, onDelete, isDeleting }: BotTeamCar
               : 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border border-yellow-500/20'
           }`}>
             <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {health.issues.map((issue, i) => (
-                <p key={i}>{issue}</p>
+                <p key={i} className="font-medium">{issue}</p>
+              ))}
+              {health.tips.map((tip, i) => (
+                <p key={`tip-${i}`} className="text-xs opacity-80">💡 {tip}</p>
               ))}
             </div>
           </div>

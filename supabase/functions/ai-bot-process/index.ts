@@ -283,17 +283,25 @@ function matchRouteByKeywords(message: string, routes: BotTeamRoute[]): BotTeamR
   return null;
 }
 
+interface AIIntentResult {
+  route: BotTeamRoute | null;
+  confidenceScore: number;
+  reason: string;
+}
+
 /**
- * AI-powered intent classification for bot team routing.
- * When keyword matching fails, uses a lightweight AI model to classify
- * the user's intent and match against route intent_descriptions.
+ * AI-powered intent classification for bot team routing with confidence scoring.
+ * Returns a confidence score (0-100) alongside the matched route.
+ * Only transfers when confidence >= 60.
  */
 async function matchRouteByAIIntent(
   userMessage: string,
   conversationHistory: Array<{role: string, content: string}>,
   routes: BotTeamRoute[],
   currentBotName: string
-): Promise<BotTeamRoute | null> {
+): Promise<AIIntentResult> {
+  const noMatch: AIIntentResult = { route: null, confidenceScore: 0, reason: 'no_intent_routes' };
+
   // Filter routes that have intent descriptions
   const intentRoutes = routes.filter(r => 
     r.intent_description && r.intent_description.trim().length > 0
@@ -301,7 +309,7 @@ async function matchRouteByAIIntent(
   
   if (intentRoutes.length === 0) {
     console.log('🧠 No intent-based routes configured, skipping AI classification');
-    return null;
+    return noMatch;
   }
 
   console.log(`🧠 AI Intent classification: analyzing message against ${intentRoutes.length} intent routes`);
@@ -327,8 +335,8 @@ async function matchRouteByAIIntent(
       return `${index + 1}. ID: "${route.id}" | Especialista: ${botInfo?.name || 'Bot'} (${botInfo?.service_type || 'geral'}) | Quando ativar: ${route.intent_description}`;
     }).join('\n');
 
-    // Include last 3 messages for context
-    const recentContext = conversationHistory.slice(-3).map(m => 
+    // Include last 5 messages for richer context
+    const recentContext = conversationHistory.slice(-5).map(m => 
       `${m.role === 'user' ? 'Cliente' : currentBotName}: ${m.content}`
     ).join('\n');
 
@@ -350,7 +358,8 @@ REGRAS:
 - Se não há correspondência clara com nenhum especialista, retorne "none"
 - Considere sinônimos e intenções implícitas (ex: "quero comprar" = vendas, "não funciona" = suporte)
 
-Responda APENAS com o ID da rota escolhida ou "none". Nada mais.`;
+Responda em formato JSON: {"route_id": "ID_ou_none", "confidence": 0-100, "reason": "explicação curta"}
+Apenas o JSON, nada mais.`;
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -359,52 +368,116 @@ Responda APENAS com o ID da rota escolhida ou "none". Nada mais.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant', // Fast & cheap for classification
+        model: 'llama-3.1-8b-instant',
         messages: [
-          { role: 'system', content: 'You are a routing classifier. Respond only with a route ID or "none".' },
+          { role: 'system', content: 'You are a routing classifier. Respond only with valid JSON: {"route_id": "string", "confidence": number, "reason": "string"}' },
           { role: 'user', content: classificationPrompt }
         ],
-        max_tokens: 100,
+        max_tokens: 200,
         temperature: 0.1,
       }),
     });
 
     if (!response.ok) {
       console.error('❌ AI intent classification failed:', response.status);
-      return null;
+      return { route: null, confidenceScore: 0, reason: 'api_error' };
     }
 
     const data = await response.json();
-    const classificationResult = (data.choices?.[0]?.message?.content || '').trim().replace(/['"]/g, '');
+    const rawResult = (data.choices?.[0]?.message?.content || '').trim();
     
-    console.log('🧠 AI Classification result:', classificationResult);
+    console.log('🧠 AI Classification raw result:', rawResult);
 
-    if (classificationResult === 'none' || !classificationResult) {
-      return null;
+    // Parse JSON response
+    let parsed: { route_id: string; confidence: number; reason: string };
+    try {
+      // Extract JSON from response (handle markdown code blocks)
+      const jsonMatch = rawResult.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : rawResult);
+    } catch {
+      // Fallback: old format (just route ID or "none")
+      const cleanResult = rawResult.replace(/['"]/g, '');
+      if (cleanResult === 'none' || !cleanResult) {
+        return { route: null, confidenceScore: 0, reason: 'ai_said_none' };
+      }
+      // Try matching as old-style route ID
+      const fallbackRoute = intentRoutes.find(r => r.id === cleanResult || cleanResult.includes(r.id));
+      return { route: fallbackRoute || null, confidenceScore: fallbackRoute ? 70 : 0, reason: 'legacy_format' };
+    }
+
+    const confidence = Math.min(100, Math.max(0, parsed.confidence || 0));
+    const reason = parsed.reason || 'unknown';
+
+    if (parsed.route_id === 'none' || !parsed.route_id) {
+      console.log(`🧠 AI says no match (confidence: ${confidence}, reason: ${reason})`);
+      return { route: null, confidenceScore: confidence, reason };
+    }
+
+    // Minimum confidence threshold
+    if (confidence < 60) {
+      console.log(`🧠 ⚠️ Confidence too low (${confidence}%), keeping current bot. Reason: ${reason}`);
+      return { route: null, confidenceScore: confidence, reason: `low_confidence: ${reason}` };
     }
 
     // Find the matched route
-    const matchedRoute = intentRoutes.find(r => r.id === classificationResult);
+    const matchedRoute = intentRoutes.find(r => r.id === parsed.route_id);
     if (matchedRoute) {
       const botInfo = botNameMap[matchedRoute.target_bot_id];
-      console.log(`🧠 ✅ AI matched intent → ${botInfo?.name || matchedRoute.target_bot_id} (route: ${matchedRoute.id})`);
-      return matchedRoute;
+      console.log(`🧠 ✅ AI matched intent → ${botInfo?.name} (confidence: ${confidence}%, reason: ${reason})`);
+      return { route: matchedRoute, confidenceScore: confidence, reason };
     }
 
-    // Fallback: try partial matching (sometimes AI returns just part of the ID)
+    // Fallback: partial matching
     const partialMatch = intentRoutes.find(r => 
-      classificationResult.includes(r.id) || r.id.includes(classificationResult)
+      parsed.route_id.includes(r.id) || r.id.includes(parsed.route_id)
     );
     if (partialMatch) {
-      console.log(`🧠 ✅ AI partial match → route: ${partialMatch.id}`);
-      return partialMatch;
+      console.log(`🧠 ✅ AI partial match → route: ${partialMatch.id} (confidence: ${confidence}%)`);
+      return { route: partialMatch, confidenceScore: confidence, reason };
     }
 
     console.log('🧠 AI classification did not match any route ID');
-    return null;
+    return { route: null, confidenceScore: confidence, reason: 'no_id_match' };
   } catch (error) {
     console.error('❌ AI intent classification error:', error);
-    return null;
+    return { route: null, confidenceScore: 0, reason: 'exception' };
+  }
+}
+
+/**
+ * Log routing decisions for debugging and analytics
+ */
+async function logRoutingDecision(params: {
+  organizationId: string;
+  conversationId: string;
+  teamId: string | null;
+  currentBotId: string;
+  targetBotId: string | null;
+  matchedRouteId: string | null;
+  matchType: string;
+  confidenceScore: number;
+  userMessage: string;
+  classificationReason: string;
+  routesEvaluated: number;
+  decision: string;
+}) {
+  try {
+    await supabase.from('routing_decision_logs').insert({
+      organization_id: params.organizationId,
+      conversation_id: params.conversationId,
+      team_id: params.teamId,
+      current_bot_id: params.currentBotId,
+      target_bot_id: params.targetBotId,
+      matched_route_id: params.matchedRouteId,
+      match_type: params.matchType,
+      confidence_score: params.confidenceScore,
+      user_message: params.userMessage.substring(0, 500),
+      classification_reason: params.classificationReason,
+      routes_evaluated: params.routesEvaluated,
+      decision: params.decision,
+    });
+  } catch (err) {
+    console.error('⚠️ Failed to log routing decision:', err);
   }
 }
 
@@ -2254,17 +2327,25 @@ async function processMessage(
     
     // STEP 1: Try keyword matching first (fast, no AI cost)
     let matchedRoute = matchRouteByKeywords(userMessage, teamRouting.routes);
+    let matchType = 'keyword';
+    let confidenceScore = 100;
+    let classificationReason = 'keyword_match';
     
     // STEP 2: If no keyword match, try AI intent classification (smart routing)
     if (!matchedRoute) {
       console.log('🔑 No keyword match, trying AI intent classification...');
       const conversationHistoryForRouting = await getConversationHistory(context.conversationId, 6);
-      matchedRoute = await matchRouteByAIIntent(
+      const intentResult = await matchRouteByAIIntent(
         userMessage,
         conversationHistoryForRouting,
         teamRouting.routes,
         bot.name
       );
+      
+      matchedRoute = intentResult.route;
+      matchType = 'ai_intent';
+      confidenceScore = intentResult.confidenceScore;
+      classificationReason = intentResult.reason;
       
       if (matchedRoute) {
         // Consume a small amount of energy for the AI classification
@@ -2278,12 +2359,29 @@ async function processMessage(
         );
       }
     }
+
+    // Log routing decision (always, for analytics)
+    await logRoutingDecision({
+      organizationId: context.organizationId,
+      conversationId: context.conversationId,
+      teamId: teamRouting.teamId,
+      currentBotId: bot.id,
+      targetBotId: matchedRoute?.target_bot_id || null,
+      matchedRouteId: matchedRoute?.id || null,
+      matchType: matchedRoute ? matchType : 'none',
+      confidenceScore,
+      userMessage,
+      classificationReason,
+      routesEvaluated: teamRouting.routes.length,
+      decision: matchedRoute ? 'transferred' : 'kept_current',
+    });
     
     if (matchedRoute) {
       console.log('🎯 Route matched!', {
         routeId: matchedRoute.id,
         targetBotId: matchedRoute.target_bot_id,
-        matchType: matchedRoute.condition_type === 'keyword' ? 'keyword' : 'ai_intent',
+        matchType,
+        confidenceScore,
         keywords: matchedRoute.keywords
       });
       

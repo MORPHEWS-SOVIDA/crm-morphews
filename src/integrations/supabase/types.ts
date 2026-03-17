@@ -13887,6 +13887,93 @@ export type Database = {
           },
         ]
       }
+      routing_decision_logs: {
+        Row: {
+          classification_reason: string | null
+          confidence_score: number | null
+          conversation_id: string
+          created_at: string
+          current_bot_id: string | null
+          decision: string
+          id: string
+          match_type: string
+          matched_route_id: string | null
+          organization_id: string
+          routes_evaluated: number | null
+          target_bot_id: string | null
+          team_id: string | null
+          user_message: string | null
+        }
+        Insert: {
+          classification_reason?: string | null
+          confidence_score?: number | null
+          conversation_id: string
+          created_at?: string
+          current_bot_id?: string | null
+          decision?: string
+          id?: string
+          match_type?: string
+          matched_route_id?: string | null
+          organization_id: string
+          routes_evaluated?: number | null
+          target_bot_id?: string | null
+          team_id?: string | null
+          user_message?: string | null
+        }
+        Update: {
+          classification_reason?: string | null
+          confidence_score?: number | null
+          conversation_id?: string
+          created_at?: string
+          current_bot_id?: string | null
+          decision?: string
+          id?: string
+          match_type?: string
+          matched_route_id?: string | null
+          organization_id?: string
+          routes_evaluated?: number | null
+          target_bot_id?: string | null
+          team_id?: string | null
+          user_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routing_decision_logs_current_bot_id_fkey"
+            columns: ["current_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routing_decision_logs_matched_route_id_fkey"
+            columns: ["matched_route_id"]
+            isOneToOne: false
+            referencedRelation: "bot_team_routes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routing_decision_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routing_decision_logs_target_bot_id_fkey"
+            columns: ["target_bot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routing_decision_logs_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "bot_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sac_ticket_comments: {
         Row: {
           content: string
