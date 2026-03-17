@@ -22,6 +22,7 @@ import {
   Loader2,
   Crown,
   Shield,
+  Sparkles,
 } from "lucide-react";
 import {
   Select,
