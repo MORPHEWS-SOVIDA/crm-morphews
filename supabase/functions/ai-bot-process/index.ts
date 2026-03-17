@@ -2742,15 +2742,39 @@ async function processMessage(
     tokensUsed = result.tokensUsed;
     modelUsed = result.modelUsed;
   } catch (error: any) {
-    console.error('❌ AI generation error:', error.message);
-    
-    if (error.message === 'RATE_LIMITED' || error.message === 'PAYMENT_REQUIRED') {
-      // Transferir para humano se sem créditos
-      await transferToHuman(context.conversationId, 'no_credits', bot.transfer_message);
-      return { success: false, action: 'no_energy', message: error.message };
+    const aiErrorMessage = error?.message || 'AI_UNAVAILABLE';
+    console.error('❌ AI generation error:', aiErrorMessage);
+
+    const isProviderUnavailable =
+      aiErrorMessage === 'RATE_LIMITED' ||
+      aiErrorMessage === 'PAYMENT_REQUIRED' ||
+      /^AI_ERROR:\s*(402|429|5\d{2})$/.test(aiErrorMessage);
+
+    if (isProviderUnavailable) {
+      const transferReason = aiErrorMessage === 'PAYMENT_REQUIRED' ? 'no_credits' : 'ai_unavailable';
+      await transferToHuman(context.conversationId, transferReason, bot.transfer_message);
+
+      const fallbackMessage =
+        bot.transfer_message ||
+        'Tive uma instabilidade aqui e vou chamar um especialista do nosso time pra continuar com você.';
+
+      const notified = await sendWhatsAppMessage(
+        instanceName,
+        context.chatId,
+        fallbackMessage,
+        context.conversationId,
+        context.instanceId,
+        bot.id
+      );
+
+      return {
+        success: notified,
+        action: aiErrorMessage === 'PAYMENT_REQUIRED' ? 'no_energy' : 'transferred',
+        message: aiErrorMessage,
+      };
     }
     
-    return { success: false, action: 'error', message: error.message };
+    return { success: false, action: 'error', message: aiErrorMessage };
   }
 
   // 6. Consumir energia - using the model that was actually used
