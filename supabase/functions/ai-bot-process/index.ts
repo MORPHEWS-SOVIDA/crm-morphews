@@ -3004,6 +3004,56 @@ serve(async (req) => {
       });
     }
 
+    // ======== VALIDAÇÃO: Bot está vinculado a esta instância? ========
+    if (instanceId) {
+      const { data: scheduleLink } = await supabase
+        .from('instance_bot_schedules')
+        .select('id, bot_id, team_id')
+        .eq('instance_id', instanceId)
+        .eq('is_active', true);
+
+      if (scheduleLink && scheduleLink.length > 0) {
+        const directLink = scheduleLink.some(s => s.bot_id === botId);
+        
+        if (!directLink) {
+          const teamIds = scheduleLink.filter(s => s.team_id).map(s => s.team_id);
+          let isTeamMember = false;
+          
+          if (teamIds.length > 0) {
+            const { data: teamMembers } = await supabase
+              .from('bot_team_members')
+              .select('bot_id')
+              .in('team_id', teamIds)
+              .eq('bot_id', botId);
+            
+            isTeamMember = (teamMembers && teamMembers.length > 0);
+            
+            if (!isTeamMember) {
+              const { data: teams } = await supabase
+                .from('bot_teams')
+                .select('id')
+                .in('id', teamIds)
+                .or(`initial_bot_id.eq.${botId},fallback_bot_id.eq.${botId}`);
+              
+              isTeamMember = (teams && teams.length > 0);
+            }
+          }
+          
+          if (!isTeamMember) {
+            console.warn('⛔ Bot NOT linked to this instance:', { botId, instanceId });
+            return new Response(JSON.stringify({ 
+              error: 'Bot is not configured for this instance',
+              success: false 
+            }), {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        }
+      }
+      // If no schedules exist at all, allow (backward compatibility)
+    }
+
     // Buscar dados da conversa
     const { data: conversation } = await supabase
       .from('whatsapp_conversations')
