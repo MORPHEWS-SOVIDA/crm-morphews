@@ -128,30 +128,28 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
     }
   };
 
-  // Handler to download/print PDF - tries storage URL first, then direct URL, then edge function
+  // Handler to download/print PDF - always uses edge function proxy to avoid Melhor Envio login requirement
   const handleDownloadPdf = async (
     orderId: string, 
     trackingCode: string, 
     directUrl?: string | null,
     storagePdfUrl?: string | null
   ) => {
-    if (!orderId && !directUrl && !storagePdfUrl) {
+    if (!orderId && !storagePdfUrl) {
       toast.error('ID do pedido não encontrado');
       return;
     }
 
-    // Priority 1: Use our storage URL (doesn't require Melhor Envio login)
-    if (storagePdfUrl) {
+    // Priority 1: Use our OWN storage URL (NOT melhorenvio.com.br URLs)
+    if (storagePdfUrl && !storagePdfUrl.includes('melhorenvio.com.br')) {
       window.open(storagePdfUrl, '_blank');
       toast.success('Abrindo etiqueta...');
       return;
     }
 
-    // Priority 2: If we have a direct URL from Melhor Envio, try it
-    // Note: This may require login on their site - not ideal
-    if (directUrl) {
-      window.open(directUrl, '_blank');
-      toast.success('Abrindo etiqueta...');
+    // Priority 2: Always use edge function proxy (avoids login requirement on Melhor Envio)
+    if (!sale?.organization_id) {
+      toast.error('Organização não identificada');
       return;
     }
 
@@ -186,13 +184,10 @@ export function MelhorEnvioLabelSection({ sale, isCancelled }: MelhorEnvioLabelS
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
       
-      toast.success('Download iniciado!');
+      toast.success('Etiqueta baixada com sucesso!');
     } catch (err) {
       console.error('[MelhorEnvio] PDF download error:', err);
-      // Fallback: open Melhor Envio panel for manual download
-      const panelUrl = `https://melhorenvio.com.br/painel/pedidos/${orderId}`;
-      toast.error('Erro na conexão. Abrindo painel do Melhor Envio...');
-      window.open(panelUrl, '_blank');
+      toast.error('Erro ao baixar etiqueta. Tente novamente em alguns instantes.');
     } finally {
       setDownloading(false);
     }
