@@ -1098,7 +1098,7 @@ function sanitizeMessageForContext(content: string, direction: 'inbound' | 'outb
   return content;
 }
 
-async function getConversationHistory(conversationId: string, limit = 20): Promise<Array<{role: string, content: string}>> {
+async function getConversationHistory(conversationId: string, limit = 40): Promise<Array<{role: string, content: string}>> {
   const { data: messages } = await supabase
     .from('whatsapp_messages')
     .select('content, direction, is_from_bot, created_at')
