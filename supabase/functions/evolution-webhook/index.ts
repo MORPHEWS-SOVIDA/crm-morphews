@@ -1165,11 +1165,11 @@ serve(async (req) => {
           
           // MODO BOT: Se instância está em modo robô E tem bot configurado
           if (distributionMode === 'bot' && anyBotId && !isGroup) {
-            console.log("🤖 Bot mode enabled, setting status to with_bot");
+            console.log("🤖 Bot mode enabled (reopened), setting status to with_bot - preserving message count");
             updateData.status = 'with_bot';
             updateData.handling_bot_id = anyBotId;
             updateData.bot_started_at = new Date().toISOString();
-            updateData.bot_messages_count = 0;
+            // NÃO resetar bot_messages_count - preservar para que o bot saiba que já conversou
             updateData.assigned_user_id = null;
             updateData.assigned_at = null;
             updateData.closed_at = null;
