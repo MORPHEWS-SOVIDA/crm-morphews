@@ -47,22 +47,28 @@ interface BotTeamCardProps {
 function getTeamHealthStatus(team: BotTeamWithDetails): {
   status: 'ok' | 'warning' | 'error';
   issues: string[];
+  tips: string[];
 } {
   const issues: string[] = [];
+  const tips: string[] = [];
   
   if (!team.initial_bot_id) {
     issues.push('Sem robô secretária definido');
+    tips.push('Abra as configurações e selecione qual robô será a secretária');
   }
   if ((team.members_count || 0) < 2) {
     issues.push('Adicione pelo menos 2 robôs ao time');
+    tips.push('Adicione robôs especialistas para a secretária poder direcionar');
   }
   if ((team.routes_count || 0) === 0) {
     issues.push('Nenhuma rota de ativação configurada');
+    tips.push('Configure rotas do tipo "Intenção (IA)" para cada especialista — a IA sugere automaticamente!');
   }
 
   return {
     status: issues.length === 0 ? 'ok' : issues.length >= 2 ? 'error' : 'warning',
     issues,
+    tips,
   };
 }
 
