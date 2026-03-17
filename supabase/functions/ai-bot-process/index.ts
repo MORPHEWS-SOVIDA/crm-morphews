@@ -2327,17 +2327,25 @@ async function processMessage(
     
     // STEP 1: Try keyword matching first (fast, no AI cost)
     let matchedRoute = matchRouteByKeywords(userMessage, teamRouting.routes);
+    let matchType = 'keyword';
+    let confidenceScore = 100;
+    let classificationReason = 'keyword_match';
     
     // STEP 2: If no keyword match, try AI intent classification (smart routing)
     if (!matchedRoute) {
       console.log('🔑 No keyword match, trying AI intent classification...');
       const conversationHistoryForRouting = await getConversationHistory(context.conversationId, 6);
-      matchedRoute = await matchRouteByAIIntent(
+      const intentResult = await matchRouteByAIIntent(
         userMessage,
         conversationHistoryForRouting,
         teamRouting.routes,
         bot.name
       );
+      
+      matchedRoute = intentResult.route;
+      matchType = 'ai_intent';
+      confidenceScore = intentResult.confidenceScore;
+      classificationReason = intentResult.reason;
       
       if (matchedRoute) {
         // Consume a small amount of energy for the AI classification
@@ -2351,12 +2359,29 @@ async function processMessage(
         );
       }
     }
+
+    // Log routing decision (always, for analytics)
+    await logRoutingDecision({
+      organizationId: context.organizationId,
+      conversationId: context.conversationId,
+      teamId: teamRouting.teamId,
+      currentBotId: bot.id,
+      targetBotId: matchedRoute?.target_bot_id || null,
+      matchedRouteId: matchedRoute?.id || null,
+      matchType: matchedRoute ? matchType : 'none',
+      confidenceScore,
+      userMessage,
+      classificationReason,
+      routesEvaluated: teamRouting.routes.length,
+      decision: matchedRoute ? 'transferred' : 'kept_current',
+    });
     
     if (matchedRoute) {
       console.log('🎯 Route matched!', {
         routeId: matchedRoute.id,
         targetBotId: matchedRoute.target_bot_id,
-        matchType: matchedRoute.condition_type === 'keyword' ? 'keyword' : 'ai_intent',
+        matchType,
+        confidenceScore,
         keywords: matchedRoute.keywords
       });
       
