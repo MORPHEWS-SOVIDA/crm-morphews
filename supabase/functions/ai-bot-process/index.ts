@@ -1332,6 +1332,54 @@ ${sections.join('\n\n---\n\n')}
 ════════════════════════════════════════════`;
 }
 
+function normalizeAIResponse(text: string): string {
+  return (text || '').replace(/\u0000/g, '').replace(/\r\n/g, '\n').trim();
+}
+
+function hasTerminalPunctuation(text: string): boolean {
+  return /[.!?…]["')\]]*$/.test(text.trim());
+}
+
+function trimToCompleteBoundary(text: string): string {
+  const normalized = normalizeAIResponse(text);
+  if (!normalized || hasTerminalPunctuation(normalized)) return normalized;
+
+  const sentenceBoundary = Math.max(
+    normalized.lastIndexOf('.'),
+    normalized.lastIndexOf('!'),
+    normalized.lastIndexOf('?'),
+    normalized.lastIndexOf('…')
+  );
+
+  if (sentenceBoundary >= 48) {
+    return normalized.slice(0, sentenceBoundary + 1).trim();
+  }
+
+  const paragraphBoundary = normalized.lastIndexOf('\n\n');
+  if (paragraphBoundary >= 48) {
+    return normalized.slice(0, paragraphBoundary).trim();
+  }
+
+  const lineBoundary = normalized.lastIndexOf('\n');
+  if (lineBoundary >= 60) {
+    return normalized.slice(0, lineBoundary).trim();
+  }
+
+  return normalized;
+}
+
+function looksTruncatedAIResponse(text: string): boolean {
+  const normalized = normalizeAIResponse(text);
+  if (!normalized) return true;
+  if (hasTerminalPunctuation(normalized) || normalized.endsWith('...')) return false;
+  if (/[,:;]\s*$/.test(normalized)) return true;
+
+  const lastWord = normalized.split(/\s+/).pop() || '';
+  if (lastWord.length <= 3) return true;
+
+  return normalized.length >= 90;
+}
+
 async function generateAIResponse(
   bot: AIBot, 
   userMessage: string, 
@@ -1344,23 +1392,15 @@ async function generateAIResponse(
   leadMemory: LeadMemoryContext | null = null,
   modelOverride: string | null = null
 ): Promise<{ response: string; tokensUsed: number; modelUsed: string }> {
-  
-  // Determine which model to use (priority: override > bot config > default)
   const modelToUse = modelOverride || bot.ai_model_chat || 'google/gemini-3-flash-preview';
-  
-  // Construir prompt de personalidade
+  const historyLimit = modelToUse.includes('gemini-2.5-pro') ? 12 : 20;
+  const recentHistory = conversationHistory.slice(-historyLimit);
+
   const personalityPrompt = buildBotPersonalityPrompt(bot);
-  
-  // Contexto de produtos
   const productsContext = buildProductsContext(products);
-  
-  // Contexto de FAQs
   const faqContext = buildFAQContext(faqs);
-  
-  // Contexto semântico (resultados da busca vetorial)
   const semanticContext = buildSemanticContext(semanticResults);
 
-  // Contexto de memória do lead (cross-session)
   const leadMemoryContext = leadMemory ? `
 ════════════════════════════════════════════
 🧠 MEMÓRIA DO CLIENTE (informações aprendidas em conversas anteriores)
@@ -1368,7 +1408,6 @@ async function generateAIResponse(
 ${buildLeadMemoryPrompt(leadMemory)}
 ════════════════════════════════════════════` : '';
   
-  // Diretrizes de humanização avançada
   const qualificationInstructions = `
 ═══════════════════════════════════════════════════
 DIRETRIZES DE HUMANIZAÇÃO MÁXIMA
@@ -1383,15 +1422,17 @@ ESTILO DE CONVERSA NO WHATSAPP:
 - Use linguagem coloquial brasileira natural (não formal demais)
 - Varie suas expressões - NUNCA repita a mesma frase ou estrutura entre mensagens
 - Demonstre emoção: surpresa, empolgação, empatia conforme o contexto
-- Reaja ao que o cliente disse antes de responder (ex: "Nossa, que legal!", "Entendi perfeitamente")
+- Reaja ao que o cliente disse antes de responder
 - Faça UMA pergunta por vez, não bombardeie com múltiplas perguntas
+- SEMPRE termine a mensagem com uma frase completa
+- NUNCA termine no meio de palavra ou no meio de raciocínio
 
 CONSCIÊNCIA DE CONTEXTO (CRÍTICO):
 - LEIA TODO o histórico da conversa antes de responder
 - Se você já se apresentou, NÃO se apresente novamente
 - Se já fez uma pergunta, NÃO repita a mesma pergunta
 - Se o cliente já respondeu algo, NÃO peça a mesma informação
-- Se a conversa foi retomada após pausa, reconheça naturalmente: "Opa, voltou! 😊" ou "E aí, conseguiu pensar sobre o que conversamos?"
+- Se a conversa foi retomada após pausa, reconheça naturalmente
 - NUNCA diga "Como posso ajudar?" se já está no meio de uma conversa
 
 INTELIGÊNCIA EMOCIONAL:
@@ -1413,7 +1454,7 @@ ${leadMemory ? `
 MEMÓRIA DO CLIENTE (USE ISSO!):
 - Você JÁ CONHECE este cliente de conversas anteriores
 - NÃO pergunte nome, preferências ou informações que você já sabe
-- Referencie conversas anteriores naturalmente: "Da última vez você mencionou..."` : ''}
+- Referencie conversas anteriores naturalmente` : ''}
 
 QUANDO TRANSFERIR PARA HUMANO:
 - Cliente pedir EXPLICITAMENTE para falar com pessoa/humano/atendente
@@ -1430,8 +1471,14 @@ CONVERSA RETOMADA (quando há histórico anterior):
 - Revise o que foi discutido e dê continuidade
 ═══════════════════════════════════════════════════`;
 
-  // System prompt completo e rico
   const hasCustomSystemPrompt = bot.system_prompt && bot.system_prompt.length > 0;
+  const outputGuardrails = `
+
+REGRAS OBRIGATÓRIAS DE SAÍDA:
+- Sua resposta DEVE terminar com ponto final, interrogação, exclamação ou reticências intencionais
+- NUNCA termine no meio de palavra
+- NUNCA termine no meio de frase
+- Se precisar ser breve, feche a ideia em 1 ou 2 frases completas`;
   
   const systemPrompt = `${personalityPrompt}
 
@@ -1452,15 +1499,15 @@ ${productsContext}
 ${faqContext}
 
 ${qualificationInstructions}
+${outputGuardrails}
 
 LEMBRE-SE: Você é um HUMANO conversando pelo WhatsApp. Cada resposta deve parecer que foi digitada por uma pessoa real, não gerada por máquina.
 ${leadMemory ? 'PRIORIZE usar as informações da MEMÓRIA DO CLIENTE para personalizar o atendimento!' : ''}
 ${semanticResults.length > 0 ? 'Use as informações da busca semântica para responder perguntas técnicas.' : ''}`;
 
-  // Montar mensagens com histórico expandido (até 30 mensagens para contexto máximo)
-  const messages = [
+  const baseMessages = [
     { role: 'system', content: systemPrompt },
-    ...conversationHistory.slice(-30),
+    ...recentHistory,
     { role: 'user', content: userMessage }
   ];
 
@@ -1469,108 +1516,143 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
     hasFAQs: faqs.length > 0,
     hasSemanticResults: semanticResults.length > 0,
     personality: !!personalityPrompt,
-    messagesCount: messages.length,
-    historyMessages: Math.min(conversationHistory.length, 30)
+    messagesCount: baseMessages.length,
+    historyMessages: recentHistory.length
   });
 
-  // === ESTRATÉGIA DE MODELO INTELIGENTE ===
-  // Se o modelo configurado é Gemini Pro/2.5-pro → usar Lovable AI diretamente (mais inteligente)
-  // Senão → usar Groq (Llama) como primário com fallback para Lovable AI
-  const isProModel = modelToUse.includes('gemini-2.5-pro') || modelToUse.includes('gemini-3.1-pro') || modelToUse.includes('gpt-5');
-  
-  if (isProModel && LOVABLE_API_KEY) {
-    console.log('🧠 Using Lovable AI Gateway DIRECTLY (Pro model):', modelToUse);
-    
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  async function callModel(chatMessages: Array<{ role: string; content: string }>, overrideTemperature?: number): Promise<{ response: string; tokensUsed: number; modelUsed: string }> {
+    const isProModel = modelToUse.includes('gemini-2.5-pro') || modelToUse.includes('gemini-3.1-pro') || modelToUse.includes('gpt-5');
+
+    if (isProModel && LOVABLE_API_KEY) {
+      console.log('🧠 Using Lovable AI Gateway DIRECTLY (Pro model):', modelToUse);
+
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages: chatMessages,
+          max_tokens: 1200,
+          temperature: overrideTemperature ?? 0.55,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const aiResponse = normalizeAIResponse(data.choices?.[0]?.message?.content || '');
+        const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
+        console.log('✅ Pro AI Response:', aiResponse.substring(0, 100) + '...');
+        return { response: aiResponse, tokensUsed, modelUsed: `lovable/${modelToUse}` };
+      }
+
+      console.error('❌ Pro model failed:', response.status, '- falling back to Groq');
+    }
+
+    const groqModel = mapModelToGroq(modelToUse);
+    console.log('🤖 Trying Groq model:', groqModel, '(mapped from:', modelToUse, ')');
+
+    let response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: modelToUse,
-        messages,
-        max_tokens: 800,
-        temperature: 0.65,
+        model: groqModel,
+        messages: chatMessages,
+        max_tokens: 900,
+        temperature: overrideTemperature ?? 0.65,
       }),
     });
-    
-    if (response.ok) {
-      const data = await response.json();
-      const aiResponse = data.choices?.[0]?.message?.content || '';
-      const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
-      console.log('✅ Pro AI Response:', aiResponse.substring(0, 100) + '...');
-      return { response: aiResponse, tokensUsed, modelUsed: `lovable/${modelToUse}` };
-    }
-    
-    console.error('❌ Pro model failed:', response.status, '- falling back to Groq');
-  }
 
-  const groqModel = mapModelToGroq(modelToUse);
-  console.log('🤖 Trying Groq model:', groqModel, '(mapped from:', modelToUse, ')');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Groq AI error:', response.status, errorText);
 
-  let response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: groqModel,
-      messages,
-      max_tokens: 800,
-      temperature: 0.7,
-    }),
-  });
+      if (response.status === 429 || response.status >= 500) {
+        console.log('🔄 Falling back to Lovable AI Gateway (Gemini)...');
 
-  // Fallback para Lovable AI (Gemini) se Groq falhar
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ Groq AI error:', response.status, errorText);
-    
-    if (response.status === 429 || response.status >= 500) {
-      console.log('🔄 Falling back to Lovable AI Gateway (Gemini)...');
-      
-      if (LOVABLE_API_KEY) {
-        response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages,
-            max_tokens: 800,
-            temperature: 0.7,
-          }),
-        });
-        
-        if (response.ok) {
-          console.log('✅ Lovable AI fallback succeeded');
-          const data = await response.json();
-          const aiResponse = data.choices?.[0]?.message?.content || '';
-          const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
-          return { response: aiResponse, tokensUsed, modelUsed: 'lovable/gemini-2.5-flash' };
-        } else {
+        if (LOVABLE_API_KEY) {
+          response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'google/gemini-2.5-flash',
+              messages: chatMessages,
+              max_tokens: 900,
+              temperature: overrideTemperature ?? 0.65,
+            }),
+          });
+
+          if (response.ok) {
+            console.log('✅ Lovable AI fallback succeeded');
+            const data = await response.json();
+            const aiResponse = normalizeAIResponse(data.choices?.[0]?.message?.content || '');
+            const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
+            return { response: aiResponse, tokensUsed, modelUsed: 'lovable/gemini-2.5-flash' };
+          }
+
           console.error('❌ Lovable AI fallback also failed:', response.status);
         }
       }
+
+      if (response.status === 429) {
+        throw new Error('RATE_LIMITED');
+      }
+      throw new Error(`AI_ERROR: ${response.status}`);
     }
-    
-    if (response.status === 429) {
-      throw new Error('RATE_LIMITED');
-    }
-    throw new Error(`AI_ERROR: ${response.status}`);
+
+    const data = await response.json();
+    const aiResponse = normalizeAIResponse(data.choices?.[0]?.message?.content || '');
+    const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
+
+    console.log('✅ AI Response generated with Groq', groqModel, ':', aiResponse.substring(0, 100) + '...');
+    return { response: aiResponse, tokensUsed, modelUsed: `groq/${groqModel}` };
   }
 
-  const data = await response.json();
-  const aiResponse = data.choices?.[0]?.message?.content || '';
-  const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
+  let result = await callModel(baseMessages);
 
-  console.log('✅ AI Response generated with Groq', groqModel, ':', aiResponse.substring(0, 100) + '...');
-  
-  return { response: aiResponse, tokensUsed, modelUsed: `groq/${groqModel}` };
+  if (looksTruncatedAIResponse(result.response)) {
+    console.warn('⚠️ AI response looks truncated, attempting repair...', {
+      modelUsed: result.modelUsed,
+      preview: result.response.substring(0, 120)
+    });
+
+    const repairedMessages = [
+      { role: 'system', content: systemPrompt },
+      ...recentHistory.slice(-8),
+      {
+        role: 'user',
+        content: `${userMessage}\n\nResponda novamente de forma COMPLETA, em no máximo 2 frases curtas, e finalize corretamente. Nunca pare no meio de palavra ou de frase.`
+      }
+    ];
+
+    try {
+      const repairedResult = await callModel(repairedMessages, 0.4);
+      if (!looksTruncatedAIResponse(repairedResult.response) || hasTerminalPunctuation(repairedResult.response)) {
+        result = repairedResult;
+      } else {
+        const trimmed = trimToCompleteBoundary(repairedResult.response);
+        if (trimmed && hasTerminalPunctuation(trimmed)) {
+          result = { ...repairedResult, response: trimmed };
+        }
+      }
+    } catch (repairError) {
+      console.error('⚠️ Failed to repair truncated AI response:', repairError);
+      const trimmed = trimToCompleteBoundary(result.response);
+      if (trimmed && hasTerminalPunctuation(trimmed)) {
+        result = { ...result, response: trimmed };
+      }
+    }
+  }
+
+  return { ...result, response: normalizeAIResponse(result.response) };
 }
 
 // ============================================================================
