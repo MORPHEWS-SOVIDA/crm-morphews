@@ -16,22 +16,14 @@ export function useMelhorEnvioLabelDownload() {
     directUrl?: string | null,
     storagePdfUrl?: string | null
   ): Promise<boolean> => {
-    if (!orderId && !directUrl && !storagePdfUrl) {
+    if (!orderId && !storagePdfUrl) {
       toast.error('ID do pedido não encontrado');
       return false;
     }
 
-    // Priority 1: Use our storage URL (doesn't require Melhor Envio login)
-    if (storagePdfUrl) {
+    // Priority 1: Use our OWN storage URL (NOT melhorenvio.com.br URLs which require login)
+    if (storagePdfUrl && !storagePdfUrl.includes('melhorenvio.com.br')) {
       window.open(storagePdfUrl, '_blank');
-      toast.success('Abrindo etiqueta...');
-      return true;
-    }
-
-    // Priority 2: If we have a direct URL from Melhor Envio, try it
-    // Note: This may require login on their site
-    if (directUrl) {
-      window.open(directUrl, '_blank');
       toast.success('Abrindo etiqueta...');
       return true;
     }
