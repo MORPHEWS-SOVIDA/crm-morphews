@@ -115,6 +115,7 @@ export function BotTeamMemberRouteCard({
 }: BotTeamMemberRouteCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   
   // Form state
   const [conditionType, setConditionType] = useState("keyword");
