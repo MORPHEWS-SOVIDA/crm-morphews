@@ -1388,10 +1388,18 @@ QUANDO TRANSFERIR:
 
 EVITE:
 - Respostas genéricas tipo "Como posso ajudar?"
-- Repetir as mesmas frases
+- Repetir as mesmas frases ou perguntas que já fez
 - Ser formal demais - seja amigável!
 - Transferir rápido demais
-${leadMemory ? '- Perguntar informações que você já sabe sobre o cliente!' : ''}`;
+- Se apresentar novamente quando já se apresentou antes no histórico
+- Fazer perguntas que o cliente JÁ respondeu no histórico da conversa
+${leadMemory ? '- Perguntar informações que você já sabe sobre o cliente!' : ''}
+
+CONVERSA RETOMADA:
+- Se o histórico mostra que você JÁ conversou com o cliente antes, NÃO se apresente novamente
+- Continue de onde parou, reconheça que o cliente voltou (ex: "Que bom que voltou!", "Opa, tudo bem?")
+- Revise o histórico para entender o contexto e dar continuidade ao assunto anterior
+- NUNCA repita sua mensagem de boas-vindas ou a mesma pergunta inicial`;
 
   // System prompt completo e rico
   // Use personalityPrompt as primary (includes full personality_description & company_differential)
@@ -2747,16 +2755,18 @@ serve(async (req) => {
       phoneNumber,
       chatId,
       isFirstMessage,
+      isReopened = false, // Nova flag - conversa reaberta (tinha histórico anterior)
       messageType = 'text',
       mediaUrl,
       mediaMimeType,
-      isWithinSchedule = true, // Novo campo do webhook - indica se está dentro do horário agendado
+      isWithinSchedule = true,
     } = body;
 
     console.log('🤖 AI Bot Process request:', {
       botId,
       conversationId,
       isFirstMessage,
+      isReopened,
       messageType,
       hasMedia: !!mediaUrl,
       isWithinSchedule,
@@ -2814,10 +2824,10 @@ serve(async (req) => {
       qualificationCompleted: conversation?.bot_qualification_completed || false,
     };
 
-    // Se é primeira mensagem e tem welcome message, enviar a welcome e PARAR
-    // (não processar AI para evitar duas mensagens seguidas)
-    if (isFirstMessage && bot.welcome_message) {
-      console.log('👋 Sending welcome message (skipping AI response for first message)');
+    // WELCOME MESSAGE - APENAS para conversas genuinamente NOVAS (sem histórico anterior)
+    // Conversas reabertas NÃO recebem welcome - o bot deve reconhecer o contexto existente
+    if (isFirstMessage && !isReopened && bot.welcome_message) {
+      console.log('👋 Sending welcome message (genuinely new conversation)');
       await sendWhatsAppMessage(
         instanceName,
         chatId,
@@ -2845,6 +2855,11 @@ serve(async (req) => {
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Para conversas reabertas, logar que vamos processar com IA usando o histórico
+    if (isReopened) {
+      console.log('🔄 Reopened conversation - processing with AI using full conversation history (no welcome repeat)');
     }
 
     // Processar mensagem baseado no tipo
