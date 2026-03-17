@@ -460,6 +460,8 @@ export function StorefrontCheckout() {
         shipping_method_name: selectedShipping?.service_name || (hasFreeShipping ? 'Frete Grátis' : undefined),
         shipping: checkoutConfig.collectAddress !== false ? {
           address: formData.street,
+          number: formData.number,
+          neighborhood: formData.neighborhood,
           city: formData.city,
           state: formData.state,
           zip: formData.cep,
