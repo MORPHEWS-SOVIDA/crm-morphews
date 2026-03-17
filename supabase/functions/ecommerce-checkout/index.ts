@@ -291,6 +291,7 @@ serve(async (req) => {
           name: customer.name,
           email: customer.email,
           whatsapp: normalizedPhone,
+          cpf_cnpj: customer.document || null,
           lead_source: storefront_id ? 'ecommerce' : 'landing_page',
           assigned_to: defaultUserId,
           // Attribution UTM data
@@ -312,26 +313,51 @@ serve(async (req) => {
       
       if (leadError) throw leadError;
       lead = newLead;
-    } else if (utm && Object.keys(utm).length > 0) {
-      // Update existing lead with UTM data if it doesn't have it yet
-      await supabase
-        .from('leads')
-        .update({
-          src: utm.src || null,
-          utm_source: utm.utm_source || null,
-          utm_medium: utm.utm_medium || null,
-          utm_campaign: utm.utm_campaign || null,
-          utm_term: utm.utm_term || null,
-          utm_content: utm.utm_content || null,
-          fbclid: utm.fbclid || null,
-          gclid: utm.gclid || null,
-          ttclid: utm.ttclid || null,
-          first_touch_url: utm.first_touch_url || null,
-          first_touch_referrer: utm.first_touch_referrer || null,
-          first_touch_at: utm.first_touch_at || null,
-        })
-        .eq('id', lead.id)
-        .is('utm_source', null); // Only update if no UTM was set before
+    } else {
+      // Update existing lead: fill missing CPF, name, email, and UTM data
+      const updateData: Record<string, unknown> = {};
+      
+      if (customer.document) {
+        updateData.cpf_cnpj = customer.document;
+      }
+      if (customer.name) {
+        updateData.name = customer.name;
+      }
+      if (customer.email) {
+        updateData.email = customer.email;
+      }
+      
+      // UTM data (only if not set before)
+      if (utm && Object.keys(utm).length > 0) {
+        // We'll handle UTM separately to respect the "don't overwrite" rule
+        const { data: existingLead } = await supabase
+          .from('leads')
+          .select('utm_source')
+          .eq('id', lead.id)
+          .single();
+        
+        if (!existingLead?.utm_source) {
+          updateData.src = utm.src || null;
+          updateData.utm_source = utm.utm_source || null;
+          updateData.utm_medium = utm.utm_medium || null;
+          updateData.utm_campaign = utm.utm_campaign || null;
+          updateData.utm_term = utm.utm_term || null;
+          updateData.utm_content = utm.utm_content || null;
+          updateData.fbclid = utm.fbclid || null;
+          updateData.gclid = utm.gclid || null;
+          updateData.ttclid = utm.ttclid || null;
+          updateData.first_touch_url = utm.first_touch_url || null;
+          updateData.first_touch_referrer = utm.first_touch_referrer || null;
+          updateData.first_touch_at = utm.first_touch_at || null;
+        }
+      }
+      
+      if (Object.keys(updateData).length > 0) {
+        await supabase
+          .from('leads')
+          .update(updateData)
+          .eq('id', lead.id);
+      }
     }
 
     // 3. Calculate totals
