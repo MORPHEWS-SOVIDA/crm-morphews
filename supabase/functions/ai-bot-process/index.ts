@@ -2252,13 +2252,38 @@ async function processMessage(
       routesCount: teamRouting.routes.length
     });
     
-    // Verificar se a mensagem corresponde a alguma rota por keyword
-    const matchedRoute = matchRouteByKeywords(userMessage, teamRouting.routes);
+    // STEP 1: Try keyword matching first (fast, no AI cost)
+    let matchedRoute = matchRouteByKeywords(userMessage, teamRouting.routes);
+    
+    // STEP 2: If no keyword match, try AI intent classification (smart routing)
+    if (!matchedRoute) {
+      console.log('🔑 No keyword match, trying AI intent classification...');
+      const conversationHistoryForRouting = await getConversationHistory(context.conversationId, 6);
+      matchedRoute = await matchRouteByAIIntent(
+        userMessage,
+        conversationHistoryForRouting,
+        teamRouting.routes,
+        bot.name
+      );
+      
+      if (matchedRoute) {
+        // Consume a small amount of energy for the AI classification
+        await checkAndConsumeEnergy(
+          context.organizationId,
+          bot.id,
+          context.conversationId,
+          50, // ~50 tokens for classification
+          'ai_intent_routing',
+          'groq/llama-3.1-8b-instant'
+        );
+      }
+    }
     
     if (matchedRoute) {
-      console.log('🎯 Matched route by keyword!', {
+      console.log('🎯 Route matched!', {
         routeId: matchedRoute.id,
         targetBotId: matchedRoute.target_bot_id,
+        matchType: matchedRoute.condition_type === 'keyword' ? 'keyword' : 'ai_intent',
         keywords: matchedRoute.keywords
       });
       
@@ -2299,7 +2324,7 @@ async function processMessage(
               matchedRoute.target_bot_id
             );
             
-            return { success: true, action: 'retry_requested', message: 'Specialist failed, asked customer to repeat' };
+            return { success: true, action: 'retry_requested' as any, message: 'Specialist failed, asked customer to repeat' };
           }
         }
       }
