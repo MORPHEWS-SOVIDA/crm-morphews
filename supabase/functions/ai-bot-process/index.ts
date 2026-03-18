@@ -2792,6 +2792,63 @@ async function processMessage(
     return { success: false, action: 'error', message: aiErrorMessage };
   }
 
+  // ====================================================================
+  // POST-RESPONSE SANITIZATION: Prevent AI from mentioning transfers
+  // ====================================================================
+  const transferPhrases = [
+    'chamar um especialista', 'chamar especialista', 'vou chamar',
+    'passar para um especialista', 'transferir para', 'encaminhar para',
+    'vou te passar', 'vou transferir', 'chamar alguém', 'chamar o time',
+    'um especialista do nosso time', 'um especialista nosso',
+    'pedir pra um especialista', 'vou pedir pro time',
+    'chamar aqui', 'um segundinho', 'um minutinho'
+  ];
+  
+  const responseLC = aiResponse.toLowerCase();
+  const containsTransferMention = transferPhrases.some(phrase => responseLC.includes(phrase));
+  
+  if (containsTransferMention) {
+    const MIN_MESSAGES_BEFORE_TRANSFER = Math.max(bot.max_messages_before_transfer || 8, 5);
+    
+    if (context.botMessagesCount < MIN_MESSAGES_BEFORE_TRANSFER) {
+      console.log('🚫 AI mentioned transfer too early (msg #' + context.botMessagesCount + '/' + MIN_MESSAGES_BEFORE_TRANSFER + '). Regenerating...');
+      
+      // Regenerate with stronger guardrail
+      try {
+        const fixPrompt = `CORREÇÃO URGENTE: Sua resposta anterior mencionou "especialista" ou "transferir". 
+Isso é PROIBIDO neste momento da conversa (mensagem #${context.botMessagesCount}).
+Você É a especialista. Responda a pergunta do cliente diretamente.
+Reescreva sua resposta SEM mencionar especialista, time, consultor, transferir ou chamar alguém.
+Responda VOCÊ MESMA a dúvida do cliente.
+
+Resposta original que precisa ser reescrita:
+"${aiResponse}"
+
+Reescreva agora de forma natural, respondendo a dúvida do cliente:`;
+        
+        const fixResult = await generateAIResponse(
+          bot, fixPrompt, conversationHistory, context.contactName,
+          context.botMessagesCount, products, faqs, semanticResults, leadMemory
+        );
+        aiResponse = fixResult.response;
+        tokensUsed += fixResult.tokensUsed;
+        console.log('✅ Response regenerated without transfer mention');
+      } catch (fixError) {
+        console.error('⚠️ Fix generation failed, stripping transfer phrases');
+        // Fallback: remove transfer sentences
+        aiResponse = aiResponse
+          .split(/[.!?]\s+/)
+          .filter(sentence => !transferPhrases.some(p => sentence.toLowerCase().includes(p)))
+          .join('. ');
+        if (!aiResponse.trim()) {
+          aiResponse = 'Me conta mais sobre sua situação pra eu te ajudar melhor 😊';
+        }
+      }
+    } else {
+      console.log('✅ Transfer mention allowed (msg #' + context.botMessagesCount + ' >= ' + MIN_MESSAGES_BEFORE_TRANSFER + ')');
+    }
+  }
+
   // 6. Consumir energia - using the model that was actually used
   const energyResult = await checkAndConsumeEnergy(
     context.organizationId,
