@@ -96,7 +96,8 @@ async function checkInstanceLimit(organizationId: string): Promise<void> {
     return;
   }
 
-  const maxInstances = plan.included_whatsapp_instances ?? 1;
+  const extraInstances = subscription.extra_whatsapp_instances ?? 0;
+  const maxInstances = (plan.included_whatsapp_instances ?? 1) + extraInstances;
 
   // Contar instâncias ativas (não arquivadas)
   const { count } = await supabase
