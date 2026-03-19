@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen, HelpCircle, Wallet, Percent, Settings, Store, ChevronRight } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen, HelpCircle, Wallet, Percent, Settings, Store, ChevronRight, Download } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
@@ -962,8 +962,39 @@ export default function SuperAdmin({ defaultTab = "organizations" }: SuperAdminP
 
             {activeTab === "interested" && (
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Quiz Preenchidos (Interessados)</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    disabled={!interestedLeads || interestedLeads.length === 0}
+                    onClick={() => {
+                      if (!interestedLeads?.length) return;
+                      const headers = ["Nome", "Email", "WhatsApp", "Plano", "Status", "Data"];
+                      const rows = interestedLeads.map((l) => [
+                        l.name,
+                        l.email || "",
+                        l.whatsapp,
+                        l.plan_name || "",
+                        l.status,
+                        format(new Date(l.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+                      ]);
+                      const csv = [headers, ...rows]
+                        .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+                        .join("\n");
+                      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `quiz-leads-${format(new Date(), "yyyy-MM-dd")}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                    Exportar CSV
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   {interestedLeads?.length === 0 ? (
@@ -995,14 +1026,17 @@ export default function SuperAdmin({ defaultTab = "organizations" }: SuperAdminP
                               ) : "-"}
                             </TableCell>
                             <TableCell>
-                              <a 
-                                href={`https://wa.me/${lead.whatsapp.replace(/\D/g, "")}`} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-green-600 hover:underline"
-                              >
-                                {lead.whatsapp}
-                              </a>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">{lead.whatsapp}</span>
+                                <a 
+                                  href={`https://wa.me/${lead.whatsapp.replace(/\D/g, "")}`} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-green-500 hover:bg-green-600 text-white transition-colors"
+                                >
+                                  <Phone className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
                             </TableCell>
                             <TableCell>{lead.plan_name || "-"}</TableCell>
                             <TableCell>{getInterestedStatusBadge(lead.status)}</TableCell>
