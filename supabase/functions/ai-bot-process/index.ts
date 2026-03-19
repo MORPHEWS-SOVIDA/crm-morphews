@@ -1581,11 +1581,11 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
         console.error('❌ Lovable Gateway failed:', response.status, errorText);
         await logProviderFailure('lovable', gatewayModel, String(response.status), errorText, 'groq', false);
 
+        // 402 = no credits on Lovable AI — fall through to Groq fallback instead of throwing
         if (response.status === 402) {
-          throw new Error('PAYMENT_REQUIRED');
+          console.log('⚠️ Lovable AI credits exhausted (402), falling through to Groq fallback...');
         }
       } catch (err: any) {
-        if (err?.message === 'PAYMENT_REQUIRED') throw err;
         console.error('❌ Lovable Gateway exception:', err);
         await logProviderFailure('lovable', gatewayModel, 'exception', String(err), 'groq', false);
       }
