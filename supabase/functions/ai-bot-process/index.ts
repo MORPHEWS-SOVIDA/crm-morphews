@@ -1643,7 +1643,7 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
     // Log that primary failed but fallback succeeded
     await logProviderFailure('lovable', modelToUse, 'primary_failed', 'Fell back to Groq', 'groq', true);
 
-    const data = await response.json();
+    const data = await groqResponse.json();
     const aiResponse = normalizeAIResponse(data.choices?.[0]?.message?.content || '');
     const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
 
