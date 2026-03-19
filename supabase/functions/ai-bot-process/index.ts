@@ -1591,39 +1591,59 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
       }
     }
 
-    // FALLBACK: Groq
+    // FALLBACK: Groq (with retry on 429 rate limit)
     const groqModel = mapModelToGroq(modelToUse);
     console.log('🔄 FALLBACK: Groq model:', groqModel);
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: groqModel,
-        messages: chatMessages,
-        max_tokens: 900,
-        temperature: overrideTemperature ?? 0.65,
-      }),
-    });
+    const MAX_GROQ_RETRIES = 3;
+    let groqResponse: Response | null = null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Groq FALLBACK also failed:', response.status, errorText);
-      await logProviderFailure('groq', groqModel, String(response.status), errorText, null, false);
+    for (let attempt = 1; attempt <= MAX_GROQ_RETRIES; attempt++) {
+      groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: groqModel,
+          messages: chatMessages,
+          max_tokens: 900,
+          temperature: overrideTemperature ?? 0.65,
+        }),
+      });
 
-      if (response.status === 429) {
+      if (groqResponse.ok) break;
+
+      if (groqResponse.status === 429 && attempt < MAX_GROQ_RETRIES) {
+        // Parse retry-after or use exponential backoff
+        const retryAfterHeader = groqResponse.headers.get('retry-after');
+        const waitSeconds = retryAfterHeader ? Math.min(parseFloat(retryAfterHeader), 30) : (attempt * 5);
+        console.log(`⏳ Groq 429 rate limited (attempt ${attempt}/${MAX_GROQ_RETRIES}), waiting ${waitSeconds}s...`);
+        await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000));
+        continue;
+      }
+
+      // Non-429 error or last attempt
+      break;
+    }
+
+    if (!groqResponse || !groqResponse.ok) {
+      const errorText = groqResponse ? await groqResponse.text() : 'No response';
+      const statusCode = groqResponse?.status || 0;
+      console.error('❌ Groq FALLBACK failed after retries:', statusCode, errorText);
+      await logProviderFailure('groq', groqModel, String(statusCode), errorText, null, false);
+
+      if (statusCode === 429) {
         throw new Error('RATE_LIMITED');
       }
-      throw new Error(`AI_ERROR: ${response.status}`);
+      throw new Error(`AI_ERROR: ${statusCode}`);
     }
 
     // Log that primary failed but fallback succeeded
     await logProviderFailure('lovable', modelToUse, 'primary_failed', 'Fell back to Groq', 'groq', true);
 
-    const data = await response.json();
+    const data = await groqResponse.json();
     const aiResponse = normalizeAIResponse(data.choices?.[0]?.message?.content || '');
     const tokensUsed = (data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0);
 
