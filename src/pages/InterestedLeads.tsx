@@ -4,10 +4,12 @@ import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Users, ShoppingCart, CheckCircle, Loader2 } from "lucide-react";
+import { Users, ShoppingCart, CheckCircle, Loader2, Download } from "lucide-react";
+import { formatPhone } from "@/lib/format";
 
 interface InterestedLead {
   id: string;
@@ -54,14 +56,46 @@ export default function InterestedLeads() {
     }
   };
 
+  const handleExport = () => {
+    if (!leads || leads.length === 0) return;
+
+    const headers = ["Nome", "WhatsApp", "E-mail", "Plano", "Status", "Data"];
+    const rows = leads.map((lead) => [
+      lead.name,
+      lead.whatsapp,
+      lead.email || "",
+      lead.plan_name || "",
+      lead.status === "interested" ? "Interessado" : lead.status === "checkout_started" ? "Checkout Iniciado" : lead.status === "converted" ? "Convertido" : lead.status,
+      format(new Date(lead.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `leads-interessados-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Leads Interessados</h1>
-          <p className="text-muted-foreground">
-            Pessoas que demonstraram interesse em contratar o sistema
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Leads Interessados</h1>
+            <p className="text-muted-foreground">
+              Pessoas que demonstraram interesse em contratar o sistema
+            </p>
+          </div>
+          <Button onClick={handleExport} disabled={!leads || leads.length === 0} variant="outline" className="gap-2">
+            <Download className="h-4 w-4" />
+            Exportar CSV
+          </Button>
         </div>
 
         {/* Stats Cards */}
@@ -143,7 +177,10 @@ export default function InterestedLeads() {
                     <TableRow key={lead.id}>
                       <TableCell className="font-medium">{lead.name}</TableCell>
                       <TableCell>
-                        <WhatsAppButton phone={lead.whatsapp} variant="icon" />
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">{formatPhone(lead.whatsapp)}</span>
+                          <WhatsAppButton phone={lead.whatsapp} variant="icon" />
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {lead.email || "-"}
