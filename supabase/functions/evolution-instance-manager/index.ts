@@ -74,7 +74,7 @@ async function checkInstanceLimit(organizationId: string): Promise<void> {
   // Buscar plano ativo
   const { data: subscription } = await supabase
     .from("subscriptions")
-    .select("plan_id, status")
+    .select("plan_id, status, extra_whatsapp_instances")
     .eq("organization_id", organizationId)
     .in("status", ["active", "trialing"])
     .order("created_at", { ascending: false })
