@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen, HelpCircle, Wallet, Percent, Settings, Store, ChevronRight } from "lucide-react";
+import { Building2, Users, CreditCard, Loader2, TrendingUp, Crown, Plus, UserPlus, Mail, Phone, Globe, FileText, Eye, Pencil, Power, PowerOff, Send, Tag, AlertTriangle, Package, Zap, MessageSquare, Smartphone, Cpu, MailOpen, HelpCircle, Wallet, Percent, Settings, Store, ChevronRight, Download } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
