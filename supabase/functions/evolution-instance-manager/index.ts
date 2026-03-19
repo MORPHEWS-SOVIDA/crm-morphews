@@ -74,7 +74,7 @@ async function checkInstanceLimit(organizationId: string): Promise<void> {
   // Buscar plano ativo
   const { data: subscription } = await supabase
     .from("subscriptions")
-    .select("plan_id, status")
+    .select("plan_id, status, extra_whatsapp_instances")
     .eq("organization_id", organizationId)
     .in("status", ["active", "trialing"])
     .order("created_at", { ascending: false })
@@ -96,7 +96,8 @@ async function checkInstanceLimit(organizationId: string): Promise<void> {
     return;
   }
 
-  const maxInstances = plan.included_whatsapp_instances ?? 1;
+  const extraInstances = subscription.extra_whatsapp_instances ?? 0;
+  const maxInstances = (plan.included_whatsapp_instances ?? 1) + extraInstances;
 
   // Contar instâncias ativas (não arquivadas)
   const { count } = await supabase
