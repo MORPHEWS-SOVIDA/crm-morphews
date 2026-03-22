@@ -183,6 +183,7 @@ export function StorefrontCart() {
               let unitPrice = normalizeCurrencyCents(item.unit_price_cents || item.upc || item.price_cents);
               let itemName = item.name || item.n || '';
               let imageUrl = item.image_url || item.img || null;
+              let isCombo = false;
 
               // If price is 0 or name is missing, resolve from DB
               if (!unitPrice || !itemName || itemName === 'Produto') {
@@ -191,6 +192,7 @@ export function StorefrontCart() {
                   unitPrice = unitPrice || resolved.unitPrice;
                   itemName = (!itemName || itemName === 'Produto') ? resolved.name : itemName;
                   imageUrl = imageUrl || resolved.imageUrl;
+                  isCombo = resolved.isCombo || false;
                 }
               }
 
@@ -202,6 +204,7 @@ export function StorefrontCart() {
                 quantity,
                 kitSize: coercePositiveInt(item.kit_size || item.ks, 1),
                 unitPrice,
+                isCombo,
               }, storefront.slug, storefront.id);
             }
           }

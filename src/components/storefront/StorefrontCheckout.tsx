@@ -219,6 +219,7 @@ export function StorefrontCheckout() {
                       unitPrice = unitPrice || price;
                       itemName = (!itemName || itemName === 'Produto') ? c.name : itemName;
                       imageUrl = imageUrl || c.image_url || null;
+                      isCombo = true;
                     }
                   }
                 } catch {}
@@ -232,6 +233,7 @@ export function StorefrontCheckout() {
                 quantity,
                 kitSize: coercePositiveInt(item.kit_size || item.ks, 1),
                 unitPrice,
+                isCombo,
               }, storefront.slug, storefront.id);
             }
           }
