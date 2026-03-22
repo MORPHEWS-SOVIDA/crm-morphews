@@ -633,21 +633,24 @@ serve(async (req) => {
     console.log(`[Checkout] Creating ${productItems.length} sale items for sale ${sale.id}`);
     for (const item of productItems) {
       const productInfo = productMap[item.product_id];
+      const itemName = item.product_name || productInfo?.name || 'Produto';
       const { error: itemError } = await supabase
         .from('sale_items')
         .insert({
           sale_id: sale.id,
           product_id: item.product_id,
-          product_name: productInfo?.name || item.product_name || 'Produto',
+          product_name: itemName,
           quantity: item.quantity,
           unit_price_cents: item.price_cents,
           total_cents: item.price_cents * item.quantity,
         });
       
       if (itemError) {
-        console.error(`[Checkout] Failed to create sale item for product ${item.product_id}:`, itemError);
+        console.error(`[Checkout] Failed to create sale item for product ${item.product_id} (${itemName}):`, itemError);
+        // If FK constraint fails (combo ID not in lead_products), log but don't lose the item
+        // The item data is preserved in the ecommerce_orders.items JSON
       } else {
-        console.log(`[Checkout] Created sale item: product=${item.product_id}, qty=${item.quantity}, price=${item.price_cents}`);
+        console.log(`[Checkout] Created sale item: product=${item.product_id}, name=${itemName}, qty=${item.quantity}, price=${item.price_cents}`);
       }
     }
 
