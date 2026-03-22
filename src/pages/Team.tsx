@@ -322,6 +322,8 @@ export default function Team() {
   });
   const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
   const [isTogglingActive, setIsTogglingActive] = useState<string | null>(null);
+  const [deleteMemberTarget, setDeleteMemberTarget] = useState<OrgMember | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   
   // My Profile state
   const [isEditingMyProfile, setIsEditingMyProfile] = useState(false);
