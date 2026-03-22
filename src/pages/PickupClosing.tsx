@@ -501,6 +501,64 @@ export default function PickupClosing() {
               </CardContent>
             </Card>
 
+            {/* Bulk selection bar */}
+            {filteredClosings.some(c => c.status !== 'confirmed_final') && (
+              <Card className="bg-primary/5 border-primary/20 mb-4">
+                <CardContent className="py-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Checkbox
+                      checked={
+                        filteredClosings.filter(c => c.status !== 'confirmed_final').length > 0 &&
+                        filteredClosings.filter(c => c.status !== 'confirmed_final').every(c => selectedClosings.has(c.id))
+                      }
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedClosings(new Set(filteredClosings.filter(c => c.status !== 'confirmed_final').map(c => c.id)));
+                        } else {
+                          setSelectedClosings(new Set());
+                        }
+                      }}
+                    />
+                    <span className="text-sm font-medium">
+                      {selectedClosings.size > 0
+                        ? `${selectedClosings.size} selecionado(s)`
+                        : 'Selecionar todos pendentes'}
+                    </span>
+                    {selectedClosings.size > 0 && (
+                      <>
+                        {canConfirmAuxiliar && filteredClosings.some(c => selectedClosings.has(c.id) && c.status === 'pending') && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleBulkConfirm('auxiliar')}
+                            disabled={bulkConfirming || confirmClosing.isPending}
+                          >
+                            {bulkConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCheck className="w-4 h-4 mr-1" />}
+                            Confirmar Financeiro ({filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'pending').length})
+                          </Button>
+                        )}
+                        {canConfirmAdmin && filteredClosings.some(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents === 0) && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => handleBulkConfirm('admin')}
+                            disabled={bulkConfirming || confirmClosing.isPending}
+                          >
+                            {bulkConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCheck className="w-4 h-4 mr-1" />}
+                            Confirmar Relatório ({filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents === 0).length})
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedClosings(new Set())}>
+                          <X className="w-4 h-4 mr-1" />
+                          Limpar
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {loadingClosings ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -524,11 +582,17 @@ export default function PickupClosing() {
                 {filteredClosings.map(closing => (
                   <Card 
                     key={closing.id} 
-                    className={`transition-all ${viewingClosingId === closing.id ? `ring-2 ${colors.ring}` : ''}`}
+                    className={`transition-all ${selectedClosings.has(closing.id) ? 'ring-2 ring-primary/40' : ''} ${viewingClosingId === closing.id ? `ring-2 ${colors.ring}` : ''}`}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <CardTitle className="text-lg flex items-center gap-2">
+                          {closing.status !== 'confirmed_final' && (
+                            <Checkbox
+                              checked={selectedClosings.has(closing.id)}
+                              onCheckedChange={() => toggleClosingSelection(closing.id)}
+                            />
+                          )}
                           <Store className="w-5 h-5" />
                           Fechamento #{closing.closing_number}
                         </CardTitle>
