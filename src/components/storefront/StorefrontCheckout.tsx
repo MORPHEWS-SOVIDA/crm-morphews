@@ -403,7 +403,7 @@ export function StorefrontCheckout() {
     termsUrl?: string;
     allowSaveCard?: boolean;
   } || {};
-
+              let isCombo = false;
 
   // Show saved cards only for credit card payment (when cards exist)
   const showSavedCards = paymentMethod === 'credit_card' && SAVED_CARDS.length > 0;
