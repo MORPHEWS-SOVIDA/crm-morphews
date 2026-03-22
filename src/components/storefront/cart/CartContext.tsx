@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useUtmTracker } from '@/hooks/useUtmTracker';
+import { calculateCartLineTotal, coercePositiveInt, normalizeCurrencyCents } from '@/lib/ecommerce/cartMath';
 
 export interface CartItem {
   productId: string;
@@ -11,6 +12,23 @@ export interface CartItem {
   kitSize: number; // Dynamic kit sizes (1, 2, 3, 5, 10, etc.)
   unitPrice: number; // Price per unit in cents
   totalPrice: number; // Total price for this line item
+}
+
+function normalizeCartItem(item: Partial<CartItem> & Pick<CartItem, 'productId' | 'storefrontProductId' | 'name' | 'imageUrl'>): CartItem {
+  const quantity = coercePositiveInt(item.quantity, 1);
+  const kitSize = coercePositiveInt(item.kitSize, 1);
+  const unitPrice = normalizeCurrencyCents(item.unitPrice);
+
+  return {
+    productId: item.productId,
+    storefrontProductId: item.storefrontProductId,
+    name: item.name,
+    imageUrl: item.imageUrl,
+    quantity,
+    kitSize,
+    unitPrice,
+    totalPrice: calculateCartLineTotal(quantity, unitPrice, kitSize),
+  };
 }
 
 export interface CartCustomerData {
@@ -97,7 +115,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         } = JSON.parse(saved);
         // Cart expires after 24 hours
         if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
-          setItems(savedItems);
+          setItems(Array.isArray(savedItems) ? savedItems.map(normalizeCartItem) : []);
           setStorefrontSlug(savedSlug);
           setStorefrontId(savedStorefrontId || null);
           setCartId(savedCartId || null);
@@ -202,9 +220,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setStorefrontSlug(slug);
     setStorefrontId(sfId);
 
+    const normalizedItem = normalizeCartItem(item);
+
     setItems(prev => {
       const existingIndex = prev.findIndex(
-        i => i.productId === item.productId && i.kitSize === item.kitSize
+        i => i.productId === normalizedItem.productId && i.kitSize === normalizedItem.kitSize
       );
 
       let newItems: CartItem[];
@@ -212,18 +232,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existingIndex >= 0) {
         // Update quantity
         newItems = [...prev];
+        const nextQuantity = newItems[existingIndex].quantity + normalizedItem.quantity;
         newItems[existingIndex] = {
           ...newItems[existingIndex],
-          quantity: newItems[existingIndex].quantity + item.quantity,
-          totalPrice: (newItems[existingIndex].quantity + item.quantity) * item.unitPrice * item.kitSize,
+          quantity: nextQuantity,
+          unitPrice: normalizedItem.unitPrice,
+          totalPrice: calculateCartLineTotal(nextQuantity, normalizedItem.unitPrice, normalizedItem.kitSize),
         };
         toast.success('Quantidade atualizada no carrinho');
       } else {
         // Add new item
-        newItems = [...prev, {
-          ...item,
-          totalPrice: item.quantity * item.unitPrice * item.kitSize,
-        }];
+        newItems = [...prev, normalizedItem];
         toast.success('Produto adicionado ao carrinho');
       }
 
@@ -240,13 +259,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const safeQuantity = coercePositiveInt(quantity, 1);
+
     setItems(prev => {
       const newItems = prev.map(item => {
         if (item.productId === productId && item.kitSize === kitSize) {
           return {
             ...item,
-            quantity,
-            totalPrice: quantity * item.unitPrice * item.kitSize,
+            quantity: safeQuantity,
+            totalPrice: calculateCartLineTotal(safeQuantity, item.unitPrice, item.kitSize),
           };
         }
         return item;
@@ -302,8 +323,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [items, storefrontId, cartId, customerData, debouncedSync]);
 
-  const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
-  const itemCount = items.reduce((sum, item) => sum + (item.quantity * item.kitSize), 0);
+  const subtotal = items.reduce((sum, item) => sum + calculateCartLineTotal(item.quantity, item.unitPrice, item.kitSize), 0);
+  const itemCount = items.reduce((sum, item) => sum + (coercePositiveInt(item.quantity, 1) * coercePositiveInt(item.kitSize, 1)), 0);
 
   return (
     <CartContext.Provider value={{

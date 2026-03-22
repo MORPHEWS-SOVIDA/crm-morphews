@@ -18,12 +18,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useUniversalTracking } from '@/hooks/ecommerce/useUniversalTracking';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 import { logCheckoutEvent } from '@/hooks/ecommerce/useCheckoutEvents';
+import { coercePositiveInt, normalizeCurrencyCents } from '@/lib/ecommerce/cartMath';
 
 function formatCurrency(cents: number): string {
+  const safeCents = Number.isFinite(cents) ? cents : 0;
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(cents / 100);
+  }).format(safeCents / 100);
 }
 
 // Saved cards - will be fetched from saved_payment_methods once lead is identified
@@ -160,9 +162,9 @@ export function StorefrontCheckout() {
         const resolveAndAdd = async () => {
           for (const item of cartItems) {
             const productId = item.product_id || item.pid;
-            const quantity = item.quantity || item.q;
-            if (productId && quantity) {
-              let unitPrice = item.unit_price_cents || item.upc || item.price_cents || 0;
+            const quantity = coercePositiveInt(item.quantity || item.q, 0);
+            if (productId && quantity > 0) {
+              let unitPrice = normalizeCurrencyCents(item.unit_price_cents || item.upc || item.price_cents);
               let itemName = item.name || item.n || '';
               let imageUrl = item.image_url || item.img || null;
 
@@ -228,7 +230,7 @@ export function StorefrontCheckout() {
                 name: itemName || 'Produto',
                 imageUrl,
                 quantity,
-                kitSize: item.kit_size || item.ks || 1,
+                kitSize: coercePositiveInt(item.kit_size || item.ks, 1),
                 unitPrice,
               }, storefront.slug, storefront.id);
             }
@@ -285,15 +287,18 @@ export function StorefrontCheckout() {
         // Restore cart items
         const cartItems = (cart.items as any[]) || [];
         for (const item of cartItems) {
-          if (item.product_id && item.quantity && (item.price_cents || item.unit_price_cents)) {
+          const quantity = coercePositiveInt(item.quantity, 0);
+          const unitPrice = normalizeCurrencyCents(item.unit_price_cents || item.price_cents);
+
+          if (item.product_id && quantity > 0 && unitPrice > 0) {
             addItem({
               productId: item.product_id,
               storefrontProductId: item.storefront_product_id || item.product_id,
               name: item.name || 'Produto',
               imageUrl: item.image_url || null,
-              quantity: item.quantity,
-              kitSize: item.kit_size || 1,
-              unitPrice: item.unit_price_cents || item.price_cents,
+              quantity,
+              kitSize: coercePositiveInt(item.kit_size, 1),
+              unitPrice,
             }, storefront.slug, storefront.id);
           }
         }

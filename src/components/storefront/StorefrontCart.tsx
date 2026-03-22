@@ -13,6 +13,7 @@ import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { logCheckoutEvent } from '@/hooks/ecommerce/useCheckoutEvents';
+import { coercePositiveInt, normalizeCurrencyCents } from '@/lib/ecommerce/cartMath';
 
 // Resolve product prices and details from DB when external cart items have price 0
 // Supports both regular products (product_id) and combos (combo_id)
@@ -89,10 +90,11 @@ async function resolveProductDetails(
 }
 
 function formatCurrency(cents: number): string {
+  const safeCents = Number.isFinite(cents) ? cents : 0;
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-  }).format(cents / 100);
+  }).format(safeCents / 100);
 }
 
 function formatCurrencyParts(cents: number): { main: string; decimals: string } {
@@ -176,9 +178,9 @@ export function StorefrontCart() {
         const resolveAndAddItems = async () => {
           for (const item of cartItems) {
             const productId = item.product_id || item.pid;
-            const quantity = item.quantity || item.q;
-            if (productId && quantity) {
-              let unitPrice = item.unit_price_cents || item.upc || item.price_cents || 0;
+            const quantity = coercePositiveInt(item.quantity || item.q, 0);
+            if (productId && quantity > 0) {
+              let unitPrice = normalizeCurrencyCents(item.unit_price_cents || item.upc || item.price_cents);
               let itemName = item.name || item.n || '';
               let imageUrl = item.image_url || item.img || null;
 
@@ -198,7 +200,7 @@ export function StorefrontCart() {
                 name: itemName || 'Produto',
                 imageUrl,
                 quantity,
-                kitSize: item.kit_size || item.ks || 1,
+                kitSize: coercePositiveInt(item.kit_size || item.ks, 1),
                 unitPrice,
               }, storefront.slug, storefront.id);
             }
