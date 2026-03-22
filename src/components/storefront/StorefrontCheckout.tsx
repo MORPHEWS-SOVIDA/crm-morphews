@@ -484,6 +484,7 @@ export function StorefrontCheckout() {
     }
     
     setIsSubmitting(true);
+    setCheckoutError(null);
     
     try {
       // Log checkout_started event
