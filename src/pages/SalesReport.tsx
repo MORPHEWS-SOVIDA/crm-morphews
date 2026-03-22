@@ -31,6 +31,8 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   TrendingUp,
   Package,
   Truck,
