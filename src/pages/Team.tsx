@@ -196,7 +196,7 @@ function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember
           </Button>
         )}
         {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_delete_member && (
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteUser(member.id, member.user_id)} disabled={isDeletingUser === member.id}>
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onRequestDelete(member)} disabled={isDeletingUser === member.id}>
             {isDeletingUser === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
           </Button>
         )}
