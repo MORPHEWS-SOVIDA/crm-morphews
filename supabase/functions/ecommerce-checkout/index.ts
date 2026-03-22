@@ -299,17 +299,22 @@ serve(async (req) => {
 
     // Get a default user from the organization for assignment (required for lead and sale)
     let defaultUserId: string | null = null;
+    let postSaleFunnelStageId: string | null = null;
     
-    // Priority 1: If storefront has a default seller, use it
+    // Priority 1: If storefront has a default seller and/or post-sale stage, use it
     if (storefront_id) {
       const { data: sf } = await supabase
         .from('tenant_storefronts')
-        .select('default_seller_user_id')
+        .select('default_seller_user_id, settings')
         .eq('id', storefront_id)
         .single();
       if (sf?.default_seller_user_id) {
         defaultUserId = sf.default_seller_user_id;
         console.log(`[Checkout] Using storefront default seller: ${defaultUserId}`);
+      }
+      if (sf?.settings && typeof sf.settings === 'object' && (sf.settings as Record<string, unknown>).post_sale_funnel_stage_id) {
+        postSaleFunnelStageId = (sf.settings as Record<string, unknown>).post_sale_funnel_stage_id as string;
+        console.log(`[Checkout] Using storefront post-sale funnel stage: ${postSaleFunnelStageId}`);
       }
     }
 
@@ -349,6 +354,7 @@ serve(async (req) => {
           cpf_cnpj: customer.document || null,
           lead_source: storefront_id ? 'ecommerce' : 'landing_page',
           assigned_to: defaultUserId,
+          ...(postSaleFunnelStageId ? { funnel_stage_id: postSaleFunnelStageId } : {}),
           // Attribution UTM data
           src: utm?.src || null,
           utm_source: utm?.utm_source || null,
@@ -405,6 +411,11 @@ serve(async (req) => {
           updateData.first_touch_referrer = utm.first_touch_referrer || null;
           updateData.first_touch_at = utm.first_touch_at || null;
         }
+      }
+
+      // Always update funnel stage if configured for storefront
+      if (postSaleFunnelStageId) {
+        updateData.funnel_stage_id = postSaleFunnelStageId;
       }
       
       if (Object.keys(updateData).length > 0) {
