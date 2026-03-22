@@ -837,7 +837,7 @@ export function StorefrontCheckout() {
                       placeholder="00000-000"
                       value={formData.cep}
                       onChange={e => handleCepChange(e.target.value)}
-                      onBlur={handleCepBlur}
+                      onBlur={() => handleCepBlurEarly(formData.cep)}
                     />
                   </div>
                 </div>
