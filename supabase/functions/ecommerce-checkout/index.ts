@@ -725,13 +725,14 @@ serve(async (req) => {
     if (orderData?.id && productItems.length > 0) {
       for (const item of productItems) {
         const productInfo = productMap[item.product_id] || {};
+        const itemName = item.product_name || productInfo.name || 'Produto';
         await supabase
           .from('ecommerce_order_items')
           .insert({
             order_id: orderData.id,
             product_id: item.product_id,
-            product_name: productInfo.name || 'Produto',
-            product_image_url: productInfo.image_url || null,
+            product_name: itemName,
+            product_image_url: item.product_image_url || productInfo.image_url || null,
             quantity: item.quantity,
             unit_price_cents: item.price_cents,
             total_cents: item.price_cents * item.quantity,
