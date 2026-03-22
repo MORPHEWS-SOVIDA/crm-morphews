@@ -463,6 +463,46 @@ export function StorefrontCheckout() {
     return hasBasicFields && hasAddressFields && hasCardData && acceptedTerms;
   }, [formData, paymentMethod, isOneClickCheckout, cardData, acceptedTerms, checkoutConfig.collectAddress]);
 
+  const handleCepBlurEarly = useCallback(async (cep: string) => {
+    if (cep.length !== 8) return;
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+      if (!data.erro) {
+        setFormData(prev => ({
+          ...prev,
+          street: data.logradouro || '',
+          neighborhood: data.bairro || '',
+          city: data.localidade || '',
+          state: data.uf || '',
+        }));
+      }
+    } catch (error) {
+      console.error('CEP lookup error:', error);
+    }
+  }, []);
+
+  const handleCepChange = useCallback((value: string) => {
+    const cleanCep = value.replace(/\D/g, '');
+    setFormData(prev => ({ ...prev, cep: cleanCep }));
+    if (cleanCep.length === 8) {
+      fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.erro) {
+            setFormData(prev => ({
+              ...prev,
+              street: prev.street || data.logradouro || '',
+              neighborhood: prev.neighborhood || data.bairro || '',
+              city: prev.city || data.localidade || '',
+              state: prev.state || data.uf || '',
+            }));
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   if (restoringCart) {
     return (
       <div className="container mx-auto px-4 py-12 text-center">
@@ -702,26 +742,6 @@ export function StorefrontCheckout() {
     }
   };
 
-  const handleCepBlur = async () => {
-    if (formData.cep.length !== 8) return;
-    
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${formData.cep}/json/`);
-      const data = await response.json();
-      
-      if (!data.erro) {
-        setFormData(prev => ({
-          ...prev,
-          street: data.logradouro || '',
-          neighborhood: data.bairro || '',
-          city: data.localidade || '',
-          state: data.uf || '',
-        }));
-      }
-    } catch (error) {
-      console.error('CEP lookup error:', error);
-    }
-  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -813,11 +833,11 @@ export function StorefrontCheckout() {
                     <Input 
                       id="cep"
                       required
-                      maxLength={8}
-                      placeholder="00000000"
+                      maxLength={9}
+                      placeholder="00000-000"
                       value={formData.cep}
-                      onChange={e => setFormData(prev => ({ ...prev, cep: e.target.value.replace(/\D/g, '') }))}
-                      onBlur={handleCepBlur}
+                      onChange={e => handleCepChange(e.target.value)}
+                      onBlur={() => handleCepBlurEarly(formData.cep)}
                     />
                   </div>
                 </div>

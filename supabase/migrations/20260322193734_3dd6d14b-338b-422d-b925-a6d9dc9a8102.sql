@@ -1,0 +1,1 @@
+UPDATE tenant_storefronts SET checkout_config = jsonb_set(checkout_config::jsonb, '{collectAddress}', 'true') WHERE slug = 'balestrero';
