@@ -12,6 +12,7 @@ export interface CartItem {
   kitSize: number; // Dynamic kit sizes (1, 2, 3, 5, 10, etc.)
   unitPrice: number; // Price per unit in cents
   totalPrice: number; // Total price for this line item
+  isCombo?: boolean; // Whether this item is a kit/combo
 }
 
 function normalizeCartItem(item: Partial<CartItem> & Pick<CartItem, 'productId' | 'storefrontProductId' | 'name' | 'imageUrl'>): CartItem {
@@ -28,6 +29,7 @@ function normalizeCartItem(item: Partial<CartItem> & Pick<CartItem, 'productId' 
     kitSize,
     unitPrice,
     totalPrice: calculateCartLineTotal(quantity, unitPrice, kitSize),
+    isCombo: item.isCombo || false,
   };
 }
 

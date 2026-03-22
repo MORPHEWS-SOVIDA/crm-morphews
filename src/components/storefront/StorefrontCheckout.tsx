@@ -167,6 +167,7 @@ export function StorefrontCheckout() {
               let unitPrice = normalizeCurrencyCents(item.unit_price_cents || item.upc || item.price_cents);
               let itemName = item.name || item.n || '';
               let imageUrl = item.image_url || item.img || null;
+              let isCombo = false;
 
               // Resolve from DB if price/name missing
               if (!unitPrice || !itemName || itemName === 'Produto') {
@@ -219,6 +220,7 @@ export function StorefrontCheckout() {
                       unitPrice = unitPrice || price;
                       itemName = (!itemName || itemName === 'Produto') ? c.name : itemName;
                       imageUrl = imageUrl || c.image_url || null;
+                      isCombo = true;
                     }
                   }
                 } catch {}
@@ -232,6 +234,7 @@ export function StorefrontCheckout() {
                 quantity,
                 kitSize: coercePositiveInt(item.kit_size || item.ks, 1),
                 unitPrice,
+                isCombo,
               }, storefront.slug, storefront.id);
             }
           }
@@ -363,7 +366,8 @@ export function StorefrontCheckout() {
     minOrderValue?: number;
   } || {};
   const freeShippingThreshold = cartConfig.freeShippingThreshold || 0;
-  const hasFreeShipping = freeShippingThreshold > 0 && subtotal >= freeShippingThreshold;
+  const hasComboInCart = items.some(item => item.isCombo);
+  const hasFreeShipping = hasComboInCart || (freeShippingThreshold > 0 && subtotal >= freeShippingThreshold) || subtotal >= 25000;
   
   // Apply free shipping if subtotal meets threshold
   const shippingCents = hasFreeShipping ? 0 : (selectedShipping?.price_cents || 0);
@@ -400,7 +404,6 @@ export function StorefrontCheckout() {
     termsUrl?: string;
     allowSaveCard?: boolean;
   } || {};
-
 
   // Show saved cards only for credit card payment (when cards exist)
   const showSavedCards = paymentMethod === 'credit_card' && SAVED_CARDS.length > 0;
