@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { SaleSelectionCard } from '@/components/expedition/SaleSelectionCard';
 import { 
   Store, 
@@ -92,6 +93,8 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   
   // Filters for history tab
   const [historyStatusFilter, setHistoryStatusFilter] = useState<string>('all');
+  const [selectedClosings, setSelectedClosings] = useState<Set<string>>(new Set());
+  const [bulkConfirming, setBulkConfirming] = useState(false);
 
   const { data: availableSales = [], isLoading: loadingSales } = useAvailableClosingSales(closingType);
   const { data: closings = [], isLoading: loadingClosings } = useDeliveryClosings(closingType);
@@ -311,6 +314,42 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
       toast.error('Erro ao confirmar');
       console.error(error);
     }
+  };
+
+  const toggleClosingSelection = (closingId: string) => {
+    setSelectedClosings(prev => {
+      const next = new Set(prev);
+      if (next.has(closingId)) next.delete(closingId);
+      else next.add(closingId);
+      return next;
+    });
+  };
+
+  const handleBulkConfirm = async (type: 'auxiliar' | 'admin') => {
+    const closingsToConfirm = filteredClosings.filter(c => selectedClosings.has(c.id));
+    if (closingsToConfirm.length === 0) return;
+
+    setBulkConfirming(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const closing of closingsToConfirm) {
+      if (type === 'auxiliar' && closing.status !== 'pending') continue;
+      if (type === 'admin' && closing.status !== 'confirmed_auxiliar') continue;
+      if (type === 'admin' && closing.total_cash_cents > 0) continue;
+
+      try {
+        await confirmClosing.mutateAsync({ closingId: closing.id, closingType, type });
+        successCount++;
+      } catch {
+        errorCount++;
+      }
+    }
+
+    setBulkConfirming(false);
+    setSelectedClosings(new Set());
+    if (successCount > 0) toast.success(`${successCount} fechamento(s) confirmado(s)!`);
+    if (errorCount > 0) toast.error(`${errorCount} fechamento(s) falharam`);
   };
 
   const handlePrint = (closing: DeliveryClosingType) => {
@@ -601,6 +640,64 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
               </CardContent>
             </Card>
 
+            {/* Bulk selection bar */}
+            {filteredClosings.some(c => c.status !== 'confirmed_final') && (
+              <Card className="bg-primary/5 border-primary/20 mb-4">
+                <CardContent className="py-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Checkbox
+                      checked={
+                        filteredClosings.filter(c => c.status !== 'confirmed_final').length > 0 &&
+                        filteredClosings.filter(c => c.status !== 'confirmed_final').every(c => selectedClosings.has(c.id))
+                      }
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedClosings(new Set(filteredClosings.filter(c => c.status !== 'confirmed_final').map(c => c.id)));
+                        } else {
+                          setSelectedClosings(new Set());
+                        }
+                      }}
+                    />
+                    <span className="text-sm font-medium">
+                      {selectedClosings.size > 0
+                        ? `${selectedClosings.size} selecionado(s)`
+                        : 'Selecionar todos pendentes'}
+                    </span>
+                    {selectedClosings.size > 0 && (
+                      <>
+                        {canConfirmAuxiliar && filteredClosings.some(c => selectedClosings.has(c.id) && c.status === 'pending') && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleBulkConfirm('auxiliar')}
+                            disabled={bulkConfirming || confirmClosing.isPending}
+                          >
+                            {bulkConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCheck className="w-4 h-4 mr-1" />}
+                            Confirmar Financeiro ({filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'pending').length})
+                          </Button>
+                        )}
+                        {canConfirmAdmin && filteredClosings.some(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents === 0) && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={() => handleBulkConfirm('admin')}
+                            disabled={bulkConfirming || confirmClosing.isPending}
+                          >
+                            {bulkConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCheck className="w-4 h-4 mr-1" />}
+                            Confirmar Relatório ({filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents === 0).length})
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedClosings(new Set())}>
+                          <X className="w-4 h-4 mr-1" />
+                          Limpar
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {loadingClosings ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -624,11 +721,17 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                 {filteredClosings.map(closing => (
                   <Card 
                     key={closing.id}
-                    className={`transition-all ${viewingClosingId === closing.id ? `ring-2 ${colors.ring}` : ''}`}
+                    className={`transition-all ${selectedClosings.has(closing.id) ? 'ring-2 ring-primary/40' : ''} ${viewingClosingId === closing.id ? `ring-2 ${colors.ring}` : ''}`}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <CardTitle className="text-lg flex items-center gap-2">
+                          {closing.status !== 'confirmed_final' && (
+                            <Checkbox
+                              checked={selectedClosings.has(closing.id)}
+                              onCheckedChange={() => toggleClosingSelection(closing.id)}
+                            />
+                          )}
                           <IconComponent className="w-5 h-5" />
                           Fechamento #{closing.closing_number}
                         </CardTitle>
