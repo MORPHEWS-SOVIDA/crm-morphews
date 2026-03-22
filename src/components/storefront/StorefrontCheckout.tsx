@@ -656,6 +656,9 @@ export function StorefrontCheckout() {
       });
     } catch (error) {
       console.error('Checkout error:', error);
+      const rawMsg = error instanceof Error ? error.message : 'Erro ao processar pagamento';
+      const friendlyMsg = translateCheckoutError(rawMsg);
+      setCheckoutError(friendlyMsg);
       // Log payment_error (technical)
       logCheckoutEvent({
         organizationId: storefront.organization_id,
@@ -664,11 +667,11 @@ export function StorefrontCheckout() {
         customerName: formData.name,
         customerEmail: formData.email,
         customerPhone: formData.phone,
-        errorMessage: error instanceof Error ? error.message : 'Erro desconhecido',
+        errorMessage: rawMsg,
         sourceType: 'storefront',
         sourceId: storefront.id,
       });
-      toast.error(error instanceof Error ? error.message : 'Erro ao processar pagamento');
+      toast.error(friendlyMsg);
     } finally {
       setIsSubmitting(false);
     }
