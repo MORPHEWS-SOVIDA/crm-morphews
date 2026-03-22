@@ -144,6 +144,13 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
           />
         </TabsContent>
 
+        <TabsContent value="integration" className="mt-6">
+          <StorefrontIntegrationTab 
+            storefrontId={storefrontId} 
+            storefrontSlug={storefront.slug} 
+          />
+        </TabsContent>
+
         <TabsContent value="settings" className="mt-6">
           <StorefrontSettingsTab storefront={storefront} />
         </TabsContent>
