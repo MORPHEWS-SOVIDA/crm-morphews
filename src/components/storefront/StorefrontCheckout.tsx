@@ -1073,8 +1073,19 @@ export function StorefrontCheckout() {
                 </Label>
               </div>
 
+              {/* Checkout error banner */}
+              {checkoutError && (
+                <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10 text-destructive text-sm">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Não foi possível concluir o pedido</p>
+                    <p className="mt-1 opacity-90">{checkoutError}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Submit */}
-              <Button 
+              <Button
                 type="submit"
                 size="lg"
                 className="w-full"
