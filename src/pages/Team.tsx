@@ -2090,6 +2090,76 @@ export default function Team() {
             </Tabs>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deleteMemberTarget} onOpenChange={(open) => { if (!open) { setDeleteMemberTarget(null); setDeleteConfirmText(""); } }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="w-5 h-5" />
+                Excluir Usuário da Organização
+              </DialogTitle>
+              <DialogDescription>
+                Você está prestes a remover <strong>{deleteMemberTarget?.profile?.first_name} {deleteMemberTarget?.profile?.last_name}</strong> ({deleteMemberTarget?.profile?.email}) da organização.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 py-2">
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 space-y-2">
+                <p className="text-sm font-semibold text-destructive">⚠️ Esta ação é irreversível e pode causar:</p>
+                <ul className="text-sm text-destructive/90 list-disc pl-4 space-y-1">
+                  <li>Todos os leads deste usuário serão transferidos para o administrador</li>
+                  <li>Histórico de vendas permanecerá, mas sem vendedor vinculado</li>
+                  <li>Conversas de WhatsApp atribuídas a este usuário ficarão sem responsável</li>
+                  <li>Comissões pendentes podem ser perdidas</li>
+                  <li>O usuário perderá acesso imediato ao sistema</li>
+                </ul>
+              </div>
+
+              <div className="bg-muted rounded-lg p-3">
+                <p className="text-sm text-muted-foreground mb-1">
+                  💡 <strong>Dica:</strong> Se deseja apenas impedir o acesso temporariamente, considere <strong>desativar</strong> o usuário em vez de excluí-lo.
+                </p>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <Label className="text-sm font-medium">
+                  Para confirmar, digite <strong className="text-destructive">DELETAR</strong> abaixo:
+                </Label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Digite DELETAR"
+                  className="font-mono"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => { setDeleteMemberTarget(null); setDeleteConfirmText(""); }}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteConfirmText !== "DELETAR" || isDeletingUser === deleteMemberTarget?.id}
+                onClick={() => {
+                  if (deleteMemberTarget && deleteConfirmText === "DELETAR") {
+                    handleDeleteUser(deleteMemberTarget.id, deleteMemberTarget.user_id);
+                    setDeleteMemberTarget(null);
+                    setDeleteConfirmText("");
+                  }
+                }}
+              >
+                {isDeletingUser === deleteMemberTarget?.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                Excluir Permanentemente
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
