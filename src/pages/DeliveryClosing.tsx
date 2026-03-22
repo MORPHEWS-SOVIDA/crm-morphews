@@ -316,6 +316,42 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
     }
   };
 
+  const toggleClosingSelection = (closingId: string) => {
+    setSelectedClosings(prev => {
+      const next = new Set(prev);
+      if (next.has(closingId)) next.delete(closingId);
+      else next.add(closingId);
+      return next;
+    });
+  };
+
+  const handleBulkConfirm = async (type: 'auxiliar' | 'admin') => {
+    const closingsToConfirm = filteredClosings.filter(c => selectedClosings.has(c.id));
+    if (closingsToConfirm.length === 0) return;
+
+    setBulkConfirming(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const closing of closingsToConfirm) {
+      if (type === 'auxiliar' && closing.status !== 'pending') continue;
+      if (type === 'admin' && closing.status !== 'confirmed_auxiliar') continue;
+      if (type === 'admin' && closing.total_cash_cents > 0) continue;
+
+      try {
+        await confirmClosing.mutateAsync({ closingId: closing.id, closingType, type });
+        successCount++;
+      } catch {
+        errorCount++;
+      }
+    }
+
+    setBulkConfirming(false);
+    setSelectedClosings(new Set());
+    if (successCount > 0) toast.success(`${successCount} fechamento(s) confirmado(s)!`);
+    if (errorCount > 0) toast.error(`${errorCount} fechamento(s) falharam`);
+  };
+
   const handlePrint = (closing: DeliveryClosingType) => {
     window.open(config.printPath(closing.id), '_blank', 'noopener');
   };
