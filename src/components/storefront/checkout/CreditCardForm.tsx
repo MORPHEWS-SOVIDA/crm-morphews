@@ -101,7 +101,6 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
       if (n > 1 && passFeeToCustomer) {
         const feePercentage = installmentFees[String(n)] || 0;
         if (feePercentage > 0) {
-          totalForInstallment = Math.round(totalCents * (1 + feePercentage / 100));
           totalForInstallment = Math.round(safeTotalCents * (1 + feePercentage / 100));
           installmentValue = totalForInstallment / n;
           hasInterest = true;

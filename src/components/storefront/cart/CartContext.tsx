@@ -254,12 +254,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const updateQuantity = (productId: string, kitSize: number, quantity: number) => {
-    const safeQuantity = coercePositiveInt(quantity, 1);
-
-    if (safeQuantity <= 0) {
+    if (quantity <= 0) {
       removeItem(productId, kitSize);
       return;
     }
+
+    const safeQuantity = coercePositiveInt(quantity, 1);
 
     setItems(prev => {
       const newItems = prev.map(item => {
