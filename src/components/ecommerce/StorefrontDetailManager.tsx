@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Image, FileText, Layers, Package, Settings, Mail, Users, MessageSquareQuote } from 'lucide-react';
+import { ArrowLeft, Image, FileText, Layers, Package, Settings, Mail, Users, MessageSquareQuote, Code } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStorefront } from '@/hooks/ecommerce';
@@ -11,6 +11,7 @@ import { StorefrontSettingsTab } from './tabs/StorefrontSettingsTab';
 import { StorefrontTestimonialsTab } from './tabs/StorefrontTestimonialsTab';
 import { StorefrontEmailSequences } from './StorefrontEmailSequences';
 import { StorefrontCoproducersTab } from './tabs/StorefrontCoproducersTab';
+import { StorefrontIntegrationTab } from './tabs/StorefrontIntegrationTab';
 interface StorefrontDetailManagerProps {
   storefrontId: string;
   onBack: () => void;
