@@ -152,11 +152,29 @@ serve(async (req) => {
             productMap[c.id] = { name: c.name, image_url: c.image_url };
             console.log(`[Checkout] Resolved combo ${c.id} → ${c.name}`);
             
+            // Resolve a real lead_products ID from combo items for FK constraint
+            let realProductId: string | null = null;
+            const { data: comboItems } = await supabase
+              .from('product_combo_items')
+              .select('product_id')
+              .eq('combo_id', c.id)
+              .limit(1);
+            if (comboItems && comboItems.length > 0) {
+              realProductId = comboItems[0].product_id;
+            }
+            
             // Get correct price from product_combo_prices based on quantity
             for (const item of productItems) {
               if (item.product_id === c.id) {
                 item.product_name = c.name;
                 item.product_image_url = c.image_url;
+                item.is_combo = true;
+                item.combo_id = c.id;
+                // Remap product_id to a real lead_products ID so FK constraint passes
+                if (realProductId) {
+                  item.product_id = realProductId;
+                  productMap[realProductId] = { name: c.name, image_url: c.image_url };
+                }
                 // If price_cents is 0 or missing, resolve from combo prices
                 if (!item.price_cents) {
                   const { data: comboPrice } = await supabase
