@@ -138,29 +138,66 @@ serve(async (req) => {
         }
       }
 
-      // If some product_ids were NOT found in lead_products, try resolving via storefront_products
-      // This handles cases where external sites send storefront_product_id instead of lead_product_id
+      // If some product_ids were NOT found in lead_products, try as product_combos first
       const unresolvedIds = productIds.filter(id => !productMap[id]);
       if (unresolvedIds.length > 0) {
-        console.warn(`[Checkout] ${unresolvedIds.length} product IDs not found in lead_products, trying storefront_products resolution...`);
-        const { data: spMappings } = await supabase
-          .from('storefront_products')
-          .select('id, product_id, product:lead_products(id, name, image_url)')
+        // Try as combos (kits)
+        const { data: combos } = await supabase
+          .from('product_combos')
+          .select('id, name, image_url')
           .in('id', unresolvedIds);
         
-        if (spMappings) {
-          for (const sp of spMappings) {
-            const realProduct = sp.product as unknown as { id: string; name: string; image_url?: string } | null;
-            if (realProduct) {
-              console.log(`[Checkout] Resolved storefront_product ${sp.id} → lead_product ${realProduct.id} (${realProduct.name})`);
-              productMap[sp.id] = { name: realProduct.name, image_url: realProduct.image_url };
-              // Remap the product_id in productItems to the real lead_products ID
-              for (const item of productItems) {
-                if (item.product_id === sp.id) {
-                  item.product_id = realProduct.id;
-                  item.product_name = realProduct.name;
-                  item.product_image_url = realProduct.image_url;
-                  productMap[realProduct.id] = { name: realProduct.name, image_url: realProduct.image_url };
+        if (combos) {
+          for (const c of combos) {
+            productMap[c.id] = { name: c.name, image_url: c.image_url };
+            console.log(`[Checkout] Resolved combo ${c.id} → ${c.name}`);
+            
+            // Get correct price from product_combo_prices based on quantity
+            for (const item of productItems) {
+              if (item.product_id === c.id) {
+                item.product_name = c.name;
+                item.product_image_url = c.image_url;
+                // If price_cents is 0 or missing, resolve from combo prices
+                if (!item.price_cents) {
+                  const { data: comboPrice } = await supabase
+                    .from('product_combo_prices')
+                    .select('regular_price_cents')
+                    .eq('combo_id', c.id)
+                    .eq('multiplier', item.quantity || 1)
+                    .single();
+                  if (comboPrice) {
+                    item.price_cents = comboPrice.regular_price_cents * (item.quantity || 1);
+                    console.log(`[Checkout] Combo ${c.name} qty=${item.quantity}: unit=${comboPrice.regular_price_cents}, total=${item.price_cents}`);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Try remaining unresolved via storefront_products
+        const stillUnresolvedAfterCombos = productIds.filter(id => !productMap[id]);
+        if (stillUnresolvedAfterCombos.length > 0) {
+          console.warn(`[Checkout] ${stillUnresolvedAfterCombos.length} product IDs not found in lead_products or combos, trying storefront_products resolution...`);
+          const { data: spMappings } = await supabase
+            .from('storefront_products')
+            .select('id, product_id, product:lead_products(id, name, image_url)')
+            .in('id', stillUnresolvedAfterCombos);
+        
+          if (spMappings) {
+            for (const sp of spMappings) {
+              const realProduct = sp.product as unknown as { id: string; name: string; image_url?: string } | null;
+              if (realProduct) {
+                console.log(`[Checkout] Resolved storefront_product ${sp.id} → lead_product ${realProduct.id} (${realProduct.name})`);
+                productMap[sp.id] = { name: realProduct.name, image_url: realProduct.image_url };
+                // Remap the product_id in productItems to the real lead_products ID
+                for (const item of productItems) {
+                  if (item.product_id === sp.id) {
+                    item.product_id = realProduct.id;
+                    item.product_name = realProduct.name;
+                    item.product_image_url = realProduct.image_url;
+                    productMap[realProduct.id] = { name: realProduct.name, image_url: realProduct.image_url };
+                  }
                 }
               }
             }
