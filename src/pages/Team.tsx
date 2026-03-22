@@ -106,14 +106,14 @@ interface OrgMember {
 }
 
 // Component to render members with active/inactive filter
-function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, handleDeleteUser, isTogglingActive, isDeletingUser }: {
+function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser }: {
   member: OrgMember;
   user: any;
   myPermissions: any;
   getRoleBadge: (role: OrgRole) => React.ReactNode;
   handleEditMember: (member: OrgMember) => void;
   handleToggleUserActive: (member: OrgMember) => void;
-  handleDeleteUser: (memberId: string, userId: string) => void;
+  onRequestDelete: (member: OrgMember) => void;
   isTogglingActive: string | null;
   isDeletingUser: string | null;
 }) {
@@ -196,7 +196,7 @@ function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember
           </Button>
         )}
         {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_delete_member && (
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => handleDeleteUser(member.id, member.user_id)} disabled={isDeletingUser === member.id}>
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onRequestDelete(member)} disabled={isDeletingUser === member.id}>
             {isDeletingUser === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
           </Button>
         )}
@@ -205,14 +205,14 @@ function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember
   );
 }
 
-function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, handleDeleteUser, isTogglingActive, isDeletingUser }: {
+function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser }: {
   members: OrgMember[];
   user: any;
   myPermissions: any;
   getRoleBadge: (role: OrgRole) => React.ReactNode;
   handleEditMember: (member: OrgMember) => void;
   handleToggleUserActive: (member: OrgMember) => void;
-  handleDeleteUser: (memberId: string, userId: string) => void;
+  onRequestDelete: (member: OrgMember) => void;
   isTogglingActive: string | null;
   isDeletingUser: string | null;
 }) {
@@ -230,7 +230,7 @@ function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, han
     );
   }
 
-  const sharedProps = { user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, handleDeleteUser, isTogglingActive, isDeletingUser };
+  const sharedProps = { user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser };
 
   return (
     <div className="space-y-3">
@@ -322,6 +322,8 @@ export default function Team() {
   });
   const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
   const [isTogglingActive, setIsTogglingActive] = useState<string | null>(null);
+  const [deleteMemberTarget, setDeleteMemberTarget] = useState<OrgMember | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   
   // My Profile state
   const [isEditingMyProfile, setIsEditingMyProfile] = useState(false);
@@ -1609,7 +1611,7 @@ export default function Team() {
               </div>
             )}
 
-            <MembersListWithFilter members={members} user={user} myPermissions={myPermissions} getRoleBadge={getRoleBadge} handleEditMember={handleEditMember} handleToggleUserActive={handleToggleUserActive} handleDeleteUser={handleDeleteUser} isTogglingActive={isTogglingActive} isDeletingUser={isDeletingUser} />
+            <MembersListWithFilter members={members} user={user} myPermissions={myPermissions} getRoleBadge={getRoleBadge} handleEditMember={handleEditMember} handleToggleUserActive={handleToggleUserActive} onRequestDelete={(member) => { setDeleteMemberTarget(member); setDeleteConfirmText(""); }} isTogglingActive={isTogglingActive} isDeletingUser={isDeletingUser} />
           </CardContent>
         </Card>
 
@@ -2086,6 +2088,76 @@ export default function Team() {
                 )}
               </TabsContent>
             </Tabs>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deleteMemberTarget} onOpenChange={(open) => { if (!open) { setDeleteMemberTarget(null); setDeleteConfirmText(""); } }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="w-5 h-5" />
+                Excluir Usuário da Organização
+              </DialogTitle>
+              <DialogDescription>
+                Você está prestes a remover <strong>{deleteMemberTarget?.profile?.first_name} {deleteMemberTarget?.profile?.last_name}</strong> ({deleteMemberTarget?.profile?.email}) da organização.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 py-2">
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 space-y-2">
+                <p className="text-sm font-semibold text-destructive">⚠️ Esta ação é irreversível e pode causar:</p>
+                <ul className="text-sm text-destructive/90 list-disc pl-4 space-y-1">
+                  <li>Todos os leads deste usuário serão transferidos para o administrador</li>
+                  <li>Histórico de vendas permanecerá, mas sem vendedor vinculado</li>
+                  <li>Conversas de WhatsApp atribuídas a este usuário ficarão sem responsável</li>
+                  <li>Comissões pendentes podem ser perdidas</li>
+                  <li>O usuário perderá acesso imediato ao sistema</li>
+                </ul>
+              </div>
+
+              <div className="bg-muted rounded-lg p-3">
+                <p className="text-sm text-muted-foreground mb-1">
+                  💡 <strong>Dica:</strong> Se deseja apenas impedir o acesso temporariamente, considere <strong>desativar</strong> o usuário em vez de excluí-lo.
+                </p>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <Label className="text-sm font-medium">
+                  Para confirmar, digite <strong className="text-destructive">DELETAR</strong> abaixo:
+                </Label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Digite DELETAR"
+                  className="font-mono"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => { setDeleteMemberTarget(null); setDeleteConfirmText(""); }}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deleteConfirmText !== "DELETAR" || isDeletingUser === deleteMemberTarget?.id}
+                onClick={() => {
+                  if (deleteMemberTarget && deleteConfirmText === "DELETAR") {
+                    handleDeleteUser(deleteMemberTarget.id, deleteMemberTarget.user_id);
+                    setDeleteMemberTarget(null);
+                    setDeleteConfirmText("");
+                  }
+                }}
+              >
+                {isDeletingUser === deleteMemberTarget?.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                Excluir Permanentemente
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
