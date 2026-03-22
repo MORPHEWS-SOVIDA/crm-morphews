@@ -230,7 +230,7 @@ function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, han
     );
   }
 
-  const sharedProps = { user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, handleDeleteUser, isTogglingActive, isDeletingUser };
+  const sharedProps = { user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser };
 
   return (
     <div className="space-y-3">
