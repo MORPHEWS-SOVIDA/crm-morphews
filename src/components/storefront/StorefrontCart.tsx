@@ -14,18 +14,21 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 // Resolve product prices and details from DB when external cart items have price 0
+// Supports both regular products (product_id) and combos (combo_id)
 async function resolveProductDetails(
   productId: string,
-  storefrontId: string
-): Promise<{ name: string; imageUrl: string | null; unitPrice: number } | null> {
+  storefrontId: string,
+  quantity?: number
+): Promise<{ name: string; imageUrl: string | null; unitPrice: number; isCombo?: boolean } | null> {
   try {
+    // Try regular product first
     const { data } = await supabase
       .from('storefront_products')
       .select(`
         custom_price_cents,
         product:lead_products(
           name, ecommerce_title, image_url, ecommerce_images,
-          price_1_unit, base_price_cents
+          price_1_unit, price_3_units, price_6_units, base_price_cents
         )
       `)
       .eq('storefront_id', storefrontId)
@@ -33,12 +36,52 @@ async function resolveProductDetails(
       .eq('is_visible', true)
       .single();
 
-    if (!data?.product) return null;
-    const p = data.product as any;
-    const price = data.custom_price_cents || p.price_1_unit || p.base_price_cents || 0;
-    const name = p.ecommerce_title || p.name || 'Produto';
-    const imageUrl = p.ecommerce_images?.[0] || p.image_url || null;
-    return { name, imageUrl, unitPrice: price };
+    if (data?.product) {
+      const p = data.product as any;
+      // Use tiered pricing based on quantity
+      let price = data.custom_price_cents || p.price_1_unit || p.base_price_cents || 0;
+      if (quantity && quantity >= 5 && p.price_6_units) {
+        price = Math.round(p.price_6_units / quantity); // price_6_units is total, we need per-unit
+      } else if (quantity && quantity >= 3 && p.price_3_units) {
+        price = Math.round(p.price_3_units / quantity);
+      }
+      const name = p.ecommerce_title || p.name || 'Produto';
+      const imageUrl = p.ecommerce_images?.[0] || p.image_url || null;
+      return { name, imageUrl, unitPrice: price };
+    }
+
+    // Try as combo
+    const { data: comboData } = await supabase
+      .from('storefront_products')
+      .select(`
+        custom_price_cents,
+        combo:product_combos(name, image_url)
+      `)
+      .eq('storefront_id', storefrontId)
+      .eq('combo_id', productId)
+      .eq('is_visible', true)
+      .single();
+
+    if (comboData?.combo) {
+      const c = comboData.combo as any;
+      // Get combo price from product_combo_prices based on quantity (multiplier)
+      let price = comboData.custom_price_cents || 0;
+      if (!price) {
+        const multiplier = quantity || 1;
+        const { data: comboPrice } = await supabase
+          .from('product_combo_prices')
+          .select('regular_price_cents')
+          .eq('combo_id', productId)
+          .eq('multiplier', multiplier)
+          .single();
+        price = comboPrice?.regular_price_cents || 0;
+      }
+      const name = c.name || 'Kit';
+      const imageUrl = c.image_url || null;
+      return { name, imageUrl, unitPrice: price, isCombo: true };
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -124,7 +167,7 @@ export function StorefrontCart() {
 
               // If price is 0 or name is missing, resolve from DB
               if (!unitPrice || !itemName || itemName === 'Produto') {
-                const resolved = await resolveProductDetails(productId, storefront.id);
+                const resolved = await resolveProductDetails(productId, storefront.id, quantity);
                 if (resolved) {
                   unitPrice = unitPrice || resolved.unitPrice;
                   itemName = (!itemName || itemName === 'Produto') ? resolved.name : itemName;

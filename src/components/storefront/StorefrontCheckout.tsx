@@ -154,18 +154,55 @@ export function StorefrontCheckout() {
               // Resolve from DB if price/name missing
               if (!unitPrice || !itemName || itemName === 'Produto') {
                 try {
+                  // Try as regular product first
+                  let resolved = false;
                   const { data } = await supabase
                     .from('storefront_products')
-                    .select(`custom_price_cents, product:lead_products(name, ecommerce_title, image_url, ecommerce_images, price_1_unit, base_price_cents)`)
+                    .select(`custom_price_cents, product:lead_products(name, ecommerce_title, image_url, ecommerce_images, price_1_unit, price_3_units, price_6_units, base_price_cents)`)
                     .eq('storefront_id', storefront.id)
                     .eq('product_id', productId)
                     .eq('is_visible', true)
                     .single();
                   if (data?.product) {
                     const p = data.product as any;
-                    unitPrice = unitPrice || data.custom_price_cents || p.price_1_unit || p.base_price_cents || 0;
+                    let price = data.custom_price_cents || p.price_1_unit || p.base_price_cents || 0;
+                    // Tiered pricing
+                    if (quantity >= 5 && p.price_6_units) {
+                      price = Math.round(p.price_6_units / quantity);
+                    } else if (quantity >= 3 && p.price_3_units) {
+                      price = Math.round(p.price_3_units / quantity);
+                    }
+                    unitPrice = unitPrice || price;
                     itemName = (!itemName || itemName === 'Produto') ? (p.ecommerce_title || p.name) : itemName;
                     imageUrl = imageUrl || p.ecommerce_images?.[0] || p.image_url || null;
+                    resolved = true;
+                  }
+                  
+                  // Try as combo if not found as product
+                  if (!resolved) {
+                    const { data: comboData } = await supabase
+                      .from('storefront_products')
+                      .select(`custom_price_cents, combo:product_combos(name, image_url)`)
+                      .eq('storefront_id', storefront.id)
+                      .eq('combo_id', productId)
+                      .eq('is_visible', true)
+                      .single();
+                    if (comboData?.combo) {
+                      const c = comboData.combo as any;
+                      let price = comboData.custom_price_cents || 0;
+                      if (!price) {
+                        const { data: comboPrice } = await supabase
+                          .from('product_combo_prices')
+                          .select('regular_price_cents')
+                          .eq('combo_id', productId)
+                          .eq('multiplier', quantity || 1)
+                          .single();
+                        price = comboPrice?.regular_price_cents || 0;
+                      }
+                      unitPrice = unitPrice || price;
+                      itemName = (!itemName || itemName === 'Produto') ? c.name : itemName;
+                      imageUrl = imageUrl || c.image_url || null;
+                    }
                   }
                 } catch {}
               }
