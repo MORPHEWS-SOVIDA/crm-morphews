@@ -61,7 +61,7 @@ serve(async (req) => {
 
     // 1. Determine organization from storefront or landing page
     let organizationId: string | null = null;
-    let productItems: { product_id: string; quantity: number; price_cents: number; product_name?: string; product_image_url?: string }[] = items || [];
+    let productItems: { product_id: string; quantity: number; price_cents: number; product_name?: string; product_image_url?: string; is_combo?: boolean; combo_id?: string }[] = items || [];
 
     // 1a. If cart_id is provided and items are empty, fetch items from cart
     if (cart_id && productItems.length === 0) {
