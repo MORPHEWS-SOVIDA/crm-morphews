@@ -1,0 +1,1 @@
+UPDATE tenant_storefronts SET cart_config = jsonb_set(cart_config::jsonb, '{freeShippingThreshold}', '25000') WHERE slug = 'balestrero';

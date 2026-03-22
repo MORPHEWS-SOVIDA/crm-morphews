@@ -391,9 +391,9 @@ export function StorefrontCheckout() {
     freeShippingThreshold?: number;
     minOrderValue?: number;
   } || {};
-  const freeShippingThreshold = cartConfig.freeShippingThreshold || 0;
-  const hasComboInCart = items.some(item => item.isCombo);
-  const hasFreeShipping = hasComboInCart || (freeShippingThreshold > 0 && subtotal >= freeShippingThreshold) || subtotal >= 25000;
+  // Free shipping: only when subtotal meets the configured threshold (default R$250 = 25000 cents)
+  const freeShippingThreshold = cartConfig.freeShippingThreshold || 25000;
+  const hasFreeShipping = subtotal >= freeShippingThreshold;
   
   // Apply free shipping if subtotal meets threshold
   const shippingCents = hasFreeShipping ? 0 : (selectedShipping?.price_cents || 0);
