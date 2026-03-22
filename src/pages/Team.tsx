@@ -106,14 +106,14 @@ interface OrgMember {
 }
 
 // Component to render members with active/inactive filter
-function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, handleDeleteUser, isTogglingActive, isDeletingUser }: {
+function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser }: {
   member: OrgMember;
   user: any;
   myPermissions: any;
   getRoleBadge: (role: OrgRole) => React.ReactNode;
   handleEditMember: (member: OrgMember) => void;
   handleToggleUserActive: (member: OrgMember) => void;
-  handleDeleteUser: (memberId: string, userId: string) => void;
+  onRequestDelete: (member: OrgMember) => void;
   isTogglingActive: string | null;
   isDeletingUser: string | null;
 }) {
