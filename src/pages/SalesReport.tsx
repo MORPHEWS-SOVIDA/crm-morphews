@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { format, startOfMonth, endOfMonth, parseISO } from "date-fns";
+import { format, startOfMonth, endOfMonth, parseISO, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,8 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   TrendingUp,
   Package,
   Truck,
@@ -428,6 +430,79 @@ export default function SalesReport() {
             </Button>
           </div>
         </div>
+
+        {/* Period Selector - Always visible */}
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="py-3 px-4">
+            <div className="flex flex-wrap items-center gap-3 justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-foreground">Período:</span>
+                <span className="text-lg font-bold text-primary">
+                  {format(parseISO(startDate), "dd/MM/yyyy", { locale: ptBR })} — {format(parseISO(endDate), "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    const prev = subMonths(parseISO(startDate), 1);
+                    setStartDate(format(startOfMonth(prev), "yyyy-MM-dd"));
+                    setEndDate(format(endOfMonth(prev), "yyyy-MM-dd"));
+                  }}
+                  title="Mês anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => {
+                    setStartDate(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+                    setEndDate(format(endOfMonth(new Date()), "yyyy-MM-dd"));
+                  }}
+                >
+                  Mês Atual
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    const next = addMonths(parseISO(startDate), 1);
+                    setStartDate(format(startOfMonth(next), "yyyy-MM-dd"));
+                    setEndDate(format(endOfMonth(next), "yyyy-MM-dd"));
+                  }}
+                  title="Próximo mês"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <span className="text-muted-foreground mx-1">|</span>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="h-8 w-[140px] text-sm"
+                />
+                <span className="text-muted-foreground text-sm">até</span>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="h-8 w-[140px] text-sm"
+                />
+              </div>
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Base: {DATE_FILTER_OPTIONS.find(o => o.value === dateField)?.label || 'Data de Criação'}
+              {' · '}
+              {filteredSales.length} venda{filteredSales.length !== 1 ? 's' : ''} encontrada{filteredSales.length !== 1 ? 's' : ''}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Summary Cards - Estilo Sistema Antigo */}
         <SalesReportSummaryCards sales={filteredSales} formatCurrency={formatCurrency} />
