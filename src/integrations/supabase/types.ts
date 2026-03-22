@@ -1621,6 +1621,78 @@ export type Database = {
           },
         ]
       }
+      checkout_events: {
+        Row: {
+          cart_id: string | null
+          created_at: string
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          error_message: string | null
+          event_data: Json | null
+          event_type: string
+          id: string
+          ip_address: string | null
+          organization_id: string
+          session_id: string | null
+          source_id: string | null
+          source_type: string | null
+          source_url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          cart_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          error_message?: string | null
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          organization_id: string
+          session_id?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          cart_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          error_message?: string | null
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          organization_id?: string
+          session_id?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkout_events_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "ecommerce_carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkout_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkout_testimonials: {
         Row: {
           author_location: string | null
@@ -3649,6 +3721,7 @@ export type Database = {
         Row: {
           abandoned_at: string | null
           affiliate_id: string | null
+          checkout_started_at: string | null
           converted_sale_id: string | null
           coupon_code: string | null
           coupon_discount_cents: number | null
@@ -3658,16 +3731,22 @@ export type Database = {
           customer_email: string | null
           customer_name: string | null
           customer_phone: string | null
+          device_info: Json | null
           discount_cents: number | null
+          events_count: number | null
           expires_at: string | null
           fbclid: string | null
           gclid: string | null
           id: string
           items: Json | null
           landing_page_id: string | null
+          last_error: string | null
+          last_error_at: string | null
           lead_id: string | null
           offer_id: string | null
           organization_id: string
+          payment_attempted_at: string | null
+          payment_method: string | null
           recovery_email_sent_at: string | null
           recovery_sent_at: string | null
           recovery_whatsapp_sent_at: string | null
@@ -3677,6 +3756,8 @@ export type Database = {
           shipping_cep: string | null
           shipping_city: string | null
           shipping_state: string | null
+          source_type: string | null
+          source_url: string | null
           src: string | null
           standalone_checkout_id: string | null
           status: string | null
@@ -3694,6 +3775,7 @@ export type Database = {
         Insert: {
           abandoned_at?: string | null
           affiliate_id?: string | null
+          checkout_started_at?: string | null
           converted_sale_id?: string | null
           coupon_code?: string | null
           coupon_discount_cents?: number | null
@@ -3703,16 +3785,22 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          device_info?: Json | null
           discount_cents?: number | null
+          events_count?: number | null
           expires_at?: string | null
           fbclid?: string | null
           gclid?: string | null
           id?: string
           items?: Json | null
           landing_page_id?: string | null
+          last_error?: string | null
+          last_error_at?: string | null
           lead_id?: string | null
           offer_id?: string | null
           organization_id: string
+          payment_attempted_at?: string | null
+          payment_method?: string | null
           recovery_email_sent_at?: string | null
           recovery_sent_at?: string | null
           recovery_whatsapp_sent_at?: string | null
@@ -3722,6 +3810,8 @@ export type Database = {
           shipping_cep?: string | null
           shipping_city?: string | null
           shipping_state?: string | null
+          source_type?: string | null
+          source_url?: string | null
           src?: string | null
           standalone_checkout_id?: string | null
           status?: string | null
@@ -3739,6 +3829,7 @@ export type Database = {
         Update: {
           abandoned_at?: string | null
           affiliate_id?: string | null
+          checkout_started_at?: string | null
           converted_sale_id?: string | null
           coupon_code?: string | null
           coupon_discount_cents?: number | null
@@ -3748,16 +3839,22 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          device_info?: Json | null
           discount_cents?: number | null
+          events_count?: number | null
           expires_at?: string | null
           fbclid?: string | null
           gclid?: string | null
           id?: string
           items?: Json | null
           landing_page_id?: string | null
+          last_error?: string | null
+          last_error_at?: string | null
           lead_id?: string | null
           offer_id?: string | null
           organization_id?: string
+          payment_attempted_at?: string | null
+          payment_method?: string | null
           recovery_email_sent_at?: string | null
           recovery_sent_at?: string | null
           recovery_whatsapp_sent_at?: string | null
@@ -3767,6 +3864,8 @@ export type Database = {
           shipping_cep?: string | null
           shipping_city?: string | null
           shipping_state?: string | null
+          source_type?: string | null
+          source_url?: string | null
           src?: string | null
           standalone_checkout_id?: string | null
           status?: string | null
