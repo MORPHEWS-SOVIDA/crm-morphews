@@ -181,6 +181,9 @@ serve(async (req) => {
       updated_at: new Date().toISOString(),
     };
 
+    // Track source info
+    cartData.source_type = source || 'storefront';
+
     if (affiliate_code) {
       cartData.affiliate_code = affiliate_code;
     }
