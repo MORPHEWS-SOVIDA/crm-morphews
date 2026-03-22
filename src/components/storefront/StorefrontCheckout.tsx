@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useOutletContext, useNavigate, Link, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ShieldCheck, CreditCard, QrCode, FileText, Loader2, Package, Save, Truck } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, CreditCard, QrCode, FileText, Loader2, Package, Save, Truck, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,31 @@ function formatCurrency(cents: number): string {
   }).format(safeCents / 100);
 }
 
+function translateCheckoutError(msg: string): string {
+  const lower = msg.toLowerCase();
+  const translations: [RegExp | string, string][] = [
+    [/cep.*inv[aá]lid|invalid.*zip|zip.*invalid|cep.*n[ãa]o encontrado/i, 'CEP inválido ou não encontrado. Verifique o CEP informado.'],
+    [/cpf.*inv[aá]lid|invalid.*document|document.*invalid/i, 'CPF/CNPJ inválido. Verifique o documento informado.'],
+    [/card.*declined|cart[ãa]o.*recusad|transaction.*refused|pagamento.*recusad/i, 'Pagamento recusado pela operadora do cartão. Tente outro cartão ou forma de pagamento.'],
+    [/insufficient.*funds|saldo.*insuficiente/i, 'Saldo insuficiente no cartão. Tente outro cartão.'],
+    [/expired.*card|cart[ãa]o.*vencid|cart[ãa]o.*expirad/i, 'Cartão vencido. Use um cartão válido.'],
+    [/invalid.*card|cart[ãa]o.*inv[aá]lid|n[uú]mero.*cart[ãa]o/i, 'Dados do cartão inválidos. Verifique número, validade e CVV.'],
+    [/cvv|security.*code|c[oó]digo.*seguran/i, 'Código de segurança (CVV) incorreto.'],
+    [/timeout|tempo.*esgot|time.*out/i, 'A operação demorou muito. Tente novamente.'],
+    [/network|conex[ãa]o|internet/i, 'Erro de conexão. Verifique sua internet e tente novamente.'],
+    [/address.*required|endere[cç]o.*obrigat/i, 'Endereço de entrega é obrigatório. Preencha todos os campos.'],
+    [/phone.*required|telefone.*obrigat/i, 'Telefone é obrigatório.'],
+    [/email.*required|email.*obrigat|e-mail.*inv[aá]lid/i, 'E-mail inválido ou não informado.'],
+    [/antifraud|anti.?fraud|fraude/i, 'Pagamento bloqueado pelo sistema antifraude. Tente outro cartão.'],
+  ];
+  for (const [pattern, translation] of translations) {
+    if (typeof pattern === 'string' ? lower.includes(pattern) : pattern.test(msg)) {
+      return translation;
+    }
+  }
+  return msg;
+}
+
 // Saved cards - will be fetched from saved_payment_methods once lead is identified
 // For now, empty array until we implement real lookup
 const SAVED_CARDS: { id: string; card_brand: string; card_last_digits: string; is_default: boolean; gateway_type: string }[] = [];
@@ -41,6 +66,7 @@ export function StorefrontCheckout() {
   const { getUtmForCheckout } = useUtmTracker();
   const [restoringCart, setRestoringCart] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('credit_card');
   const [acceptedTerms, setAcceptedTerms] = useState(true); // Pre-accepted for smoother checkout
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -483,6 +509,7 @@ export function StorefrontCheckout() {
     }
     
     setIsSubmitting(true);
+    setCheckoutError(null);
     
     try {
       // Log checkout_started event
@@ -654,6 +681,9 @@ export function StorefrontCheckout() {
       });
     } catch (error) {
       console.error('Checkout error:', error);
+      const rawMsg = error instanceof Error ? error.message : 'Erro ao processar pagamento';
+      const friendlyMsg = translateCheckoutError(rawMsg);
+      setCheckoutError(friendlyMsg);
       // Log payment_error (technical)
       logCheckoutEvent({
         organizationId: storefront.organization_id,
@@ -662,11 +692,11 @@ export function StorefrontCheckout() {
         customerName: formData.name,
         customerEmail: formData.email,
         customerPhone: formData.phone,
-        errorMessage: error instanceof Error ? error.message : 'Erro desconhecido',
+        errorMessage: rawMsg,
         sourceType: 'storefront',
         sourceId: storefront.id,
       });
-      toast.error(error instanceof Error ? error.message : 'Erro ao processar pagamento');
+      toast.error(friendlyMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -1043,8 +1073,19 @@ export function StorefrontCheckout() {
                 </Label>
               </div>
 
+              {/* Checkout error banner */}
+              {checkoutError && (
+                <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10 text-destructive text-sm">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Não foi possível concluir o pedido</p>
+                    <p className="mt-1 opacity-90">{checkoutError}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Submit */}
-              <Button 
+              <Button
                 type="submit"
                 size="lg"
                 className="w-full"
