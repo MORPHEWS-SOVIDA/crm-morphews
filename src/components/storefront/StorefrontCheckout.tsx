@@ -723,6 +723,30 @@ export function StorefrontCheckout() {
     }
   };
 
+  // Auto-trigger CEP lookup when user types 8 digits (don't wait for blur)
+  const handleCepChange = useCallback((value: string) => {
+    const cleanCep = value.replace(/\D/g, '');
+    setFormData(prev => ({ ...prev, cep: cleanCep }));
+    
+    if (cleanCep.length === 8) {
+      // Auto-lookup address
+      fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.erro) {
+            setFormData(prev => ({
+              ...prev,
+              street: prev.street || data.logradouro || '',
+              neighborhood: prev.neighborhood || data.bairro || '',
+              city: prev.city || data.localidade || '',
+              state: prev.state || data.uf || '',
+            }));
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Back link */}
