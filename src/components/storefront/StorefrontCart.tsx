@@ -12,6 +12,7 @@ import { useTenantInstallmentFees, calculateInstallmentWithInterest } from '@/ho
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { logCheckoutEvent } from '@/hooks/ecommerce/useCheckoutEvents';
 
 // Resolve product prices and details from DB when external cart items have price 0
 // Supports both regular products (product_id) and combos (combo_id)
@@ -140,8 +141,24 @@ export function StorefrontCart() {
       if (cartParam) {
         const decoded = JSON.parse(decodeURIComponent(atob(cartParam)));
         console.log('[Cart] 📦 Received external cart data:', JSON.stringify(decoded, null, 2));
-        console.log('[Cart] Items count:', decoded.items?.length || 0);
-        console.log('[Cart] Customer:', decoded.customer?.name, decoded.customer?.email);
+
+        // Log cart_loaded event
+        logCheckoutEvent({
+          organizationId: storefront.organization_id,
+          sessionId: localStorage.getItem('cart_session_id') || undefined,
+          eventType: 'cart_loaded',
+          eventData: {
+            items_count: decoded.items?.length || 0,
+            has_customer: !!(decoded.customer?.name || customerData.name),
+            raw_cart_keys: Object.keys(decoded),
+          },
+          customerName: customerData.name || decoded.customer?.name,
+          customerEmail: customerData.email || decoded.customer?.email,
+          customerPhone: customerData.phone || decoded.customer?.phone || decoded.customer?.whatsapp,
+          sourceUrl: window.location.href,
+          sourceType: 'storefront',
+          sourceId: storefront.id,
+        });
 
         // Merge customer from base64 (lower priority than query params)
         if (decoded.customer) {
@@ -193,7 +210,6 @@ export function StorefrontCart() {
       // Save customer data for checkout to pick up
       if (customerData.name || customerData.email || customerData.phone) {
         localStorage.setItem('checkout_customer', JSON.stringify(customerData));
-        console.log('[Cart] 👤 Customer data saved:', customerData);
       }
 
       // Clean URL
