@@ -28,6 +28,31 @@ function formatCurrency(cents: number): string {
   }).format(safeCents / 100);
 }
 
+function translateCheckoutError(msg: string): string {
+  const lower = msg.toLowerCase();
+  const translations: [RegExp | string, string][] = [
+    [/cep.*inv[aá]lid|invalid.*zip|zip.*invalid|cep.*n[ãa]o encontrado/i, 'CEP inválido ou não encontrado. Verifique o CEP informado.'],
+    [/cpf.*inv[aá]lid|invalid.*document|document.*invalid/i, 'CPF/CNPJ inválido. Verifique o documento informado.'],
+    [/card.*declined|cart[ãa]o.*recusad|transaction.*refused|pagamento.*recusad/i, 'Pagamento recusado pela operadora do cartão. Tente outro cartão ou forma de pagamento.'],
+    [/insufficient.*funds|saldo.*insuficiente/i, 'Saldo insuficiente no cartão. Tente outro cartão.'],
+    [/expired.*card|cart[ãa]o.*vencid|cart[ãa]o.*expirad/i, 'Cartão vencido. Use um cartão válido.'],
+    [/invalid.*card|cart[ãa]o.*inv[aá]lid|n[uú]mero.*cart[ãa]o/i, 'Dados do cartão inválidos. Verifique número, validade e CVV.'],
+    [/cvv|security.*code|c[oó]digo.*seguran/i, 'Código de segurança (CVV) incorreto.'],
+    [/timeout|tempo.*esgot|time.*out/i, 'A operação demorou muito. Tente novamente.'],
+    [/network|conex[ãa]o|internet/i, 'Erro de conexão. Verifique sua internet e tente novamente.'],
+    [/address.*required|endere[cç]o.*obrigat/i, 'Endereço de entrega é obrigatório. Preencha todos os campos.'],
+    [/phone.*required|telefone.*obrigat/i, 'Telefone é obrigatório.'],
+    [/email.*required|email.*obrigat|e-mail.*inv[aá]lid/i, 'E-mail inválido ou não informado.'],
+    [/antifraud|anti.?fraud|fraude/i, 'Pagamento bloqueado pelo sistema antifraude. Tente outro cartão.'],
+  ];
+  for (const [pattern, translation] of translations) {
+    if (typeof pattern === 'string' ? lower.includes(pattern) : pattern.test(msg)) {
+      return translation;
+    }
+  }
+  return msg;
+}
+
 // Saved cards - will be fetched from saved_payment_methods once lead is identified
 // For now, empty array until we implement real lookup
 const SAVED_CARDS: { id: string; card_brand: string; card_last_digits: string; is_default: boolean; gateway_type: string }[] = [];
