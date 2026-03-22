@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Image, FileText, Layers, Package, Settings, Mail, Users, MessageSquareQuote } from 'lucide-react';
+import { ArrowLeft, Image, FileText, Layers, Package, Settings, Mail, Users, MessageSquareQuote, Code } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useStorefront } from '@/hooks/ecommerce';
@@ -11,6 +11,7 @@ import { StorefrontSettingsTab } from './tabs/StorefrontSettingsTab';
 import { StorefrontTestimonialsTab } from './tabs/StorefrontTestimonialsTab';
 import { StorefrontEmailSequences } from './StorefrontEmailSequences';
 import { StorefrontCoproducersTab } from './tabs/StorefrontCoproducersTab';
+import { StorefrontIntegrationTab } from './tabs/StorefrontIntegrationTab';
 interface StorefrontDetailManagerProps {
   storefrontId: string;
   onBack: () => void;
@@ -70,7 +71,7 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="banners" className="gap-2">
             <Image className="h-4 w-4" />
             <span className="hidden sm:inline">Banners</span>
@@ -98,6 +99,10 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
           <TabsTrigger value="affiliates" className="gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Parceiros</span>
+          </TabsTrigger>
+          <TabsTrigger value="integration" className="gap-2">
+            <Code className="h-4 w-4" />
+            <span className="hidden sm:inline">Integração</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2">
             <Settings className="h-4 w-4" />
@@ -136,6 +141,13 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
           <StorefrontCoproducersTab
             storefrontId={storefrontId}
             storefrontName={storefront.name}
+          />
+        </TabsContent>
+
+        <TabsContent value="integration" className="mt-6">
+          <StorefrontIntegrationTab 
+            storefrontId={storefrontId} 
+            storefrontSlug={storefront.slug} 
           />
         </TabsContent>
 
