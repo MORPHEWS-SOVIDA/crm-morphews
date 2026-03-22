@@ -14,7 +14,8 @@ import {
   ShoppingBag,
   ClipboardList,
   CreditCard,
-  Link2
+  Link2,
+  Activity
 } from 'lucide-react';
 
 // Full menu for admins
@@ -25,6 +26,7 @@ const adminNavItems = [
   { path: '/ecommerce/checkouts', label: 'Checkouts', icon: CreditCard },
   { path: '/ecommerce/vendas', label: 'Vendas', icon: ShoppingBag },
   { path: '/ecommerce/carrinhos', label: 'Carrinhos', icon: ShoppingCart },
+  { path: '/ecommerce/checkout-logs', label: 'Logs', icon: Activity },
   { path: '/ecommerce/emails', label: 'E-mails', icon: Mail },
   { path: '/ecommerce/parceiros', label: 'Parceiros', icon: Users },
   { path: '/ecommerce/carteira', label: 'Carteira', icon: Wallet },
