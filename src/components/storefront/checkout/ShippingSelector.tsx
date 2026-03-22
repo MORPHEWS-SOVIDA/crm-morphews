@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Truck, Clock, Loader2, AlertCircle, Gift } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -39,6 +39,13 @@ export function ShippingSelector({ cep, organizationId, onSelect, primaryColor, 
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, []);
 
   const fetchShippingOptions = useCallback(async () => {
     if (!cep || cep.length !== 8 || !organizationId) {
@@ -70,8 +77,9 @@ export function ShippingSelector({ cep, organizationId, onSelect, primaryColor, 
 
       setOptions(validOptions);
 
-      // Auto-select: if free shipping, auto-select PAC; otherwise cheapest
       if (validOptions.length > 0) {
+        scrollIntoView();
+
         let autoSelect: ShippingOption;
         if (hasFreeShipping) {
           autoSelect = validOptions.find((o: ShippingOption) => isPac(o.service_code)) || validOptions[0];
@@ -84,14 +92,16 @@ export function ShippingSelector({ cep, organizationId, onSelect, primaryColor, 
         onSelect(autoSelect);
       } else if (data?.quotes?.length > 0 && data.quotes[0].error) {
         setError(data.quotes[0].error);
+        scrollIntoView();
       }
     } catch (e) {
       console.error('Shipping fetch error:', e);
       setError('Erro ao calcular frete. Tente novamente.');
+      scrollIntoView();
     } finally {
       setIsLoading(false);
     }
-  }, [cep, organizationId, onSelect, hasFreeShipping]);
+  }, [cep, organizationId, onSelect, hasFreeShipping, scrollIntoView]);
 
   useEffect(() => {
     const timer = setTimeout(fetchShippingOptions, 500);
@@ -106,7 +116,7 @@ export function ShippingSelector({ cep, organizationId, onSelect, primaryColor, 
 
   if (!cep || cep.length < 8) {
     return (
-      <div className="text-sm text-muted-foreground flex items-center gap-2 py-4">
+      <div ref={containerRef} className="text-sm text-muted-foreground flex items-center gap-2 py-4">
         <Truck className="h-4 w-4" />
         Preencha o CEP para calcular o frete
       </div>
@@ -115,7 +125,7 @@ export function ShippingSelector({ cep, organizationId, onSelect, primaryColor, 
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 py-4 text-muted-foreground">
+      <div ref={containerRef} className="flex items-center gap-2 py-4 text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
         Calculando frete...
       </div>
@@ -124,7 +134,7 @@ export function ShippingSelector({ cep, organizationId, onSelect, primaryColor, 
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 py-4 text-destructive text-sm">
+      <div ref={containerRef} className="flex items-center gap-2 py-4 text-destructive text-sm">
         <AlertCircle className="h-4 w-4" />
         {error}
       </div>
@@ -133,14 +143,14 @@ export function ShippingSelector({ cep, organizationId, onSelect, primaryColor, 
 
   if (options.length === 0) {
     return (
-      <div className="text-sm text-muted-foreground py-4">
+      <div ref={containerRef} className="text-sm text-muted-foreground py-4">
         Nenhuma opção de frete disponível para este CEP.
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div ref={containerRef} className="space-y-3">
       {/* Free shipping banner */}
       {hasFreeShipping && (
         <div
