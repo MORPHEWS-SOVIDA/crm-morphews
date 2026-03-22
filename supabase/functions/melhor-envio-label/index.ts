@@ -136,11 +136,13 @@ async function createLabel(
       country_id: 'BR',
       postal_code: recipient.cep?.replace(/\D/g, ''),
     },
-    products: products?.map(p => ({
-      name: p.name,
-      quantity: p.quantity,
-      unitary_value: p.unitary_value_cents / 100,
-    })) || [{ name: 'Produto', quantity: 1, unitary_value: (pkg?.declared_value_cents || 1000) / 100 }],
+    products: (products && products.length > 0)
+      ? products.map(p => ({
+          name: p.name || 'Produto',
+          quantity: p.quantity || 1,
+          unitary_value: (p.unitary_value_cents || 1000) / 100,
+        }))
+      : [{ name: 'Produto', quantity: 1, unitary_value: (pkg?.declared_value_cents || 1000) / 100 }],
     volumes: [{
       height: pkg?.height_cm || config.default_height_cm || 10,
       width: pkg?.width_cm || config.default_width_cm || 15,
