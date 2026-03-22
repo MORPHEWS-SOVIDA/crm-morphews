@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useOutletContext, useNavigate, Link, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ShieldCheck, CreditCard, QrCode, FileText, Loader2, Package, Save, Truck } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, CreditCard, QrCode, FileText, Loader2, Package, Save, Truck, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
