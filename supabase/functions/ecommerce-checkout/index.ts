@@ -412,6 +412,11 @@ serve(async (req) => {
           updateData.first_touch_at = utm.first_touch_at || null;
         }
       }
+
+      // Always update funnel stage if configured for storefront
+      if (postSaleFunnelStageId) {
+        updateData.funnel_stage_id = postSaleFunnelStageId;
+      }
       
       if (Object.keys(updateData).length > 0) {
         await supabase
