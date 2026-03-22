@@ -17,6 +17,7 @@ import { useUtmTracker } from '@/hooks/useUtmTracker';
 import { useQuery } from '@tanstack/react-query';
 import { useUniversalTracking } from '@/hooks/ecommerce/useUniversalTracking';
 import type { StorefrontData } from '@/hooks/ecommerce/usePublicStorefront';
+import { logCheckoutEvent } from '@/hooks/ecommerce/useCheckoutEvents';
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -126,8 +127,22 @@ export function StorefrontCheckout() {
       try {
         setRestoringCart(true);
         const decoded = JSON.parse(decodeURIComponent(atob(cartParam)));
-        console.log('[Checkout] 📦 Restoring cart from URL param:', JSON.stringify(decoded, null, 2));
-        console.log('[Checkout] Items:', decoded.items?.length, 'Customer:', decoded.customer?.name);
+        // Log cart_loaded event from checkout page
+        logCheckoutEvent({
+          organizationId: storefront.organization_id,
+          sessionId: localStorage.getItem('cart_session_id') || undefined,
+          eventType: 'cart_loaded',
+          eventData: {
+            items_count: decoded.items?.length || 0,
+            source: 'checkout_direct',
+          },
+          customerName: decoded.customer?.name || qpName || undefined,
+          customerEmail: decoded.customer?.email || qpEmail || undefined,
+          customerPhone: decoded.customer?.phone || qpPhone || undefined,
+          sourceUrl: window.location.href,
+          sourceType: 'storefront',
+          sourceId: storefront.id,
+        });
 
         // Restore customer data (query params take priority, already set above)
         if (decoded.customer) {
@@ -462,6 +477,26 @@ export function StorefrontCheckout() {
     setIsSubmitting(true);
     
     try {
+      // Log checkout_started event
+      logCheckoutEvent({
+        organizationId: storefront.organization_id,
+        cartId: cartId,
+        sessionId: localStorage.getItem('cart_session_id') || undefined,
+        eventType: 'checkout_started',
+        eventData: {
+          payment_method: paymentMethod,
+          items_count: items.length,
+          total_cents: totalToCharge,
+          shipping_cents: shippingCents,
+          installments: paymentMethod === 'credit_card' ? selectedInstallments : undefined,
+        },
+        customerName: formData.name,
+        customerEmail: formData.email,
+        customerPhone: formData.phone,
+        sourceType: 'storefront',
+        sourceId: storefront.id,
+      });
+
       // Get UTM data for attribution
       const utmData = getUtmForCheckout();
 
@@ -539,8 +574,38 @@ export function StorefrontCheckout() {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
+        // Log payment error
+        logCheckoutEvent({
+          organizationId: storefront.organization_id,
+          cartId: cartId,
+          eventType: 'payment_failed',
+          eventData: { response_status: response.status, result },
+          customerName: formData.name,
+          customerEmail: formData.email,
+          customerPhone: formData.phone,
+          errorMessage: result.error || 'Erro ao processar pagamento',
+          sourceType: 'storefront',
+          sourceId: storefront.id,
+        });
         throw new Error(result.error || 'Erro ao processar pagamento');
       }
+
+      // Log payment success
+      logCheckoutEvent({
+        organizationId: storefront.organization_id,
+        cartId: cartId,
+        eventType: 'payment_success',
+        eventData: {
+          sale_id: result.sale_id,
+          payment_method: paymentMethod,
+          total_cents: totalToCharge,
+        },
+        customerName: formData.name,
+        customerEmail: formData.email,
+        customerPhone: formData.phone,
+        sourceType: 'storefront',
+        sourceId: storefront.id,
+      });
 
       // Handle different payment methods
       if (paymentMethod === 'pix' && result.pix_code) {
@@ -581,6 +646,18 @@ export function StorefrontCheckout() {
       });
     } catch (error) {
       console.error('Checkout error:', error);
+      // Log payment_error (technical)
+      logCheckoutEvent({
+        organizationId: storefront.organization_id,
+        cartId: cartId,
+        eventType: 'payment_error',
+        customerName: formData.name,
+        customerEmail: formData.email,
+        customerPhone: formData.phone,
+        errorMessage: error instanceof Error ? error.message : 'Erro desconhecido',
+        sourceType: 'storefront',
+        sourceId: storefront.id,
+      });
       toast.error(error instanceof Error ? error.message : 'Erro ao processar pagamento');
     } finally {
       setIsSubmitting(false);
