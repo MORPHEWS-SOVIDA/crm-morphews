@@ -167,7 +167,7 @@ export function StorefrontCart() {
 
               // If price is 0 or name is missing, resolve from DB
               if (!unitPrice || !itemName || itemName === 'Produto') {
-                const resolved = await resolveProductDetails(productId, storefront.id);
+                const resolved = await resolveProductDetails(productId, storefront.id, quantity);
                 if (resolved) {
                   unitPrice = unitPrice || resolved.unitPrice;
                   itemName = (!itemName || itemName === 'Produto') ? resolved.name : itemName;
