@@ -837,10 +837,10 @@ export function StorefrontCheckout() {
                     <Input 
                       id="cep"
                       required
-                      maxLength={8}
-                      placeholder="00000000"
+                      maxLength={9}
+                      placeholder="00000-000"
                       value={formData.cep}
-                      onChange={e => setFormData(prev => ({ ...prev, cep: e.target.value.replace(/\D/g, '') }))}
+                      onChange={e => handleCepChange(e.target.value)}
                       onBlur={handleCepBlur}
                     />
                   </div>
