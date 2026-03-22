@@ -167,6 +167,7 @@ export function StorefrontCheckout() {
               let unitPrice = normalizeCurrencyCents(item.unit_price_cents || item.upc || item.price_cents);
               let itemName = item.name || item.n || '';
               let imageUrl = item.image_url || item.img || null;
+              let isCombo = false;
 
               // Resolve from DB if price/name missing
               if (!unitPrice || !itemName || itemName === 'Produto') {
