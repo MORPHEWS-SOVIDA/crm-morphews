@@ -463,6 +463,46 @@ export function StorefrontCheckout() {
     return hasBasicFields && hasAddressFields && hasCardData && acceptedTerms;
   }, [formData, paymentMethod, isOneClickCheckout, cardData, acceptedTerms, checkoutConfig.collectAddress]);
 
+  const handleCepBlurEarly = useCallback(async (cep: string) => {
+    if (cep.length !== 8) return;
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+      if (!data.erro) {
+        setFormData(prev => ({
+          ...prev,
+          street: data.logradouro || '',
+          neighborhood: data.bairro || '',
+          city: data.localidade || '',
+          state: data.uf || '',
+        }));
+      }
+    } catch (error) {
+      console.error('CEP lookup error:', error);
+    }
+  }, []);
+
+  const handleCepChange = useCallback((value: string) => {
+    const cleanCep = value.replace(/\D/g, '');
+    setFormData(prev => ({ ...prev, cep: cleanCep }));
+    if (cleanCep.length === 8) {
+      fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.erro) {
+            setFormData(prev => ({
+              ...prev,
+              street: prev.street || data.logradouro || '',
+              neighborhood: prev.neighborhood || data.bairro || '',
+              city: prev.city || data.localidade || '',
+              state: prev.state || data.uf || '',
+            }));
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   if (restoringCart) {
     return (
       <div className="container mx-auto px-4 py-12 text-center">
