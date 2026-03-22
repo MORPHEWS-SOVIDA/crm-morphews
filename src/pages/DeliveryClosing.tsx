@@ -93,6 +93,8 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   
   // Filters for history tab
   const [historyStatusFilter, setHistoryStatusFilter] = useState<string>('all');
+  const [selectedClosings, setSelectedClosings] = useState<Set<string>>(new Set());
+  const [bulkConfirming, setBulkConfirming] = useState(false);
 
   const { data: availableSales = [], isLoading: loadingSales } = useAvailableClosingSales(closingType);
   const { data: closings = [], isLoading: loadingClosings } = useDeliveryClosings(closingType);
