@@ -205,14 +205,14 @@ function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember
   );
 }
 
-function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, handleDeleteUser, isTogglingActive, isDeletingUser }: {
+function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser }: {
   members: OrgMember[];
   user: any;
   myPermissions: any;
   getRoleBadge: (role: OrgRole) => React.ReactNode;
   handleEditMember: (member: OrgMember) => void;
   handleToggleUserActive: (member: OrgMember) => void;
-  handleDeleteUser: (memberId: string, userId: string) => void;
+  onRequestDelete: (member: OrgMember) => void;
   isTogglingActive: string | null;
   isDeletingUser: string | null;
 }) {
