@@ -41,6 +41,7 @@ export function StorefrontCheckout() {
   const { getUtmForCheckout } = useUtmTracker();
   const [restoringCart, setRestoringCart] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('credit_card');
   const [acceptedTerms, setAcceptedTerms] = useState(true); // Pre-accepted for smoother checkout
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
