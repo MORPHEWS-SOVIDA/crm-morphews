@@ -52,9 +52,23 @@ export function StorefrontIntegrationTab({ storefrontId, storefrontSlug }: Store
     const comboId = sp.combo_id || '';
     const isCombo = !!comboId;
     
-    const price1 = sp.custom_price_cents || product?.price_1_unit || product?.base_price_cents || 0;
-    const price3 = sp.custom_price_3_cents || 0;
-    const price5 = sp.custom_price_6_cents || 0;
+    let price1 = 0;
+    let price3 = 0;
+    let price5 = 0;
+
+    if (isCombo && combo?.product_combo_prices) {
+      const comboPrices = combo.product_combo_prices as any[];
+      const sorted = [...comboPrices].sort((a: any, b: any) => (a.multiplier || 0) - (b.multiplier || 0));
+      for (const cp of sorted) {
+        if (cp.multiplier === 1) price1 = cp.regular_price_cents || 0;
+        else if (cp.multiplier === 3) price3 = cp.regular_price_cents || 0;
+        else if (cp.multiplier === 5) price5 = cp.regular_price_cents || 0;
+      }
+    } else if (product) {
+      price1 = sp.custom_price_cents || product.price_1_unit || product.base_price_cents || 0;
+      price3 = product.price_3_units || 0;
+      price5 = product.price_6_units || 0;
+    }
 
     return {
       storefrontProductId: sp.id,
