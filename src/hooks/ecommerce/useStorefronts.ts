@@ -171,8 +171,8 @@ export function useStorefrontProducts(storefrontId: string | undefined) {
         .from('storefront_products')
         .select(`
           *,
-          product:lead_products(id, name, base_price_cents, price_1_unit, image_url),
-          combo:product_combos(id, name, description, image_url, is_active)
+          product:lead_products(id, name, base_price_cents, price_1_unit, price_3_units, price_6_units, image_url),
+          combo:product_combos(id, name, description, image_url, is_active, product_combo_prices(*))
         `)
         .eq('storefront_id', storefrontId)
         .order('display_order');
