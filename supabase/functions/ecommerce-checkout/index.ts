@@ -61,7 +61,7 @@ serve(async (req) => {
 
     // 1. Determine organization from storefront or landing page
     let organizationId: string | null = null;
-    let productItems: { product_id: string; quantity: number; price_cents: number; product_name?: string; product_image_url?: string }[] = items || [];
+    let productItems: { product_id: string; quantity: number; price_cents: number; product_name?: string; product_image_url?: string; is_combo?: boolean; combo_id?: string }[] = items || [];
 
     // 1a. If cart_id is provided and items are empty, fetch items from cart
     if (cart_id && productItems.length === 0) {
@@ -152,11 +152,29 @@ serve(async (req) => {
             productMap[c.id] = { name: c.name, image_url: c.image_url };
             console.log(`[Checkout] Resolved combo ${c.id} → ${c.name}`);
             
+            // Resolve a real lead_products ID from combo items for FK constraint
+            let realProductId: string | null = null;
+            const { data: comboItems } = await supabase
+              .from('product_combo_items')
+              .select('product_id')
+              .eq('combo_id', c.id)
+              .limit(1);
+            if (comboItems && comboItems.length > 0) {
+              realProductId = comboItems[0].product_id;
+            }
+            
             // Get correct price from product_combo_prices based on quantity
             for (const item of productItems) {
               if (item.product_id === c.id) {
                 item.product_name = c.name;
                 item.product_image_url = c.image_url;
+                item.is_combo = true;
+                item.combo_id = c.id;
+                // Remap product_id to a real lead_products ID so FK constraint passes
+                if (realProductId) {
+                  item.product_id = realProductId;
+                  productMap[realProductId] = { name: c.name, image_url: c.image_url };
+                }
                 // If price_cents is 0 or missing, resolve from combo prices
                 if (!item.price_cents) {
                   const { data: comboPrice } = await supabase
@@ -615,21 +633,24 @@ serve(async (req) => {
     console.log(`[Checkout] Creating ${productItems.length} sale items for sale ${sale.id}`);
     for (const item of productItems) {
       const productInfo = productMap[item.product_id];
+      const itemName = item.product_name || productInfo?.name || 'Produto';
       const { error: itemError } = await supabase
         .from('sale_items')
         .insert({
           sale_id: sale.id,
           product_id: item.product_id,
-          product_name: productInfo?.name || item.product_name || 'Produto',
+          product_name: itemName,
           quantity: item.quantity,
           unit_price_cents: item.price_cents,
           total_cents: item.price_cents * item.quantity,
         });
       
       if (itemError) {
-        console.error(`[Checkout] Failed to create sale item for product ${item.product_id}:`, itemError);
+        console.error(`[Checkout] Failed to create sale item for product ${item.product_id} (${itemName}):`, itemError);
+        // If FK constraint fails (combo ID not in lead_products), log but don't lose the item
+        // The item data is preserved in the ecommerce_orders.items JSON
       } else {
-        console.log(`[Checkout] Created sale item: product=${item.product_id}, qty=${item.quantity}, price=${item.price_cents}`);
+        console.log(`[Checkout] Created sale item: product=${item.product_id}, name=${itemName}, qty=${item.quantity}, price=${item.price_cents}`);
       }
     }
 
@@ -704,13 +725,14 @@ serve(async (req) => {
     if (orderData?.id && productItems.length > 0) {
       for (const item of productItems) {
         const productInfo = productMap[item.product_id] || {};
+        const itemName = item.product_name || productInfo.name || 'Produto';
         await supabase
           .from('ecommerce_order_items')
           .insert({
             order_id: orderData.id,
             product_id: item.product_id,
-            product_name: productInfo.name || 'Produto',
-            product_image_url: productInfo.image_url || null,
+            product_name: itemName,
+            product_image_url: item.product_image_url || productInfo.image_url || null,
             quantity: item.quantity,
             unit_price_cents: item.price_cents,
             total_cents: item.price_cents * item.quantity,
