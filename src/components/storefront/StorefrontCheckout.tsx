@@ -363,7 +363,8 @@ export function StorefrontCheckout() {
     minOrderValue?: number;
   } || {};
   const freeShippingThreshold = cartConfig.freeShippingThreshold || 0;
-  const hasFreeShipping = freeShippingThreshold > 0 && subtotal >= freeShippingThreshold;
+  const hasComboInCart = items.some(item => item.isCombo);
+  const hasFreeShipping = hasComboInCart || (freeShippingThreshold > 0 && subtotal >= freeShippingThreshold) || subtotal >= 25000;
   
   // Apply free shipping if subtotal meets threshold
   const shippingCents = hasFreeShipping ? 0 : (selectedShipping?.price_cents || 0);

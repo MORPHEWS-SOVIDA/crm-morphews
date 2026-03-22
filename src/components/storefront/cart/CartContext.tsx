@@ -29,6 +29,7 @@ function normalizeCartItem(item: Partial<CartItem> & Pick<CartItem, 'productId' 
     kitSize,
     unitPrice,
     totalPrice: calculateCartLineTotal(quantity, unitPrice, kitSize),
+    isCombo: item.isCombo || false,
   };
 }
 
