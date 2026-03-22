@@ -71,7 +71,7 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="banners" className="gap-2">
             <Image className="h-4 w-4" />
             <span className="hidden sm:inline">Banners</span>
@@ -99,6 +99,10 @@ export function StorefrontDetailManager({ storefrontId, onBack }: StorefrontDeta
           <TabsTrigger value="affiliates" className="gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Parceiros</span>
+          </TabsTrigger>
+          <TabsTrigger value="integration" className="gap-2">
+            <Code className="h-4 w-4" />
+            <span className="hidden sm:inline">Integração</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2">
             <Settings className="h-4 w-4" />
