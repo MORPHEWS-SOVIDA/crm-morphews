@@ -87,13 +87,14 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
   const passFeeToCustomer = installmentConfig?.installment_fee_passed_to_buyer ?? true;
   const installmentFees = installmentConfig?.installment_fees || DEFAULT_INSTALLMENT_FEES;
   const maxInstallments = installmentConfig?.max_installments || 12;
+  const safeTotalCents = Number.isFinite(totalCents) ? totalCents : 0;
 
   // Generate installment options with interest if applicable
   const installmentOptions = useMemo(() => {
     return Array.from({ length: maxInstallments }, (_, i) => {
       const n = i + 1;
-      let totalForInstallment = totalCents;
-      let installmentValue = totalCents / n;
+      let totalForInstallment = safeTotalCents;
+      let installmentValue = safeTotalCents / n;
       let hasInterest = false;
 
       // Apply interest for installments > 1 if fee should be passed to customer
@@ -101,6 +102,7 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
         const feePercentage = installmentFees[String(n)] || 0;
         if (feePercentage > 0) {
           totalForInstallment = Math.round(totalCents * (1 + feePercentage / 100));
+          totalForInstallment = Math.round(safeTotalCents * (1 + feePercentage / 100));
           installmentValue = totalForInstallment / n;
           hasInterest = true;
         }
@@ -125,7 +127,7 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
         totalWithInterest: totalForInstallment,
       };
     });
-  }, [totalCents, passFeeToCustomer, installmentFees, maxInstallments]);
+  }, [safeTotalCents, passFeeToCustomer, installmentFees, maxInstallments]);
 
   useEffect(() => {
     const brand = detectCardBrand(cardNumber);
@@ -155,7 +157,7 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
 
     // Get total with interest for current installment
     const selectedOption = installmentOptions.find(o => o.value === installments);
-    const totalWithInterest = selectedOption?.totalWithInterest || totalCents;
+    const totalWithInterest = selectedOption?.totalWithInterest || safeTotalCents;
 
     if (isComplete) {
       onCardDataChange({
@@ -170,7 +172,7 @@ export function CreditCardForm({ onCardDataChange, totalCents, installmentConfig
     } else {
       onCardDataChange(null);
     }
-  }, [cardNumber, cardHolderName, expiryDate, cvv, installments, onCardDataChange, installmentOptions, totalCents]);
+  }, [cardNumber, cardHolderName, expiryDate, cvv, installments, onCardDataChange, installmentOptions, safeTotalCents]);
 
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCardNumber(e.target.value);
