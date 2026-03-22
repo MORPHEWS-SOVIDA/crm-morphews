@@ -354,6 +354,7 @@ serve(async (req) => {
           cpf_cnpj: customer.document || null,
           lead_source: storefront_id ? 'ecommerce' : 'landing_page',
           assigned_to: defaultUserId,
+          ...(postSaleFunnelStageId ? { funnel_stage_id: postSaleFunnelStageId } : {}),
           // Attribution UTM data
           src: utm?.src || null,
           utm_source: utm?.utm_source || null,
