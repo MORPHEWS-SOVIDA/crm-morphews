@@ -531,9 +531,9 @@ export default function PickupClosing() {
                             size="sm"
                             variant="secondary"
                             onClick={() => handleBulkConfirm('auxiliar')}
-                            disabled={bulkConfirming || confirmClosing.isPending}
+                            disabled={bulkConfirmClosing.isPending}
                           >
-                            {bulkConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCheck className="w-4 h-4 mr-1" />}
+                            {bulkConfirmClosing.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCheck className="w-4 h-4 mr-1" />}
                             Confirmar Financeiro ({filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'pending').length})
                           </Button>
                         )}
@@ -542,9 +542,9 @@ export default function PickupClosing() {
                             size="sm"
                             className="bg-green-600 hover:bg-green-700"
                             onClick={() => handleBulkConfirm('admin')}
-                            disabled={bulkConfirming || confirmClosing.isPending}
+                            disabled={bulkConfirmClosing.isPending}
                           >
-                            {bulkConfirming ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCheck className="w-4 h-4 mr-1" />}
+                            {bulkConfirmClosing.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCheck className="w-4 h-4 mr-1" />}
                             Confirmar Relatório ({filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents === 0).length})
                           </Button>
                         )}
