@@ -804,7 +804,7 @@ export default function Expedition() {
           <div className="flex flex-wrap gap-2">
             <Button 
               variant="outline" 
-              onClick={() => navigate('/expedicao/baixa-balcao')}
+              onClick={() => window.open('/expedicao/baixa-balcao', '_blank')}
               className="border-purple-300 text-purple-700 hover:bg-purple-50"
             >
               <Store className="w-4 h-4 mr-2" />
@@ -812,7 +812,7 @@ export default function Expedition() {
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => navigate('/expedicao/baixa-motoboy')}
+              onClick={() => window.open('/expedicao/baixa-motoboy', '_blank')}
               className="border-orange-300 text-orange-700 hover:bg-orange-50"
             >
               <Bike className="w-4 h-4 mr-2" />
@@ -820,23 +820,23 @@ export default function Expedition() {
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => navigate('/expedicao/baixa-transportadora')}
+              onClick={() => window.open('/expedicao/baixa-transportadora', '_blank')}
               className="border-blue-300 text-blue-700 hover:bg-blue-50"
             >
               <Truck className="w-4 h-4 mr-2" />
               Baixa Transportadora
             </Button>
-            <Button variant="outline" onClick={() => navigate('/expedicao/etiquetas-correios')}>
+            <Button variant="outline" onClick={() => window.open('/expedicao/etiquetas-correios', '_blank')}>
               <Package className="w-4 h-4 mr-2" />
               Etiquetas Correios
             </Button>
-            <Button variant="outline" onClick={() => navigate('/relatorios/expedicao')}>
+            <Button variant="outline" onClick={() => window.open('/relatorios/expedicao', '_blank')}>
               <FileText className="w-4 h-4 mr-2" />
               Relatório
             </Button>
             <Button 
               variant="outline" 
-              onClick={() => navigate('/expedicao/produtividade-motoboys')}
+              onClick={() => window.open('/expedicao/produtividade-motoboys', '_blank')}
               className="border-cyan-300 text-cyan-700 hover:bg-cyan-50 dark:border-cyan-700 dark:text-cyan-400 dark:hover:bg-cyan-950/30"
             >
               <Bike className="w-4 h-4 mr-2" />
