@@ -1809,8 +1809,9 @@ Deno.serve(async (req) => {
         if (!sellerExists) {
           console.warn(`Seller ${candidateSellerUserId} not found in profiles, setting to null`);
           sellerUserId = null;
-      console.log(`[SELLER] Final sellerUserId=${sellerUserId} (candidate was ${candidateSellerUserId})`);
+        }
       }
+      console.log(`[SELLER] Final sellerUserId=${sellerUserId} (candidate was ${candidateSellerUserId})`);
 
       // Fallback: created_by is NOT NULL, so we must find a valid user
       if (!sellerUserId) {
