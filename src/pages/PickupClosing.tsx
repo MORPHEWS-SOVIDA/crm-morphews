@@ -85,6 +85,7 @@ export default function PickupClosing() {
   const { data: closingSales = [] } = useDeliveryClosingSales(viewingClosingId || undefined);
   const createClosing = useCreateDeliveryClosing();
   const confirmClosing = useConfirmDeliveryClosing();
+  const bulkConfirmClosing = useBulkConfirmDeliveryClosing();
 
   const userEmail = user?.email?.toLowerCase();
   const canConfirmAuxiliar = permissions?.reports_view === true;
