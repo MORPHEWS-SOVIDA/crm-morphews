@@ -331,27 +331,25 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
     const closingsToConfirm = filteredClosings.filter(c => selectedClosings.has(c.id));
     if (closingsToConfirm.length === 0) return;
 
-    setBulkConfirming(true);
-    let successCount = 0;
-    let errorCount = 0;
+    const validIds = closingsToConfirm
+      .filter(c => {
+        if (type === 'auxiliar' && c.status !== 'pending') return false;
+        if (type === 'admin' && c.status !== 'confirmed_auxiliar') return false;
+        if (type === 'admin' && c.total_cash_cents > 0) return false;
+        return true;
+      })
+      .map(c => c.id);
 
-    for (const closing of closingsToConfirm) {
-      if (type === 'auxiliar' && closing.status !== 'pending') continue;
-      if (type === 'admin' && closing.status !== 'confirmed_auxiliar') continue;
-      if (type === 'admin' && closing.total_cash_cents > 0) continue;
+    if (validIds.length === 0) return;
 
-      try {
-        await confirmClosing.mutateAsync({ closingId: closing.id, closingType, type });
-        successCount++;
-      } catch {
-        errorCount++;
-      }
+    try {
+      const result = await bulkConfirmClosing.mutateAsync({ closingIds: validIds, closingType, type });
+      setSelectedClosings(new Set());
+      if (result.successCount > 0) toast.success(`${result.successCount} fechamento(s) confirmado(s)!`);
+      if (result.errorCount > 0) toast.error(`${result.errorCount} fechamento(s) falharam`);
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao confirmar em lote');
     }
-
-    setBulkConfirming(false);
-    setSelectedClosings(new Set());
-    if (successCount > 0) toast.success(`${successCount} fechamento(s) confirmado(s)!`);
-    if (errorCount > 0) toast.error(`${errorCount} fechamento(s) falharam`);
   };
 
   const handlePrint = (closing: DeliveryClosingType) => {
