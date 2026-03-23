@@ -52,6 +52,7 @@ import {
   useDeliveryClosingSales,
   useCreateDeliveryClosing,
   useConfirmDeliveryClosing,
+  useBulkConfirmDeliveryClosing,
   formatPaymentMethod,
   closingTypeConfig,
   canUserConfirmAdmin,
