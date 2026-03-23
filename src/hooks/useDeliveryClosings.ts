@@ -548,6 +548,114 @@ export function useConfirmDeliveryClosing() {
   });
 }
 
+// Bulk confirm function that bypasses react-query mutation to avoid isPending issues
+export function useBulkConfirmDeliveryClosing() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ closingIds, closingType, type }: { closingIds: string[]; closingType: ClosingType; type: 'auxiliar' | 'admin' }) => {
+      if (!user) throw new Error('Not authenticated');
+
+      if (type === 'admin') {
+        const userEmail = user.email?.toLowerCase();
+        const config = closingTypeConfig[closingType];
+        if (!userEmail || !config.adminEmails.includes(userEmail)) {
+          throw new Error('Você não tem permissão para realizar a confirmação final.');
+        }
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const closingId of closingIds) {
+        try {
+          const now = new Date().toISOString();
+          const updateData = type === 'auxiliar'
+            ? { confirmed_by_auxiliar: user.id, confirmed_at_auxiliar: now, status: 'confirmed_auxiliar' }
+            : { confirmed_by_admin: user.id, confirmed_at_admin: now, status: 'confirmed_final' };
+
+          const { error } = await supabase
+            .from('pickup_closings')
+            .update(updateData)
+            .eq('id', closingId);
+
+          if (error) { errorCount++; continue; }
+
+          // Update sales
+          const { data: closingSales } = await supabase
+            .from('pickup_closing_sales')
+            .select('sale_id')
+            .eq('closing_id', closingId);
+
+          if (closingSales && closingSales.length > 0) {
+            const saleIds = closingSales.map(cs => cs.sale_id);
+
+            if (type === 'auxiliar') {
+              await supabase
+                .from('sales')
+                .update({ status: 'closed', closed_at: now, closed_by: user.id })
+                .in('id', saleIds)
+                .not('status', 'in', '("cancelled","returned","finalized")');
+            } else {
+              for (const saleId of saleIds) {
+                const { data: sale } = await supabase
+                  .from('sales')
+                  .select('organization_id, status, printed_at, expedition_validated_at, dispatched_at, delivered_at, payment_confirmed_at')
+                  .eq('id', saleId)
+                  .single();
+
+                if (!sale || sale.status === 'cancelled' || sale.status === 'returned') continue;
+
+                const updateFields: Record<string, any> = {
+                  status: 'finalized', finalized_at: now, finalized_by: user.id,
+                };
+                if (!sale.printed_at) { updateFields.printed_at = now; updateFields.printed_by = user.id; }
+                if (!sale.expedition_validated_at) { updateFields.expedition_validated_at = now; updateFields.expedition_validated_by = user.id; }
+                if (!sale.dispatched_at) { updateFields.dispatched_at = now; }
+                if (!sale.delivered_at) { updateFields.delivered_at = now; updateFields.delivery_status = 'delivered_normal'; }
+                if (!sale.payment_confirmed_at) { updateFields.payment_confirmed_at = now; updateFields.payment_confirmed_by = user.id; }
+
+                await supabase.from('sales').update(updateFields).eq('id', saleId);
+
+                const checkpointTypes = ['printed', 'pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'];
+                for (const checkpointType of checkpointTypes) {
+                  const { data: existing } = await supabase
+                    .from('sale_checkpoints')
+                    .select('id, completed_at')
+                    .eq('sale_id', saleId)
+                    .eq('checkpoint_type', checkpointType)
+                    .maybeSingle();
+
+                  if (existing && !existing.completed_at) {
+                    await supabase.from('sale_checkpoints').update({ completed_at: now, completed_by: user.id }).eq('id', existing.id);
+                  } else if (!existing) {
+                    await supabase.from('sale_checkpoints').insert({
+                      sale_id: saleId, organization_id: sale.organization_id,
+                      checkpoint_type: checkpointType, completed_at: now, completed_by: user.id,
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          successCount++;
+        } catch {
+          errorCount++;
+        }
+      }
+
+      return { successCount, errorCount };
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['delivery-closings', undefined, variables.closingType] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+    },
+  });
+}
+
 // Configuration for each closing type
 export const closingTypeConfig: Record<ClosingType, {
   title: string;
