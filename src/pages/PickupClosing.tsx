@@ -47,6 +47,7 @@ import {
   useDeliveryClosingSales,
   useCreateDeliveryClosing,
   useConfirmDeliveryClosing,
+  useBulkConfirmDeliveryClosing,
   closingTypeConfig,
   canUserConfirmAdmin,
   type DeliveryClosing as DeliveryClosingType,
