@@ -1793,6 +1793,7 @@ Deno.serve(async (req) => {
       }
       
       // Get seller user - prioritize default_seller_id (new field), then first responsible, then lead's assigned_to
+      console.log(`[SELLER] Integration "${typedIntegration.name}" default_seller_id=${typedIntegration.default_seller_id}, responsible_ids=${JSON.stringify(typedIntegration.default_responsible_user_ids)}, lead.assigned_to=${leadData.assigned_to}`);
       const candidateSellerUserId = typedIntegration.default_seller_id 
         || typedIntegration.default_responsible_user_ids?.[0] 
         || leadData.assigned_to;
