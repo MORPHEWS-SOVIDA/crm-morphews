@@ -102,6 +102,7 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   const { data: closingSales = [] } = useDeliveryClosingSales(viewingClosingId || undefined);
   const createClosing = useCreateDeliveryClosing();
   const confirmClosing = useConfirmDeliveryClosing();
+  const bulkConfirmClosing = useBulkConfirmDeliveryClosing();
 
   const userEmail = user?.email?.toLowerCase();
   // Auxiliar confirmation now uses reports_view permission (Financeiro)
