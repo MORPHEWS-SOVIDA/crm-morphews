@@ -6,21 +6,6 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-interface LinkeTrackEvent {
-  data: string;
-  hora: string;
-  local: string;
-  status: string;
-  subStatus?: string[];
-}
-
-interface LinkeTrackResponse {
-  codigo: string;
-  eventos: LinkeTrackEvent[];
-  quantidade?: number;
-  ultimo?: string;
-}
-
 // Map Correios status text to our carrier_tracking_status enum
 function mapCorreiosStatus(statusText: string): string | null {
   const lower = statusText.toLowerCase();
@@ -38,7 +23,6 @@ function mapCorreiosStatus(statusText: string): string | null {
     return 'returning_to_sender';
   }
   if (lower.includes('tentativa de entrega') || lower.includes('não atendido') || lower.includes('ausente')) {
-    // We can't easily tell which attempt, so return generic
     return 'attempt_1_failed';
   }
   if (lower.includes('postado') || lower.includes('objeto postado')) {
@@ -47,7 +31,6 @@ function mapCorreiosStatus(statusText: string): string | null {
   if (lower.includes('na cidade do destinatário') || lower.includes('unidade de distribuição')) {
     return 'in_destination_city';
   }
-  // In transit statuses - keep as 'posted' (already dispatched)
   if (lower.includes('em trânsito') || lower.includes('transferência') || lower.includes('encaminhado')) {
     return 'posted';
   }
@@ -55,27 +38,91 @@ function mapCorreiosStatus(statusText: string): string | null {
   return null;
 }
 
-// Extract delivery estimate from events
-function extractDeliveryEstimate(events: LinkeTrackEvent[]): string | null {
-  for (const event of events) {
-    // LinkeTrack sometimes includes delivery estimate in subStatus
-    if (event.subStatus) {
-      for (const sub of event.subStatus) {
-        const match = sub.match(/Previsão de Entrega:\s*(\d{2}\/\d{2}\/\d{4})/i);
-        if (match) {
-          // Convert DD/MM/YYYY to YYYY-MM-DD
-          const [dd, mm, yyyy] = match[1].split('/');
-          return `${yyyy}-${mm}-${dd}`;
+// Try multiple tracking APIs with fallback
+async function fetchTracking(trackingCode: string): Promise<{ status: string; location: string; deliveryEstimate: string | null; events: any[] } | null> {
+  // Try 1: Correios proxyapp (official)
+  try {
+    const response = await fetch(
+      `https://proxyapp.correios.com.br/v1/sro-rastro/${trackingCode}`,
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0',
+        },
+      }
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.objetos && data.objetos[0] && data.objetos[0].eventos) {
+        const obj = data.objetos[0];
+        const latest = obj.eventos[0];
+        const statusText = latest.descricao || latest.tipo || '';
+        const location = latest.unidade?.nome || latest.unidade?.endereco?.cidade || '';
+        
+        // Extract delivery estimate
+        let deliveryEstimate: string | null = null;
+        if (obj.dtPrevista) {
+          // Format: YYYY-MM-DDT...
+          deliveryEstimate = obj.dtPrevista.substring(0, 10);
         }
+        
+        return {
+          status: statusText,
+          location,
+          deliveryEstimate,
+          events: obj.eventos,
+        };
       }
     }
-    // Also check main status text
-    const match = event.status?.match(/Previsão de Entrega:\s*(\d{2}\/\d{2}\/\d{4})/i);
-    if (match) {
-      const [dd, mm, yyyy] = match[1].split('/');
-      return `${yyyy}-${mm}-${dd}`;
-    }
+  } catch (e) {
+    console.log(`[auto-tracking] Correios proxyapp failed for ${trackingCode}:`, e instanceof Error ? e.message : e);
   }
+
+  // Try 2: LinkeTrack API
+  try {
+    const response = await fetch(
+      `https://api.linketrack.com/track/json?user=teste&token=1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f&codigo=${trackingCode}`,
+      {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.eventos && data.eventos.length > 0) {
+        const latest = data.eventos[0];
+        
+        // Extract delivery estimate from subStatus
+        let deliveryEstimate: string | null = null;
+        for (const evento of data.eventos) {
+          if (evento.subStatus) {
+            for (const sub of evento.subStatus) {
+              const match = sub.match(/Previsão de Entrega:\s*(\d{2}\/\d{2}\/\d{4})/i);
+              if (match) {
+                const [dd, mm, yyyy] = match[1].split('/');
+                deliveryEstimate = `${yyyy}-${mm}-${dd}`;
+                break;
+              }
+            }
+          }
+          if (deliveryEstimate) break;
+        }
+
+        return {
+          status: latest.status || '',
+          location: latest.local || '',
+          deliveryEstimate,
+          events: data.eventos,
+        };
+      }
+    }
+  } catch (e) {
+    console.log(`[auto-tracking] LinkeTrack failed for ${trackingCode}:`, e instanceof Error ? e.message : e);
+  }
+
   return null;
 }
 
@@ -89,7 +136,9 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Fetch all sales with tracking codes that are not yet delivered and not cancelled
+    // Fetch all sales with Correios tracking codes that are not yet delivered and not cancelled
+    const correiosRegex = '^[A-Z]{2}[0-9]{9}[A-Z]{2}$';
+    
     const { data: sales, error: salesError } = await supabase
       .from('sales')
       .select('id, tracking_code, carrier_tracking_status, organization_id, lead_id, seller_user_id')
@@ -102,69 +151,51 @@ Deno.serve(async (req) => {
 
     if (salesError) throw salesError;
 
-    if (!sales || sales.length === 0) {
+    // Filter valid Correios codes in JS
+    const correiosCodeRegex = /^[A-Z]{2}[0-9]{9}[A-Z]{2}$/i;
+    const validSales = (sales || []).filter(s => 
+      s.tracking_code && correiosCodeRegex.test(s.tracking_code)
+    );
+
+    if (validSales.length === 0) {
       return new Response(
         JSON.stringify({ success: true, message: 'Nenhuma venda para atualizar', updated: 0 }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Filter to only valid Correios tracking codes
-    const correiosRegex = /^[A-Z]{2}[0-9]{9}[A-Z]{2}$/;
-    const validSales = sales.filter(s => 
-      s.tracking_code && correiosRegex.test(s.tracking_code.toUpperCase())
-    );
-
-    console.log(`[auto-tracking] Found ${validSales.length} sales with valid Correios codes out of ${sales.length} total`);
+    console.log(`[auto-tracking] Processing ${validSales.length} sales with valid Correios codes`);
 
     let updated = 0;
     let errors = 0;
-    const results: Array<{ sale_id: string; tracking_code: string; status: string; error?: string }> = [];
 
-    // Process in batches of 5 with delay to avoid rate limiting
-    for (let i = 0; i < validSales.length; i += 5) {
-      const batch = validSales.slice(i, i + 5);
+    // Process in batches of 3 with delay
+    for (let i = 0; i < validSales.length; i += 3) {
+      const batch = validSales.slice(i, i + 3);
       
       const promises = batch.map(async (sale) => {
         try {
           const trackingCode = sale.tracking_code!.toUpperCase();
-          
-          const response = await fetch(
-            `https://api.linketrack.com/track/json?user=teste&token=1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f&codigo=${trackingCode}`,
-            {
-              method: 'GET',
-              headers: { 'Accept': 'application/json' },
-            }
-          );
+          const result = await fetchTracking(trackingCode);
 
-          if (!response.ok) {
-            throw new Error(`LinkeTrack API returned ${response.status}`);
-          }
-
-          const data: LinkeTrackResponse = await response.json();
-
-          if (!data.eventos || data.eventos.length === 0) {
-            results.push({ sale_id: sale.id, tracking_code: trackingCode, status: 'no_events' });
+          if (!result) {
+            errors++;
             return;
           }
 
-          const latestEvent = data.eventos[0];
-          const mappedStatus = mapCorreiosStatus(latestEvent.status);
-          const deliveryEstimate = extractDeliveryEstimate(data.eventos);
-          const currentStatusText = latestEvent.status;
-          const location = latestEvent.local || '';
+          const mappedStatus = mapCorreiosStatus(result.status);
 
           // Update sale with tracking info
           const updateData: Record<string, unknown> = {
             last_tracking_update: new Date().toISOString(),
-            last_tracking_status: `${currentStatusText}${location ? ' - ' + location : ''}`,
+            last_tracking_status: `${result.status}${result.location ? ' - ' + result.location : ''}`,
           };
 
-          if (deliveryEstimate) {
-            updateData.delivery_estimate = deliveryEstimate;
+          if (result.deliveryEstimate) {
+            updateData.delivery_estimate = result.deliveryEstimate;
           }
 
-          // If we mapped a status and it's different from current
+          // If we mapped a new status different from current
           if (mappedStatus && mappedStatus !== sale.carrier_tracking_status) {
             updateData.carrier_tracking_status = mappedStatus;
 
@@ -175,11 +206,11 @@ Deno.serve(async (req) => {
                 sale_id: sale.id,
                 organization_id: sale.organization_id,
                 status: mappedStatus,
-                changed_by: null, // System automated
-                notes: `[Automático] ${currentStatusText}${location ? ' - ' + location : ''}`,
+                changed_by: null,
+                notes: `[Automático] ${result.status}${result.location ? ' - ' + result.location : ''}`,
               });
 
-            // If delivered, also check for WhatsApp message config
+            // If delivered, send WhatsApp notification if configured
             if (mappedStatus === 'delivered' && sale.organization_id && sale.lead_id) {
               const { data: statusConfig } = await supabase
                 .from('carrier_tracking_statuses')
@@ -240,30 +271,19 @@ Deno.serve(async (req) => {
             .eq('id', sale.id);
 
           updated++;
-          results.push({ 
-            sale_id: sale.id, 
-            tracking_code: trackingCode, 
-            status: mappedStatus || 'unchanged',
-          });
+          console.log(`[auto-tracking] Updated ${trackingCode}: ${result.status}`);
 
         } catch (err) {
           errors++;
-          const errMsg = err instanceof Error ? err.message : 'Unknown error';
-          console.error(`[auto-tracking] Error for ${sale.tracking_code}:`, errMsg);
-          results.push({ 
-            sale_id: sale.id, 
-            tracking_code: sale.tracking_code || '', 
-            status: 'error',
-            error: errMsg,
-          });
+          console.error(`[auto-tracking] Error for ${sale.tracking_code}:`, err instanceof Error ? err.message : err);
         }
       });
 
       await Promise.all(promises);
 
-      // Small delay between batches to avoid rate limiting
-      if (i + 5 < validSales.length) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      // Delay between batches to avoid rate limiting
+      if (i + 3 < validSales.length) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
 
@@ -275,7 +295,6 @@ Deno.serve(async (req) => {
         total: validSales.length,
         updated,
         errors,
-        results: results.slice(0, 20), // Limit response size
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
