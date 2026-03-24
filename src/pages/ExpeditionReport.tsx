@@ -67,6 +67,8 @@ interface SaleWithDetails {
     product_name: string;
     quantity: number;
     total_cents: number;
+    combo_id?: string | null;
+    combo_item_parent_id?: string | null;
   }[];
 }
 
