@@ -54,12 +54,13 @@ import {
   ExternalLink,
   RefreshCw,
 } from 'lucide-react';
-import { format, parseISO, isToday, isTomorrow, startOfDay, addDays, differenceInDays } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, startOfDay, addDays, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   useExpeditionSales,
   useExpeditionStats,
   getSuggestedMotoboy,
+  getDefaultExpeditionDateRange,
 } from '@/hooks/useExpeditionSales';
 import { useUpdateSale, formatCurrency, Sale } from '@/hooks/useSales';
 import { useDeliveryRegions, type DeliveryRegion } from '@/hooks/useDeliveryConfig';
