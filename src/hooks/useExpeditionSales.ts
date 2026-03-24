@@ -130,6 +130,16 @@ export function useExpeditionSales(dateFrom?: string, dateTo?: string) {
   });
 }
 
+export function getDefaultExpeditionDateRange() {
+  const now = new Date();
+  const from = startOfMonth(now);
+  const to = endOfMonth(now);
+  return {
+    from: format(from, 'yyyy-MM-dd') + 'T00:00:00',
+    to: format(to, 'yyyy-MM-dd') + 'T23:59:59',
+  };
+}
+
 export function useExpeditionStats(sales: Sale[]) {
   const today = startOfDay(new Date());
   const tomorrow = addDays(today, 1);
