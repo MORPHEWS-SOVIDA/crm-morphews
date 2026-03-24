@@ -441,7 +441,7 @@ export default function EcommerceOrderDetail() {
                     {saleItems.map((item: any) => (
                       <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div>
-                          <p className="font-medium">{item.product?.name || 'Produto'}</p>
+                          <p className="font-medium">{item.product_name || item.product?.name || 'Produto'}</p>
                           <p className="text-sm text-muted-foreground">
                             Qtd: {item.quantity} x {formatCurrency(item.unit_price_cents)}
                           </p>
