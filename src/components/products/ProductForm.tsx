@@ -143,6 +143,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
   const [ingredients, setIngredients] = useState<ProductIngredient[]>(initialIngredients);
   const [imageUrl, setImageUrl] = useState<string | null>(product?.image_url || null);
   const [labelImageUrl, setLabelImageUrl] = useState<string | null>(product?.label_image_url || null);
+  const [labelLinks, setLabelLinks] = useState<string[]>((product as any)?.label_links || []);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(initialVisibleUserIds);
   const [activeTab, setActiveTab] = useState('basic');
   
