@@ -129,7 +129,16 @@ export default function Expedition() {
   const queryClient = useQueryClient();
   const { profile, user } = useAuth();
   const organizationId = profile?.organization_id || null;
-  const { data: sales = [], isLoading, error } = useExpeditionSales();
+  
+  // Date range filter - default to current month
+  const defaultRange = getDefaultExpeditionDateRange();
+  const [dateFrom, setDateFrom] = useState(() => defaultRange.from.slice(0, 10));
+  const [dateTo, setDateTo] = useState(() => defaultRange.to.slice(0, 10));
+  
+  const { data: sales = [], isLoading, error } = useExpeditionSales(
+    dateFrom + 'T00:00:00',
+    dateTo + 'T23:59:59'
+  );
   const { data: regions = [] } = useDeliveryRegions();
   const { data: members = [] } = useTenantMembers();
   const { data: carriers = [] } = useShippingCarriers();
