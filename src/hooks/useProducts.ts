@@ -103,6 +103,7 @@ export interface ProductFormData {
   // Image fields
   image_url?: string | null;
   label_image_url?: string | null;
+  label_links?: string[];
   // Visibility restriction
   restrict_to_users?: boolean;
   // New fields
