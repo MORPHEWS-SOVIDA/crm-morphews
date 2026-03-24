@@ -1031,7 +1031,9 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
             
             <div className="py-6">
               <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-                <p className="text-sm text-green-700 mb-2">Valor total em dinheiro</p>
+                <p className="text-sm text-green-700 mb-2">
+                  {isBulkCashConfirm ? `Valor total em dinheiro de ${pendingCashClosingIds.length} fechamento(s)` : 'Valor total em dinheiro'}
+                </p>
                 <p className="text-4xl font-bold text-green-700">
                   {formatCurrency(pendingCashAmount)}
                 </p>

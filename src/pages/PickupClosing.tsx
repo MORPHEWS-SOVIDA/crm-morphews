@@ -814,7 +814,9 @@ export default function PickupClosing() {
             
             <div className="py-6">
               <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">Valor em dinheiro a conferir:</p>
+                <p className="text-sm text-muted-foreground mb-2">
+                  {isBulkCashConfirm ? `Valor total em dinheiro de ${pendingCashClosingIds.length} fechamento(s):` : 'Valor em dinheiro a conferir:'}
+                </p>
                 <p className="text-4xl font-bold text-green-600">{formatCurrency(pendingCashAmount)}</p>
               </div>
               
