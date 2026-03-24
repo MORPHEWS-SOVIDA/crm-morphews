@@ -300,28 +300,51 @@ serve(async (req) => {
         // Last resort: try matching by name from cart items or by storefront product catalog
         const stillUnresolved = productItems.filter(i => !productMap[i.product_id]);
         if (stillUnresolved.length > 0) {
-          // Strategy 1: If storefront_id exists, try to find product by name in the storefront's catalog
+          // Strategy 1: If storefront_id exists, try to find product by name in the storefront's catalog (including combos)
           if (storefront_id) {
             for (const item of stillUnresolved) {
               const itemName = item.product_name;
               if (itemName) {
                 console.warn(`[Checkout] Trying storefront catalog resolution for "${itemName}" in storefront ${storefront_id}`);
+                // Try regular products
                 const { data: spMatch } = await supabase
                   .from('storefront_products')
-                  .select('product_id, product:lead_products(id, name, image_url)')
+                  .select('product_id, combo_id, custom_name, product:lead_products(id, name, image_url)')
                   .eq('storefront_id', storefront_id)
                   .limit(100);
                 
                 if (spMatch) {
+                  let resolved = false;
                   for (const sp of spMatch) {
                     const realProduct = sp.product as unknown as { id: string; name: string; image_url?: string } | null;
+                    // Match by lead_products name
                     if (realProduct && realProduct.name.toLowerCase() === itemName.toLowerCase()) {
                       console.log(`[Checkout] Storefront-resolved "${itemName}" → ${realProduct.id} (${realProduct.name})`);
                       item.product_id = realProduct.id;
                       item.product_name = realProduct.name;
                       item.product_image_url = realProduct.image_url;
                       productMap[realProduct.id] = { name: realProduct.name, image_url: realProduct.image_url };
+                      resolved = true;
                       break;
+                    }
+                    // Match by custom_name (for combos)
+                    if (!resolved && sp.custom_name && sp.custom_name.toLowerCase() === itemName.toLowerCase() && sp.combo_id) {
+                      const { data: comboItems } = await supabase
+                        .from('product_combo_items')
+                        .select('product_id')
+                        .eq('combo_id', sp.combo_id)
+                        .limit(1);
+                      const realProdId = comboItems?.[0]?.product_id;
+                      if (realProdId) {
+                        console.log(`[Checkout] Storefront combo name-resolved "${itemName}" → combo ${sp.combo_id} → lead_product ${realProdId}`);
+                        item.product_id = realProdId;
+                        item.product_name = sp.custom_name;
+                        item.is_combo = true;
+                        item.combo_id = sp.combo_id;
+                        productMap[realProdId] = { name: sp.custom_name, image_url: null };
+                        resolved = true;
+                        break;
+                      }
                     }
                   }
                 }
@@ -337,6 +360,7 @@ serve(async (req) => {
               console.warn(`[Checkout] Trying name-based resolution for: ${itemNames.join(', ')}`);
               for (const item of finalUnresolved) {
                 if (item.product_name) {
+                  // Try lead_products first
                   const { data: matchedProducts } = await supabase
                     .from('lead_products')
                     .select('id, name, image_url')
@@ -349,6 +373,32 @@ serve(async (req) => {
                     console.log(`[Checkout] Name-resolved "${item.product_name}" → ${mp.id} (${mp.name})`);
                     item.product_id = mp.id;
                     productMap[mp.id] = { name: mp.name, image_url: mp.image_url };
+                  } else {
+                    // Try product_combos by name
+                    const { data: matchedCombos } = await supabase
+                      .from('product_combos')
+                      .select('id, name, image_url')
+                      .eq('organization_id', organizationId!)
+                      .ilike('name', item.product_name)
+                      .limit(1);
+                    
+                    if (matchedCombos && matchedCombos.length > 0) {
+                      const mc = matchedCombos[0];
+                      const { data: comboItems } = await supabase
+                        .from('product_combo_items')
+                        .select('product_id')
+                        .eq('combo_id', mc.id)
+                        .limit(1);
+                      const realProdId = comboItems?.[0]?.product_id;
+                      if (realProdId) {
+                        console.log(`[Checkout] Combo name-resolved "${item.product_name}" → combo ${mc.id} → lead_product ${realProdId}`);
+                        item.product_id = realProdId;
+                        item.product_name = mc.name;
+                        item.is_combo = true;
+                        item.combo_id = mc.id;
+                        productMap[realProdId] = { name: mc.name, image_url: mc.image_url };
+                      }
+                    }
                   }
                 }
               }
