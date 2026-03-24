@@ -68,7 +68,9 @@ export default function PickupClosing() {
   const [viewingClosingId, setViewingClosingId] = useState<string | null>(null);
   const [cashConfirmDialogOpen, setCashConfirmDialogOpen] = useState(false);
   const [pendingCashClosingId, setPendingCashClosingId] = useState<string | null>(null);
+  const [pendingCashClosingIds, setPendingCashClosingIds] = useState<string[]>([]);
   const [pendingCashAmount, setPendingCashAmount] = useState(0);
+  const [isBulkCashConfirm, setIsBulkCashConfirm] = useState(false);
   const [confirmCreateDialogOpen, setConfirmCreateDialogOpen] = useState(false);
   const [confirmCreateMode, setConfirmCreateMode] = useState<'selected' | 'all'>('selected');
 
