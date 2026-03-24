@@ -1239,7 +1239,7 @@ export function useAllDeliveries() {
         .select(`
           *,
           lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link),
-          items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at),
+          items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at, combo_id, combo_item_parent_id),
           shipping_address:lead_addresses!sales_shipping_address_id_fkey(id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link)
         `)
         .eq('organization_id', organizationId)

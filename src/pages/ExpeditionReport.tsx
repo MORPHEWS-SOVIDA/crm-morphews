@@ -182,7 +182,7 @@ export default function ExpeditionReport() {
           assigned_delivery_user_id,
           created_at,
           lead:leads(name, whatsapp, neighborhood, city),
-          items:sale_items(id, product_name, quantity, total_cents)
+          items:sale_items(id, product_name, quantity, total_cents, combo_id, combo_item_parent_id)
         `)
         .eq('organization_id', organizationId)
         .order('romaneio_number', { ascending: true });
