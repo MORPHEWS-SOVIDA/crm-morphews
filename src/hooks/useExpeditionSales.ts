@@ -194,12 +194,12 @@ export function useExpeditionStats(sales: Sale[]) {
       stats.pickup++;
     }
 
-    // Urgent today (drafts that should go out today)
+    // Urgent today (drafts that should go out today) - exclude done
     if (sale.status === 'draft' && deliveryDate && isToday(deliveryDate)) {
       stats.urgentToday++;
     }
 
-    // Tomorrow prep (need to be ready for tomorrow)
+    // Tomorrow prep (need to be ready for tomorrow) - exclude done
     if ((sale.status === 'draft' || sale.status === 'pending_expedition') && deliveryDate && isTomorrow(deliveryDate)) {
       stats.tomorrowPrep++;
     }
