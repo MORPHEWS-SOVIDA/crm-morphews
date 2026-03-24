@@ -912,12 +912,14 @@ serve(async (req) => {
       .select('id')
       .single();
 
-    // 8b. Create ecommerce_order_items for product visibility
+    // 8b. Create ecommerce_order_items for product visibility (with combo explosion)
     if (orderData?.id && productItems.length > 0) {
       for (const item of productItems) {
         const productInfo = productMap[item.product_id] || {};
         const itemName = item.product_name || productInfo.name || 'Produto';
-        await supabase
+        
+        // Insert parent item
+        const { data: parentOrderItem } = await supabase
           .from('ecommerce_order_items')
           .insert({
             order_id: orderData.id,
@@ -927,7 +929,38 @@ serve(async (req) => {
             quantity: item.quantity,
             unit_price_cents: item.price_cents,
             total_cents: item.price_cents * item.quantity,
-          });
+            combo_id: item.is_combo ? item.combo_id : null,
+          })
+          .select('id')
+          .single();
+        
+        // If combo, insert child items
+        if (item.is_combo && item.combo_id && parentOrderItem?.id) {
+          const { data: comboComponents } = await supabase
+            .from('product_combo_items')
+            .select('product_id, quantity, product:lead_products(id, name, image_url)')
+            .eq('combo_id', item.combo_id)
+            .order('position');
+          
+          if (comboComponents) {
+            for (const comp of comboComponents) {
+              const compProduct = comp.product as unknown as { id: string; name: string; image_url?: string } | null;
+              await supabase
+                .from('ecommerce_order_items')
+                .insert({
+                  order_id: orderData.id,
+                  product_id: comp.product_id,
+                  product_name: compProduct?.name || 'Componente',
+                  product_image_url: compProduct?.image_url || null,
+                  quantity: comp.quantity * item.quantity,
+                  unit_price_cents: 0,
+                  total_cents: 0,
+                  combo_id: item.combo_id,
+                  combo_item_parent_id: parentOrderItem.id,
+                });
+            }
+          }
+        }
       }
     }
 
