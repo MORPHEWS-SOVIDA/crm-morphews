@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 import { Sale } from '@/hooks/useSales';
-import { startOfDay, addDays, parseISO, isToday, isTomorrow } from 'date-fns';
+import { startOfDay, addDays, parseISO, isToday, isTomorrow, startOfMonth, endOfMonth, format } from 'date-fns';
 
 function useOrganizationId() {
   const { profile } = useAuth();
