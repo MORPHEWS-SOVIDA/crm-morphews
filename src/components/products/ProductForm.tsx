@@ -269,6 +269,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       ...values,
       image_url: imageUrl,
       label_image_url: labelImageUrl,
+      label_links: labelLinks.filter(l => l.trim() !== ''),
     } as ProductFormData;
     
     const usersToSave = values.restrict_to_users ? selectedUserIds : [];
