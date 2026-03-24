@@ -765,28 +765,83 @@ serve(async (req) => {
 
     if (saleError) throw saleError;
 
-    // 6. Create sale items - with error logging
+    // 6. Create sale items - with combo explosion
     console.log(`[Checkout] Creating ${productItems.length} sale items for sale ${sale.id}`);
     for (const item of productItems) {
       const productInfo = productMap[item.product_id];
       const itemName = item.product_name || productInfo?.name || 'Produto';
-      const { error: itemError } = await supabase
-        .from('sale_items')
-        .insert({
-          sale_id: sale.id,
-          product_id: item.product_id,
-          product_name: itemName,
-          quantity: item.quantity,
-          unit_price_cents: item.price_cents,
-          total_cents: item.price_cents * item.quantity,
-        });
       
-      if (itemError) {
-        console.error(`[Checkout] Failed to create sale item for product ${item.product_id} (${itemName}):`, itemError);
-        // If FK constraint fails (combo ID not in lead_products), log but don't lose the item
-        // The item data is preserved in the ecommerce_orders.items JSON
+      if (item.is_combo && item.combo_id) {
+        // COMBO: Create parent item (the combo itself) + child items (individual components)
+        const { data: parentItem, error: parentError } = await supabase
+          .from('sale_items')
+          .insert({
+            sale_id: sale.id,
+            product_id: item.product_id, // FK to first component product
+            product_name: itemName,
+            quantity: item.quantity,
+            unit_price_cents: item.price_cents,
+            total_cents: item.price_cents * item.quantity,
+            combo_id: item.combo_id,
+          })
+          .select('id')
+          .single();
+        
+        if (parentError) {
+          console.error(`[Checkout] Failed to create combo parent item for ${itemName}:`, parentError);
+        } else {
+          console.log(`[Checkout] Created combo parent item: ${itemName}, id=${parentItem.id}, combo=${item.combo_id}`);
+          
+          // Fetch combo components and create child items
+          const { data: comboComponents } = await supabase
+            .from('product_combo_items')
+            .select('product_id, quantity, product:lead_products(id, name, image_url)')
+            .eq('combo_id', item.combo_id)
+            .order('position');
+          
+          if (comboComponents && comboComponents.length > 0) {
+            for (const comp of comboComponents) {
+              const compProduct = comp.product as unknown as { id: string; name: string; image_url?: string } | null;
+              const compName = compProduct?.name || 'Componente';
+              const { error: childError } = await supabase
+                .from('sale_items')
+                .insert({
+                  sale_id: sale.id,
+                  product_id: comp.product_id,
+                  product_name: compName,
+                  quantity: comp.quantity * item.quantity, // multiply by kit quantity
+                  unit_price_cents: 0, // price is on the parent combo
+                  total_cents: 0,
+                  combo_id: item.combo_id,
+                  combo_item_parent_id: parentItem.id,
+                });
+              
+              if (childError) {
+                console.error(`[Checkout] Failed to create combo child item ${compName}:`, childError);
+              } else {
+                console.log(`[Checkout] Created combo child item: ${compName} x${comp.quantity * item.quantity}`);
+              }
+            }
+          }
+        }
       } else {
-        console.log(`[Checkout] Created sale item: product=${item.product_id}, name=${itemName}, qty=${item.quantity}, price=${item.price_cents}`);
+        // Regular product (not a combo)
+        const { error: itemError } = await supabase
+          .from('sale_items')
+          .insert({
+            sale_id: sale.id,
+            product_id: item.product_id,
+            product_name: itemName,
+            quantity: item.quantity,
+            unit_price_cents: item.price_cents,
+            total_cents: item.price_cents * item.quantity,
+          });
+        
+        if (itemError) {
+          console.error(`[Checkout] Failed to create sale item for product ${item.product_id} (${itemName}):`, itemError);
+        } else {
+          console.log(`[Checkout] Created sale item: product=${item.product_id}, name=${itemName}, qty=${item.quantity}, price=${item.price_cents}`);
+        }
       }
     }
 
