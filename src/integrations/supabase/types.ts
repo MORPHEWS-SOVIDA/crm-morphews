@@ -3948,6 +3948,8 @@ export type Database = {
       }
       ecommerce_order_items: {
         Row: {
+          combo_id: string | null
+          combo_item_parent_id: string | null
           created_at: string
           id: string
           order_id: string
@@ -3959,6 +3961,8 @@ export type Database = {
           unit_price_cents: number
         }
         Insert: {
+          combo_id?: string | null
+          combo_item_parent_id?: string | null
           created_at?: string
           id?: string
           order_id: string
@@ -3970,6 +3974,8 @@ export type Database = {
           unit_price_cents: number
         }
         Update: {
+          combo_id?: string | null
+          combo_item_parent_id?: string | null
           created_at?: string
           id?: string
           order_id?: string
@@ -3981,6 +3987,20 @@ export type Database = {
           unit_price_cents?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "ecommerce_order_items_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "product_combos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ecommerce_order_items_combo_item_parent_id_fkey"
+            columns: ["combo_item_parent_id"]
+            isOneToOne: false
+            referencedRelation: "ecommerce_order_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ecommerce_order_items_order_id_fkey"
             columns: ["order_id"]
@@ -7756,6 +7776,7 @@ export type Database = {
           key_question_2: string | null
           key_question_3: string | null
           label_image_url: string | null
+          label_links: string[] | null
           last_purchase_cost_cents: number | null
           last_purchase_date: string | null
           minimum_price: number | null
@@ -7847,6 +7868,7 @@ export type Database = {
           key_question_2?: string | null
           key_question_3?: string | null
           label_image_url?: string | null
+          label_links?: string[] | null
           last_purchase_cost_cents?: number | null
           last_purchase_date?: string | null
           minimum_price?: number | null
@@ -7938,6 +7960,7 @@ export type Database = {
           key_question_2?: string | null
           key_question_3?: string | null
           label_image_url?: string | null
+          label_links?: string[] | null
           last_purchase_cost_cents?: number | null
           last_purchase_date?: string | null
           minimum_price?: number | null
@@ -14725,6 +14748,8 @@ export type Database = {
       }
       sale_items: {
         Row: {
+          combo_id: string | null
+          combo_item_parent_id: string | null
           commission_cents: number | null
           commission_percentage: number | null
           cost_cents: number | null
@@ -14744,6 +14769,8 @@ export type Database = {
           unit_price_cents: number
         }
         Insert: {
+          combo_id?: string | null
+          combo_item_parent_id?: string | null
           commission_cents?: number | null
           commission_percentage?: number | null
           cost_cents?: number | null
@@ -14763,6 +14790,8 @@ export type Database = {
           unit_price_cents: number
         }
         Update: {
+          combo_id?: string | null
+          combo_item_parent_id?: string | null
           commission_cents?: number | null
           commission_percentage?: number | null
           cost_cents?: number | null
@@ -14782,6 +14811,27 @@ export type Database = {
           unit_price_cents?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "sale_items_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "product_combos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_combo_item_parent_id_fkey"
+            columns: ["combo_item_parent_id"]
+            isOneToOne: false
+            referencedRelation: "manipulated_sale_items_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_combo_item_parent_id_fkey"
+            columns: ["combo_item_parent_id"]
+            isOneToOne: false
+            referencedRelation: "sale_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sale_items_kit_id_fkey"
             columns: ["kit_id"]
