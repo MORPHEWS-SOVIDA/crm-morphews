@@ -150,8 +150,13 @@ export default function SalesReport() {
   const [cityFilter, setCityFilter] = useState("");
   const [stateFilter, setStateFilter] = useState("");
 
-  // Fetch data
-  const { data: sales, isLoading: salesLoading, error: salesError } = useSales();
+  // Fetch data - pass date range to server for efficient querying
+  const { data: sales, isLoading: salesLoading, error: salesError } = useSales({
+    dateFrom: startDate,
+    dateTo: endDate,
+    dateField: dateField,
+    limit: 5000,
+  });
   const { data: users } = useUsers();
   const { data: deliveryRegions } = useDeliveryRegions();
   const { data: shippingCarriers } = useShippingCarriers();
