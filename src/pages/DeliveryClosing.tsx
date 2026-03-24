@@ -85,7 +85,9 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   const [viewingClosingId, setViewingClosingId] = useState<string | null>(null);
   const [cashConfirmDialogOpen, setCashConfirmDialogOpen] = useState(false);
   const [pendingCashClosingId, setPendingCashClosingId] = useState<string | null>(null);
+  const [pendingCashClosingIds, setPendingCashClosingIds] = useState<string[]>([]);
   const [pendingCashAmount, setPendingCashAmount] = useState(0);
+  const [isBulkCashConfirm, setIsBulkCashConfirm] = useState(false);
   
   // Filters for new tab
   const [searchTerm, setSearchTerm] = useState('');
@@ -301,6 +303,21 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   };
 
   const handleConfirmCash = async () => {
+    if (isBulkCashConfirm && pendingCashClosingIds.length > 0) {
+      try {
+        const result = await bulkConfirmClosing.mutateAsync({ closingIds: pendingCashClosingIds, closingType, type: 'admin' });
+        setSelectedClosings(new Set());
+        if (result.successCount > 0) toast.success(`${result.successCount} fechamento(s) com dinheiro confirmado(s)!`);
+        if (result.errorCount > 0) toast.error(`${result.errorCount} fechamento(s) falharam`);
+      } catch (error: any) {
+        toast.error(error?.message || 'Erro ao confirmar em lote');
+      }
+      setCashConfirmDialogOpen(false);
+      setPendingCashClosingIds([]);
+      setIsBulkCashConfirm(false);
+      return;
+    }
+
     if (!pendingCashClosingId) return;
     
     try {
@@ -316,6 +333,16 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
       toast.error('Erro ao confirmar');
       console.error(error);
     }
+  };
+
+  const handleBulkCashConfirm = () => {
+    const cashClosings = filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents > 0);
+    if (cashClosings.length === 0) return;
+    const totalCash = cashClosings.reduce((sum, c) => sum + c.total_cash_cents, 0);
+    setPendingCashClosingIds(cashClosings.map(c => c.id));
+    setPendingCashAmount(totalCash);
+    setIsBulkCashConfirm(true);
+    setCashConfirmDialogOpen(true);
   };
 
   const toggleClosingSelection = (closingId: string) => {
@@ -687,6 +714,17 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                             Confirmar Relatório ({filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents === 0).length})
                           </Button>
                         )}
+                        {canConfirmAdmin && filteredClosings.some(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents > 0) && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={handleBulkCashConfirm}
+                            disabled={bulkConfirmClosing.isPending}
+                          >
+                            {bulkConfirmClosing.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Banknote className="w-4 h-4 mr-1" />}
+                            Conferir Dinheiro ({filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents > 0).length})
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" onClick={() => setSelectedClosings(new Set())}>
                           <X className="w-4 h-4 mr-1" />
                           Limpar
@@ -993,7 +1031,9 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
             
             <div className="py-6">
               <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-                <p className="text-sm text-green-700 mb-2">Valor total em dinheiro</p>
+                <p className="text-sm text-green-700 mb-2">
+                  {isBulkCashConfirm ? `Valor total em dinheiro de ${pendingCashClosingIds.length} fechamento(s)` : 'Valor total em dinheiro'}
+                </p>
                 <p className="text-4xl font-bold text-green-700">
                   {formatCurrency(pendingCashAmount)}
                 </p>
