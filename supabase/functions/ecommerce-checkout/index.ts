@@ -193,13 +193,15 @@ serve(async (req) => {
           }
         }
 
-        // Try remaining unresolved via storefront_products
+        // Try remaining unresolved via storefront_products (by id OR by combo_id)
         const stillUnresolvedAfterCombos = productIds.filter(id => !productMap[id]);
         if (stillUnresolvedAfterCombos.length > 0) {
           console.warn(`[Checkout] ${stillUnresolvedAfterCombos.length} product IDs not found in lead_products or combos, trying storefront_products resolution...`);
+          
+          // Try by storefront_products.id first
           const { data: spMappings } = await supabase
             .from('storefront_products')
-            .select('id, product_id, product:lead_products(id, name, image_url)')
+            .select('id, product_id, combo_id, custom_name, custom_images, product:lead_products(id, name, image_url)')
             .in('id', stillUnresolvedAfterCombos);
         
           if (spMappings) {
@@ -208,13 +210,86 @@ serve(async (req) => {
               if (realProduct) {
                 console.log(`[Checkout] Resolved storefront_product ${sp.id} → lead_product ${realProduct.id} (${realProduct.name})`);
                 productMap[sp.id] = { name: realProduct.name, image_url: realProduct.image_url };
-                // Remap the product_id in productItems to the real lead_products ID
                 for (const item of productItems) {
                   if (item.product_id === sp.id) {
                     item.product_id = realProduct.id;
-                    item.product_name = realProduct.name;
+                    item.product_name = sp.custom_name || realProduct.name;
                     item.product_image_url = realProduct.image_url;
-                    productMap[realProduct.id] = { name: realProduct.name, image_url: realProduct.image_url };
+                    productMap[realProduct.id] = { name: sp.custom_name || realProduct.name, image_url: realProduct.image_url };
+                  }
+                }
+              } else if (sp.combo_id) {
+                // Combo-only storefront product — resolve via combo
+                console.log(`[Checkout] Storefront product ${sp.id} is combo-only, resolving combo ${sp.combo_id}...`);
+                const { data: combo } = await supabase
+                  .from('product_combos')
+                  .select('id, name, image_url')
+                  .eq('id', sp.combo_id)
+                  .single();
+                if (combo) {
+                  const comboName = sp.custom_name || combo.name;
+                  const { data: comboItems } = await supabase
+                    .from('product_combo_items')
+                    .select('product_id')
+                    .eq('combo_id', combo.id)
+                    .limit(1);
+                  const realProdId = comboItems?.[0]?.product_id;
+                  if (realProdId) {
+                    productMap[sp.id] = { name: comboName, image_url: combo.image_url };
+                    for (const item of productItems) {
+                      if (item.product_id === sp.id) {
+                        item.product_id = realProdId;
+                        item.product_name = comboName;
+                        item.product_image_url = combo.image_url;
+                        item.is_combo = true;
+                        item.combo_id = combo.id;
+                        productMap[realProdId] = { name: comboName, image_url: combo.image_url };
+                        console.log(`[Checkout] Resolved combo storefront_product ${sp.id} → combo ${combo.id} → lead_product ${realProdId} (${comboName})`);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          // Also try by storefront_products.combo_id (cart may send combo_id as product_id)
+          const stillUnresolvedForComboLookup = productIds.filter(id => !productMap[id]);
+          if (stillUnresolvedForComboLookup.length > 0) {
+            const { data: spComboMappings } = await supabase
+              .from('storefront_products')
+              .select('id, combo_id, custom_name, custom_images')
+              .in('combo_id', stillUnresolvedForComboLookup);
+            
+            if (spComboMappings) {
+              for (const sp of spComboMappings) {
+                if (!sp.combo_id) continue;
+                const { data: combo } = await supabase
+                  .from('product_combos')
+                  .select('id, name, image_url')
+                  .eq('id', sp.combo_id)
+                  .single();
+                if (combo) {
+                  const comboName = sp.custom_name || combo.name;
+                  const { data: comboItems } = await supabase
+                    .from('product_combo_items')
+                    .select('product_id')
+                    .eq('combo_id', combo.id)
+                    .limit(1);
+                  const realProdId = comboItems?.[0]?.product_id;
+                  if (realProdId) {
+                    productMap[sp.combo_id] = { name: comboName, image_url: combo.image_url };
+                    for (const item of productItems) {
+                      if (item.product_id === sp.combo_id) {
+                        item.product_id = realProdId;
+                        item.product_name = comboName;
+                        item.product_image_url = combo.image_url;
+                        item.is_combo = true;
+                        item.combo_id = combo.id;
+                        productMap[realProdId] = { name: comboName, image_url: combo.image_url };
+                        console.log(`[Checkout] Resolved via combo_id lookup: ${sp.combo_id} → lead_product ${realProdId} (${comboName})`);
+                      }
+                    }
                   }
                 }
               }
