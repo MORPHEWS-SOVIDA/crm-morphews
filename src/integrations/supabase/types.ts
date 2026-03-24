@@ -15092,6 +15092,7 @@ export type Database = {
           delivered_at: string | null
           delivery_confirmed_at: string | null
           delivery_confirmed_by: string | null
+          delivery_estimate: string | null
           delivery_notes: string | null
           delivery_payment_type:
             | Database["public"]["Enums"]["delivery_payment_type"]
@@ -15120,6 +15121,8 @@ export type Database = {
           invoice_pdf_url: string | null
           invoice_xml_url: string | null
           is_ecommerce_origin: boolean | null
+          last_tracking_status: string | null
+          last_tracking_update: string | null
           lead_id: string
           missing_payment_proof: boolean | null
           modified_at_closing: boolean | null
@@ -15197,6 +15200,7 @@ export type Database = {
           delivered_at?: string | null
           delivery_confirmed_at?: string | null
           delivery_confirmed_by?: string | null
+          delivery_estimate?: string | null
           delivery_notes?: string | null
           delivery_payment_type?:
             | Database["public"]["Enums"]["delivery_payment_type"]
@@ -15227,6 +15231,8 @@ export type Database = {
           invoice_pdf_url?: string | null
           invoice_xml_url?: string | null
           is_ecommerce_origin?: boolean | null
+          last_tracking_status?: string | null
+          last_tracking_update?: string | null
           lead_id: string
           missing_payment_proof?: boolean | null
           modified_at_closing?: boolean | null
@@ -15304,6 +15310,7 @@ export type Database = {
           delivered_at?: string | null
           delivery_confirmed_at?: string | null
           delivery_confirmed_by?: string | null
+          delivery_estimate?: string | null
           delivery_notes?: string | null
           delivery_payment_type?:
             | Database["public"]["Enums"]["delivery_payment_type"]
@@ -15334,6 +15341,8 @@ export type Database = {
           invoice_pdf_url?: string | null
           invoice_xml_url?: string | null
           is_ecommerce_origin?: boolean | null
+          last_tracking_status?: string | null
+          last_tracking_update?: string | null
           lead_id?: string
           missing_payment_proof?: boolean | null
           modified_at_closing?: boolean | null
