@@ -714,6 +714,17 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
                             Confirmar Relatório ({filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents === 0).length})
                           </Button>
                         )}
+                        {canConfirmAdmin && filteredClosings.some(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents > 0) && (
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                            onClick={handleBulkCashConfirm}
+                            disabled={bulkConfirmClosing.isPending}
+                          >
+                            {bulkConfirmClosing.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Banknote className="w-4 h-4 mr-1" />}
+                            Conferir Dinheiro ({filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents > 0).length})
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" onClick={() => setSelectedClosings(new Set())}>
                           <X className="w-4 h-4 mr-1" />
                           Limpar
