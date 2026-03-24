@@ -390,7 +390,48 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                     onUploadComplete={setLabelImageUrl}
                     productId={product?.id}
                     imageType="label"
-                  />
+                   />
+                </div>
+
+                {/* Links dos Rótulos (Google Drive) */}
+                <div className="mt-4 space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Link2 className="w-4 h-4" />
+                    Links dos Rótulos (Google Drive)
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    URLs dos arquivos de rótulo para impressão (print on demand)
+                  </p>
+                  {labelLinks.map((link, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        placeholder="https://drive.google.com/..."
+                        value={link}
+                        onChange={(e) => {
+                          const newLinks = [...labelLinks];
+                          newLinks[index] = e.target.value;
+                          setLabelLinks(newLinks);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() => setLabelLinks(labelLinks.filter((_, i) => i !== index))}
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLabelLinks([...labelLinks, ''])}
+                  >
+                    + Adicionar link de rótulo
+                  </Button>
                 </div>
               </CardContent>
             </Card>
