@@ -218,6 +218,21 @@ export default function PickupClosing() {
   };
 
   const handleConfirmCash = async () => {
+    if (isBulkCashConfirm && pendingCashClosingIds.length > 0) {
+      try {
+        const result = await bulkConfirmClosing.mutateAsync({ closingIds: pendingCashClosingIds, closingType: 'pickup', type: 'admin' });
+        setSelectedClosings(new Set());
+        if (result.successCount > 0) toast.success(`${result.successCount} fechamento(s) com dinheiro confirmado(s)!`);
+        if (result.errorCount > 0) toast.error(`${result.errorCount} fechamento(s) falharam`);
+      } catch (error: any) {
+        toast.error(error?.message || 'Erro ao confirmar em lote');
+      }
+      setCashConfirmDialogOpen(false);
+      setPendingCashClosingIds([]);
+      setIsBulkCashConfirm(false);
+      return;
+    }
+
     if (!pendingCashClosingId) return;
     
     try {
@@ -233,6 +248,16 @@ export default function PickupClosing() {
       toast.error('Erro ao confirmar');
       console.error(error);
     }
+  };
+
+  const handleBulkCashConfirm = () => {
+    const cashClosings = filteredClosings.filter(c => selectedClosings.has(c.id) && c.status === 'confirmed_auxiliar' && c.total_cash_cents > 0);
+    if (cashClosings.length === 0) return;
+    const totalCash = cashClosings.reduce((sum, c) => sum + c.total_cash_cents, 0);
+    setPendingCashClosingIds(cashClosings.map(c => c.id));
+    setPendingCashAmount(totalCash);
+    setIsBulkCashConfirm(true);
+    setCashConfirmDialogOpen(true);
   };
 
   const toggleClosingSelection = (closingId: string) => {
