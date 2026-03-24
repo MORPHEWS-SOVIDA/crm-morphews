@@ -860,6 +860,45 @@ export default function Expedition() {
           </div>
         </div>
 
+        {/* Date Range Filter */}
+        <Card className="bg-card border">
+          <CardContent className="py-3 px-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground">Período:</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-[150px] h-8 text-sm"
+                />
+                <span className="text-sm text-muted-foreground">até</span>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-[150px] h-8 text-sm"
+                />
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {format(parseISO(dateFrom), "dd/MM/yyyy")} — {format(parseISO(dateTo), "dd/MM/yyyy")}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => {
+                  const range = getDefaultExpeditionDateRange();
+                  setDateFrom(range.from.slice(0, 10));
+                  setDateTo(range.to.slice(0, 10));
+                }}
+              >
+                Mês atual
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Smart Alerts Dashboard */}
         <ExpeditionAlertsDashboard 
           metrics={alertMetrics}
