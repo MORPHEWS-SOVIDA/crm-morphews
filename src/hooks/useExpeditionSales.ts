@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 import { Sale } from '@/hooks/useSales';
-import { startOfDay, addDays, parseISO, isToday, isTomorrow } from 'date-fns';
+import { startOfDay, addDays, parseISO, isToday, isTomorrow, startOfMonth, endOfMonth, format } from 'date-fns';
 
 function useOrganizationId() {
   const { profile } = useAuth();
@@ -27,15 +27,15 @@ export interface ExpeditionStats {
   tomorrowPrep: number;
 }
 
-export function useExpeditionSales() {
+export function useExpeditionSales(dateFrom?: string, dateTo?: string) {
   const organizationId = useOrganizationId();
 
   return useQuery({
-    queryKey: ['expedition-sales', organizationId],
+    queryKey: ['expedition-sales', organizationId, dateFrom, dateTo],
     queryFn: async () => {
       if (!organizationId) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('sales')
         .select(`
           *,
@@ -46,11 +46,19 @@ export function useExpeditionSales() {
           shipping_address:lead_addresses!sales_shipping_address_id_fkey(id, label, street, street_number, complement, neighborhood, city, state, cep, delivery_notes, google_maps_link)
         `)
         .eq('organization_id', organizationId)
-        .in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned', 'cancelled', 'payment_confirmed'])
-        .is('finalized_at', null)
-        .is('closed_at', null)
+        .in('status', ['draft', 'pending_expedition', 'dispatched', 'delivered', 'returned', 'cancelled', 'payment_confirmed', 'closed', 'finalized'])
         .order('scheduled_delivery_date', { ascending: true })
         .order('created_at', { ascending: true });
+
+      // Apply date range filter
+      if (dateFrom) {
+        query = query.gte('created_at', dateFrom);
+      }
+      if (dateTo) {
+        query = query.lte('created_at', dateTo);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -120,6 +128,16 @@ export function useExpeditionSales() {
     retry: 1,
     placeholderData: (prev) => prev ?? [],
   });
+}
+
+export function getDefaultExpeditionDateRange() {
+  const now = new Date();
+  const from = startOfMonth(now);
+  const to = endOfMonth(now);
+  return {
+    from: format(from, 'yyyy-MM-dd') + 'T00:00:00',
+    to: format(to, 'yyyy-MM-dd') + 'T23:59:59',
+  };
 }
 
 export function useExpeditionStats(sales: Sale[]) {

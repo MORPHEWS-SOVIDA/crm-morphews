@@ -54,12 +54,13 @@ import {
   ExternalLink,
   RefreshCw,
 } from 'lucide-react';
-import { format, parseISO, isToday, isTomorrow, startOfDay, addDays, differenceInDays } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, startOfDay, addDays, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
   useExpeditionSales,
   useExpeditionStats,
   getSuggestedMotoboy,
+  getDefaultExpeditionDateRange,
 } from '@/hooks/useExpeditionSales';
 import { useUpdateSale, formatCurrency, Sale } from '@/hooks/useSales';
 import { useDeliveryRegions, type DeliveryRegion } from '@/hooks/useDeliveryConfig';
@@ -128,7 +129,16 @@ export default function Expedition() {
   const queryClient = useQueryClient();
   const { profile, user } = useAuth();
   const organizationId = profile?.organization_id || null;
-  const { data: sales = [], isLoading, error } = useExpeditionSales();
+  
+  // Date range filter - default to current month
+  const defaultRange = getDefaultExpeditionDateRange();
+  const [dateFrom, setDateFrom] = useState(() => defaultRange.from.slice(0, 10));
+  const [dateTo, setDateTo] = useState(() => defaultRange.to.slice(0, 10));
+  
+  const { data: sales = [], isLoading, error } = useExpeditionSales(
+    dateFrom + 'T00:00:00',
+    dateTo + 'T23:59:59'
+  );
   const { data: regions = [] } = useDeliveryRegions();
   const { data: members = [] } = useTenantMembers();
   const { data: carriers = [] } = useShippingCarriers();
@@ -849,6 +859,45 @@ export default function Expedition() {
             </Button>
           </div>
         </div>
+
+        {/* Date Range Filter */}
+        <Card className="bg-card border">
+          <CardContent className="py-3 px-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground">Período:</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-[150px] h-8 text-sm"
+                />
+                <span className="text-sm text-muted-foreground">até</span>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-[150px] h-8 text-sm"
+                />
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {format(parseISO(dateFrom), "dd/MM/yyyy")} — {format(parseISO(dateTo), "dd/MM/yyyy")}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => {
+                  const range = getDefaultExpeditionDateRange();
+                  setDateFrom(range.from.slice(0, 10));
+                  setDateTo(range.to.slice(0, 10));
+                }}
+              >
+                Mês atual
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Smart Alerts Dashboard */}
         <ExpeditionAlertsDashboard 
