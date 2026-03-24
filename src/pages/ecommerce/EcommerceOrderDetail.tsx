@@ -438,19 +438,42 @@ export default function EcommerceOrderDetail() {
               <CardContent className="pt-6">
                 {saleItems && saleItems.length > 0 ? (
                   <div className="space-y-4">
-                    {saleItems.map((item: any) => (
-                      <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{item.product_name || item.product?.name || 'Produto'}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Qtd: {item.quantity} x {formatCurrency(item.unit_price_cents)}
-                          </p>
+                    {saleItems.filter((item: any) => !item.combo_item_parent_id).map((item: any) => {
+                      const children = item.combo_id 
+                        ? saleItems.filter((child: any) => child.combo_item_parent_id === item.id) 
+                        : [];
+                      return (
+                        <div key={item.id}>
+                          <div className="flex items-center justify-between p-4 border rounded-lg">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {item.combo_id && (
+                                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">Kit</span>
+                                )}
+                                <p className="font-medium">{item.product_name || item.product?.name || 'Produto'}</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                Qtd: {item.quantity} x {formatCurrency(item.unit_price_cents)}
+                              </p>
+                            </div>
+                            <div className="text-right font-semibold">
+                              {formatCurrency(item.total_cents)}
+                            </div>
+                          </div>
+                          {children.length > 0 && (
+                            <div className="ml-6 mt-1 space-y-1">
+                              {children.map((child: any) => (
+                                <div key={child.id} className="flex items-center gap-2 text-sm text-muted-foreground p-2 bg-muted/30 rounded">
+                                  <span>↳</span>
+                                  <span>{child.product_name || child.product?.name}</span>
+                                  <span className="text-xs">x{child.quantity}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-right font-semibold">
-                          {formatCurrency(item.total_cents)}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-center text-muted-foreground py-8">

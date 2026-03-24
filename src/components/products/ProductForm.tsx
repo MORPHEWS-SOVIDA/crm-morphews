@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot, Factory, Star, History } from 'lucide-react';
+import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot, Factory, Star, History, XCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 import { PRODUCT_CATEGORIES, useProducts } from '@/hooks/useProducts';
@@ -143,6 +143,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
   const [ingredients, setIngredients] = useState<ProductIngredient[]>(initialIngredients);
   const [imageUrl, setImageUrl] = useState<string | null>(product?.image_url || null);
   const [labelImageUrl, setLabelImageUrl] = useState<string | null>(product?.label_image_url || null);
+  const [labelLinks, setLabelLinks] = useState<string[]>((product as any)?.label_links || []);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(initialVisibleUserIds);
   const [activeTab, setActiveTab] = useState('basic');
   
@@ -268,6 +269,7 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
       ...values,
       image_url: imageUrl,
       label_image_url: labelImageUrl,
+      label_links: labelLinks.filter(l => l.trim() !== ''),
     } as ProductFormData;
     
     const usersToSave = values.restrict_to_users ? selectedUserIds : [];
@@ -388,7 +390,48 @@ export function ProductForm({ product, onSubmit, isLoading, onCancel, initialPri
                     onUploadComplete={setLabelImageUrl}
                     productId={product?.id}
                     imageType="label"
-                  />
+                   />
+                </div>
+
+                {/* Links dos Rótulos (Google Drive) */}
+                <div className="mt-4 space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Link2 className="w-4 h-4" />
+                    Links dos Rótulos (Google Drive)
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    URLs dos arquivos de rótulo para impressão (print on demand)
+                  </p>
+                  {labelLinks.map((link, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        placeholder="https://drive.google.com/..."
+                        value={link}
+                        onChange={(e) => {
+                          const newLinks = [...labelLinks];
+                          newLinks[index] = e.target.value;
+                          setLabelLinks(newLinks);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() => setLabelLinks(labelLinks.filter((_, i) => i !== index))}
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLabelLinks([...labelLinks, ''])}
+                  >
+                    + Adicionar link de rótulo
+                  </Button>
                 </div>
               </CardContent>
             </Card>
