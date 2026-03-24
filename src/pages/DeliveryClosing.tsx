@@ -85,7 +85,9 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
   const [viewingClosingId, setViewingClosingId] = useState<string | null>(null);
   const [cashConfirmDialogOpen, setCashConfirmDialogOpen] = useState(false);
   const [pendingCashClosingId, setPendingCashClosingId] = useState<string | null>(null);
+  const [pendingCashClosingIds, setPendingCashClosingIds] = useState<string[]>([]);
   const [pendingCashAmount, setPendingCashAmount] = useState(0);
+  const [isBulkCashConfirm, setIsBulkCashConfirm] = useState(false);
   
   // Filters for new tab
   const [searchTerm, setSearchTerm] = useState('');
