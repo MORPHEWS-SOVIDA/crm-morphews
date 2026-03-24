@@ -348,7 +348,19 @@ export default function ExpeditionReport() {
   };
 
   const getProductsList = (items: SaleWithDetails['items']) => {
-    return items.map(item => `${item.quantity}x ${item.product_name}`);
+    // Show parent items, and for combos show children indented
+    const parentItems = items.filter(item => !(item as any).combo_item_parent_id);
+    const lines: string[] = [];
+    for (const item of parentItems) {
+      lines.push(`${item.quantity}x ${item.product_name}`);
+      if ((item as any).combo_id) {
+        const children = items.filter(child => (child as any).combo_item_parent_id === item.id);
+        for (const child of children) {
+          lines.push(`   ↳ ${child.quantity}x ${child.product_name}`);
+        }
+      }
+    }
+    return lines;
   };
 
   const getStatusLabel = (status: string) => {
