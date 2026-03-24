@@ -249,17 +249,22 @@ export default function Expedition() {
     }
 
     let filtered = [...sales];
+    
+    // Statuses that mean the sale is "done" and should not appear in active tabs
+    const doneStatuses = ['delivered', 'closed', 'finalized', 'cancelled'];
 
     // Tab filter
     switch (activeTab) {
       case 'todo':
         // A FAZER: RASCUNHO + PAGO ONLINE (sem entrega) + IMPRESSO + DESPACHADO + CORREIOS
         filtered = filtered.filter(s => 
-          s.status === 'draft' || 
-          (s.status === 'payment_confirmed' && !s.delivered_at) ||
-          s.status === 'pending_expedition' || 
-          s.status === 'dispatched' ||
-          (s.delivery_type === 'carrier' && s.status !== 'cancelled' && s.status !== 'delivered' && !(s.status === 'payment_confirmed' && s.delivered_at))
+          !doneStatuses.includes(s.status) && (
+            s.status === 'draft' || 
+            (s.status === 'payment_confirmed' && !s.delivered_at) ||
+            s.status === 'pending_expedition' || 
+            s.status === 'dispatched' ||
+            (s.delivery_type === 'carrier' && !(s.status === 'payment_confirmed' && s.delivered_at))
+          )
         );
         break;
       case 'draft':
@@ -276,17 +281,17 @@ export default function Expedition() {
         filtered = filtered.filter(s => s.status === 'returned');
         break;
       case 'carrier-no-tracking':
-        filtered = filtered.filter(s => s.delivery_type === 'carrier' && !s.tracking_code && s.status !== 'cancelled' && s.status !== 'delivered');
+        filtered = filtered.filter(s => s.delivery_type === 'carrier' && !s.tracking_code && !doneStatuses.includes(s.status));
         break;
       case 'carrier-tracking':
-        filtered = filtered.filter(s => s.delivery_type === 'carrier' && s.tracking_code && s.status !== 'delivered' && s.status !== 'cancelled');
+        filtered = filtered.filter(s => s.delivery_type === 'carrier' && s.tracking_code && !doneStatuses.includes(s.status));
         break;
       case 'pickup':
-        // Retirada no Balcão - only pending pickups (not delivered or cancelled)
-        filtered = filtered.filter(s => s.delivery_type === 'pickup' && s.status !== 'delivered' && s.status !== 'cancelled');
+        // Retirada no Balcão - only pending pickups
+        filtered = filtered.filter(s => s.delivery_type === 'pickup' && !doneStatuses.includes(s.status));
         break;
       case 'delivered':
-        filtered = filtered.filter(s => s.status === 'delivered');
+        filtered = filtered.filter(s => s.status === 'delivered' || s.status === 'closed' || s.status === 'finalized');
         break;
       case 'cancelled':
         filtered = filtered.filter(s => s.status === 'cancelled');

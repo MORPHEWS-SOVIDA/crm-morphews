@@ -148,6 +148,8 @@ export function useExpeditionStats(sales: Sale[]) {
       : null;
 
     // Status counts
+    const doneStatuses = ['delivered', 'closed', 'finalized', 'cancelled'];
+    
     switch (sale.status) {
       case 'draft':
         stats.draft++;
@@ -162,6 +164,8 @@ export function useExpeditionStats(sales: Sale[]) {
         stats.returned++;
         break;
       case 'delivered':
+      case 'closed':
+      case 'finalized':
         stats.delivered++;
         break;
       case 'cancelled':
@@ -175,18 +179,18 @@ export function useExpeditionStats(sales: Sale[]) {
         break;
     }
 
-    // Carrier without tracking
-    if (sale.delivery_type === 'carrier' && !sale.tracking_code && sale.status !== 'cancelled' && sale.status !== 'delivered') {
+    // Carrier without tracking - exclude done statuses
+    if (sale.delivery_type === 'carrier' && !sale.tracking_code && !doneStatuses.includes(sale.status)) {
       stats.carrierNoTracking++;
     }
     
-    // Carrier with tracking (for substatus updates)
-    if (sale.delivery_type === 'carrier' && sale.tracking_code && sale.status !== 'cancelled' && sale.status !== 'delivered') {
+    // Carrier with tracking (for substatus updates) - exclude done statuses
+    if (sale.delivery_type === 'carrier' && sale.tracking_code && !doneStatuses.includes(sale.status)) {
       stats.carrierWithTracking++;
     }
 
-    // Pickup (Retirada no Balcão) - pending delivery
-    if (sale.delivery_type === 'pickup' && sale.status !== 'cancelled' && sale.status !== 'delivered') {
+    // Pickup (Retirada no Balcão) - pending delivery - exclude done statuses
+    if (sale.delivery_type === 'pickup' && !doneStatuses.includes(sale.status)) {
       stats.pickup++;
     }
 
