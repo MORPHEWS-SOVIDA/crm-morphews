@@ -1537,24 +1537,47 @@ export default function SaleDetail() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sale.items?.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">
-                          {item.product_name}
-                          {item.requisition_number && (
-                            <span className="block text-xs text-amber-600 font-normal mt-1">
-                              Requisição: {item.requisition_number}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">{item.quantity}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.unit_price_cents)}</TableCell>
-                        <TableCell className="text-right text-green-600">
-                          {item.discount_cents > 0 ? `-${formatCurrency(item.discount_cents)}` : '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(item.total_cents)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {sale.items?.filter((item: any) => !item.combo_item_parent_id).map((item: any) => {
+                      const childItems = item.combo_id 
+                        ? sale.items?.filter((child: any) => child.combo_item_parent_id === item.id) || []
+                        : [];
+                      return (
+                        <>
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {item.combo_id && (
+                                  <Badge variant="outline" className="text-xs shrink-0">Kit</Badge>
+                                )}
+                                <span>{item.product_name}</span>
+                              </div>
+                              {item.requisition_number && (
+                                <span className="block text-xs text-amber-600 font-normal mt-1">
+                                  Requisição: {item.requisition_number}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">{item.quantity}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(item.unit_price_cents)}</TableCell>
+                            <TableCell className="text-right text-green-600">
+                              {item.discount_cents > 0 ? `-${formatCurrency(item.discount_cents)}` : '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">{formatCurrency(item.total_cents)}</TableCell>
+                          </TableRow>
+                          {childItems.map((child: any) => (
+                            <TableRow key={child.id} className="bg-muted/30">
+                              <TableCell className="font-normal text-muted-foreground pl-8">
+                                <span className="text-xs">↳</span> {child.product_name}
+                              </TableCell>
+                              <TableCell className="text-center text-muted-foreground text-sm">{child.quantity}</TableCell>
+                              <TableCell className="text-right text-muted-foreground text-sm">-</TableCell>
+                              <TableCell className="text-right">-</TableCell>
+                              <TableCell className="text-right text-muted-foreground text-sm">-</TableCell>
+                            </TableRow>
+                          ))}
+                        </>
+                      );
+                    })}
                   </TableBody>
                 </Table>
 
