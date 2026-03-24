@@ -1489,8 +1489,41 @@ export default function Expedition() {
                                         )}
                                       </Button>
                                       
-                                      {/* Show cached status if available */}
-                                      {trackingStatuses2[sale.tracking_code] && (
+                                      {/* Show auto-tracked status from DB or cached manual fetch */}
+                                      {(sale as any).last_tracking_status ? (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Badge 
+                                                variant="secondary" 
+                                                className={`text-xs max-w-[220px] truncate ${
+                                                  (sale as any).carrier_tracking_status === 'delivered'
+                                                    ? 'bg-green-100 text-green-700 border-green-300' 
+                                                    : 'bg-blue-50 text-blue-700'
+                                                }`}
+                                              >
+                                                {(sale as any).carrier_tracking_status === 'delivered' && '✅ '}
+                                                {(sale as any).last_tracking_status}
+                                              </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-sm">
+                                              <div className="text-xs">
+                                                <p className="font-medium">{(sale as any).last_tracking_status}</p>
+                                                {(sale as any).last_tracking_update && (
+                                                  <p className="text-muted-foreground mt-1">
+                                                    🔄 Atualizado: {format(parseISO((sale as any).last_tracking_update), "dd/MM HH:mm")}
+                                                  </p>
+                                                )}
+                                                {(sale as any).delivery_estimate && (
+                                                  <p className="text-green-600 font-medium mt-1">
+                                                    📅 Previsão: {format(parseISO((sale as any).delivery_estimate), "dd/MM/yyyy")}
+                                                  </p>
+                                                )}
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ) : trackingStatuses2[sale.tracking_code] ? (
                                         <TooltipProvider>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
@@ -1523,6 +1556,13 @@ export default function Expedition() {
                                             </TooltipContent>
                                           </Tooltip>
                                         </TooltipProvider>
+                                      ) : null}
+
+                                      {/* Show delivery estimate badge */}
+                                      {(sale as any).delivery_estimate && !(sale as any).last_tracking_status && (
+                                        <Badge variant="outline" className="text-xs text-green-600 border-green-300">
+                                          📅 Prev: {format(parseISO((sale as any).delivery_estimate), "dd/MM")}
+                                        </Badge>
                                       )}
                                     </div>
                                   )}
