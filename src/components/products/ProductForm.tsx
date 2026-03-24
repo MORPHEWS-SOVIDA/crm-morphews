@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot, Factory, Star, History } from 'lucide-react';
+import { Loader2, Package, DollarSign, Link2, HelpCircle, ImageIcon, FlaskConical, Users, Globe, Youtube, Barcode, Ruler, FileText, Settings, ShoppingBag, FileQuestion, MessageSquare, Bot, Factory, Star, History, XCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import type { Product, ProductFormData } from '@/hooks/useProducts';
 import { PRODUCT_CATEGORIES, useProducts } from '@/hooks/useProducts';
