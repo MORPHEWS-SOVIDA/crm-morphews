@@ -315,7 +315,7 @@ function useOrganizationId() {
   return profile?.organization_id ?? tenantId ?? null;
 }
 
-export function useSales(filters?: { status?: SaleStatus; limit?: number }) {
+export function useSales(filters?: { status?: SaleStatus; limit?: number; dateFrom?: string; dateTo?: string; dateField?: string }) {
   const organizationId = useOrganizationId();
   const { user } = useAuth();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
@@ -338,6 +338,16 @@ export function useSales(filters?: { status?: SaleStatus; limit?: number }) {
         .or('is_ecommerce_origin.eq.false,is_ecommerce_origin.is.null,and(is_ecommerce_origin.eq.true,status.neq.cancelled)') // Hide cancelled e-commerce orders from ERP
         .order('created_at', { ascending: false })
         .limit(limit);
+
+      // Server-side date filtering for performance
+      if (filters?.dateFrom) {
+        const field = filters.dateField || 'created_at';
+        query = query.gte(field, filters.dateFrom);
+      }
+      if (filters?.dateTo) {
+        const field = filters.dateField || 'created_at';
+        query = query.lte(field, `${filters.dateTo}T23:59:59.999Z`);
+      }
 
       if (filters?.status) {
         query = query.eq('status', filters.status);
