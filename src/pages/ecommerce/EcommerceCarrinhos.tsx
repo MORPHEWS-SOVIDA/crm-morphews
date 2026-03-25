@@ -30,7 +30,8 @@ import {
   AlertCircle,
   CreditCard,
   Eye,
-  User
+  User,
+  Package
 } from 'lucide-react';
 
 interface Cart {
