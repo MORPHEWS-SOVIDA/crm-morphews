@@ -1056,9 +1056,9 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
               <Button 
                 className="bg-green-600 hover:bg-green-700"
                 onClick={handleConfirmCash}
-                disabled={confirmClosing.isPending}
+                disabled={confirmClosing.isPending || bulkConfirmClosing.isPending}
               >
-                {confirmClosing.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {(confirmClosing.isPending || bulkConfirmClosing.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 <Banknote className="w-4 h-4 mr-2" />
                 Confirmar Recebimento
               </Button>
