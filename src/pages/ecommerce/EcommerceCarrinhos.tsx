@@ -30,7 +30,8 @@ import {
   AlertCircle,
   CreditCard,
   Eye,
-  User
+  User,
+  Package
 } from 'lucide-react';
 
 interface Cart {
@@ -39,12 +40,29 @@ interface Cart {
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
+  customer_cpf: string | null;
   total_cents: number;
   status: 'open' | 'abandoned' | 'payment_initiated' | 'paid' | 'converted' | 'expired' | 'active';
   created_at: string;
   updated_at: string;
   abandoned_at: string | null;
   recovery_whatsapp_sent_at: string | null;
+  recovery_email_sent_at: string | null;
+  checkout_started_at: string | null;
+  payment_attempted_at: string | null;
+  payment_method: string | null;
+  last_error: string | null;
+  last_error_at: string | null;
+  source_type: string | null;
+  source_url: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  device_info: any;
+  shipping_cep: string | null;
+  shipping_address: string | null;
+  shipping_city: string | null;
+  shipping_state: string | null;
   storefront?: { name: string } | null;
   landing_page?: { name: string } | null;
   lead?: { name: string } | null;
@@ -557,13 +575,36 @@ function CartList({ carts, emptyMessage, showRecovery = false, onViewCart }: {
     );
   }
 
+  const getItemsCount = (items: any): number => {
+    if (Array.isArray(items)) return items.length;
+    if (items && typeof items === 'object') return Object.keys(items).length;
+    return 0;
+  };
+
+  const getFirstItemName = (items: any): string | null => {
+    if (Array.isArray(items) && items.length > 0) {
+      return items[0]?.product_name || items[0]?.name || null;
+    }
+    return null;
+  };
+
+  const getPaymentMethodLabel = (method: string | null) => {
+    if (!method) return null;
+    const map: Record<string, string> = {
+      credit_card: 'Cartão', pix: 'PIX', boleto: 'Boleto', debit_card: 'Débito',
+    };
+    return map[method] || method;
+  };
+
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="space-y-4">
+        <div className="space-y-3">
           {carts.map((cart) => {
             const statusConfig = STATUS_CONFIG[cart.status] || STATUS_CONFIG.open;
             const StatusIcon = statusConfig.icon;
+            const itemsCount = getItemsCount(cart.items);
+            const firstItem = getFirstItemName(cart.items);
             
             return (
               <div
@@ -571,34 +612,69 @@ function CartList({ carts, emptyMessage, showRecovery = false, onViewCart }: {
                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                 onClick={() => onViewCart(cart)}
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium">
                       {cart.customer_name || cart.lead?.name || 'Visitante'}
                     </span>
-                    <Badge variant={statusConfig.variant}>
+                    <Badge variant={statusConfig.variant} className="text-xs">
                       <StatusIcon className="h-3 w-3 mr-1" />
                       {statusConfig.label}
                     </Badge>
+                    {cart.payment_method && (
+                      <Badge variant="outline" className="text-xs">
+                        {getPaymentMethodLabel(cart.payment_method)}
+                      </Badge>
+                    )}
+                    {cart.last_error && (
+                      <Badge variant="destructive" className="text-xs gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Erro
+                      </Badge>
+                    )}
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {cart.customer_email || cart.customer_phone || 'Sem contato'}
+                  <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                    {cart.customer_email && <span>{cart.customer_email}</span>}
+                    {cart.customer_email && cart.customer_phone && <span>•</span>}
+                    {cart.customer_phone && <span>{cart.customer_phone}</span>}
+                    {!cart.customer_email && !cart.customer_phone && <span className="italic">Sem contato</span>}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {cart.storefront?.name || cart.landing_page?.name || 'Origem desconhecida'}
-                    {' • '}
-                    {formatDistanceToNow(new Date(cart.updated_at), {
-                      addSuffix: true,
-                      locale: ptBR,
-                    })}
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
+                    <span>{cart.storefront?.name || cart.landing_page?.name || 'Origem desconhecida'}</span>
+                    <span>•</span>
+                    <span>{formatDistanceToNow(new Date(cart.updated_at), { addSuffix: true, locale: ptBR })}</span>
+                    {itemsCount > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Package className="h-3 w-3" />
+                          {itemsCount} {itemsCount === 1 ? 'item' : 'itens'}
+                          {firstItem && <span className="truncate max-w-[120px]">({firstItem})</span>}
+                        </span>
+                      </>
+                    )}
+                    {cart.utm_source && (
+                      <>
+                        <span>•</span>
+                        <span className="text-primary/70">utm: {cart.utm_source}</span>
+                      </>
+                    )}
                   </div>
+                  {cart.last_error && (
+                    <div className="text-xs text-destructive truncate max-w-md">
+                      ⚠ {cart.last_error}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right">
                     <div className="font-semibold">{formatCurrency(cart.total_cents)}</div>
                     {cart.recovery_whatsapp_sent_at && (
+                      <div className="text-xs text-green-600">WhatsApp enviado</div>
+                    )}
+                    {cart.shipping_city && cart.shipping_state && (
                       <div className="text-xs text-muted-foreground">
-                        WhatsApp enviado
+                        {cart.shipping_city}/{cart.shipping_state}
                       </div>
                     )}
                   </div>
