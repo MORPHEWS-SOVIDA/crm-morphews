@@ -1793,6 +1793,10 @@ export default function WhatsAppChat() {
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
+                <ExportConversationsDialog
+                  instances={instances}
+                  currentConversationId={selectedConversation?.id}
+                />
                 <Button variant="ghost" size="icon" onClick={() => navigate('/whatsapp')} className="h-8 w-8">
                   <Settings className="h-4 w-4" />
                 </Button>
