@@ -54,6 +54,7 @@ import { ConversationStatusTabs } from '@/components/whatsapp/ConversationStatus
 import { ConversationTransferDialog } from '@/components/whatsapp/ConversationTransferDialog';
 import { LeadSearchDialog } from '@/components/whatsapp/LeadSearchDialog';
 import { NewConversationDialog } from '@/components/whatsapp/NewConversationDialog';
+import { ExportConversationsDialog } from '@/components/whatsapp/ExportConversationsDialog';
 import { WavoipCallButton } from '@/components/whatsapp/WavoipCallButton';
 import { WavoipPhoneButton } from '@/components/whatsapp/WavoipPhoneButton';
 import { useNotificationSound } from '@/hooks/useNotificationSound';
@@ -1792,6 +1793,10 @@ export default function WhatsAppChat() {
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
+                <ExportConversationsDialog
+                  instances={instances}
+                  currentConversationId={selectedConversation?.id}
+                />
                 <Button variant="ghost" size="icon" onClick={() => navigate('/whatsapp')} className="h-8 w-8">
                   <Settings className="h-4 w-4" />
                 </Button>
