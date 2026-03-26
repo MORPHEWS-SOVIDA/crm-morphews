@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Download, Loader2, Calendar } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useTenant } from "@/hooks/useTenant";
 import { toast } from "sonner";
 import { format, subDays } from "date-fns";
 
@@ -33,15 +34,39 @@ export function ExportConversationsDialog({
   currentConversationId,
 }: ExportConversationsDialogProps) {
   const { session } = useAuth();
+  const { tenantId } = useTenant();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const today = format(new Date(), "yyyy-MM-dd");
   const [dateFrom, setDateFrom] = useState(today);
   const [dateTo, setDateTo] = useState(today);
   const [instanceId, setInstanceId] = useState<string>("all");
+  const [status, setStatus] = useState<string>("all");
+  const [assignedUserId, setAssignedUserId] = useState<string>("all");
   const [exportScope, setExportScope] = useState<"all" | "current">(
     currentConversationId ? "current" : "all"
   );
+  const [teamMembers, setTeamMembers] = useState<{ user_id: string; name: string }[]>([]);
+
+  // Load team members for filter
+  useEffect(() => {
+    if (!tenantId || !open) return;
+    const loadMembers = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, first_name, last_name")
+        .eq("organization_id", tenantId);
+      if (data) {
+        setTeamMembers(
+          data.map((p) => ({
+            user_id: p.user_id,
+            name: [p.first_name, p.last_name].filter(Boolean).join(" ") || "Sem nome",
+          }))
+        );
+      }
+    };
+    loadMembers();
+  }, [tenantId, open]);
 
   const handleExport = async () => {
     if (!session?.access_token) {
@@ -54,12 +79,14 @@ export function ExportConversationsDialog({
       const body: Record<string, any> = {
         dateFrom,
         dateTo,
+        status,
       };
 
       if (exportScope === "current" && currentConversationId) {
         body.conversationId = currentConversationId;
-      } else if (instanceId !== "all") {
-        body.instanceId = instanceId;
+      } else {
+        if (instanceId !== "all") body.instanceId = instanceId;
+        if (assignedUserId !== "all") body.assignedUserId = assignedUserId;
       }
 
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -75,12 +102,22 @@ export function ExportConversationsDialog({
         }
       );
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: "Erro na exportação" }));
-        throw new Error(err.error || "Erro na exportação");
+      const text = await response.text();
+
+      // Check if response is JSON error
+      try {
+        const json = JSON.parse(text);
+        if (json.error) {
+          throw new Error(json.error);
+        }
+      } catch (e) {
+        if (e instanceof SyntaxError) {
+          // Not JSON, it's the export text - proceed with download
+        } else {
+          throw e;
+        }
       }
 
-      const text = await response.text();
       const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -102,9 +139,19 @@ export function ExportConversationsDialog({
   };
 
   const handleQuickDate = (days: number) => {
-    const from = format(subDays(new Date(), days), "yyyy-MM-dd");
-    setDateFrom(from);
-    setDateTo(today);
+    if (days === 0) {
+      const t = format(new Date(), "yyyy-MM-dd");
+      setDateFrom(t);
+      setDateTo(t);
+    } else if (days === 1) {
+      const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
+      setDateFrom(yesterday);
+      setDateTo(yesterday);
+    } else {
+      const from = format(subDays(new Date(), days), "yyyy-MM-dd");
+      setDateFrom(from);
+      setDateTo(format(new Date(), "yyyy-MM-dd"));
+    }
   };
 
   return (
@@ -176,6 +223,45 @@ export function ExportConversationsDialog({
                 <SelectContent>
                   <SelectItem value="current">Apenas esta conversa</SelectItem>
                   <SelectItem value="all">Todas as conversas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Status filter */}
+          {exportScope === "all" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Status da conversa</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="open">Aberta</SelectItem>
+                  <SelectItem value="closed">Fechada</SelectItem>
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="bot">Com Bot</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Assigned user filter */}
+          {exportScope === "all" && teamMembers.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Atendente / Vendedor</Label>
+              <Select value={assignedUserId} onValueChange={setAssignedUserId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os atendentes</SelectItem>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.user_id} value={m.user_id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
