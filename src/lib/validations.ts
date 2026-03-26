@@ -20,63 +20,68 @@ export function validateBrazilianPhone(phone: string): { valid: boolean; message
     return { valid: false, message: 'Número de telefone é obrigatório' };
   }
   
-  // Normalize: add country code if missing
-  if (!digits.startsWith('55')) {
-    if (digits.length === 10 || digits.length === 11) {
-      digits = '55' + digits;
+  // If the number doesn't start with a country code we recognize,
+  // assume Brazilian and add 55
+  const knownPrefixes = ['55', '1', '44', '351', '34', '33', '49', '39', '61', '81', '86', '91', '52', '54', '56', '57', '58', '353', '43', '32', '41', '45', '46', '47', '48', '31', '27', '7', '82', '60', '63', '66', '84', '90', '20', '212', '213', '216', '234', '254', '255', '256', '233', '225'];
+  
+  // Try to detect if it already has a country code
+  let hasCountryCode = false;
+  for (const prefix of knownPrefixes) {
+    if (digits.startsWith(prefix) && digits.length >= prefix.length + 6) {
+      hasCountryCode = true;
+      break;
     }
+  }
+  
+  // If no country code detected and looks like a Brazilian number, add 55
+  if (!hasCountryCode && (digits.length === 10 || digits.length === 11)) {
+    digits = '55' + digits;
   }
   
   const length = digits.length;
   
-  // Check invalid lengths
-  if (length < 12 || length > 13) {
-    return { 
-      valid: false, 
-      message: `Número inválido: deve ter 12 ou 13 dígitos (você digitou ${length}). Ex: 5511999998888` 
-    };
-  }
-  
-  // Must start with Brazil country code
-  if (!digits.startsWith('55')) {
-    return { valid: false, message: 'Número deve começar com 55 (código do Brasil)' };
-  }
-  
-  // Note: We no longer reject '5555' prefix because DDD 55 is a valid
-  // Brazilian area code (Pelotas, Santa Maria - RS). A truly duplicated
-  // country code would produce 15+ digits, already caught by length check.
-  
-  // Extract DDD and number
-  const ddd = digits.substring(2, 4);
-  const number = digits.substring(4);
-  
-  // Validate DDD (valid Brazilian DDDs are between 11-99, excluding some)
-  const dddNum = parseInt(ddd, 10);
-  if (dddNum < 11 || dddNum > 99) {
-    return { valid: false, message: `DDD inválido: ${ddd}` };
-  }
-  
-  // For 13-digit numbers (mobile): must start with 9 after DDD
-  if (length === 13) {
-    if (!number.startsWith('9')) {
+  // Brazilian numbers: apply strict validation
+  if (digits.startsWith('55')) {
+    if (length < 12 || length > 13) {
+      return { 
+        valid: false, 
+        message: `Número BR inválido: deve ter 12 ou 13 dígitos (você digitou ${length}). Ex: 5511999998888` 
+      };
+    }
+    
+    const ddd = digits.substring(2, 4);
+    const number = digits.substring(4);
+    const dddNum = parseInt(ddd, 10);
+    if (dddNum < 11 || dddNum > 99) {
+      return { valid: false, message: `DDD inválido: ${ddd}` };
+    }
+    
+    if (length === 13 && !number.startsWith('9')) {
       return { 
         valid: false, 
         message: 'Celular com 13 dígitos deve começar com 9 após o DDD. Ex: 5511999998888' 
       };
     }
-    // All digits after 9 are valid for Brazilian mobile numbers
+    
+    if (length === 12) {
+      const firstDigit = number.charAt(0);
+      if (!['2', '3', '4', '5'].includes(firstDigit)) {
+        return { 
+          valid: false, 
+          message: 'Telefone fixo (12 dígitos) deve começar com 2, 3, 4 ou 5 após o DDD. Ex: 551133334444' 
+        };
+      }
+    }
+    
+    return { valid: true, normalized: digits };
   }
   
-  // For 12-digit numbers (landline): should NOT start with 9
-  if (length === 12) {
-    const firstDigit = number.charAt(0);
-    // Landlines typically start with 2, 3, 4, or 5
-    if (!['2', '3', '4', '5'].includes(firstDigit)) {
-      return { 
-        valid: false, 
-        message: 'Telefone fixo (12 dígitos) deve começar com 2, 3, 4 ou 5 após o DDD. Ex: 551133334444' 
-      };
-    }
+  // International numbers: just validate reasonable length (7-15 digits per ITU-T E.164)
+  if (length < 7) {
+    return { valid: false, message: 'Número muito curto. Inclua o código do país (ex: +44...)' };
+  }
+  if (length > 15) {
+    return { valid: false, message: 'Número muito longo (máx. 15 dígitos incluindo código do país)' };
   }
   
   return { valid: true, normalized: digits };
