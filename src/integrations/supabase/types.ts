@@ -530,6 +530,90 @@ export type Database = {
           },
         ]
       }
+      agent_execution_logs: {
+        Row: {
+          bot_id: string | null
+          conversation_id: string | null
+          created_at: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          iterations: number | null
+          organization_id: string | null
+          success: boolean | null
+          tools_used: Json | null
+          total_tokens: number | null
+        }
+        Insert: {
+          bot_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          iterations?: number | null
+          organization_id?: string | null
+          success?: boolean | null
+          tools_used?: Json | null
+          total_tokens?: number | null
+        }
+        Update: {
+          bot_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          iterations?: number | null
+          organization_id?: string | null
+          success?: boolean | null
+          tools_used?: Json | null
+          total_tokens?: number | null
+        }
+        Relationships: []
+      }
+      agent_notifications: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          instance_id: string | null
+          read: boolean | null
+          read_at: string | null
+          read_by: string | null
+          reason: string | null
+          summary: string | null
+          type: string | null
+          urgency: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          instance_id?: string | null
+          read?: boolean | null
+          read_at?: string | null
+          read_by?: string | null
+          reason?: string | null
+          summary?: string | null
+          type?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          instance_id?: string | null
+          read?: boolean | null
+          read_at?: string | null
+          read_by?: string | null
+          reason?: string | null
+          summary?: string | null
+          type?: string | null
+          urgency?: string | null
+        }
+        Relationships: []
+      }
       ai_action_costs: {
         Row: {
           action_key: string
@@ -1939,6 +2023,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      conversation_notes: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          note_type: string
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          note_type: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          note_type?: string
+        }
+        Relationships: []
       }
       conversation_satisfaction_ratings: {
         Row: {
@@ -7722,6 +7830,7 @@ export type Database = {
           base_sales_hack: string | null
           base_usage_period_days: number | null
           base_use_default_commission: boolean | null
+          benefits: string | null
           bot_can_send_image: boolean | null
           bot_can_send_site_link: boolean | null
           bot_can_send_video: boolean | null
@@ -7768,6 +7877,7 @@ export type Database = {
           gtin_tax: string | null
           height_cm: number | null
           hot_site_url: string | null
+          how_to_use: string | null
           id: string
           image_url: string | null
           is_active: boolean
@@ -7802,6 +7912,7 @@ export type Database = {
           updated_at: string | null
           updated_by: string | null
           usage_period_days: number | null
+          video_url: string | null
           width_cm: number | null
           youtube_video_url: string | null
         }
@@ -7814,6 +7925,7 @@ export type Database = {
           base_sales_hack?: string | null
           base_usage_period_days?: number | null
           base_use_default_commission?: boolean | null
+          benefits?: string | null
           bot_can_send_image?: boolean | null
           bot_can_send_site_link?: boolean | null
           bot_can_send_video?: boolean | null
@@ -7860,6 +7972,7 @@ export type Database = {
           gtin_tax?: string | null
           height_cm?: number | null
           hot_site_url?: string | null
+          how_to_use?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -7894,6 +8007,7 @@ export type Database = {
           updated_at?: string | null
           updated_by?: string | null
           usage_period_days?: number | null
+          video_url?: string | null
           width_cm?: number | null
           youtube_video_url?: string | null
         }
@@ -7906,6 +8020,7 @@ export type Database = {
           base_sales_hack?: string | null
           base_usage_period_days?: number | null
           base_use_default_commission?: boolean | null
+          benefits?: string | null
           bot_can_send_image?: boolean | null
           bot_can_send_site_link?: boolean | null
           bot_can_send_video?: boolean | null
@@ -7952,6 +8067,7 @@ export type Database = {
           gtin_tax?: string | null
           height_cm?: number | null
           hot_site_url?: string | null
+          how_to_use?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -7986,6 +8102,7 @@ export type Database = {
           updated_at?: string | null
           updated_by?: string | null
           usage_period_days?: number | null
+          video_url?: string | null
           width_cm?: number | null
           youtube_video_url?: string | null
         }
@@ -8058,6 +8175,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      lead_sale_interests: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          estimated_value: number | null
+          id: string
+          notes: string | null
+          organization_id: string
+          phone_number: string
+          product_id: string | null
+          product_name: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          estimated_value?: number | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          phone_number: string
+          product_id?: string | null
+          product_name: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          estimated_value?: number | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          phone_number?: string
+          product_id?: string | null
+          product_name?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       lead_scheduled_messages: {
         Row: {
@@ -8518,6 +8677,7 @@ export type Database = {
           inscricao_municipal: string | null
           inscricao_municipal_isento: boolean | null
           instagram: string | null
+          kanban_stage: string | null
           lead_source: string | null
           linkedin: string | null
           meeting_date: string | null
@@ -8538,6 +8698,7 @@ export type Database = {
           specialty: string | null
           src: string | null
           stage: Database["public"]["Enums"]["funnel_stage"]
+          star_rating: number | null
           stars: number
           state: string | null
           street: string | null
@@ -8583,6 +8744,7 @@ export type Database = {
           inscricao_municipal?: string | null
           inscricao_municipal_isento?: boolean | null
           instagram?: string | null
+          kanban_stage?: string | null
           lead_source?: string | null
           linkedin?: string | null
           meeting_date?: string | null
@@ -8603,6 +8765,7 @@ export type Database = {
           specialty?: string | null
           src?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
+          star_rating?: number | null
           stars?: number
           state?: string | null
           street?: string | null
@@ -8648,6 +8811,7 @@ export type Database = {
           inscricao_municipal?: string | null
           inscricao_municipal_isento?: boolean | null
           instagram?: string | null
+          kanban_stage?: string | null
           lead_source?: string | null
           linkedin?: string | null
           meeting_date?: string | null
@@ -8668,6 +8832,7 @@ export type Database = {
           specialty?: string | null
           src?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
+          star_rating?: number | null
           stars?: number
           state?: string | null
           street?: string | null
@@ -20926,6 +21091,7 @@ export type Database = {
           id: string
           instance_id: string | null
           is_group: boolean
+          last_bot_message_at: string | null
           last_customer_message_at: string | null
           last_message_at: string | null
           lead_id: string | null
@@ -20939,6 +21105,10 @@ export type Database = {
           skip_nps_by: string | null
           skip_nps_reason: string | null
           status: string
+          transfer_reason: string | null
+          transfer_summary: string | null
+          transfer_urgency: string | null
+          transferred_at: string | null
           unread_count: number
           updated_at: string
         }
@@ -20969,6 +21139,7 @@ export type Database = {
           id?: string
           instance_id?: string | null
           is_group?: boolean
+          last_bot_message_at?: string | null
           last_customer_message_at?: string | null
           last_message_at?: string | null
           lead_id?: string | null
@@ -20982,6 +21153,10 @@ export type Database = {
           skip_nps_by?: string | null
           skip_nps_reason?: string | null
           status?: string
+          transfer_reason?: string | null
+          transfer_summary?: string | null
+          transfer_urgency?: string | null
+          transferred_at?: string | null
           unread_count?: number
           updated_at?: string
         }
@@ -21012,6 +21187,7 @@ export type Database = {
           id?: string
           instance_id?: string | null
           is_group?: boolean
+          last_bot_message_at?: string | null
           last_customer_message_at?: string | null
           last_message_at?: string | null
           lead_id?: string | null
@@ -21025,6 +21201,10 @@ export type Database = {
           skip_nps_by?: string | null
           skip_nps_reason?: string | null
           status?: string
+          transfer_reason?: string | null
+          transfer_summary?: string | null
+          transfer_urgency?: string | null
+          transferred_at?: string | null
           unread_count?: number
           updated_at?: string
         }
