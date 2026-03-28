@@ -1,17 +1,18 @@
 /**
- * Split Engine v4 - Cost-center based payment split processing
+ * Split Engine v4.1 - Cost-center based payment split processing
  * 
- * NEW MODEL (v4):
- * 1. Interest → pagarme@sonatura.com.br (installment interest = total - subtotal)
+ * MODEL (v4.1):
+ * 1. Interest → pagarme (installment interest = total - subtotal)
  * 2. Platform Fee → Morphews platform account (4.99% + R$1.00 on subtotal)
- * 3. Tax → imposto@sonatura.com.br (12% of subtotal)
- * 4. Shipping + Picking → correio@sonatura.com.br (real shipping + R$7.00 picking)
- * 5. Product Cost → farmacia@sonatura.com.br (cost_cents × qty per item)
+ * 3. Tax → imposto (12% of subtotal)
+ * 4. Shipping + Picking → correio (real shipping + R$7.00 picking)
+ * 5. Product Cost → farmacia (cost_cents × qty per item)
  * 6. Affiliate → commission on sales (if attribution exists)
- * 7. Coproducer → % of NET PROFIT (after all costs above)
- * 8. Tenant → remainder
+ * 7. Affiliate Manager → % on remaining (if storefront has one configured)
+ * 8. Coproducer → % of NET PROFIT (after all costs above)
+ * 9. Tenant → remainder
  * 
- * Net Profit = subtotal - platform - tax - shipping - product_cost - affiliate
+ * Net Profit = subtotal - platform - tax - shipping - product_cost - affiliate - affiliate_manager
  * Coproducer = commission_percentage% of Net Profit
  * Tenant = Net Profit - Coproducer
  * 
