@@ -169,6 +169,8 @@ export default function WhatsAppChat() {
   const [closingConversationId, setClosingConversationId] = useState<string | null>(null);
   const [closingWithoutNPSId, setClosingWithoutNPSId] = useState<string | null>(null);
   const [reactivatingConversationId, setReactivatingConversationId] = useState<string | null>(null);
+  const [isEditingLeadName, setIsEditingLeadName] = useState(false);
+  const [editLeadNameValue, setEditLeadNameValue] = useState('');
   
   // Status tab filter - mobile supports 'all', desktop does not
   const [statusFilter, setStatusFilter] = useState<StatusTab>('autodistributed');
