@@ -59,7 +59,8 @@ interface InstanceUser {
 export function InstancePermissions({ instanceId, instanceName, open, onOpenChange }: InstancePermissionsProps) {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
-  const [distributionMode, setDistributionMode] = useState<"bot" | "manual" | "auto">("manual");
+  const [distributionMode, setDistributionMode] = useState<"bot" | "manual" | "auto" | "agent">("manual");
+  const unlinkAgentMutation = useUnlinkAgentFromInstance();
   const [timeoutMinutes, setTimeoutMinutes] = useState<number>(5);
   
   // Check if Wavoip feature is enabled for the organization
