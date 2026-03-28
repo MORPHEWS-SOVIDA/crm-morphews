@@ -1,16 +1,23 @@
 /**
- * Split Engine v3 - Unified payment split processing
+ * Split Engine v4 - Cost-center based payment split processing
  * 
- * Rules:
- * 1. Factory receives first (priority=1), never debited on refund/chargeback
- * 2. Industry receives immediately (release_at=now), never debited
- * 3. Tenant + Affiliate are the only liable for refund/chargeback
- * 4. Platform fee (Morphews) includes interest profit, never debited
+ * NEW MODEL (v4):
+ * 1. Interest → pagarme@sonatura.com.br (installment interest = total - subtotal)
+ * 2. Platform Fee → Morphews platform account (4.99% + R$1.00 on subtotal)
+ * 3. Tax → imposto@sonatura.com.br (12% of subtotal)
+ * 4. Shipping + Picking → correio@sonatura.com.br (real shipping + R$7.00 picking)
+ * 5. Product Cost → farmacia@sonatura.com.br (cost_cents × qty per item)
+ * 6. Affiliate → commission on sales (if attribution exists)
+ * 7. Coproducer → % of NET PROFIT (after all costs above)
+ * 8. Tenant → remainder
+ * 
+ * Net Profit = subtotal - platform - tax - shipping - product_cost - affiliate
+ * Coproducer = commission_percentage% of Net Profit
+ * Tenant = Net Profit - Coproducer
  * 
  * IDEMPOTENCY:
  * - virtual_transactions has UNIQUE index on (virtual_account_id, reference_id, transaction_type)
  * - We INSERT transaction FIRST, then split (if tx fails = already processed)
- * - This prevents orphan splits
  */
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -62,62 +69,50 @@ interface PartnerToNotify {
   commissionCents: number;
 }
 
+// Cost center account IDs (SoVida org - hardcoded for performance)
+const COST_ACCOUNTS = {
+  pagarme: 'a0000001-0000-0000-0000-000000000001',
+  correio: 'a0000001-0000-0000-0000-000000000002',
+  farmacia: 'a0000001-0000-0000-0000-000000000003',
+  imposto: 'a0000001-0000-0000-0000-000000000004',
+};
+
+const PICKING_FEE_CENTS = 700; // R$ 7.00
+const TAX_PERCENT = 12; // 12% tax on subtotal
+
 // =====================================================
 // HELPERS
 // =====================================================
 
-/**
- * Build unique reference ID for idempotency
- * CRITICAL: Reference ID is STABLE by logical event (no timestamp!)
- * This prevents duplicate processing when gateway resends with different timestamps
- */
 export function buildReferenceId(gateway: string, payload: Record<string, unknown>): string {
   const tx = (payload.transaction || payload) as Record<string, unknown>;
-  
-  // Get transaction ID (the most stable identifier)
   const txId = tx?.id || tx?.transaction_id || payload?.id || 
                (payload?.charge as Record<string, unknown>)?.id || 'unknown';
-  
-  // Get status - normalize to our internal status
   const rawStatus = tx?.status || payload?.current_status || payload?.event || payload?.status || 'unknown';
-  
-  // DO NOT include timestamp - it varies across retries!
-  // Reference format: gateway:transactionId:status
   return `${gateway}:${txId}:${rawStatus}`;
 }
 
-/**
- * Check if error is a unique constraint violation (idempotency check)
- */
 export function isUniqueViolation(error: unknown): boolean {
   const msg = String((error as { message?: string })?.message || '');
   const code = String((error as { code?: string })?.code || '');
   return msg.includes('duplicate key') || 
          msg.includes('ux_virtual_tx_idempotency') ||
          msg.includes('unique constraint') ||
-         code === '23505'; // PostgreSQL unique_violation
+         code === '23505';
 }
 
-/**
- * Add days to current date and return ISO string
- */
 function addDays(days: number): string {
   const date = new Date();
   date.setDate(date.getDate() + days);
   return date.toISOString();
 }
 
-/**
- * Try to acquire event lock via unique transaction
- * Returns: 'acquired' | 'already_processed' | 'needs_recovery'
- */
 async function tryAcquireEventLock(
   supabase: SupabaseClient, 
   referenceId: string, 
   platformAccountId: string,
   saleId: string
 ): Promise<'acquired' | 'already_processed' | 'needs_recovery'> {
-  // Use ::LOCK suffix to prevent any collision with split reference IDs
   const lockReferenceId = `${referenceId}::LOCK`;
   
   try {
@@ -138,7 +133,6 @@ async function tryAcquireEventLock(
 
     if (error) {
       if (isUniqueViolation(error)) {
-        // Lock exists - check if processing completed (tenant split exists)
         const { data: tenantSplit } = await supabase
           .from('sale_splits')
           .select('id')
@@ -147,7 +141,7 @@ async function tryAcquireEventLock(
           .maybeSingle();
 
         if (tenantSplit) {
-          console.log(`[SplitEngine] Event ${referenceId} fully processed (lock + tenant exist)`);
+          console.log(`[SplitEngine] Event ${referenceId} fully processed`);
           return 'already_processed';
         } else {
           console.log(`[SplitEngine] Event ${referenceId} has lock but no tenant - RECOVERY MODE`);
@@ -161,7 +155,6 @@ async function tryAcquireEventLock(
     return 'acquired';
   } catch (error) {
     if (isUniqueViolation(error)) {
-      // Double-check recovery mode
       const { data: tenantSplit } = await supabase
         .from('sale_splits')
         .select('id')
@@ -179,18 +172,14 @@ async function tryAcquireEventLock(
 // =====================================================
 
 async function loadSplitRules(supabase: SupabaseClient, organizationId: string): Promise<SplitRules> {
-  // Try organization-specific rules first
   const { data: orgRules } = await supabase
     .from('organization_split_rules')
     .select('*')
     .eq('organization_id', organizationId)
     .maybeSingle();
 
-  if (orgRules) {
-    return orgRules as SplitRules;
-  }
+  if (orgRules) return orgRules as SplitRules;
 
-  // Fall back to platform_settings
   const { data: platformSettings } = await supabase
     .from('platform_settings')
     .select('setting_key, setting_value');
@@ -233,7 +222,6 @@ async function getOrCreateTenantAccount(
     .maybeSingle();
 
   if (!account) {
-    // Fetch org data for account creation
     const { data: org } = await supabase
       .from('organizations')
       .select('name, owner_email')
@@ -270,13 +258,45 @@ async function getPlatformAccount(supabase: SupabaseClient): Promise<string> {
     .eq('account_type', 'platform')
     .maybeSingle();
 
-  // Use the singleton platform account or return a fixed ID
   return platformAccount?.id || '00000000-0000-0000-0000-000000000001';
+}
+
+/**
+ * Get or find cost center accounts for the organization.
+ * Falls back to hardcoded SoVida IDs, but also looks up by holder_email for other orgs.
+ */
+async function getCostCenterAccounts(
+  supabase: SupabaseClient,
+  organizationId: string
+): Promise<typeof COST_ACCOUNTS> {
+  // For SoVida, use hardcoded IDs for performance
+  if (organizationId === '650b1667-e345-498e-9d41-b963faf824a7') {
+    return COST_ACCOUNTS;
+  }
+
+  // For other orgs, look up by holder_email
+  const emails = ['pagarme@sonatura.com.br', 'correio@sonatura.com.br', 'farmacia@sonatura.com.br', 'imposto@sonatura.com.br'];
+  const { data: accounts } = await supabase
+    .from('virtual_accounts')
+    .select('id, holder_email')
+    .eq('organization_id', organizationId)
+    .eq('account_type', 'cost_center')
+    .in('holder_email', emails);
+
+  const result = { ...COST_ACCOUNTS };
+  if (accounts) {
+    for (const acc of accounts) {
+      if (acc.holder_email?.includes('pagarme')) result.pagarme = acc.id;
+      else if (acc.holder_email?.includes('correio')) result.correio = acc.id;
+      else if (acc.holder_email?.includes('farmacia')) result.farmacia = acc.id;
+      else if (acc.holder_email?.includes('imposto')) result.imposto = acc.id;
+    }
+  }
+  return result;
 }
 
 // =====================================================
 // IDEMPOTENT SPLIT INSERTION
-// Order: Transaction FIRST, then Split (prevents orphan splits)
 // =====================================================
 
 interface InsertSplitParams {
@@ -308,7 +328,6 @@ async function insertSplitAndTransaction(params: InsertSplitParams): Promise<boo
   const txReferenceId = `${referenceId}:${splitType}`;
 
   try {
-    // STEP 1: Insert virtual transaction FIRST (idempotency lock)
     const { data: txData, error: txError } = await supabase
       .from('virtual_transactions')
       .insert({
@@ -329,12 +348,11 @@ async function insertSplitAndTransaction(params: InsertSplitParams): Promise<boo
     if (txError) {
       if (isUniqueViolation(txError)) {
         console.log(`[SplitEngine] Duplicate transaction for ${splitType}, already processed`);
-        return false; // Already processed - DO NOT create split
+        return false;
       }
       throw txError;
     }
 
-    // STEP 2: Insert split record (only if transaction succeeded)
     const splitData: Record<string, unknown> = {
       sale_id: saleId,
       virtual_account_id: virtualAccountId,
@@ -346,7 +364,7 @@ async function insertSplitAndTransaction(params: InsertSplitParams): Promise<boo
       priority,
       liable_for_refund: liableForRefund,
       liable_for_chargeback: liableForChargeback,
-      transaction_id: txData?.id, // Link to transaction
+      transaction_id: txData?.id,
     };
 
     if (industryId) splitData.industry_id = industryId;
@@ -354,7 +372,6 @@ async function insertSplitAndTransaction(params: InsertSplitParams): Promise<boo
 
     await supabase.from('sale_splits').insert(splitData);
 
-    // STEP 3: Update virtual account balances
     const { data: account } = await supabase
       .from('virtual_accounts')
       .select('pending_balance_cents, total_received_cents')
@@ -385,7 +402,7 @@ async function insertSplitAndTransaction(params: InsertSplitParams): Promise<boo
 }
 
 // =====================================================
-// MAIN SPLIT PROCESSOR
+// MAIN SPLIT PROCESSOR v4
 // =====================================================
 
 export async function processSaleSplitsV3(
@@ -394,13 +411,10 @@ export async function processSaleSplitsV3(
   referenceId: string,
   reconciliation?: ReconciliationData
 ): Promise<SplitResult> {
-  console.log(`[SplitEngine] Processing splits for sale ${saleId} with referenceId ${referenceId}`);
+  console.log(`[SplitEngine v4] Processing splits for sale ${saleId}`);
 
-  // Get platform account for locking
   const platformAccountId = await getPlatformAccount(supabase);
 
-  // CRITICAL: Acquire event lock FIRST (all-or-nothing per event)
-  // Returns: 'acquired' | 'already_processed' | 'needs_recovery'
   const lockResult = await tryAcquireEventLock(supabase, referenceId, platformAccountId, saleId);
   
   if (lockResult === 'already_processed') {
@@ -409,18 +423,13 @@ export async function processSaleSplitsV3(
   }
   
   if (lockResult === 'needs_recovery') {
-    console.log(`[SplitEngine] RECOVERY MODE: Lock exists but incomplete, continuing to fill missing splits`);
-    // Continue processing - individual splits have their own idempotency via reference_id
+    console.log(`[SplitEngine] RECOVERY MODE: continuing to fill missing splits`);
   }
-  
-  // 'acquired' or 'needs_recovery' - proceed with processing
 
-  // 2) Load sale with items
-  // CRITICAL: We need subtotal_cents for calculating splits (base value without interest)
-  // total_cents includes installment interest which NOBODY gets commission on
+  // Load sale
   const { data: sale, error: saleError } = await supabase
     .from('sales')
-    .select('id, organization_id, total_cents, subtotal_cents')
+    .select('id, organization_id, total_cents, subtotal_cents, shipping_cost_cents, shipping_cost_real_cents')
     .eq('id', saleId)
     .single();
 
@@ -429,20 +438,20 @@ export async function processSaleSplitsV3(
     throw new Error('Sale not found');
   }
 
-  // 2a) Load sale_items (traditional sales)
+  // Load sale items
   let { data: saleItems } = await supabase
     .from('sale_items')
     .select('product_id, quantity, unit_price_cents, total_cents')
     .eq('sale_id', saleId);
 
-  // 2b) Load ecommerce_order to get storefront_id/landing_page_id for partner processing
+  // Load ecommerce order
   const { data: ecomOrder } = await supabase
     .from('ecommerce_orders')
-    .select('id, storefront_id, landing_page_id, source')
+    .select('id, storefront_id, landing_page_id, source, shipping_cents')
     .eq('sale_id', saleId)
     .maybeSingle();
 
-  // 2c) CRITICAL: If no sale_items, fallback to ecommerce_order_items (Landing Pages/Checkouts)
+  // Fallback to ecommerce_order_items
   if ((!saleItems || saleItems.length === 0) && ecomOrder?.id) {
     const { data: ecomItems } = await supabase
       .from('ecommerce_order_items')
@@ -456,24 +465,59 @@ export async function processSaleSplitsV3(
   }
 
   const storefrontId = ecomOrder?.storefront_id || null;
-  const landingPageId = ecomOrder?.landing_page_id || null;
-  console.log(`[SplitEngine] Source: ${ecomOrder?.source || 'unknown'}, storefront: ${storefrontId}, landing: ${landingPageId}, items: ${saleItems?.length || 0}`);
 
-  // 3) Load split rules
+  // Load split rules and accounts
   const rules = await loadSplitRules(supabase, sale.organization_id);
-  
-  // 4) Get tenant account (platform account already fetched above for lock)
   const tenantAccount = await getOrCreateTenantAccount(supabase, sale.organization_id);
+  const costAccounts = await getCostCenterAccounts(supabase, sale.organization_id);
 
-  // CRITICAL FIX: Use subtotal_cents as base for ALL calculations
-  // total_cents includes installment interest - NOBODY gets commission on that!
-  // Interest revenue = total_cents - subtotal_cents (tracked separately)
-  const baseCents = sale.subtotal_cents || sale.total_cents; // Fallback for old sales without subtotal
-  const interestCents = sale.total_cents - baseCents;
+  // Base calculations
+  const baseCents = sale.subtotal_cents || sale.total_cents;
+  const interestCents = Math.max(0, sale.total_cents - baseCents);
   const gatewayFeeCents = reconciliation?.feeCents || 0;
-  let remaining = baseCents; // Start with base, not total!
-  
-  console.log(`[SplitEngine] Base: R$${(baseCents / 100).toFixed(2)}, Interest: R$${(interestCents / 100).toFixed(2)}, Total: R$${(sale.total_cents / 100).toFixed(2)}`);
+
+  // Shipping: use real cost if available, otherwise what customer paid
+  const shippingRealCents = sale.shipping_cost_real_cents || sale.shipping_cost_cents || ecomOrder?.shipping_cents || 0;
+  const shippingPlusPicking = shippingRealCents + PICKING_FEE_CENTS;
+
+  // Product costs: load cost_cents for each item
+  let totalProductCostCents = 0;
+  if (saleItems && saleItems.length > 0) {
+    const productIds = saleItems.map(i => i.product_id);
+    const { data: products } = await supabase
+      .from('lead_products')
+      .select('id, cost_cents')
+      .in('id', productIds);
+
+    const costMap = new Map<string, number>();
+    if (products) {
+      for (const p of products) {
+        costMap.set(p.id, p.cost_cents || 0);
+      }
+    }
+
+    for (const item of saleItems) {
+      const unitCost = costMap.get(item.product_id) || 0;
+      totalProductCostCents += unitCost * (item.quantity || 1);
+    }
+  }
+
+  // Tax: 12% of subtotal
+  const taxCents = Math.round(baseCents * (TAX_PERCENT / 100));
+
+  // Platform fee
+  const platformFeeCents = Math.round(baseCents * (rules.platform_fee_percent / 100)) + (rules.platform_fee_fixed_cents || 0);
+
+  console.log(`[SplitEngine v4] Breakdown:`);
+  console.log(`  Total cobrado: R$${(sale.total_cents / 100).toFixed(2)}`);
+  console.log(`  Subtotal (base): R$${(baseCents / 100).toFixed(2)}`);
+  console.log(`  Juros: R$${(interestCents / 100).toFixed(2)}`);
+  console.log(`  Plataforma: R$${(platformFeeCents / 100).toFixed(2)}`);
+  console.log(`  Imposto (12%): R$${(taxCents / 100).toFixed(2)}`);
+  console.log(`  Frete+Picking: R$${(shippingPlusPicking / 100).toFixed(2)}`);
+  console.log(`  Custo produto: R$${(totalProductCostCents / 100).toFixed(2)}`);
+
+  let remaining = baseCents;
 
   const result: SplitResult = {
     factory_amount: 0,
@@ -485,393 +529,124 @@ export async function processSaleSplitsV3(
     gateway_fee: gatewayFeeCents,
   };
 
-  // Track partners to notify after all splits are processed
   const partnersToNotify: PartnerToNotify[] = [];
 
   // =====================================================
-  // STEP A: FACTORY (priority=1, first to receive, never liable)
+  // STEP 1: INTEREST → pagarme account
+  // Interest is NOT part of remaining (it's extra charge)
   // =====================================================
-  if (saleItems && saleItems.length > 0) {
-    for (const item of saleItems) {
-      const { data: factoryCosts } = await supabase
-        .from('product_factory_costs')
-        .select('*, factory:factories(*)')
-        .eq('product_id', item.product_id)
-        .eq('is_active', true);
-
-      if (factoryCosts && factoryCosts.length > 0) {
-        for (const cost of factoryCosts) {
-          // Calculate factory amount (can be % or fixed)
-          let factoryAmount = 0;
-          
-          // Percentage fee
-          if (cost.factory_fee_percent > 0) {
-            factoryAmount = Math.round(item.total_cents * (Number(cost.factory_fee_percent) / 100));
-          }
-          
-          // Fixed fee per unit
-          factoryAmount += (cost.factory_fee_fixed_cents || 0) * (item.quantity || 1);
-          
-          // Unit costs (product cost + shipping + additional)
-          const unitCosts = ((cost.unit_cost_cents || 0) + (cost.shipping_cost_cents || 0) + (cost.additional_cost_cents || 0)) * (item.quantity || 1);
-          factoryAmount += unitCosts;
-
-          // CAP: Never exceed remaining amount
-          factoryAmount = Math.min(factoryAmount, remaining);
-
-          if (factoryAmount > 0) {
-            const factory = cost.factory as Record<string, unknown> | null;
-            const factoryAccountId = (factory?.virtual_account_id as string) || tenantAccount.id;
-
-            const created = await insertSplitAndTransaction({
-              supabase,
-              saleId,
-              organizationId: sale.organization_id,
-              virtualAccountId: factoryAccountId,
-              splitType: 'factory',
-              amountCents: factoryAmount,
-              priority: 1,
-              liableForRefund: false,
-              liableForChargeback: false,
-              releaseAt: addDays(rules.hold_days_factory),
-              referenceId,
-              description: `Fábrica ${factory?.name || 'N/A'} - Venda #${saleId.slice(0, 8)}`,
-              factoryId: cost.factory_id,
-            });
-
-            if (created) {
-              result.factory_amount += factoryAmount;
-              remaining -= factoryAmount;
-              
-              // Add factory to notification list
-              if (factory?.email || factory?.phone) {
-                partnersToNotify.push({
-                  type: 'factory',
-                  name: (factory?.name as string) || 'Fábrica',
-                  email: factory?.email as string | undefined,
-                  phone: factory?.phone as string | undefined,
-                  commissionCents: factoryAmount,
-                });
-              }
-            }
-          }
-        }
-      }
-    }
+  if (interestCents > 0) {
+    await insertSplitAndTransaction({
+      supabase,
+      saleId,
+      organizationId: sale.organization_id,
+      virtualAccountId: costAccounts.pagarme,
+      splitType: 'interest',
+      amountCents: interestCents,
+      priority: 1,
+      liableForRefund: false,
+      liableForChargeback: false,
+      releaseAt: new Date().toISOString(),
+      referenceId,
+      description: `Juros parcelamento - Venda #${saleId.slice(0, 8)}`,
+    });
+    console.log(`[SplitEngine] Interest: R$${(interestCents / 100).toFixed(2)} → pagarme`);
   }
 
   // =====================================================
-  // STEP B: INDUSTRY (immediate release, never liable)
+  // STEP 2: PLATFORM FEE → platform account
   // =====================================================
-  if (saleItems && saleItems.length > 0) {
-    for (const item of saleItems) {
-      const { data: industryCosts } = await supabase
-        .from('product_industry_costs')
-        .select('*, industry:industries(*)')
-        .eq('product_id', item.product_id)
-        .eq('is_active', true);
-
-      if (industryCosts && industryCosts.length > 0) {
-        for (const cost of industryCosts) {
-          const unitTotal = ((cost.unit_cost_cents || 0) + (cost.shipping_cost_cents || 0) + (cost.additional_cost_cents || 0));
-          let industryAmount = unitTotal * (item.quantity || 1);
-
-          // CAP: Never exceed remaining amount
-          industryAmount = Math.min(industryAmount, remaining);
-
-          if (industryAmount > 0) {
-            const industry = cost.industry as Record<string, unknown> | null;
-            const industryAccountId = (industry?.virtual_account_id as string) || tenantAccount.id;
-
-            const created = await insertSplitAndTransaction({
-              supabase,
-              saleId,
-              organizationId: sale.organization_id,
-              virtualAccountId: industryAccountId,
-              splitType: 'industry',
-              amountCents: industryAmount,
-              priority: 2,
-              liableForRefund: false,
-              liableForChargeback: false,
-              releaseAt: new Date().toISOString(), // Immediate release (à vista)
-              referenceId,
-              description: `Indústria ${industry?.name || 'N/A'} - Venda #${saleId.slice(0, 8)}`,
-              industryId: cost.industry_id,
-            });
-
-            if (created) {
-              result.industry_amount += industryAmount;
-              remaining -= industryAmount;
-              
-              // Add industry to notification list
-              if (industry?.email || industry?.phone) {
-                partnersToNotify.push({
-                  type: 'industry',
-                  name: (industry?.name as string) || 'Indústria',
-                  email: industry?.email as string | undefined,
-                  phone: industry?.phone as string | undefined,
-                  commissionCents: industryAmount,
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // =====================================================
-  // STEP C: PLATFORM FEE (never liable)
-  // CRITICAL: Calculated on baseCents (without interest), not total!
-  // =====================================================
-  let platformFeeCents = Math.round(baseCents * (rules.platform_fee_percent / 100)) + (rules.platform_fee_fixed_cents || 0);
-  
-  // CAP: Never exceed remaining amount
-  platformFeeCents = Math.min(platformFeeCents, remaining);
-  
-  if (platformFeeCents > 0) {
+  const cappedPlatformFee = Math.min(platformFeeCents, remaining);
+  if (cappedPlatformFee > 0) {
     const created = await insertSplitAndTransaction({
       supabase,
       saleId,
       organizationId: sale.organization_id,
       virtualAccountId: platformAccountId,
       splitType: 'platform_fee',
-      amountCents: platformFeeCents,
+      amountCents: cappedPlatformFee,
       percentage: rules.platform_fee_percent,
-      priority: 2,
+      priority: 1,
       liableForRefund: false,
       liableForChargeback: false,
       releaseAt: addDays(rules.hold_days_platform),
       referenceId,
-      description: `Taxa plataforma - Venda #${saleId.slice(0, 8)}`,
+      description: `Taxa plataforma (${rules.platform_fee_percent}% + R$${(rules.platform_fee_fixed_cents / 100).toFixed(2)}) - Venda #${saleId.slice(0, 8)}`,
     });
-
-    // IMPORTANT: Even if this was a duplicate insert (recovery / parallel webhook),
-    // we must still consider the platform fee in the calculation base.
-    // Otherwise partners will be calculated on the full subtotal and overpay.
-    result.platform_amount = platformFeeCents;
-    remaining = Math.max(0, remaining - platformFeeCents);
-  }
-
-  // Calculate base for affiliate commission = baseCents - platformFeeCents
-  // This ensures affiliate gets commission on (sale value - platform fee) only
-  // NOT affected by factory/industry deductions, NOT including interest
-  // Use the computed platform fee cents directly (not the created/inserted result),
-  // so recovery/duplicate runs still calculate on the correct net base.
-  const baseForAffiliateCommission = Math.max(0, baseCents - platformFeeCents);
-
-  // =====================================================
-  // STEP C.5: COPRODUCERS (liable for refund/chargeback like affiliate)
-  // Based on product-level coproducer assignments
-  // =====================================================
-  if (saleItems && saleItems.length > 0) {
-    for (const item of saleItems) {
-      const { data: coproducerData } = await supabase
-        .from('coproducers')
-        .select('*, virtual_account:virtual_accounts(*)')
-        .eq('product_id', item.product_id)
-        .eq('is_active', true);
-
-      if (coproducerData && coproducerData.length > 0) {
-        for (const coprod of coproducerData) {
-          let coproducerAmount = 0;
-          let commissionDesc = '';
-          const commissionType = (coprod as Record<string, unknown>).commission_type as string || 'percentage';
-
-          if (commissionType === 'fixed_per_quantity') {
-            // Fixed commission based on quantity tiers (1, 3, or 5 units)
-            const qty = item.quantity || 1;
-            const fixed1 = Number((coprod as Record<string, unknown>).commission_fixed_1_cents) || 0;
-            const fixed3 = Number((coprod as Record<string, unknown>).commission_fixed_3_cents) || 0;
-            const fixed5 = Number((coprod as Record<string, unknown>).commission_fixed_5_cents) || 0;
-
-            if (qty >= 5) {
-              coproducerAmount = fixed5;
-            } else if (qty >= 3) {
-              coproducerAmount = fixed3;
-            } else {
-              coproducerAmount = fixed1;
-            }
-            commissionDesc = `Coprodução fixa R$${(coproducerAmount / 100).toFixed(2)} (${qty}un)`;
-          } else {
-            // Percentage-based commission (original logic)
-            const commissionPercent = Number(coprod.commission_percentage) || 0;
-            const itemShare = baseCents > 0 ? (item.total_cents / baseCents) : 0;
-            const itemNetBase = Math.round(baseForAffiliateCommission * itemShare);
-            coproducerAmount = Math.round(itemNetBase * (commissionPercent / 100));
-            commissionDesc = `Coprodução ${commissionPercent}%`;
-          }
-          
-          // CAP: Never exceed remaining amount
-          coproducerAmount = Math.min(coproducerAmount, remaining);
-          
-          const virtualAccount = coprod.virtual_account as Record<string, unknown> | null;
-
-          if (coproducerAmount > 0 && virtualAccount?.id) {
-            const created = await insertSplitAndTransaction({
-              supabase,
-              saleId,
-              organizationId: sale.organization_id,
-              virtualAccountId: virtualAccount.id as string,
-              splitType: 'coproducer',
-              amountCents: coproducerAmount,
-              percentage: 0,
-              priority: 2,
-              liableForRefund: true,
-              liableForChargeback: true,
-              releaseAt: addDays(rules.hold_days_affiliate),
-              referenceId,
-              description: `${commissionDesc} - Produto ${item.product_id.slice(0, 8)} - Venda #${saleId.slice(0, 8)}`,
-            });
-
-            if (created) {
-              result.coproducer_amount += coproducerAmount;
-              remaining -= coproducerAmount;
-              console.log(`[SplitEngine] Coproducer split: R$${(coproducerAmount / 100).toFixed(2)} (${commissionType})`);
-              
-              // Add coproducer to notification list
-              const holderEmail = virtualAccount?.holder_email as string | undefined;
-              const holderName = virtualAccount?.holder_name as string || 'Co-produtor';
-              if (holderEmail) {
-                let holderPhone: string | undefined;
-                const userId = virtualAccount?.user_id as string | undefined;
-                if (userId) {
-                  const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('whatsapp')
-                    .eq('user_id', userId)
-                    .maybeSingle();
-                  holderPhone = profile?.whatsapp;
-                }
-                
-                partnersToNotify.push({
-                  type: 'coproducer',
-                  name: holderName,
-                  email: holderEmail,
-                  phone: holderPhone,
-                  commissionCents: coproducerAmount,
-                });
-              }
-            }
-          }
-        }
-      }
-    }
+    result.platform_amount = cappedPlatformFee;
+    remaining -= cappedPlatformFee;
   }
 
   // =====================================================
-  // STEP C.6: STOREFRONT-LINKED PARTNERS (Industry/Factory/Coproducer)
-  // Partners manually assigned to this specific storefront.
-  // IMPORTANT: Affiliates are NOT paid from storefront links here.
-  // Affiliate commission must ONLY be paid when there is an attribution (?ref=) recorded.
+  // STEP 3: TAX (12%) → imposto account
   // =====================================================
-  if (storefrontId) {
-    // Fetch all partners linked to this storefront
-    const { data: storefrontPartners } = await supabase
-      .from('partner_associations')
-      .select('*, virtual_account:virtual_accounts(*)')
-      .eq('linked_storefront_id', storefrontId)
-      .eq('is_active', true);
-
-    if (storefrontPartners && storefrontPartners.length > 0) {
-      const processedVirtualAccountIds = new Set<string>(); // Avoid duplicates
-
-      for (const partner of storefrontPartners) {
-        const virtualAccount = partner.virtual_account as Record<string, unknown> | null;
-        if (!virtualAccount?.id) continue;
-
-        // Skip if already processed (same virtual account)
-        if (processedVirtualAccountIds.has(virtualAccount.id as string)) continue;
-        processedVirtualAccountIds.add(virtualAccount.id as string);
-
-        const commissionType = partner.commission_type || 'percentage';
-        const commissionValue = Number(partner.commission_value) || 0;
-        const partnerType = partner.partner_type || 'affiliate';
-
-        // CRITICAL BUSINESS RULE:
-        // Affiliate only earns if the customer bought through that affiliate's link (?ref=).
-        // Storefront partner assignments must NOT pay affiliates automatically.
-        if (partnerType === 'affiliate') {
-          continue;
-        }
-        const liableForRefund = partner.responsible_for_refunds ?? (partnerType === 'affiliate' || partnerType === 'coproducer');
-        const liableForChargeback = partner.responsible_for_chargebacks ?? (partnerType === 'affiliate' || partnerType === 'coproducer');
-
-        // Calculate amount
-        // For affiliates/coproducers: use baseForAffiliateCommission (base - platform_fee)
-        // For factory/industry: use baseCents (they get their cut before platform fee)
-        // NEVER use total_cents which includes interest!
-        let partnerAmount = 0;
-        const useAffiliateBase = partnerType === 'affiliate' || partnerType === 'coproducer';
-        const baseAmount = useAffiliateBase ? baseForAffiliateCommission : baseCents;
-        
-        if (commissionType === 'percentage') {
-          partnerAmount = Math.round(baseAmount * (commissionValue / 100));
-        } else {
-          // Fixed commission per sale
-          partnerAmount = commissionValue;
-        }
-
-        // For industry/factory types with per-unit logic, multiply by total items
-        if ((partnerType === 'industry' || partnerType === 'factory') && commissionType === 'fixed' && saleItems) {
-          const totalUnits = saleItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
-          partnerAmount = commissionValue * totalUnits;
-        }
-
-        // CAP: Never exceed remaining
-        partnerAmount = Math.min(partnerAmount, remaining);
-
-        if (partnerAmount > 0) {
-          // Determine split type based on partner type
-          let splitType = 'affiliate';
-          let releaseAt = addDays(rules.hold_days_affiliate);
-
-          if (partnerType === 'factory') {
-            splitType = 'factory';
-            releaseAt = addDays(rules.hold_days_factory);
-          } else if (partnerType === 'industry') {
-            splitType = 'industry';
-            releaseAt = new Date().toISOString(); // Immediate
-          } else if (partnerType === 'coproducer') {
-            splitType = 'coproducer';
-          }
-
-          const commissionLabel = commissionType === 'percentage'
-            ? `${commissionValue}%`
-            : `R$${(commissionValue / 100).toFixed(2)}`;
-
-          const created = await insertSplitAndTransaction({
-            supabase,
-            saleId,
-            organizationId: sale.organization_id,
-            virtualAccountId: virtualAccount.id as string,
-            splitType,
-            amountCents: partnerAmount,
-            percentage: commissionType === 'percentage' ? commissionValue : 0,
-            priority: partnerType === 'factory' ? 1 : 2,
-            liableForRefund,
-            liableForChargeback,
-            releaseAt,
-            referenceId,
-            description: `${partnerType.charAt(0).toUpperCase() + partnerType.slice(1)} (storefront) ${partner.affiliate_code || 'N/A'} (${commissionLabel}) - Venda #${saleId.slice(0, 8)}`,
-          });
-
-          if (created) {
-            // Aggregate into result
-            if (partnerType === 'factory') result.factory_amount += partnerAmount;
-            else if (partnerType === 'industry') result.industry_amount += partnerAmount;
-            else if (partnerType === 'coproducer') result.coproducer_amount += partnerAmount;
-            else result.affiliate_amount += partnerAmount;
-
-            remaining -= partnerAmount;
-            console.log(`[SplitEngine] Storefront partner (${partnerType}): R$${(partnerAmount / 100).toFixed(2)} (${commissionLabel})`);
-          }
-        }
-      }
-    }
+  const cappedTax = Math.min(taxCents, remaining);
+  if (cappedTax > 0) {
+    await insertSplitAndTransaction({
+      supabase,
+      saleId,
+      organizationId: sale.organization_id,
+      virtualAccountId: costAccounts.imposto,
+      splitType: 'tax',
+      amountCents: cappedTax,
+      percentage: TAX_PERCENT,
+      priority: 2,
+      liableForRefund: false,
+      liableForChargeback: false,
+      releaseAt: new Date().toISOString(),
+      referenceId,
+      description: `Imposto ${TAX_PERCENT}% - Venda #${saleId.slice(0, 8)}`,
+    });
+    remaining -= cappedTax;
   }
 
-  // AFFILIATE SPLIT: Via affiliate_networks OR partner_associations (legacy)
+  // =====================================================
+  // STEP 4: SHIPPING + PICKING → correio account
+  // Even if customer got free shipping, the real cost is deducted
+  // =====================================================
+  const cappedShipping = Math.min(shippingPlusPicking, remaining);
+  if (cappedShipping > 0) {
+    await insertSplitAndTransaction({
+      supabase,
+      saleId,
+      organizationId: sale.organization_id,
+      virtualAccountId: costAccounts.correio,
+      splitType: 'shipping',
+      amountCents: cappedShipping,
+      priority: 2,
+      liableForRefund: false,
+      liableForChargeback: false,
+      releaseAt: new Date().toISOString(),
+      referenceId,
+      description: `Frete R$${(shippingRealCents / 100).toFixed(2)} + Picking R$7,00 - Venda #${saleId.slice(0, 8)}`,
+    });
+    remaining -= cappedShipping;
+  }
+
+  // =====================================================
+  // STEP 5: PRODUCT COST → farmacia account
+  // =====================================================
+  const cappedProductCost = Math.min(totalProductCostCents, remaining);
+  if (cappedProductCost > 0) {
+    await insertSplitAndTransaction({
+      supabase,
+      saleId,
+      organizationId: sale.organization_id,
+      virtualAccountId: costAccounts.farmacia,
+      splitType: 'product_cost',
+      amountCents: cappedProductCost,
+      priority: 2,
+      liableForRefund: false,
+      liableForChargeback: false,
+      releaseAt: new Date().toISOString(),
+      referenceId,
+      description: `Custo produção - Venda #${saleId.slice(0, 8)}`,
+    });
+    remaining -= cappedProductCost;
+  }
+
+  // =====================================================
+  // STEP 6: AFFILIATE (if attribution exists)
   // =====================================================
   const { data: attribution } = await supabase
     .from('affiliate_attributions')
@@ -884,7 +659,7 @@ export async function processSaleSplitsV3(
   if (attribution?.code_or_ref) {
     const affiliateCode = attribution.code_or_ref;
 
-    // NEW: First try to find affiliate via organization_affiliates + affiliate_network_members
+    // Try organization_affiliates first
     const { data: orgAffiliate } = await supabase
       .from('organization_affiliates')
       .select('id, email, name, user_id, default_commission_type, default_commission_value')
@@ -895,8 +670,7 @@ export async function processSaleSplitsV3(
 
     let affiliateProcessed = false;
 
-    if (orgAffiliate) {
-      // Check if this affiliate is part of a network (for network-specific commission)
+    if (orgAffiliate?.user_id) {
       const { data: networkMember } = await supabase
         .from('affiliate_network_members')
         .select('id, network_id, commission_type, commission_value')
@@ -905,112 +679,92 @@ export async function processSaleSplitsV3(
         .limit(1)
         .maybeSingle();
 
-      // Process affiliate whether they're in a network OR standalone
-      // Network affiliates use network commission, standalone use default commission
-      if (orgAffiliate.user_id) {
-        // Get or create virtual account for this affiliate
-        let virtualAccountId: string | null = null;
+      let virtualAccountId: string | null = null;
+      const { data: vaByUser } = await supabase
+        .from('virtual_accounts')
+        .select('id')
+        .eq('user_id', orgAffiliate.user_id)
+        .maybeSingle();
 
-        const { data: vaByUser } = await supabase
-          .from('virtual_accounts')
-          .select('id')
-          .eq('user_id', orgAffiliate.user_id)
-          .maybeSingle();
-
-        if (vaByUser) {
-          virtualAccountId = vaByUser.id;
-        } else {
-          // Create virtual account for this affiliate user
-          const { data: newVA } = await supabase
-            .from('virtual_accounts')
-            .insert({
-              organization_id: sale.organization_id,
-              user_id: orgAffiliate.user_id,
-              account_type: 'affiliate',
-              holder_name: orgAffiliate.name || orgAffiliate.email,
-              holder_email: orgAffiliate.email,
-            })
-            .select('id')
-            .single();
-          
-          virtualAccountId = newVA?.id || null;
-        }
-
-        if (virtualAccountId) {
-          // Use network commission if in network, otherwise use default commission from organization_affiliates
-          const commissionType = networkMember?.commission_type || orgAffiliate.default_commission_type || 'percentage';
-          const commissionValue = Number(networkMember?.commission_value || orgAffiliate.default_commission_value) || rules.default_affiliate_percent;
-
-          // Calculate commission based on type
-          // IMPORTANT: Calculate on (total - platform_fee), not on remaining
-          // This ensures affiliate gets their % on net sale value
-          if (commissionType === 'percentage') {
-            affiliateAmount = Math.round(baseForAffiliateCommission * (commissionValue / 100));
-          } else {
-            // Fixed commission - value is in cents, applied per sale
-            affiliateAmount = commissionValue;
-          }
-          
-          // CAP: Never exceed remaining amount
-          affiliateAmount = Math.min(affiliateAmount, remaining);
-          
-          if (affiliateAmount > 0) {
-            const commissionLabel = commissionType === 'percentage' 
-              ? `${commissionValue}%` 
-              : `R$${(commissionValue / 100).toFixed(2)}`;
-            
-            const affiliateTypeLabel = networkMember ? 'rede' : 'afiliado';
-              
-            const created = await insertSplitAndTransaction({
-              supabase,
-              saleId,
-              organizationId: sale.organization_id,
-              virtualAccountId,
-              splitType: 'affiliate',
-              amountCents: affiliateAmount,
-              percentage: commissionType === 'percentage' ? commissionValue : 0,
-              priority: 2,
-              liableForRefund: true, // Affiliates are liable
-              liableForChargeback: true,
-              releaseAt: addDays(rules.hold_days_affiliate),
-              referenceId,
-              description: `Comissão ${affiliateTypeLabel} ${affiliateCode} (${commissionLabel}) - Venda #${saleId.slice(0, 8)}`,
-            });
-
-            if (created) {
-              result.affiliate_amount = affiliateAmount;
-              remaining -= affiliateAmount;
-              console.log(`[SplitEngine] Affiliate split (${networkMember ? 'network' : 'standalone'}): R$${(affiliateAmount / 100).toFixed(2)} (${commissionLabel})`);
-              affiliateProcessed = true;
-              
-              // Add affiliate to notification list
-              // Get contact info from profiles if available
-              let affiliatePhone: string | undefined;
-              if (orgAffiliate.user_id) {
-                const { data: profile } = await supabase
-                  .from('profiles')
-                  .select('whatsapp')
-                  .eq('user_id', orgAffiliate.user_id)
-                  .maybeSingle();
-                affiliatePhone = profile?.whatsapp;
-              }
-              
-              partnersToNotify.push({
-                type: 'affiliate',
-                name: orgAffiliate.name || orgAffiliate.email || 'Afiliado',
-                email: orgAffiliate.email,
-                phone: affiliatePhone,
-                commissionCents: affiliateAmount,
-              });
-            }
-          }
-        }
+      if (vaByUser) {
+        virtualAccountId = vaByUser.id;
       } else {
-        console.log(`[SplitEngine] Affiliate ${affiliateCode} found but has no user_id, cannot create virtual account`);
+        const { data: newVA } = await supabase
+          .from('virtual_accounts')
+          .insert({
+            organization_id: sale.organization_id,
+            user_id: orgAffiliate.user_id,
+            account_type: 'affiliate',
+            holder_name: orgAffiliate.name || orgAffiliate.email,
+            holder_email: orgAffiliate.email,
+          })
+          .select('id')
+          .single();
+        virtualAccountId = newVA?.id || null;
+      }
+
+      if (virtualAccountId) {
+        const commissionType = networkMember?.commission_type || orgAffiliate.default_commission_type || 'percentage';
+        const commissionValue = Number(networkMember?.commission_value || orgAffiliate.default_commission_value) || rules.default_affiliate_percent;
+
+        // Affiliate commission is calculated on REMAINING (net after costs)
+        if (commissionType === 'percentage') {
+          affiliateAmount = Math.round(remaining * (commissionValue / 100));
+        } else {
+          affiliateAmount = commissionValue;
+        }
+        
+        affiliateAmount = Math.min(affiliateAmount, remaining);
+        
+        if (affiliateAmount > 0) {
+          const commissionLabel = commissionType === 'percentage' 
+            ? `${commissionValue}%` 
+            : `R$${(commissionValue / 100).toFixed(2)}`;
+          
+          const created = await insertSplitAndTransaction({
+            supabase,
+            saleId,
+            organizationId: sale.organization_id,
+            virtualAccountId,
+            splitType: 'affiliate',
+            amountCents: affiliateAmount,
+            percentage: commissionType === 'percentage' ? commissionValue : 0,
+            priority: 3,
+            liableForRefund: true,
+            liableForChargeback: true,
+            releaseAt: addDays(rules.hold_days_affiliate),
+            referenceId,
+            description: `Comissão afiliado ${affiliateCode} (${commissionLabel}) - Venda #${saleId.slice(0, 8)}`,
+          });
+
+          if (created) {
+            result.affiliate_amount = affiliateAmount;
+            remaining -= affiliateAmount;
+            affiliateProcessed = true;
+            
+            let affiliatePhone: string | undefined;
+            if (orgAffiliate.user_id) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('whatsapp')
+                .eq('user_id', orgAffiliate.user_id)
+                .maybeSingle();
+              affiliatePhone = profile?.whatsapp;
+            }
+            
+            partnersToNotify.push({
+              type: 'affiliate',
+              name: orgAffiliate.name || orgAffiliate.email || 'Afiliado',
+              email: orgAffiliate.email,
+              phone: affiliatePhone,
+              commissionCents: affiliateAmount,
+            });
+          }
+        }
       }
     }
 
-    // LEGACY: Fallback to partner_associations if not found via networks
+    // LEGACY: Fallback to partner_associations
     if (!affiliateProcessed) {
       const { data: partner } = await supabase
         .from('partner_associations')
@@ -1024,19 +778,13 @@ export async function processSaleSplitsV3(
         const virtualAccount = partner.virtual_account as Record<string, unknown>;
         const commissionType = partner.commission_type || 'percentage';
         const commissionValue = Number(partner.commission_value) || rules.default_affiliate_percent;
-        const liableForRefund = partner.responsible_for_refunds ?? true;
-        const liableForChargeback = partner.responsible_for_chargebacks ?? true;
 
-        // Calculate commission based on type
-        // IMPORTANT: Calculate on (total - platform_fee), not on remaining
         if (commissionType === 'percentage') {
-          affiliateAmount = Math.round(baseForAffiliateCommission * (commissionValue / 100));
+          affiliateAmount = Math.round(remaining * (commissionValue / 100));
         } else {
-          // Fixed commission - value is in cents, applied per sale
           affiliateAmount = commissionValue;
         }
         
-        // CAP: Never exceed remaining amount
         affiliateAmount = Math.min(affiliateAmount, remaining);
         
         if (affiliateAmount > 0 && virtualAccount?.id) {
@@ -1052,24 +800,89 @@ export async function processSaleSplitsV3(
             splitType: 'affiliate',
             amountCents: affiliateAmount,
             percentage: commissionType === 'percentage' ? commissionValue : 0,
-            priority: 2,
-            liableForRefund,
-            liableForChargeback,
+            priority: 3,
+            liableForRefund: true,
+            liableForChargeback: true,
             releaseAt: addDays(rules.hold_days_affiliate),
             referenceId,
-            description: `Comissão ${partner.partner_type || 'afiliado'} ${partner.affiliate_code || 'N/A'} (${commissionLabel}) - Venda #${saleId.slice(0, 8)}`,
+            description: `Comissão afiliado ${affiliateCode} (${commissionLabel}) - Venda #${saleId.slice(0, 8)}`,
           });
 
           if (created) {
             result.affiliate_amount = affiliateAmount;
             remaining -= affiliateAmount;
-            console.log(`[SplitEngine] Partner split (${partner.partner_type}): R$${(affiliateAmount / 100).toFixed(2)} (${commissionLabel})`);
+          }
+        }
+      }
+    }
+  }
+
+  // =====================================================
+  // STEP 7: COPRODUCER → % of NET PROFIT (remaining after all costs)
+  // Net profit = remaining at this point (subtotal - platform - tax - shipping - product_cost - affiliate)
+  // Coproducer gets commission_percentage% of this net profit
+  // =====================================================
+  const netProfitBeforeCoprod = remaining;
+  console.log(`[SplitEngine v4] Net profit before coproducer: R$${(netProfitBeforeCoprod / 100).toFixed(2)}`);
+
+  if (saleItems && saleItems.length > 0 && netProfitBeforeCoprod > 0) {
+    // Collect all unique coproducers across items
+    const productIds = saleItems.map(i => i.product_id);
+    const { data: coproducerData } = await supabase
+      .from('coproducers')
+      .select('*, virtual_account:virtual_accounts(*)')
+      .in('product_id', productIds)
+      .eq('is_active', true);
+
+    if (coproducerData && coproducerData.length > 0) {
+      // Group by virtual_account_id to consolidate (same coproducer across products)
+      const coproducerMap = new Map<string, { coprod: typeof coproducerData[0]; totalPercent: number }>();
+      
+      for (const coprod of coproducerData) {
+        const vaId = coprod.virtual_account_id;
+        const existing = coproducerMap.get(vaId);
+        const pct = Number(coprod.commission_percentage) || 0;
+        
+        if (existing) {
+          // Same coproducer, take highest percentage (they should be the same)
+          existing.totalPercent = Math.max(existing.totalPercent, pct);
+        } else {
+          coproducerMap.set(vaId, { coprod, totalPercent: pct });
+        }
+      }
+
+      for (const [_vaId, { coprod, totalPercent }] of coproducerMap) {
+        const virtualAccount = coprod.virtual_account as Record<string, unknown> | null;
+        if (!virtualAccount?.id || totalPercent <= 0) continue;
+
+        let coproducerAmount = Math.round(netProfitBeforeCoprod * (totalPercent / 100));
+        coproducerAmount = Math.min(coproducerAmount, remaining);
+
+        if (coproducerAmount > 0) {
+          const created = await insertSplitAndTransaction({
+            supabase,
+            saleId,
+            organizationId: sale.organization_id,
+            virtualAccountId: virtualAccount.id as string,
+            splitType: 'coproducer',
+            amountCents: coproducerAmount,
+            percentage: totalPercent,
+            priority: 3,
+            liableForRefund: true,
+            liableForChargeback: true,
+            releaseAt: addDays(rules.hold_days_affiliate),
+            referenceId,
+            description: `Coprodução ${totalPercent}% do lucro líquido - Venda #${saleId.slice(0, 8)}`,
+          });
+
+          if (created) {
+            result.coproducer_amount += coproducerAmount;
+            remaining -= coproducerAmount;
+            console.log(`[SplitEngine] Coproducer: R$${(coproducerAmount / 100).toFixed(2)} (${totalPercent}% of net profit)`);
             
-            // Add legacy partner to notification list
             const holderEmail = virtualAccount?.holder_email as string | undefined;
-            const holderName = virtualAccount?.holder_name as string || partner.affiliate_code || 'Parceiro';
+            const holderName = virtualAccount?.holder_name as string || 'Co-produtor';
             if (holderEmail) {
-              // Try to get phone from profiles if user_id exists
               let holderPhone: string | undefined;
               const userId = virtualAccount?.user_id as string | undefined;
               if (userId) {
@@ -1082,11 +895,11 @@ export async function processSaleSplitsV3(
               }
               
               partnersToNotify.push({
-                type: 'affiliate',
+                type: 'coproducer',
                 name: holderName,
                 email: holderEmail,
                 phone: holderPhone,
-                commissionCents: affiliateAmount,
+                commissionCents: coproducerAmount,
               });
             }
           }
@@ -1096,9 +909,8 @@ export async function processSaleSplitsV3(
   }
 
   // =====================================================
-  // STEP E: TENANT (receives the rest, liable for refund/chargeback)
+  // STEP 8: TENANT → receives the remainder
   // =====================================================
-  // Deduct gateway fee from tenant's share
   const tenantAmount = Math.max(0, remaining - gatewayFeeCents);
 
   if (tenantAmount > 0) {
@@ -1110,12 +922,12 @@ export async function processSaleSplitsV3(
       splitType: 'tenant',
       amountCents: tenantAmount,
       feeCents: gatewayFeeCents,
-      priority: 2,
+      priority: 4,
       liableForRefund: true,
       liableForChargeback: true,
       releaseAt: addDays(rules.hold_days_tenant),
       referenceId,
-      description: `Venda #${saleId.slice(0, 8)} (- gateway R$${(gatewayFeeCents / 100).toFixed(2)})`,
+      description: `Lucro líquido - Venda #${saleId.slice(0, 8)} (- gateway R$${(gatewayFeeCents / 100).toFixed(2)})`,
     });
 
     if (created) {
@@ -1124,10 +936,9 @@ export async function processSaleSplitsV3(
   }
 
   // =====================================================
-  // STEP F: GATEWAY FEE RECORD (for transparency, no transaction)
+  // STEP 9: GATEWAY FEE RECORD (transparency only)
   // =====================================================
   if (gatewayFeeCents > 0) {
-    // Just record the split, no virtual transaction (money goes to gateway, not internal account)
     await supabase
       .from('sale_splits')
       .insert({
@@ -1138,19 +949,18 @@ export async function processSaleSplitsV3(
         fee_cents: 0,
         net_amount_cents: gatewayFeeCents,
         percentage: (gatewayFeeCents / baseCents) * 100,
-        priority: 2,
+        priority: 5,
         liable_for_refund: false,
         liable_for_chargeback: false,
       });
   }
 
-  console.log(`[SplitEngine] Completed splits for sale ${saleId}:`, result);
+  console.log(`[SplitEngine v4] Completed splits for sale ${saleId}:`, result);
 
   // =====================================================
-  // STEP G: NOTIFY ALL PARTNERS (async, non-blocking)
+  // STEP 10: NOTIFY PARTNERS
   // =====================================================
   if (partnersToNotify.length > 0) {
-    // Consolidate duplicate partners (e.g. same coproducer across multiple items)
     const consolidatedMap = new Map<string, typeof partnersToNotify[0]>();
     for (const p of partnersToNotify) {
       const key = `${p.type}:${p.email || p.phone || p.name}`;
@@ -1163,12 +973,11 @@ export async function processSaleSplitsV3(
     }
     const consolidatedPartners = Array.from(consolidatedMap.values());
     
-    console.log(`[SplitEngine] Notifying ${consolidatedPartners.length} partners (consolidated from ${partnersToNotify.length}) for sale ${saleId}`);
+    console.log(`[SplitEngine] Notifying ${consolidatedPartners.length} partners`);
     
-    // Run notifications in background (don't await to avoid blocking webhook response)
     notifyAllPartnersForSale(supabase, saleId, consolidatedPartners)
-      .then(() => console.log(`[SplitEngine] Partner notifications completed for sale ${saleId}`))
-      .catch((err) => console.error(`[SplitEngine] Partner notification error:`, err));
+      .then(() => console.log(`[SplitEngine] Notifications completed`))
+      .catch((err) => console.error(`[SplitEngine] Notification error:`, err));
   }
 
   return result;
@@ -1186,18 +995,14 @@ export async function processRefundOrChargeback(
 ): Promise<void> {
   console.log(`[SplitEngine] Processing ${kind} for sale ${saleId}`);
 
-  // Get platform account for event lock
   const platformAccountId = await getPlatformAccount(supabase);
 
-  // CRITICAL: Acquire event lock for refund/chargeback (prevents double debit)
   const lockResult = await tryAcquireEventLock(supabase, referenceId, platformAccountId, saleId);
   if (lockResult === 'already_processed') {
-    console.log(`[SplitEngine] ${kind} event already processed (lock + splits exist), skipping`);
+    console.log(`[SplitEngine] ${kind} already processed, skipping`);
     return;
   }
-  // For 'needs_recovery' or 'acquired', continue processing
 
-  // Get all liable splits for this sale
   const liableColumn = kind === 'refund' ? 'liable_for_refund' : 'liable_for_chargeback';
   
   const { data: liableSplits } = await supabase
@@ -1211,7 +1016,6 @@ export async function processRefundOrChargeback(
     return;
   }
 
-  // Debit each liable account
   for (const split of liableSplits) {
     const account = split.virtual_account as Record<string, unknown>;
     if (!account?.id) continue;
@@ -1220,12 +1024,9 @@ export async function processRefundOrChargeback(
     const txReferenceId = `${referenceId}:${kind}:${split.split_type}`;
 
     try {
-      // ROBUST: Use split.transaction_id to find the EXACT original transaction status
-      // This eliminates ambiguity when same account has multiple credits
       let originalStatus = 'pending';
       
       if (split.transaction_id) {
-        // Best case: we have the direct link to the original transaction
         const { data: linkedTx } = await supabase
           .from('virtual_transactions')
           .select('status')
@@ -1233,7 +1034,6 @@ export async function processRefundOrChargeback(
           .single();
         originalStatus = linkedTx?.status || 'pending';
       } else {
-        // Fallback: find by sale_id + account (less precise but works for legacy)
         const { data: originalTx } = await supabase
           .from('virtual_transactions')
           .select('status')
@@ -1248,7 +1048,6 @@ export async function processRefundOrChargeback(
 
       const debitFromPending = originalStatus === 'pending';
 
-      // Create debit transaction (idempotent)
       const { error: txError } = await supabase
         .from('virtual_transactions')
         .insert({
@@ -1258,7 +1057,7 @@ export async function processRefundOrChargeback(
           amount_cents: -debitAmount,
           fee_cents: 0,
           net_amount_cents: -debitAmount,
-          description: `${kind === 'refund' ? 'Reembolso' : 'Chargeback'} - Venda #${saleId.slice(0, 8)} (from ${debitFromPending ? 'pending' : 'balance'})`,
+          description: `${kind === 'refund' ? 'Reembolso' : 'Chargeback'} - Venda #${saleId.slice(0, 8)}`,
           status: 'completed',
           reference_id: txReferenceId,
         });
@@ -1271,27 +1070,20 @@ export async function processRefundOrChargeback(
         throw txError;
       }
 
-      // CRITICAL: Debit from correct balance based on original transaction status
-      // If original was still pending, debit pending_balance
-      // If original was released/completed, debit balance
       if (debitFromPending) {
-        // Debit from pending_balance_cents (original credit not yet released)
         await supabase
           .from('virtual_accounts')
           .update({
             pending_balance_cents: ((account.pending_balance_cents as number) || 0) - debitAmount,
           })
           .eq('id', account.id);
-        console.log(`[SplitEngine] Debited R$${(debitAmount / 100).toFixed(2)} from ${split.split_type} PENDING balance for ${kind}`);
       } else {
-        // Debit from balance_cents (original credit already released) - can go negative
         await supabase
           .from('virtual_accounts')
           .update({
             balance_cents: ((account.balance_cents as number) || 0) - debitAmount,
           })
           .eq('id', account.id);
-        console.log(`[SplitEngine] Debited R$${(debitAmount / 100).toFixed(2)} from ${split.split_type} AVAILABLE balance for ${kind}`);
       }
 
     } catch (error) {
@@ -1301,7 +1093,6 @@ export async function processRefundOrChargeback(
     }
   }
 
-  // Update sale status
   await supabase
     .from('sales')
     .update({
