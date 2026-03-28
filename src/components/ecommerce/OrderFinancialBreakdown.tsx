@@ -210,9 +210,41 @@ export function OrderFinancialBreakdown({
             </div>
           )}
 
-          {/* Affiliate - First deduction */}
+          {/* Platform Fee */}
+          {platformFee > 0 && (
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Taxa Plataforma ({platformSplit?.percentage || 4.99}% + R$1,00):</span>
+              <span>-{formatCurrency(platformFee)}</span>
+            </div>
+          )}
+
+          {/* Tax */}
+          {taxFee > 0 && (
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Imposto (12%):</span>
+              <span>-{formatCurrency(taxFee)}</span>
+            </div>
+          )}
+
+          {/* Shipping + Picking */}
+          {shippingFee > 0 && (
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Frete + Picking:</span>
+              <span>-{formatCurrency(shippingFee)}</span>
+            </div>
+          )}
+
+          {/* Product Cost */}
+          {productCostFee > 0 && (
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Custo Produção:</span>
+              <span>-{formatCurrency(productCostFee)}</span>
+            </div>
+          )}
+
+          {/* Affiliate */}
           {affiliateFee > 0 && (
-            <div className="flex justify-between text-sm text-blue-600">
+            <div className="flex justify-between text-sm text-destructive">
               <span>
                 Afiliado{affiliateName ? `: ${affiliateName}` : ''}:
               </span>
@@ -220,35 +252,11 @@ export function OrderFinancialBreakdown({
             </div>
           )}
 
-          {/* Coproducer - Below Affiliate */}
+          {/* Coproducer */}
           {coproducerFee > 0 && (
-            <div className="flex justify-between text-sm text-purple-600">
-              <span>Co-produtor:</span>
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Co-produtor ({coproducerSplit?.percentage || 50}%):</span>
               <span>-{formatCurrency(coproducerFee)}</span>
-            </div>
-          )}
-
-          {/* Industry - Below Coproducer */}
-          {industryFee > 0 && (
-            <div className="flex justify-between text-sm text-orange-600">
-              <span>Indústria:</span>
-              <span>-{formatCurrency(industryFee)}</span>
-            </div>
-          )}
-
-          {/* Factory - Below Industry */}
-          {factoryFee > 0 && (
-            <div className="flex justify-between text-sm text-amber-600">
-              <span>Fábrica:</span>
-              <span>-{formatCurrency(factoryFee)}</span>
-            </div>
-          )}
-
-          {/* Platform Fee - Last */}
-          {platformFee > 0 && (
-            <div className="flex justify-between text-sm text-red-600">
-              <span>Taxa Plataforma (4.99% + R$1,00):</span>
-              <span>-{formatCurrency(platformFee)}</span>
             </div>
           )}
         </div>
