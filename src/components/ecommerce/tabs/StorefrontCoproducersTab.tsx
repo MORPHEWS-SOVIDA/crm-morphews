@@ -119,6 +119,8 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
         fixed1Total: number;
         fixed3Total: number;
         fixed5Total: number;
+        commissionType: string;
+        commissionPercentage: number;
         componentDetails: Array<{ name: string; qty: number }>;
       }>;
     }>();
