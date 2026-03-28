@@ -968,8 +968,22 @@ serve(async (req) => {
           const distributionMode = instConfig?.distribution_mode || 'manual';
           console.log("📋 Distribution mode for new conversation:", distributionMode);
           
+          // MODO AGENT 2.0: Se instância está em modo agente
+          if (distributionMode === 'agent' && !isGroup && conversation) {
+            console.log("🚀 Agent 2.0 mode enabled, setting status to with_bot for agent processing");
+            await supabase
+              .from("whatsapp_conversations")
+              .update({
+                status: 'with_bot',
+                handling_bot_id: null,
+                bot_started_at: new Date().toISOString(),
+                bot_messages_count: 0,
+              })
+              .eq("id", conversation.id);
+            conversation = { ...conversation, status: 'with_bot', handling_bot_id: null } as any;
+          }
           // MODO BOT: Se instância está em modo robô E tem bot configurado
-          if (distributionMode === 'bot' && anyBotId && !isGroup && conversation) {
+          else if (distributionMode === 'bot' && anyBotId && !isGroup && conversation) {
             console.log("🤖 Bot mode enabled, setting status to with_bot");
             await supabase
               .from("whatsapp_conversations")
