@@ -1418,42 +1418,44 @@ serve(async (req) => {
           }
 
           // =====================
-          // PROCESSAR COM ROBÔ IA
-          // APENAS se a instância está em modo 'bot' E a conversa está com status apropriado
+          // PROCESSAR COM ROBÔ IA / AGENTE 2.0
           // =====================
           const supportedBotTypes = ['text', 'audio', 'image'];
+          
+          // Buscar distribution_mode da instância para decidir o roteamento
+          const { data: instModeConfig } = await supabase
+            .from("whatsapp_instances")
+            .select("distribution_mode")
+            .eq("id", instance.id)
+            .single();
+          const currentDistMode = instModeConfig?.distribution_mode || 'manual';
           
           // Usar anyBotId (qualquer bot configurado) ao invés de apenas activeBotId (bot no horário)
           const botIdToUse = anyBotId;
           const isWithinSchedule = !!activeBotId;
           
-          // IMPORTANTE: Só processar com bot se conversation.status === 'with_bot'
-          // Isso garante que apenas instâncias em modo BOT terão processamento de IA
+          // Decidir se deve processar: modo agent OU modo bot com botId
+          const isAgentMode = currentDistMode === 'agent';
           const shouldProcessWithBot = 
-            botIdToUse && 
-            !isGroup && // Não processar grupos com robô por enquanto
-            supportedBotTypes.includes(msgData.type) && // Texto, áudio e imagem
-            conversation.status === 'with_bot'; // APENAS conversas que já estão com o robô
+            !isGroup &&
+            supportedBotTypes.includes(msgData.type) &&
+            conversation.status === 'with_bot' &&
+            (isAgentMode || botIdToUse); // Agent mode não precisa de botId v1
 
           if (shouldProcessWithBot) {
-            console.log("🤖 Processing message with AI bot:", botIdToUse, "type:", msgData.type, "isWithinSchedule:", isWithinSchedule);
-            
-            // =====================================================================
-            // AGENTE 2.0: Verificar se a instância tem um agente 2.0 vinculado
-            // Se sim, rotear para agent-process no Supabase externo
-            // =====================================================================
             const AGENTS_SUPABASE_URL = Deno.env.get("AGENTS_SUPABASE_URL") ?? "";
             const AGENTS_SUPABASE_KEY = Deno.env.get("AGENTS_SUPABASE_ANON_KEY") ?? "";
             
             let useAgent20 = false;
             let agent20Id: string | null = null;
             
-            if (AGENTS_SUPABASE_URL && AGENTS_SUPABASE_KEY) {
+            if (isAgentMode && AGENTS_SUPABASE_URL && AGENTS_SUPABASE_KEY) {
+              // Modo agent: buscar agente vinculado diretamente
               try {
                 const agentsClient = createClient(AGENTS_SUPABASE_URL, AGENTS_SUPABASE_KEY);
                 const { data: agentInstance } = await agentsClient
                   .from("agent_instances")
-                  .select("agent_id, is_active")
+                  .select("agent_id, is_active, working_days, working_hours_start, working_hours_end")
                   .eq("instance_id", instance.id)
                   .eq("is_active", true)
                   .limit(1)
@@ -1467,13 +1469,35 @@ serve(async (req) => {
               } catch (agentCheckError) {
                 console.error("⚠️ Error checking agent 2.0:", agentCheckError);
               }
+            } else if (!isAgentMode && AGENTS_SUPABASE_URL && AGENTS_SUPABASE_KEY) {
+              // Modo bot legado: verificar se tem agent 2.0 vinculado (compatibilidade)
+              try {
+                const agentsClient = createClient(AGENTS_SUPABASE_URL, AGENTS_SUPABASE_KEY);
+                const { data: agentInstance } = await agentsClient
+                  .from("agent_instances")
+                  .select("agent_id, is_active")
+                  .eq("instance_id", instance.id)
+                  .eq("is_active", true)
+                  .limit(1)
+                  .maybeSingle();
+                
+                if (agentInstance) {
+                  useAgent20 = true;
+                  agent20Id = agentInstance.agent_id;
+                  console.log("🚀 Agent 2.0 found (legacy mode) for instance:", instance.id);
+                }
+              } catch (agentCheckError) {
+                console.error("⚠️ Error checking agent 2.0:", agentCheckError);
+              }
             }
             
-            // CORREÇÃO: considerar primeira mensagem APENAS quando o bot ainda não respondeu nada
+            console.log(useAgent20 
+              ? `🚀 Processing with Agent 2.0: ${agent20Id}` 
+              : `🤖 Processing with legacy bot: ${botIdToUse}`);
+            
             const isFirstMessage = !wasClosed && ((conversation.bot_messages_count ?? 0) === 0);
             const isReopened = wasClosed;
 
-            // Preparar payload para o bot - incluir info de mídia se for áudio ou imagem
             const botPayload: any = {
               botId: useAgent20 ? agent20Id : botIdToUse,
               conversationId: conversation.id,
@@ -1487,17 +1511,15 @@ serve(async (req) => {
               isFirstMessage,
               isReopened,
               messageType: msgData.type,
-              isWithinSchedule,
+              isWithinSchedule: isAgentMode ? true : isWithinSchedule,
             };
 
-            // Se for áudio ou imagem, incluir a URL da mídia salva
             if ((msgData.type === 'audio' || msgData.type === 'image') && savedMediaUrl) {
               botPayload.mediaUrl = savedMediaUrl;
               botPayload.mediaMimeType = msgData.mediaMimeType;
               console.log("📎 Including media for bot processing:", msgData.type, savedMediaUrl);
             }
 
-            // Rotear: Agent 2.0 → Supabase externo | Legado → ai-bot-process local
             const targetUrl = useAgent20
               ? `${AGENTS_SUPABASE_URL}/functions/v1/agent-process`
               : `${SUPABASE_URL}/functions/v1/ai-bot-process`;
