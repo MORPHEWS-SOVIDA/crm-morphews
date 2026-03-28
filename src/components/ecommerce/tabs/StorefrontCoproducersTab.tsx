@@ -300,20 +300,28 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
                           <Badge variant="secondary" className="text-[10px]">Combo</Badge>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {combo.fixed1Total > 0 && (
+                          {combo.commissionType === 'percentage' ? (
                             <Badge variant="outline" className="text-xs font-mono gap-1">
-                              $ 1 un → {formatCurrency(combo.fixed1Total)}
+                              Comissão: {combo.commissionPercentage}% sobre o valor líquido
                             </Badge>
-                          )}
-                          {combo.fixed3Total > 0 && (
-                            <Badge variant="outline" className="text-xs font-mono gap-1">
-                              $ 3 un → {formatCurrency(combo.fixed3Total)}
-                            </Badge>
-                          )}
-                          {combo.fixed5Total > 0 && (
-                            <Badge variant="outline" className="text-xs font-mono gap-1">
-                              $ 5 un → {formatCurrency(combo.fixed5Total)}
-                            </Badge>
+                          ) : (
+                            <>
+                              {combo.fixed1Total > 0 && (
+                                <Badge variant="outline" className="text-xs font-mono gap-1">
+                                  $ 1 un → {formatCurrency(combo.fixed1Total)}
+                                </Badge>
+                              )}
+                              {combo.fixed3Total > 0 && (
+                                <Badge variant="outline" className="text-xs font-mono gap-1">
+                                  $ 3 un → {formatCurrency(combo.fixed3Total)}
+                                </Badge>
+                              )}
+                              {combo.fixed5Total > 0 && (
+                                <Badge variant="outline" className="text-xs font-mono gap-1">
+                                  $ 5 un → {formatCurrency(combo.fixed5Total)}
+                                </Badge>
+                              )}
+                            </>
                           )}
                         </div>
                         <p className="text-[11px] text-muted-foreground">
