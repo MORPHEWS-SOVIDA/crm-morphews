@@ -853,6 +853,18 @@ serve(async (req) => {
       const message = data?.message || {};
       const pushName = data?.pushName || "";
 
+      // 🔍 TEMPORARY DEBUG: Log full audio payload
+      if (message?.audioMessage) {
+        console.log("🔍 FULL AUDIO PAYLOAD:", JSON.stringify({
+          dataKeys: Object.keys(data || {}),
+          messageKeys: Object.keys(message || {}),
+          audioMessage: message.audioMessage,
+          dataMediaUrl: data?.mediaUrl,
+          dataMedia: data?.media,
+          dataBase64: typeof data?.base64 === 'string' ? `string(${data.base64.length})` : data?.base64,
+        }, null, 2).substring(0, 2000));
+      }
+
       const remoteJid = key?.remoteJid || "";
       const isFromMe = key?.fromMe === true;
       const isGroup = remoteJid.includes("@g.us");
