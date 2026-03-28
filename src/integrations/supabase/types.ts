@@ -8524,6 +8524,7 @@ export type Database = {
           meeting_link: string | null
           meeting_time: string | null
           name: string
+          needs_name_update: boolean | null
           negotiated_value: number | null
           neighborhood: string | null
           observations: string | null
@@ -8588,6 +8589,7 @@ export type Database = {
           meeting_link?: string | null
           meeting_time?: string | null
           name: string
+          needs_name_update?: boolean | null
           negotiated_value?: number | null
           neighborhood?: string | null
           observations?: string | null
@@ -8652,6 +8654,7 @@ export type Database = {
           meeting_link?: string | null
           meeting_time?: string | null
           name?: string
+          needs_name_update?: boolean | null
           negotiated_value?: number | null
           neighborhood?: string | null
           observations?: string | null

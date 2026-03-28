@@ -53,7 +53,7 @@ export function useConversationDistribution() {
         throw new Error(result.error || 'Não foi possível assumir a conversa');
       }
 
-      // Após assumir com sucesso, verificar se o briefing automático está ativo
+      // Após assumir com sucesso, auto-vincular lead e verificar briefing
       try {
         // Buscar dados da conversa e configurações da organização
         const { data: conv } = await supabase
@@ -61,6 +61,9 @@ export function useConversationDistribution() {
           .select(`
             lead_id,
             contact_name,
+            phone_number,
+            organization_id,
+            instance_id,
             whatsapp_instances!inner(
               organization_id,
               organizations!inner(
@@ -71,28 +74,117 @@ export function useConversationDistribution() {
           .eq("id", conversationId)
           .single();
 
+        // ====================================================================
+        // AUTO-VINCULAR LEAD pelo telefone (se não tiver lead vinculado)
+        // ====================================================================
+        let linkedLeadId = conv?.lead_id || null;
+
+        if (conv && !linkedLeadId && conv.phone_number && conv.organization_id) {
+          console.log('[claimConversation] Auto-linking lead by phone:', conv.phone_number);
+
+          // Normalizar telefone para busca (remover @s.whatsapp.net, não-dígitos)
+          const rawPhone = conv.phone_number.includes('@')
+            ? conv.phone_number.split('@')[0]
+            : conv.phone_number;
+          const digits = rawPhone.replace(/\D/g, '');
+
+          // Tentar encontrar lead pelo WhatsApp
+          const { data: existingLeads } = await supabase
+            .from('leads')
+            .select('id, name')
+            .eq('organization_id', conv.organization_id)
+            .or(`whatsapp.ilike.%${digits}%,whatsapp.ilike.%${digits.slice(-11)}%`)
+            .limit(1);
+
+          if (existingLeads && existingLeads.length > 0) {
+            // Lead encontrado - vincular
+            linkedLeadId = existingLeads[0].id;
+            console.log('[claimConversation] Found existing lead:', linkedLeadId, existingLeads[0].name);
+          } else {
+            // Lead não encontrado - criar automaticamente
+            const leadName = conv.contact_name || `WhatsApp ${digits.slice(-4)}`;
+            const whatsappFormatted = digits.length >= 12 ? digits : `55${digits}`;
+
+            const { data: newLead, error: createError } = await supabase
+              .from('leads')
+              .insert({
+                organization_id: conv.organization_id,
+                name: leadName,
+                whatsapp: whatsappFormatted,
+                assigned_to: userId,
+                source: 'whatsapp',
+                needs_name_update: true,
+              })
+              .select('id')
+              .single();
+
+            if (createError) {
+              console.warn('[claimConversation] Failed to create lead:', createError);
+            } else if (newLead) {
+              linkedLeadId = newLead.id;
+              console.log('[claimConversation] Created new lead:', linkedLeadId, leadName);
+
+              // Registrar responsável
+              await supabase.from('lead_responsibles').upsert({
+                lead_id: linkedLeadId,
+                user_id: userId,
+                is_primary: true,
+                organization_id: conv.organization_id,
+              }, { onConflict: 'lead_id,user_id' }).then(() => {});
+            }
+          }
+
+          // Vincular lead à conversa
+          if (linkedLeadId) {
+            await supabase
+              .from('whatsapp_conversations')
+              .update({ lead_id: linkedLeadId })
+              .eq('id', conversationId);
+
+            // Registrar vínculo no log
+            await supabase.from('conversation_lead_links').insert({
+              organization_id: conv.organization_id,
+              conversation_id: conversationId,
+              lead_id: linkedLeadId,
+              lead_name: conv.contact_name || null,
+              lead_whatsapp: conv.phone_number || null,
+              channel_type: 'whatsapp',
+              linked_by: userId,
+            }).then(() => {});
+
+            // Atualizar assigned_to do lead
+            await supabase
+              .from('leads')
+              .update({ assigned_to: userId })
+              .eq('id', linkedLeadId);
+
+            console.log('[claimConversation] Lead linked to conversation:', linkedLeadId);
+          }
+        }
+
+        // ====================================================================
+        // BRIEFING AUTOMÁTICO
+        // ====================================================================
         const orgConfig = (conv?.whatsapp_instances as any)?.organizations;
-        const shouldSendBriefing = orgConfig?.whatsapp_ai_seller_briefing_enabled && conv?.lead_id;
+        const shouldSendBriefing = orgConfig?.whatsapp_ai_seller_briefing_enabled && linkedLeadId;
 
         console.log('[claimConversation] Briefing check:', {
           conversationId,
-          leadId: conv?.lead_id,
+          leadId: linkedLeadId,
           briefingEnabled: orgConfig?.whatsapp_ai_seller_briefing_enabled,
           shouldSendBriefing
         });
 
         if (shouldSendBriefing) {
-          // Disparar geração do briefing de forma assíncrona (não bloquear a UI)
           supabase.functions.invoke("lead-memory-analyze", {
             body: {
               action: "briefing",
-              leadId: conv.lead_id,
+              leadId: linkedLeadId,
               conversationId,
-              contactName: conv.contact_name || undefined
+              contactName: conv?.contact_name || undefined
             }
           }).then(briefingResult => {
             if (briefingResult.data?.briefing) {
-              // Briefing gerado - exibir como toast informativo para o vendedor
               console.log('[claimConversation] Briefing generated:', briefingResult.data.briefing.substring(0, 100));
               toast.info("📋 Briefing do lead carregado!", { 
                 duration: 5000,
@@ -101,12 +193,11 @@ export function useConversationDistribution() {
             }
           }).catch(briefingError => {
             console.warn('[claimConversation] Briefing generation failed:', briefingError);
-            // Não bloqueia o fluxo, apenas loga o erro
           });
         }
-      } catch (briefingCheckError) {
-        console.warn('[claimConversation] Error checking briefing settings:', briefingCheckError);
-        // Continua normalmente, briefing é feature opcional
+      } catch (autoLinkError) {
+        console.warn('[claimConversation] Error in auto-link/briefing:', autoLinkError);
+        // Não bloqueia o fluxo - claim já foi feito com sucesso
       }
 
       return result;
