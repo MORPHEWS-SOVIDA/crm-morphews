@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { agentsSupabase } from "@/integrations/agents-supabase/client";
+import { agentsSupabase, isAgentsSupabaseConfigured } from "@/integrations/agents-supabase/client";
 import { toast } from "sonner";
 
 export interface Agent {
@@ -22,11 +22,19 @@ export interface AgentFormData {
   max_messages: number;
 }
 
+function getAgentsClient() {
+  if (!agentsSupabase || !isAgentsSupabaseConfigured) {
+    throw new Error("Configure VITE_AGENTS_SUPABASE_URL e VITE_AGENTS_SUPABASE_ANON_KEY para usar Agentes IA.");
+  }
+  return agentsSupabase;
+}
+
 export function useAgentsIA(organizationId?: string) {
   return useQuery({
     queryKey: ["agents-ia", organizationId],
     queryFn: async () => {
-      let query = agentsSupabase
+      const client = getAgentsClient();
+      let query = client
         .from("agents")
         .select("*")
         .order("created_at", { ascending: false });
@@ -48,7 +56,8 @@ export function useCreateAgent() {
 
   return useMutation({
     mutationFn: async (agent: AgentFormData & { organization_id: string }) => {
-      const { data, error } = await agentsSupabase
+      const client = getAgentsClient();
+      const { data, error } = await client
         .from("agents")
         .insert(agent)
         .select()
@@ -71,7 +80,8 @@ export function useUpdateAgent() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Agent> & { id: string }) => {
-      const { data, error } = await agentsSupabase
+      const client = getAgentsClient();
+      const { data, error } = await client
         .from("agents")
         .update(updates)
         .eq("id", id)
@@ -95,7 +105,8 @@ export function useDeleteAgent() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await agentsSupabase
+      const client = getAgentsClient();
+      const { error } = await client
         .from("agents")
         .delete()
         .eq("id", id);
