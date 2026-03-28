@@ -5,16 +5,18 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Wifi, Brain, ScrollText, Settings, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Trash2, Plus, Wifi, Brain, ScrollText, Settings, CheckCircle, XCircle, Clock, Mic, Image, FileText } from "lucide-react";
 import { useUpdateAgent, type Agent } from "@/hooks/useAgentsIA";
 import { useAgentInstances, useCreateAgentInstance, useDeleteAgentInstance } from "@/hooks/useAgentInstances";
 import { useAgentKnowledge, useCreateAgentKnowledge, useDeleteAgentKnowledge } from "@/hooks/useAgentKnowledge";
 import { useAgentLogs } from "@/hooks/useAgentLogs";
 import { useAuth } from "@/hooks/useAuth";
-import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 
 interface AgentConfigDialogProps {
@@ -30,8 +32,13 @@ export function AgentConfigDialog({ agent, open, onOpenChange }: AgentConfigDial
     name: "",
     personality: "Profissional",
     system_prompt: "",
-    welcome_message: "",
     max_messages: 30,
+    audio_enabled: true,
+    audio_message: "🎤 Ouvi seu áudio! Aqui está o que você disse:",
+    image_enabled: false,
+    image_message: "🖼️ Analisei a imagem que você enviou:",
+    file_enabled: false,
+    file_message: "📄 Analisei o arquivo que você enviou:",
   });
 
   useEffect(() => {
@@ -40,8 +47,13 @@ export function AgentConfigDialog({ agent, open, onOpenChange }: AgentConfigDial
         name: agent.name,
         personality: agent.personality || "Profissional",
         system_prompt: agent.system_prompt || "",
-        welcome_message: agent.welcome_message || "",
         max_messages: agent.max_messages || 30,
+        audio_enabled: agent.audio_enabled ?? true,
+        audio_message: agent.audio_message || "🎤 Ouvi seu áudio! Aqui está o que você disse:",
+        image_enabled: agent.image_enabled ?? false,
+        image_message: agent.image_message || "🖼️ Analisei a imagem que você enviou:",
+        file_enabled: agent.file_enabled ?? false,
+        file_message: agent.file_message || "📄 Analisei o arquivo que você enviou:",
       });
     }
   }, [agent]);
@@ -91,12 +103,81 @@ export function AgentConfigDialog({ agent, open, onOpenChange }: AgentConfigDial
                 <Textarea value={form.system_prompt} onChange={(e) => setForm({ ...form, system_prompt: e.target.value })} rows={8} />
               </div>
               <div className="space-y-2">
-                <Label>Mensagem de Boas-vindas</Label>
-                <Textarea value={form.welcome_message} onChange={(e) => setForm({ ...form, welcome_message: e.target.value })} rows={3} />
-              </div>
-              <div className="space-y-2">
                 <Label>Limite de Mensagens</Label>
                 <Input type="number" min={1} max={100} value={form.max_messages} onChange={(e) => setForm({ ...form, max_messages: Number(e.target.value) })} />
+              </div>
+
+              <Separator />
+
+              <div className="space-y-1">
+                <h4 className="text-sm font-semibold">Capacidades de Mídia</h4>
+                <p className="text-xs text-muted-foreground">Configure quais tipos de mídia o agente pode processar</p>
+              </div>
+
+              {/* Audio */}
+              <div className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Mic className="h-4 w-4 text-primary" />
+                    <Label className="font-medium">Processar Áudio</Label>
+                  </div>
+                  <Switch
+                    checked={form.audio_enabled}
+                    onCheckedChange={(v) => setForm({ ...form, audio_enabled: v })}
+                  />
+                </div>
+                {form.audio_enabled && (
+                  <Input
+                    placeholder="Mensagem após transcrição"
+                    value={form.audio_message}
+                    onChange={(e) => setForm({ ...form, audio_message: e.target.value })}
+                    className="text-sm"
+                  />
+                )}
+              </div>
+
+              {/* Image */}
+              <div className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Image className="h-4 w-4 text-primary" />
+                    <Label className="font-medium">Analisar Imagens</Label>
+                  </div>
+                  <Switch
+                    checked={form.image_enabled}
+                    onCheckedChange={(v) => setForm({ ...form, image_enabled: v })}
+                  />
+                </div>
+                {form.image_enabled && (
+                  <Input
+                    placeholder="Mensagem após análise de imagem"
+                    value={form.image_message}
+                    onChange={(e) => setForm({ ...form, image_message: e.target.value })}
+                    className="text-sm"
+                  />
+                )}
+              </div>
+
+              {/* File */}
+              <div className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    <Label className="font-medium">Analisar Arquivos</Label>
+                  </div>
+                  <Switch
+                    checked={form.file_enabled}
+                    onCheckedChange={(v) => setForm({ ...form, file_enabled: v })}
+                  />
+                </div>
+                {form.file_enabled && (
+                  <Input
+                    placeholder="Mensagem após análise de arquivo"
+                    value={form.file_message}
+                    onChange={(e) => setForm({ ...form, file_message: e.target.value })}
+                    className="text-sm"
+                  />
+                )}
               </div>
             </div>
             <DialogFooter>
