@@ -110,26 +110,29 @@ export function OrderFinancialBreakdown({
     );
   }
 
-  // Calculate breakdown - use subtotal as base (no interest)
+  // Calculate breakdown from splits
   const platformSplit = splits?.find(s => s.split_type === 'platform_fee');
   const affiliateSplit = splits?.find(s => s.split_type === 'affiliate');
   const tenantSplit = splits?.find(s => s.split_type === 'tenant');
-  const factorySplit = splits?.find(s => s.split_type === 'factory');
-  const industrySplit = splits?.find(s => s.split_type === 'industry');
   const coproducerSplit = splits?.find(s => s.split_type === 'coproducer');
+  const interestSplit = splits?.find(s => s.split_type === 'interest');
+  const taxSplit = splits?.find(s => s.split_type === 'tax');
+  const shippingSplit = splits?.find(s => s.split_type === 'shipping');
+  const productCostSplit = splits?.find(s => s.split_type === 'product_cost');
 
   const platformFee = platformSplit?.gross_amount_cents || 0;
   const affiliateFee = affiliateSplit?.gross_amount_cents || 0;
-  const factoryFee = factorySplit?.gross_amount_cents || 0;
-  const industryFee = industrySplit?.gross_amount_cents || 0;
   const coproducerFee = coproducerSplit?.gross_amount_cents || 0;
+  const interestFee = interestSplit?.gross_amount_cents || 0;
+  const taxFee = taxSplit?.gross_amount_cents || 0;
+  const shippingFee = shippingSplit?.gross_amount_cents || 0;
+  const productCostFee = productCostSplit?.gross_amount_cents || 0;
   
-  // Tenant receives what's left after all splits (calculated from subtotal, not total with interest)
   const tenantNet = tenantSplit?.net_amount_cents || 
-    (subtotalCents - platformFee - affiliateFee - factoryFee - industryFee - coproducerFee);
+    (subtotalCents - platformFee - affiliateFee - coproducerFee - taxFee - shippingFee - productCostFee);
   
-  // Interest (total - subtotal - shipping) goes to platform, not shown in splits
-  const interestCents = totalCents - subtotalCents - shippingCents;
+  // Interest (total - subtotal - shipping)
+  const interestCents = interestFee || Math.max(0, totalCents - subtotalCents - shippingCents);
 
   // Estimate availability date (D+2 for credit card)
   const availabilityDate = paidAt ? addDays(new Date(paidAt), 2) : null;
@@ -207,9 +210,41 @@ export function OrderFinancialBreakdown({
             </div>
           )}
 
-          {/* Affiliate - First deduction */}
+          {/* Platform Fee */}
+          {platformFee > 0 && (
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Taxa Plataforma ({platformSplit?.percentage || 4.99}% + R$1,00):</span>
+              <span>-{formatCurrency(platformFee)}</span>
+            </div>
+          )}
+
+          {/* Tax */}
+          {taxFee > 0 && (
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Imposto (12%):</span>
+              <span>-{formatCurrency(taxFee)}</span>
+            </div>
+          )}
+
+          {/* Shipping + Picking */}
+          {shippingFee > 0 && (
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Frete + Picking:</span>
+              <span>-{formatCurrency(shippingFee)}</span>
+            </div>
+          )}
+
+          {/* Product Cost */}
+          {productCostFee > 0 && (
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Custo Produção:</span>
+              <span>-{formatCurrency(productCostFee)}</span>
+            </div>
+          )}
+
+          {/* Affiliate */}
           {affiliateFee > 0 && (
-            <div className="flex justify-between text-sm text-blue-600">
+            <div className="flex justify-between text-sm text-destructive">
               <span>
                 Afiliado{affiliateName ? `: ${affiliateName}` : ''}:
               </span>
@@ -217,35 +252,11 @@ export function OrderFinancialBreakdown({
             </div>
           )}
 
-          {/* Coproducer - Below Affiliate */}
+          {/* Coproducer */}
           {coproducerFee > 0 && (
-            <div className="flex justify-between text-sm text-purple-600">
-              <span>Co-produtor:</span>
+            <div className="flex justify-between text-sm text-destructive">
+              <span>Co-produtor ({coproducerSplit?.percentage || 50}%):</span>
               <span>-{formatCurrency(coproducerFee)}</span>
-            </div>
-          )}
-
-          {/* Industry - Below Coproducer */}
-          {industryFee > 0 && (
-            <div className="flex justify-between text-sm text-orange-600">
-              <span>Indústria:</span>
-              <span>-{formatCurrency(industryFee)}</span>
-            </div>
-          )}
-
-          {/* Factory - Below Industry */}
-          {factoryFee > 0 && (
-            <div className="flex justify-between text-sm text-amber-600">
-              <span>Fábrica:</span>
-              <span>-{formatCurrency(factoryFee)}</span>
-            </div>
-          )}
-
-          {/* Platform Fee - Last */}
-          {platformFee > 0 && (
-            <div className="flex justify-between text-sm text-red-600">
-              <span>Taxa Plataforma (4.99% + R$1,00):</span>
-              <span>-{formatCurrency(platformFee)}</span>
             </div>
           )}
         </div>
