@@ -1051,12 +1051,12 @@ export default function WhatsAppChat() {
     };
   }, [conversations, user?.id]);
 
-  // Handler para assumir conversa
+  // Handler para assumir conversa (auto-vincula lead pelo telefone)
   const handleClaimConversation = async (conversationId: string) => {
     if (!user?.id) return;
     setClaimingConversationId(conversationId);
     try {
-      await claimConversation.mutateAsync({ conversationId, userId: user.id });
+      const result = await claimConversation.mutateAsync({ conversationId, userId: user.id });
       // Atualizar conversa local (status + assigned_user_id)
       setConversations(prev => prev.map(c => 
         c.id === conversationId 
@@ -1069,8 +1069,30 @@ export default function WhatsAppChat() {
           ? { ...prev, status: 'assigned', assigned_user_id: user.id }
           : prev
       );
-      // NÃO muda de aba - o vendedor continua vendo o chat aberto
-      // A conversa "some" da lista pendente, mas o chat permanece aberto à direita
+
+      // Se lead foi auto-vinculado, recarregar dados do lead
+      if (result?.linkedLeadId) {
+        const { data: linkedLead } = await supabase
+          .from('leads')
+          .select('id, name, whatsapp, email, instagram, stage, stars, funnel_stage_id, source, needs_name_update')
+          .eq('id', result.linkedLeadId)
+          .single();
+        
+        if (linkedLead) {
+          setLeadDetails(linkedLead as any);
+          // Atualizar conversa local com lead_id
+          setConversations(prev => prev.map(c => 
+            c.id === conversationId 
+              ? { ...c, lead_id: result.linkedLeadId }
+              : c
+          ));
+          setSelectedConversation(prev => 
+            prev?.id === conversationId 
+              ? { ...prev, lead_id: result.linkedLeadId }
+              : prev
+          );
+        }
+      }
     } finally {
       setClaimingConversationId(null);
     }
