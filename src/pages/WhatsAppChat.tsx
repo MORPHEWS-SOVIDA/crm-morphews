@@ -119,6 +119,7 @@ interface Lead {
   stars: number;
   funnel_stage_id?: string | null;
   source?: string | null;
+  needs_name_update?: boolean;
 }
 
 interface Instance {
