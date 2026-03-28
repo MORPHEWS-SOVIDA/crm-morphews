@@ -52,8 +52,8 @@ export function useConversationDistribution() {
       if (!result.success) {
         throw new Error(result.error || 'Não foi possível assumir a conversa');
       }
-
       // Após assumir com sucesso, auto-vincular lead e verificar briefing
+      let linkedLeadId: string | null = null;
       try {
         // Buscar dados da conversa e configurações da organização
         const { data: conv } = await supabase
