@@ -1005,7 +1005,7 @@ export async function processSaleSplitsV3(
   }
 
   // =====================================================
-  // STEP 9: GATEWAY FEE RECORD (transparency only)
+  // STEP 10: GATEWAY FEE RECORD (transparency only)
   // =====================================================
   if (gatewayFeeCents > 0) {
     await supabase
