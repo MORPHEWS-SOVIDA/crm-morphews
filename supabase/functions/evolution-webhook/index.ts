@@ -1414,15 +1414,44 @@ serve(async (req) => {
           if (shouldProcessWithBot) {
             console.log("🤖 Processing message with AI bot:", botIdToUse, "type:", msgData.type, "isWithinSchedule:", isWithinSchedule);
             
+            // =====================================================================
+            // AGENTE 2.0: Verificar se a instância tem um agente 2.0 vinculado
+            // Se sim, rotear para agent-process no Supabase externo
+            // =====================================================================
+            const AGENTS_SUPABASE_URL = Deno.env.get("AGENTS_SUPABASE_URL") ?? "";
+            const AGENTS_SUPABASE_KEY = Deno.env.get("AGENTS_SUPABASE_ANON_KEY") ?? "";
+            
+            let useAgent20 = false;
+            let agent20Id: string | null = null;
+            
+            if (AGENTS_SUPABASE_URL && AGENTS_SUPABASE_KEY) {
+              try {
+                const agentsClient = createClient(AGENTS_SUPABASE_URL, AGENTS_SUPABASE_KEY);
+                const { data: agentInstance } = await agentsClient
+                  .from("agent_instances")
+                  .select("agent_id, is_active")
+                  .eq("instance_id", instance.id)
+                  .eq("is_active", true)
+                  .limit(1)
+                  .maybeSingle();
+                
+                if (agentInstance) {
+                  useAgent20 = true;
+                  agent20Id = agentInstance.agent_id;
+                  console.log("🚀 Agent 2.0 found for instance:", instance.id, "agent:", agent20Id);
+                }
+              } catch (agentCheckError) {
+                console.error("⚠️ Error checking agent 2.0:", agentCheckError);
+              }
+            }
+            
             // CORREÇÃO: considerar primeira mensagem APENAS quando o bot ainda não respondeu nada
-            // assigned_user_id pode ficar null em conversas com bot, então não serve para detectar início
-            // usamos bot_messages_count = 0 como fonte da verdade
             const isFirstMessage = !wasClosed && ((conversation.bot_messages_count ?? 0) === 0);
             const isReopened = wasClosed;
 
             // Preparar payload para o bot - incluir info de mídia se for áudio ou imagem
             const botPayload: any = {
-              botId: botIdToUse,
+              botId: useAgent20 ? agent20Id : botIdToUse,
               conversationId: conversation.id,
               instanceId: instance.id,
               instanceName: instanceName,
@@ -1432,9 +1461,9 @@ serve(async (req) => {
               phoneNumber: fromPhone,
               chatId: remoteJid,
               isFirstMessage,
-              isReopened, // Nova flag para indicar conversa reaberta
+              isReopened,
               messageType: msgData.type,
-              isWithinSchedule, // Informar ao bot se está dentro do horário agendado
+              isWithinSchedule,
             };
 
             // Se for áudio ou imagem, incluir a URL da mídia salva
@@ -1444,19 +1473,30 @@ serve(async (req) => {
               console.log("📎 Including media for bot processing:", msgData.type, savedMediaUrl);
             }
 
-            // Chamar edge function de processamento IA (fire and forget)
-            fetch(`${SUPABASE_URL}/functions/v1/ai-bot-process`, {
+            // Rotear: Agent 2.0 → Supabase externo | Legado → ai-bot-process local
+            const targetUrl = useAgent20
+              ? `${AGENTS_SUPABASE_URL}/functions/v1/agent-process`
+              : `${SUPABASE_URL}/functions/v1/ai-bot-process`;
+            const targetAuth = useAgent20
+              ? `Bearer ${AGENTS_SUPABASE_KEY}`
+              : `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`;
+
+            console.log(useAgent20 
+              ? "🚀 Routing to Agent 2.0 (external)" 
+              : "🤖 Routing to legacy ai-bot-process");
+
+            fetch(targetUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                'Authorization': targetAuth,
               },
               body: JSON.stringify(botPayload),
             }).then(async (res) => {
               const result = await res.json();
-              console.log("🤖 Bot process result:", result);
+              console.log(useAgent20 ? "🚀 Agent 2.0 result:" : "🤖 Bot process result:", result);
             }).catch((botError) => {
-              console.error("❌ Error calling AI bot:", botError);
+              console.error("❌ Error calling bot:", botError);
             });
           }
         }
