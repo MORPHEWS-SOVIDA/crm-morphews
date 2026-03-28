@@ -438,17 +438,26 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
               )}
             </div>
 
+            {/* Agente IA 2.0 Configurator */}
+            {distributionMode === "agent" && (
+              <div className="bg-emerald-50/50 dark:bg-emerald-950/30 rounded-lg p-4 border-2 border-emerald-200 dark:border-emerald-800">
+                <AgentInstanceConfigurator instanceId={instanceId} instanceName={instanceName} />
+              </div>
+            )}
+
             {/* Robôs IA com Agendamento */}
-            <div className="bg-purple-50/50 dark:bg-purple-950/30 rounded-lg p-4 border-2 border-purple-200 dark:border-purple-800">
-              <InstanceBotSchedulesManager 
-                instanceId={instanceId} 
-                distributionMode={distributionMode}
-                onRequestBotMode={() => {
-                  setDistributionMode("bot");
-                  updateDistributionModeMutation.mutate("bot");
-                }}
-              />
-            </div>
+            {distributionMode === "bot" && (
+              <div className="bg-purple-50/50 dark:bg-purple-950/30 rounded-lg p-4 border-2 border-purple-200 dark:border-purple-800">
+                <InstanceBotSchedulesManager 
+                  instanceId={instanceId} 
+                  distributionMode={distributionMode as "bot" | "manual" | "auto"}
+                  onRequestBotMode={() => {
+                    setDistributionMode("bot");
+                    updateDistributionModeMutation.mutate("bot");
+                  }}
+                />
+              </div>
+            )}
 
             {/* Adicionar usuário */}
             {usersWithoutAccess.length > 0 && (
