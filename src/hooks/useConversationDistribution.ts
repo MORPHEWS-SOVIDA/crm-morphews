@@ -200,11 +200,16 @@ export function useConversationDistribution() {
         // Não bloqueia o fluxo - claim já foi feito com sucesso
       }
 
-      return result;
+      return { ...result, linkedLeadId };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
-      toast.success('Conversa assumida com sucesso!');
+      if (data?.linkedLeadId) {
+        queryClient.invalidateQueries({ queryKey: ['threads'] });
+        toast.success('Conversa assumida e lead vinculado automaticamente! ✅');
+      } else {
+        toast.success('Conversa assumida com sucesso!');
+      }
     },
     onError: (error: any) => {
       toast.error(error.message || 'Erro ao assumir conversa');
