@@ -1576,7 +1576,7 @@ serve(async (req) => {
               isWithinSchedule: isAgentMode ? true : isWithinSchedule,
             };
 
-            if ((msgData.type === 'audio' || msgData.type === 'image') && savedMediaUrl) {
+            if ((msgData.type === 'audio' || msgData.type === 'image' || msgData.type === 'document' || msgData.type === 'video') && savedMediaUrl) {
               botPayload.mediaUrl = savedMediaUrl;
               botPayload.mediaMimeType = msgData.mediaMimeType;
               console.log("📎 Including media for bot processing:", msgData.type, savedMediaUrl);
