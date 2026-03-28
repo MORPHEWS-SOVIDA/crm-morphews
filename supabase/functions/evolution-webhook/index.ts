@@ -493,21 +493,50 @@ async function downloadMediaFromEvolution(
     
     // Evolution API pode retornar base64 como string ou no campo buffer
     // Também pode retornar base64 com prefixo data: ou sem
-    let base64Data = result?.base64 || null;
+    let base64Data = (result?.base64 && result.base64.length > 0) ? result.base64 : null;
     
     // Se base64 veio vazio mas tem buffer, usar o buffer
     if (!base64Data && result?.buffer) {
-      console.log("📥 Using buffer field instead of base64");
-      if (typeof result.buffer === 'string') {
+      console.log("📥 Using buffer field instead of base64, buffer type:", typeof result.buffer, "isArray:", Array.isArray(result.buffer));
+      if (typeof result.buffer === 'string' && result.buffer.length > 0) {
         base64Data = result.buffer;
-      } else if (result.buffer?.data) {
-        // Buffer pode vir como { type: 'Buffer', data: [...] }
+      } else if (result.buffer?.data && Array.isArray(result.buffer.data)) {
+        // Buffer como { type: 'Buffer', data: [bytes...] }
         const uint8 = new Uint8Array(result.buffer.data);
         let binary = '';
         for (let i = 0; i < uint8.length; i++) {
           binary += String.fromCharCode(uint8[i]);
         }
         base64Data = btoa(binary);
+      } else if (Array.isArray(result.buffer)) {
+        // Buffer como array direto [bytes...]
+        const uint8 = new Uint8Array(result.buffer);
+        let binary = '';
+        for (let i = 0; i < uint8.length; i++) {
+          binary += String.fromCharCode(uint8[i]);
+        }
+        base64Data = btoa(binary);
+      } else if (typeof result.buffer === 'object' && result.buffer !== null) {
+        // Buffer como objeto com propriedades numéricas (Uint8Array-like)
+        try {
+          const keys = Object.keys(result.buffer).filter(k => !isNaN(Number(k)));
+          if (keys.length > 0) {
+            const arr = new Uint8Array(keys.length);
+            for (let i = 0; i < keys.length; i++) {
+              arr[i] = result.buffer[i];
+            }
+            let binary = '';
+            for (let i = 0; i < arr.length; i++) {
+              binary += String.fromCharCode(arr[i]);
+            }
+            base64Data = btoa(binary);
+            console.log("📥 Converted buffer object with numeric keys, size:", keys.length);
+          } else {
+            console.log("📥 Buffer object keys:", Object.keys(result.buffer).slice(0, 10));
+          }
+        } catch (bufErr) {
+          console.error("📥 Error converting buffer object:", bufErr);
+        }
       }
     }
     
