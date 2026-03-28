@@ -978,7 +978,7 @@ export async function processSaleSplitsV3(
   }
 
   // =====================================================
-  // STEP 8: TENANT → receives the remainder
+  // STEP 9: TENANT → receives the remainder
   // =====================================================
   const tenantAmount = Math.max(0, remaining - gatewayFeeCents);
 
