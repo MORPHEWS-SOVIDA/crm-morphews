@@ -11,6 +11,12 @@ export interface Agent {
   welcome_message: string | null;
   is_active: boolean;
   max_messages: number;
+  audio_enabled: boolean;
+  audio_message: string | null;
+  image_enabled: boolean;
+  image_message: string | null;
+  file_enabled: boolean;
+  file_message: string | null;
   created_at: string;
 }
 
@@ -18,8 +24,14 @@ export interface AgentFormData {
   name: string;
   personality: string;
   system_prompt: string;
-  welcome_message: string;
+  welcome_message?: string;
   max_messages: number;
+  audio_enabled?: boolean;
+  audio_message?: string;
+  image_enabled?: boolean;
+  image_message?: string;
+  file_enabled?: boolean;
+  file_message?: string;
 }
 
 function getAgentsClient() {
