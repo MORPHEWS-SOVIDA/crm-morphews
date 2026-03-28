@@ -327,7 +327,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
               </Label>
               <Select
                 value={distributionMode}
-                onValueChange={(value: "bot" | "manual" | "auto") => {
+                onValueChange={(value: "bot" | "manual" | "auto" | "agent") => {
                   setDistributionMode(value);
                   updateDistributionModeMutation.mutate(value);
                 }}
