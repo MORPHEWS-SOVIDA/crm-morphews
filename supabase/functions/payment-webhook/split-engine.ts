@@ -819,12 +819,80 @@ export async function processSaleSplitsV3(
   }
 
   // =====================================================
-  // STEP 7: COPRODUCER → % of NET PROFIT (remaining after all costs)
-  // Net profit = remaining at this point (subtotal - platform - tax - shipping - product_cost - affiliate)
+  // STEP 7: AFFILIATE MANAGER → % of remaining (if storefront has one)
+  // Only applies if the storefront has an affiliate_manager_account_id configured
+  // =====================================================
+  let affiliateManagerAmount = 0;
+  if (storefrontId) {
+    const { data: sfConfig } = await supabase
+      .from('tenant_storefronts')
+      .select('affiliate_manager_account_id, affiliate_manager_percent')
+      .eq('id', storefrontId)
+      .maybeSingle();
+
+    if (sfConfig?.affiliate_manager_account_id && (sfConfig.affiliate_manager_percent || 0) > 0) {
+      const mgrPercent = Number(sfConfig.affiliate_manager_percent);
+      affiliateManagerAmount = Math.round(remaining * (mgrPercent / 100));
+      affiliateManagerAmount = Math.min(affiliateManagerAmount, remaining);
+
+      if (affiliateManagerAmount > 0) {
+        const created = await insertSplitAndTransaction({
+          supabase,
+          saleId,
+          organizationId: sale.organization_id,
+          virtualAccountId: sfConfig.affiliate_manager_account_id,
+          splitType: 'affiliate_manager',
+          amountCents: affiliateManagerAmount,
+          percentage: mgrPercent,
+          priority: 3,
+          liableForRefund: true,
+          liableForChargeback: true,
+          releaseAt: addDays(rules.hold_days_affiliate),
+          referenceId,
+          description: `Gerente de afiliados ${mgrPercent}% - Venda #${saleId.slice(0, 8)}`,
+        });
+
+        if (created) {
+          remaining -= affiliateManagerAmount;
+          console.log(`[SplitEngine] Affiliate Manager: R$${(affiliateManagerAmount / 100).toFixed(2)} (${mgrPercent}%)`);
+
+          // Get manager info for notification
+          const { data: mgrAccount } = await supabase
+            .from('virtual_accounts')
+            .select('holder_name, holder_email, user_id')
+            .eq('id', sfConfig.affiliate_manager_account_id)
+            .maybeSingle();
+
+          if (mgrAccount?.holder_email) {
+            let mgrPhone: string | undefined;
+            if (mgrAccount.user_id) {
+              const { data: mgrProfile } = await supabase
+                .from('profiles')
+                .select('whatsapp')
+                .eq('user_id', mgrAccount.user_id)
+                .maybeSingle();
+              mgrPhone = mgrProfile?.whatsapp;
+            }
+            partnersToNotify.push({
+              type: 'affiliate',
+              name: mgrAccount.holder_name || 'Gerente de Afiliados',
+              email: mgrAccount.holder_email,
+              phone: mgrPhone,
+              commissionCents: affiliateManagerAmount,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // =====================================================
+  // STEP 8: COPRODUCER → % of NET PROFIT (remaining after all costs)
+  // Net profit = remaining at this point (subtotal - platform - tax - shipping - product_cost - affiliate - affiliate_manager)
   // Coproducer gets commission_percentage% of this net profit
   // =====================================================
   const netProfitBeforeCoprod = remaining;
-  console.log(`[SplitEngine v4] Net profit before coproducer: R$${(netProfitBeforeCoprod / 100).toFixed(2)}`);
+  console.log(`[SplitEngine v4.1] Net profit before coproducer: R$${(netProfitBeforeCoprod / 100).toFixed(2)}`);
 
   if (saleItems && saleItems.length > 0 && netProfitBeforeCoprod > 0) {
     // Collect all unique coproducers across items
