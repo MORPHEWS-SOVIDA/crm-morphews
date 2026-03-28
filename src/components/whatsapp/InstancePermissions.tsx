@@ -354,6 +354,15 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                       </div>
                     </div>
                   </SelectItem>
+                  <SelectItem value="agent">
+                    <div className="flex items-center gap-2">
+                      <Cpu className="h-4 w-4 text-emerald-600" />
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold">Agente IA 2.0</span>
+                        <span className="text-xs text-muted-foreground">Agente inteligente com processamento avançado</span>
+                      </div>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="manual">
                     <div className="flex items-center gap-2">
                       <Hand className="h-4 w-4 text-amber-600" />
