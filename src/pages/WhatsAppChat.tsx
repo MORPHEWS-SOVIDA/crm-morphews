@@ -2363,6 +2363,47 @@ export default function WhatsAppChat() {
               <ScrollArea className="flex-1 p-4">
                 {lead ? (
                   <div className="space-y-4">
+                    {/* CTA Banner - Atualizar nome do lead */}
+                    {lead.needs_name_update && !isEditingLeadName && (
+                      <div 
+                        className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-lg p-3 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+                        onClick={() => {
+                          setEditLeadNameValue(lead.name);
+                          setIsEditingLeadName(true);
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">✏️</span>
+                          <div>
+                            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Atualize o nome do cliente!</p>
+                            <p className="text-xs text-amber-600 dark:text-amber-400">O nome foi preenchido automaticamente pelo WhatsApp. Clique para corrigir.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Inline name editor */}
+                    {isEditingLeadName && (
+                      <div className="bg-card border rounded-lg p-3 space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground">Nome do cliente</label>
+                        <Input
+                          value={editLeadNameValue}
+                          onChange={(e) => setEditLeadNameValue(e.target.value)}
+                          placeholder="Nome completo do cliente"
+                          autoFocus
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveLeadName()}
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={handleSaveLeadName} className="flex-1">
+                            Salvar
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setIsEditingLeadName(false)}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-3">
                       <Avatar className="h-16 w-16">
                         <AvatarImage src={selectedConversation.contact_profile_pic || undefined} />
@@ -2371,7 +2412,21 @@ export default function WhatsAppChat() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <h4 className="font-semibold">{lead.name}</h4>
+                        <h4 
+                          className={cn(
+                            "font-semibold",
+                            lead.needs_name_update && "cursor-pointer hover:text-primary transition-colors"
+                          )}
+                          onClick={() => {
+                            if (lead.needs_name_update) {
+                              setEditLeadNameValue(lead.name);
+                              setIsEditingLeadName(true);
+                            }
+                          }}
+                        >
+                          {lead.name}
+                          {lead.needs_name_update && <span className="ml-1 text-amber-500">✏️</span>}
+                        </h4>
                         {/* Estrelas editáveis */}
                         <div className="flex items-center gap-0.5">
                           {Array.from({ length: 5 }).map((_, i) => (
