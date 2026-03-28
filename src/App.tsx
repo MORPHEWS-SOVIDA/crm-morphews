@@ -139,6 +139,7 @@ const Voip3cValidation = lazy(() => import("./pages/Voip3cValidation"));
 
 // AI & Demands
 const AIBots = lazy(() => import("./pages/AIBots"));
+const AgentsIA = lazy(() => import("./pages/AgentsIA"));
 const VoiceAI = lazy(() => import("./pages/VoiceAI"));
 const Demands = lazy(() => import("./pages/Demands"));
 const DemandsSettings = lazy(() => import("./pages/DemandsSettings"));
