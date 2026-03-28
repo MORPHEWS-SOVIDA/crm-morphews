@@ -1370,6 +1370,23 @@ export default function WhatsAppChat() {
     }
   };
 
+  // Handler para salvar nome do lead editado
+  const handleSaveLeadName = async () => {
+    if (!lead || !editLeadNameValue.trim()) return;
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ name: editLeadNameValue.trim(), needs_name_update: false })
+        .eq('id', lead.id);
+      if (error) throw error;
+      setLead(prev => prev ? { ...prev, name: editLeadNameValue.trim(), needs_name_update: false } : null);
+      setIsEditingLeadName(false);
+      toast.success('Nome do lead atualizado!');
+    } catch {
+      toast.error('Erro ao atualizar nome');
+    }
+  };
+
   // Removido: unreadInstancesForSelectedPhone - cada conversa agora é um item separado
 
   // ===== MOBILE LAYOUT =====
