@@ -206,6 +206,8 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
               fixed1Total,
               fixed3Total,
               fixed5Total,
+              commissionType: hasPercentage ? 'percentage' : 'fixed',
+              commissionPercentage: percentageValue,
               componentDetails,
             });
           }
