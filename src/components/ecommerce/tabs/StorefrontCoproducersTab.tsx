@@ -119,6 +119,8 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
         fixed1Total: number;
         fixed3Total: number;
         fixed5Total: number;
+        commissionType: string;
+        commissionPercentage: number;
         componentDetails: Array<{ name: string; qty: number }>;
       }>;
     }>();
@@ -175,6 +177,9 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
           let fixed5Total = 0;
           const componentDetails: Array<{ name: string; qty: number }> = [];
 
+          let hasPercentage = false;
+          let percentageValue = 0;
+
           for (const item of items) {
             const coprod = productCoproducers.get(item.product_id);
             if (coprod) {
@@ -182,6 +187,10 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
               fixed1Total += (coprod.commission_fixed_1_cents || 0) * qty;
               fixed3Total += (coprod.commission_fixed_3_cents || 0) * qty;
               fixed5Total += (coprod.commission_fixed_5_cents || 0) * qty;
+              if (coprod.commission_type === 'percentage' && coprod.commission_percentage) {
+                hasPercentage = true;
+                percentageValue = coprod.commission_percentage;
+              }
               componentDetails.push({
                 name: productMap[item.product_id]?.name || 'Produto',
                 qty,
@@ -189,7 +198,7 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
             }
           }
 
-          if (fixed1Total > 0 || fixed3Total > 0 || fixed5Total > 0) {
+          if (fixed1Total > 0 || fixed3Total > 0 || fixed5Total > 0 || hasPercentage) {
             partnerMap.get(partnerKey)!.comboAggregates.push({
               comboId,
               comboName: cInfo.name,
@@ -197,6 +206,8 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
               fixed1Total,
               fixed3Total,
               fixed5Total,
+              commissionType: hasPercentage ? 'percentage' : 'fixed',
+              commissionPercentage: percentageValue,
               componentDetails,
             });
           }
@@ -289,20 +300,28 @@ export function StorefrontCoproducersTab({ storefrontId, storefrontName }: Store
                           <Badge variant="secondary" className="text-[10px]">Combo</Badge>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {combo.fixed1Total > 0 && (
+                          {combo.commissionType === 'percentage' ? (
                             <Badge variant="outline" className="text-xs font-mono gap-1">
-                              $ 1 un → {formatCurrency(combo.fixed1Total)}
+                              Comissão: {combo.commissionPercentage}% sobre o valor líquido
                             </Badge>
-                          )}
-                          {combo.fixed3Total > 0 && (
-                            <Badge variant="outline" className="text-xs font-mono gap-1">
-                              $ 3 un → {formatCurrency(combo.fixed3Total)}
-                            </Badge>
-                          )}
-                          {combo.fixed5Total > 0 && (
-                            <Badge variant="outline" className="text-xs font-mono gap-1">
-                              $ 5 un → {formatCurrency(combo.fixed5Total)}
-                            </Badge>
+                          ) : (
+                            <>
+                              {combo.fixed1Total > 0 && (
+                                <Badge variant="outline" className="text-xs font-mono gap-1">
+                                  $ 1 un → {formatCurrency(combo.fixed1Total)}
+                                </Badge>
+                              )}
+                              {combo.fixed3Total > 0 && (
+                                <Badge variant="outline" className="text-xs font-mono gap-1">
+                                  $ 3 un → {formatCurrency(combo.fixed3Total)}
+                                </Badge>
+                              )}
+                              {combo.fixed5Total > 0 && (
+                                <Badge variant="outline" className="text-xs font-mono gap-1">
+                                  $ 5 un → {formatCurrency(combo.fixed5Total)}
+                                </Badge>
+                              )}
+                            </>
                           )}
                         </div>
                         <p className="text-[11px] text-muted-foreground">
