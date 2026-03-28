@@ -233,6 +233,7 @@ export function MobileNav() {
     }
     if (canSeeAIBots && hasFeature('ai_bots')) {
       mgmtItems.push({ icon: Bot, label: 'Robôs IA', path: '/robos-ia' });
+      mgmtItems.push({ icon: Bot, label: 'Agentes IA', path: '/agentes-ia' });
     }
     if (canSeeVoiceAI && hasFeature('voice_ai_calls')) {
       mgmtItems.push({ icon: Phone, label: 'Voice AI', path: '/voice-ai' });

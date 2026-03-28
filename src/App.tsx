@@ -1134,6 +1134,16 @@ const App = () => (
                   }
                 />
                 
+                {/* Agentes IA 2.0 */}
+                <Route
+                  path="/agentes-ia"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <AgentsIA />
+                    </ProtectedRoute>
+                  }
+                />
+                
                 {/* Voice AI - require voice_ai_view permission */}
                 <Route
                   path="/voice-ai"
