@@ -497,7 +497,24 @@ async function downloadMediaFromEvolution(
     
     // Se base64 veio vazio mas tem buffer, usar o buffer
     if (!base64Data && result?.buffer) {
-      console.log("📥 Using buffer field instead of base64, buffer type:", typeof result.buffer, "isArray:", Array.isArray(result.buffer));
+      const bufType = typeof result.buffer;
+      const bufIsArray = Array.isArray(result.buffer);
+      const bufHasData = !!result.buffer?.data;
+      const bufDataIsArray = Array.isArray(result.buffer?.data);
+      const bufKeys = typeof result.buffer === 'object' && result.buffer !== null 
+        ? Object.keys(result.buffer).slice(0, 15) 
+        : [];
+      const bufDataKeys = bufHasData && typeof result.buffer.data === 'object' && !bufDataIsArray
+        ? Object.keys(result.buffer.data).slice(0, 15)
+        : [];
+      
+      console.log("📥 Buffer analysis:", {
+        type: bufType, isArray: bufIsArray, 
+        hasData: bufHasData, dataIsArray: bufDataIsArray,
+        keys: bufKeys, dataKeys: bufDataKeys,
+        bufferDataType: bufHasData ? typeof result.buffer.data : 'N/A',
+      });
+
       if (typeof result.buffer === 'string' && result.buffer.length > 0) {
         base64Data = result.buffer;
       } else if (result.buffer?.data && Array.isArray(result.buffer.data)) {
@@ -508,6 +525,26 @@ async function downloadMediaFromEvolution(
           binary += String.fromCharCode(uint8[i]);
         }
         base64Data = btoa(binary);
+        console.log("📥 Converted buffer.data array, size:", result.buffer.data.length);
+      } else if (result.buffer?.data && typeof result.buffer.data === 'object') {
+        // Buffer como { type: 'Buffer', data: { 0: byte, 1: byte, ... } }
+        try {
+          const dataKeys = Object.keys(result.buffer.data).filter(k => !isNaN(Number(k))).sort((a,b) => Number(a) - Number(b));
+          if (dataKeys.length > 0) {
+            const arr = new Uint8Array(dataKeys.length);
+            for (let i = 0; i < dataKeys.length; i++) {
+              arr[i] = result.buffer.data[dataKeys[i]];
+            }
+            let binary = '';
+            for (let i = 0; i < arr.length; i++) {
+              binary += String.fromCharCode(arr[i]);
+            }
+            base64Data = btoa(binary);
+            console.log("📥 Converted buffer.data object with numeric keys, size:", dataKeys.length);
+          }
+        } catch (bufErr) {
+          console.error("📥 Error converting buffer.data object:", bufErr);
+        }
       } else if (Array.isArray(result.buffer)) {
         // Buffer como array direto [bytes...]
         const uint8 = new Uint8Array(result.buffer);
@@ -516,14 +553,15 @@ async function downloadMediaFromEvolution(
           binary += String.fromCharCode(uint8[i]);
         }
         base64Data = btoa(binary);
+        console.log("📥 Converted direct buffer array, size:", result.buffer.length);
       } else if (typeof result.buffer === 'object' && result.buffer !== null) {
         // Buffer como objeto com propriedades numéricas (Uint8Array-like)
         try {
-          const keys = Object.keys(result.buffer).filter(k => !isNaN(Number(k)));
+          const keys = Object.keys(result.buffer).filter(k => !isNaN(Number(k))).sort((a,b) => Number(a) - Number(b));
           if (keys.length > 0) {
             const arr = new Uint8Array(keys.length);
             for (let i = 0; i < keys.length; i++) {
-              arr[i] = result.buffer[i];
+              arr[i] = result.buffer[keys[i]];
             }
             let binary = '';
             for (let i = 0; i < arr.length; i++) {
@@ -532,7 +570,7 @@ async function downloadMediaFromEvolution(
             base64Data = btoa(binary);
             console.log("📥 Converted buffer object with numeric keys, size:", keys.length);
           } else {
-            console.log("📥 Buffer object keys:", Object.keys(result.buffer).slice(0, 10));
+            console.log("📥 Buffer object has no numeric keys, keys:", bufKeys);
           }
         } catch (bufErr) {
           console.error("📥 Error converting buffer object:", bufErr);
