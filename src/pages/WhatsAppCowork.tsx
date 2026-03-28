@@ -80,7 +80,8 @@ type CoworkTab = 'active' | 'notifications' | 'logs';
 // ─── Componente Principal ───
 
 export default function WhatsAppCowork() {
-  const { user, organizationId } = useAuth();
+  const { user, profile } = useAuth();
+  const organizationId = profile?.organization_id;
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
