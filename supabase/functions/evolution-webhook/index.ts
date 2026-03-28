@@ -495,6 +495,16 @@ async function downloadMediaFromEvolution(
     // Também pode retornar base64 com prefixo data: ou sem
     let base64Data = (result?.base64 && result.base64.length > 0) ? result.base64 : null;
     
+    // DEBUG: Log raw buffer info before processing
+    console.log("📥 RAW buffer debug:", {
+      hasBuffer: !!result?.buffer,
+      bufferType: typeof result?.buffer,
+      bufferTruthy: result?.buffer ? true : false,
+      bufferStringified: JSON.stringify(result?.buffer)?.substring(0, 300),
+      base64Type: typeof result?.base64,
+      base64Length: result?.base64?.length ?? 0,
+    });
+
     // Se base64 veio vazio mas tem buffer, usar o buffer
     if (!base64Data && result?.buffer) {
       const bufType = typeof result.buffer;
