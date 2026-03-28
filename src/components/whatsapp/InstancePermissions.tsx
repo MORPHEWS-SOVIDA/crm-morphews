@@ -135,7 +135,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
   // Update local state when settings load
   useEffect(() => {
     if (instanceSettings?.distribution_mode) {
-      setDistributionMode(instanceSettings.distribution_mode as "bot" | "manual" | "auto");
+      setDistributionMode(instanceSettings.distribution_mode as "bot" | "manual" | "auto" | "agent");
     }
     if (instanceSettings?.redistribution_timeout_minutes !== undefined && instanceSettings?.redistribution_timeout_minutes !== null) {
       setTimeoutMinutes(instanceSettings.redistribution_timeout_minutes);
