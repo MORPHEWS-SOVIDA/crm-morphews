@@ -1024,7 +1024,7 @@ export async function processSaleSplitsV3(
       });
   }
 
-  console.log(`[SplitEngine v4] Completed splits for sale ${saleId}:`, result);
+  console.log(`[SplitEngine v4.1] Completed splits for sale ${saleId}:`, result);
 
   // =====================================================
   // STEP 10: NOTIFY PARTNERS
