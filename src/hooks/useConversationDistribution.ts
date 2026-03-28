@@ -77,7 +77,7 @@ export function useConversationDistribution() {
         // ====================================================================
         // AUTO-VINCULAR LEAD pelo telefone (se não tiver lead vinculado)
         // ====================================================================
-        let linkedLeadId = conv?.lead_id || null;
+        linkedLeadId = conv?.lead_id || null;
 
         if (conv && !linkedLeadId && conv.phone_number && conv.organization_id) {
           console.log('[claimConversation] Auto-linking lead by phone:', conv.phone_number);
