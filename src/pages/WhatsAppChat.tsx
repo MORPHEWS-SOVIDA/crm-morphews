@@ -119,6 +119,7 @@ interface Lead {
   stars: number;
   funnel_stage_id?: string | null;
   source?: string | null;
+  needs_name_update?: boolean;
 }
 
 interface Instance {
@@ -168,6 +169,8 @@ export default function WhatsAppChat() {
   const [closingConversationId, setClosingConversationId] = useState<string | null>(null);
   const [closingWithoutNPSId, setClosingWithoutNPSId] = useState<string | null>(null);
   const [reactivatingConversationId, setReactivatingConversationId] = useState<string | null>(null);
+  const [isEditingLeadName, setIsEditingLeadName] = useState(false);
+  const [editLeadNameValue, setEditLeadNameValue] = useState('');
   
   // Status tab filter - mobile supports 'all', desktop does not
   const [statusFilter, setStatusFilter] = useState<StatusTab>('autodistributed');
@@ -1051,12 +1054,12 @@ export default function WhatsAppChat() {
     };
   }, [conversations, user?.id]);
 
-  // Handler para assumir conversa
+  // Handler para assumir conversa (auto-vincula lead pelo telefone)
   const handleClaimConversation = async (conversationId: string) => {
     if (!user?.id) return;
     setClaimingConversationId(conversationId);
     try {
-      await claimConversation.mutateAsync({ conversationId, userId: user.id });
+      const result = await claimConversation.mutateAsync({ conversationId, userId: user.id });
       // Atualizar conversa local (status + assigned_user_id)
       setConversations(prev => prev.map(c => 
         c.id === conversationId 
@@ -1069,8 +1072,30 @@ export default function WhatsAppChat() {
           ? { ...prev, status: 'assigned', assigned_user_id: user.id }
           : prev
       );
-      // NÃO muda de aba - o vendedor continua vendo o chat aberto
-      // A conversa "some" da lista pendente, mas o chat permanece aberto à direita
+
+      // Se lead foi auto-vinculado, recarregar dados do lead
+      if (result?.linkedLeadId) {
+        const { data: linkedLead } = await supabase
+          .from('leads')
+          .select('id, name, whatsapp, email, instagram, stage, stars, funnel_stage_id, source, needs_name_update')
+          .eq('id', result.linkedLeadId)
+          .single();
+        
+        if (linkedLead) {
+          setLead(linkedLead as any);
+          // Atualizar conversa local com lead_id
+          setConversations(prev => prev.map(c => 
+            c.id === conversationId 
+              ? { ...c, lead_id: result.linkedLeadId }
+              : c
+          ));
+          setSelectedConversation(prev => 
+            prev?.id === conversationId 
+              ? { ...prev, lead_id: result.linkedLeadId }
+              : prev
+          );
+        }
+      }
     } finally {
       setClaimingConversationId(null);
     }
@@ -1342,6 +1367,23 @@ export default function WhatsAppChat() {
       toast.error('Erro ao atualizar estrelas');
     } finally {
       setIsUpdatingStars(false);
+    }
+  };
+
+  // Handler para salvar nome do lead editado
+  const handleSaveLeadName = async () => {
+    if (!lead || !editLeadNameValue.trim()) return;
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ name: editLeadNameValue.trim(), needs_name_update: false })
+        .eq('id', lead.id);
+      if (error) throw error;
+      setLead(prev => prev ? { ...prev, name: editLeadNameValue.trim(), needs_name_update: false } : null);
+      setIsEditingLeadName(false);
+      toast.success('Nome do lead atualizado!');
+    } catch {
+      toast.error('Erro ao atualizar nome');
     }
   };
 
@@ -2321,6 +2363,47 @@ export default function WhatsAppChat() {
               <ScrollArea className="flex-1 p-4">
                 {lead ? (
                   <div className="space-y-4">
+                    {/* CTA Banner - Atualizar nome do lead */}
+                    {lead.needs_name_update && !isEditingLeadName && (
+                      <div 
+                        className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-lg p-3 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+                        onClick={() => {
+                          setEditLeadNameValue(lead.name);
+                          setIsEditingLeadName(true);
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">✏️</span>
+                          <div>
+                            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Atualize o nome do cliente!</p>
+                            <p className="text-xs text-amber-600 dark:text-amber-400">O nome foi preenchido automaticamente pelo WhatsApp. Clique para corrigir.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Inline name editor */}
+                    {isEditingLeadName && (
+                      <div className="bg-card border rounded-lg p-3 space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground">Nome do cliente</label>
+                        <Input
+                          value={editLeadNameValue}
+                          onChange={(e) => setEditLeadNameValue(e.target.value)}
+                          placeholder="Nome completo do cliente"
+                          autoFocus
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveLeadName()}
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={handleSaveLeadName} className="flex-1">
+                            Salvar
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setIsEditingLeadName(false)}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-3">
                       <Avatar className="h-16 w-16">
                         <AvatarImage src={selectedConversation.contact_profile_pic || undefined} />
@@ -2329,7 +2412,21 @@ export default function WhatsAppChat() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <h4 className="font-semibold">{lead.name}</h4>
+                        <h4 
+                          className={cn(
+                            "font-semibold",
+                            lead.needs_name_update && "cursor-pointer hover:text-primary transition-colors"
+                          )}
+                          onClick={() => {
+                            if (lead.needs_name_update) {
+                              setEditLeadNameValue(lead.name);
+                              setIsEditingLeadName(true);
+                            }
+                          }}
+                        >
+                          {lead.name}
+                          {lead.needs_name_update && <span className="ml-1 text-amber-500">✏️</span>}
+                        </h4>
                         {/* Estrelas editáveis */}
                         <div className="flex items-center gap-0.5">
                           {Array.from({ length: 5 }).map((_, i) => (

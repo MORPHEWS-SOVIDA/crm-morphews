@@ -52,8 +52,8 @@ export function useConversationDistribution() {
       if (!result.success) {
         throw new Error(result.error || 'Não foi possível assumir a conversa');
       }
-
       // Após assumir com sucesso, auto-vincular lead e verificar briefing
+      let linkedLeadId: string | null = null;
       try {
         // Buscar dados da conversa e configurações da organização
         const { data: conv } = await supabase
@@ -77,7 +77,7 @@ export function useConversationDistribution() {
         // ====================================================================
         // AUTO-VINCULAR LEAD pelo telefone (se não tiver lead vinculado)
         // ====================================================================
-        let linkedLeadId = conv?.lead_id || null;
+        linkedLeadId = conv?.lead_id || null;
 
         if (conv && !linkedLeadId && conv.phone_number && conv.organization_id) {
           console.log('[claimConversation] Auto-linking lead by phone:', conv.phone_number);
@@ -200,11 +200,16 @@ export function useConversationDistribution() {
         // Não bloqueia o fluxo - claim já foi feito com sucesso
       }
 
-      return result;
+      return { ...result, linkedLeadId };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
-      toast.success('Conversa assumida com sucesso!');
+      if (data?.linkedLeadId) {
+        queryClient.invalidateQueries({ queryKey: ['threads'] });
+        toast.success('Conversa assumida e lead vinculado automaticamente! ✅');
+      } else {
+        toast.success('Conversa assumida com sucesso!');
+      }
     },
     onError: (error: any) => {
       toast.error(error.message || 'Erro ao assumir conversa');
