@@ -489,20 +489,53 @@ async function downloadMediaFromEvolution(
 
     const result = await response.json();
     
-    // Evolution returns { base64: "...", mimetype: "..." }
-    if (result?.base64) {
+    console.log("📥 Evolution getBase64 response keys:", Object.keys(result || {}));
+    
+    // Evolution API pode retornar base64 como string ou no campo buffer
+    // Também pode retornar base64 com prefixo data: ou sem
+    let base64Data = result?.base64 || null;
+    
+    // Se base64 veio vazio mas tem buffer, usar o buffer
+    if (!base64Data && result?.buffer) {
+      console.log("📥 Using buffer field instead of base64");
+      if (typeof result.buffer === 'string') {
+        base64Data = result.buffer;
+      } else if (result.buffer?.data) {
+        // Buffer pode vir como { type: 'Buffer', data: [...] }
+        const uint8 = new Uint8Array(result.buffer.data);
+        let binary = '';
+        for (let i = 0; i < uint8.length; i++) {
+          binary += String.fromCharCode(uint8[i]);
+        }
+        base64Data = btoa(binary);
+      }
+    }
+    
+    // Garantir que base64 tem o prefixo data: correto
+    if (base64Data && !base64Data.startsWith('data:')) {
+      const mime = result.mimetype || result.mimeType || "application/octet-stream";
+      base64Data = `data:${mime};base64,${base64Data}`;
+    }
+    
+    if (base64Data) {
+      const mime = result.mimetype || result.mimeType || "application/octet-stream";
       console.log("✅ Media downloaded from Evolution:", {
         hasBase64: true,
-        mimeType: result.mimetype || "unknown",
-        size: result.base64.length,
+        mimeType: mime,
+        size: base64Data.length,
       });
       return {
-        base64: result.base64,
-        mimeType: result.mimetype || "application/octet-stream",
+        base64: base64Data,
+        mimeType: mime,
       };
     }
 
-    console.log("⚠️ Evolution returned no base64:", Object.keys(result || {}));
+    console.log("⚠️ Evolution returned no usable base64/buffer:", {
+      keys: Object.keys(result || {}),
+      base64Type: typeof result?.base64,
+      base64Length: result?.base64?.length ?? 0,
+      bufferType: typeof result?.buffer,
+    });
     return null;
   } catch (error) {
     console.error("❌ Error downloading media from Evolution:", error);
