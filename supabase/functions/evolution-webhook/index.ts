@@ -1521,7 +1521,7 @@ serve(async (req) => {
             }
 
             const targetUrl = useAgent20
-              ? `${AGENTS_SUPABASE_URL}/functions/v1/agent-process`
+              ? `${AGENTS_SUPABASE_URL}/functions/v1/quick-endpoint`
               : `${SUPABASE_URL}/functions/v1/ai-bot-process`;
             const targetAuth = useAgent20
               ? `Bearer ${AGENTS_SUPABASE_KEY}`
