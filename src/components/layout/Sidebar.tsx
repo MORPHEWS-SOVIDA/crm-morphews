@@ -219,6 +219,7 @@ export function Sidebar() {
     { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
     { icon: Zap, label: 'Mensagens Rápidas', path: '/whatsapp/mensagens-rapidas', visible: canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_v1') },
     { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_manage') },
+    { icon: Bot, label: 'WhatsApp Cowork', path: '/whatsapp-cowork', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
     
     // AI Bots (permission controlled)
     { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeAIBots && hasFeature('ai_bots') },
