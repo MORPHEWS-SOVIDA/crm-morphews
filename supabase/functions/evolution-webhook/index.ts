@@ -1403,6 +1403,20 @@ serve(async (req) => {
             console.log(`📹 Media saved result: ${savedMediaUrl ? 'SUCCESS' : 'FAILED'}`);
           } else {
             console.error(`❌ Failed to download media from Evolution (${msgData.type})`);
+            // FALLBACK: Use encrypted URL directly from original payload
+            // The quick-endpoint/ai-bot-process can try to download it directly
+            const encryptedUrl = 
+              message?.audioMessage?.url || 
+              message?.imageMessage?.url || 
+              message?.documentMessage?.url || 
+              message?.videoMessage?.url || 
+              message?.stickerMessage?.url || null;
+            if (encryptedUrl) {
+              savedMediaUrl = encryptedUrl;
+              console.log(`📥 FALLBACK: Using encrypted URL directly as mediaUrl: ${encryptedUrl.substring(0, 80)}...`);
+            } else {
+              console.error(`❌ No fallback URL available in original payload for ${msgData.type}`);
+            }
           }
         } else if (msgData.type !== 'text' && !msgData.mediaUrl && !msgData.hasEncryptedMedia) {
           console.warn(`⚠️ Media message without base64 or encrypted flag (${msgData.type})`);
