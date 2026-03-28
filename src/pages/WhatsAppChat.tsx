@@ -1079,7 +1079,7 @@ export default function WhatsAppChat() {
           .single();
         
         if (linkedLead) {
-          setLeadDetails(linkedLead as any);
+          setLead(linkedLead as any);
           // Atualizar conversa local com lead_id
           setConversations(prev => prev.map(c => 
             c.id === conversationId 
