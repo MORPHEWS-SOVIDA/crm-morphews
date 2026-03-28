@@ -1,17 +1,18 @@
 /**
- * Split Engine v4 - Cost-center based payment split processing
+ * Split Engine v4.1 - Cost-center based payment split processing
  * 
- * NEW MODEL (v4):
- * 1. Interest → pagarme@sonatura.com.br (installment interest = total - subtotal)
+ * MODEL (v4.1):
+ * 1. Interest → pagarme (installment interest = total - subtotal)
  * 2. Platform Fee → Morphews platform account (4.99% + R$1.00 on subtotal)
- * 3. Tax → imposto@sonatura.com.br (12% of subtotal)
- * 4. Shipping + Picking → correio@sonatura.com.br (real shipping + R$7.00 picking)
- * 5. Product Cost → farmacia@sonatura.com.br (cost_cents × qty per item)
+ * 3. Tax → imposto (12% of subtotal)
+ * 4. Shipping + Picking → correio (real shipping + R$7.00 picking)
+ * 5. Product Cost → farmacia (cost_cents × qty per item)
  * 6. Affiliate → commission on sales (if attribution exists)
- * 7. Coproducer → % of NET PROFIT (after all costs above)
- * 8. Tenant → remainder
+ * 7. Affiliate Manager → % on remaining (if storefront has one configured)
+ * 8. Coproducer → % of NET PROFIT (after all costs above)
+ * 9. Tenant → remainder
  * 
- * Net Profit = subtotal - platform - tax - shipping - product_cost - affiliate
+ * Net Profit = subtotal - platform - tax - shipping - product_cost - affiliate - affiliate_manager
  * Coproducer = commission_percentage% of Net Profit
  * Tenant = Net Profit - Coproducer
  * 
@@ -818,12 +819,80 @@ export async function processSaleSplitsV3(
   }
 
   // =====================================================
-  // STEP 7: COPRODUCER → % of NET PROFIT (remaining after all costs)
-  // Net profit = remaining at this point (subtotal - platform - tax - shipping - product_cost - affiliate)
+  // STEP 7: AFFILIATE MANAGER → % of remaining (if storefront has one)
+  // Only applies if the storefront has an affiliate_manager_account_id configured
+  // =====================================================
+  let affiliateManagerAmount = 0;
+  if (storefrontId) {
+    const { data: sfConfig } = await supabase
+      .from('tenant_storefronts')
+      .select('affiliate_manager_account_id, affiliate_manager_percent')
+      .eq('id', storefrontId)
+      .maybeSingle();
+
+    if (sfConfig?.affiliate_manager_account_id && (sfConfig.affiliate_manager_percent || 0) > 0) {
+      const mgrPercent = Number(sfConfig.affiliate_manager_percent);
+      affiliateManagerAmount = Math.round(remaining * (mgrPercent / 100));
+      affiliateManagerAmount = Math.min(affiliateManagerAmount, remaining);
+
+      if (affiliateManagerAmount > 0) {
+        const created = await insertSplitAndTransaction({
+          supabase,
+          saleId,
+          organizationId: sale.organization_id,
+          virtualAccountId: sfConfig.affiliate_manager_account_id,
+          splitType: 'affiliate_manager',
+          amountCents: affiliateManagerAmount,
+          percentage: mgrPercent,
+          priority: 3,
+          liableForRefund: true,
+          liableForChargeback: true,
+          releaseAt: addDays(rules.hold_days_affiliate),
+          referenceId,
+          description: `Gerente de afiliados ${mgrPercent}% - Venda #${saleId.slice(0, 8)}`,
+        });
+
+        if (created) {
+          remaining -= affiliateManagerAmount;
+          console.log(`[SplitEngine] Affiliate Manager: R$${(affiliateManagerAmount / 100).toFixed(2)} (${mgrPercent}%)`);
+
+          // Get manager info for notification
+          const { data: mgrAccount } = await supabase
+            .from('virtual_accounts')
+            .select('holder_name, holder_email, user_id')
+            .eq('id', sfConfig.affiliate_manager_account_id)
+            .maybeSingle();
+
+          if (mgrAccount?.holder_email) {
+            let mgrPhone: string | undefined;
+            if (mgrAccount.user_id) {
+              const { data: mgrProfile } = await supabase
+                .from('profiles')
+                .select('whatsapp')
+                .eq('user_id', mgrAccount.user_id)
+                .maybeSingle();
+              mgrPhone = mgrProfile?.whatsapp;
+            }
+            partnersToNotify.push({
+              type: 'affiliate',
+              name: mgrAccount.holder_name || 'Gerente de Afiliados',
+              email: mgrAccount.holder_email,
+              phone: mgrPhone,
+              commissionCents: affiliateManagerAmount,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // =====================================================
+  // STEP 8: COPRODUCER → % of NET PROFIT (remaining after all costs)
+  // Net profit = remaining at this point (subtotal - platform - tax - shipping - product_cost - affiliate - affiliate_manager)
   // Coproducer gets commission_percentage% of this net profit
   // =====================================================
   const netProfitBeforeCoprod = remaining;
-  console.log(`[SplitEngine v4] Net profit before coproducer: R$${(netProfitBeforeCoprod / 100).toFixed(2)}`);
+  console.log(`[SplitEngine v4.1] Net profit before coproducer: R$${(netProfitBeforeCoprod / 100).toFixed(2)}`);
 
   if (saleItems && saleItems.length > 0 && netProfitBeforeCoprod > 0) {
     // Collect all unique coproducers across items
@@ -909,7 +978,7 @@ export async function processSaleSplitsV3(
   }
 
   // =====================================================
-  // STEP 8: TENANT → receives the remainder
+  // STEP 9: TENANT → receives the remainder
   // =====================================================
   const tenantAmount = Math.max(0, remaining - gatewayFeeCents);
 
@@ -936,7 +1005,7 @@ export async function processSaleSplitsV3(
   }
 
   // =====================================================
-  // STEP 9: GATEWAY FEE RECORD (transparency only)
+  // STEP 10: GATEWAY FEE RECORD (transparency only)
   // =====================================================
   if (gatewayFeeCents > 0) {
     await supabase
@@ -955,10 +1024,10 @@ export async function processSaleSplitsV3(
       });
   }
 
-  console.log(`[SplitEngine v4] Completed splits for sale ${saleId}:`, result);
+  console.log(`[SplitEngine v4.1] Completed splits for sale ${saleId}:`, result);
 
   // =====================================================
-  // STEP 10: NOTIFY PARTNERS
+  // STEP 11: NOTIFY PARTNERS
   // =====================================================
   if (partnersToNotify.length > 0) {
     const consolidatedMap = new Map<string, typeof partnersToNotify[0]>();

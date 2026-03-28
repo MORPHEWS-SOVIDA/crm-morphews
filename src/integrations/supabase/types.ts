@@ -18215,6 +18215,8 @@ export type Database = {
       }
       tenant_storefronts: {
         Row: {
+          affiliate_manager_account_id: string | null
+          affiliate_manager_percent: number | null
           cart_config: Json | null
           checkout_config: Json | null
           created_at: string
@@ -18245,6 +18247,8 @@ export type Database = {
           whatsapp_number: string | null
         }
         Insert: {
+          affiliate_manager_account_id?: string | null
+          affiliate_manager_percent?: number | null
           cart_config?: Json | null
           checkout_config?: Json | null
           created_at?: string
@@ -18275,6 +18279,8 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Update: {
+          affiliate_manager_account_id?: string | null
+          affiliate_manager_percent?: number | null
           cart_config?: Json | null
           checkout_config?: Json | null
           created_at?: string
@@ -18305,6 +18311,13 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tenant_storefronts_affiliate_manager_account_id_fkey"
+            columns: ["affiliate_manager_account_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tenant_storefronts_organization_id_fkey"
             columns: ["organization_id"]
