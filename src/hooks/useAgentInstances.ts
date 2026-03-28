@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { agentsSupabase } from "@/integrations/agents-supabase/client";
+import { agentsSupabase, isAgentsSupabaseConfigured } from "@/integrations/agents-supabase/client";
 import { toast } from "sonner";
 
 export interface AgentInstance {
@@ -12,11 +12,19 @@ export interface AgentInstance {
   created_at: string;
 }
 
+function getAgentsClient() {
+  if (!agentsSupabase || !isAgentsSupabaseConfigured) {
+    throw new Error("Configure VITE_AGENTS_SUPABASE_URL e VITE_AGENTS_SUPABASE_ANON_KEY para usar Agentes IA.");
+  }
+  return agentsSupabase;
+}
+
 export function useAgentInstances(agentId?: string) {
   return useQuery({
     queryKey: ["agent-instances", agentId],
     queryFn: async () => {
-      const { data, error } = await agentsSupabase
+      const client = getAgentsClient();
+      const { data, error } = await client
         .from("agent_instances")
         .select("*")
         .eq("agent_id", agentId!)
@@ -32,7 +40,8 @@ export function useCreateAgentInstance() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (item: { agent_id: string; instance_name: string; instance_id: string; organization_id: string }) => {
-      const { data, error } = await agentsSupabase
+      const client = getAgentsClient();
+      const { data, error } = await client
         .from("agent_instances")
         .insert(item)
         .select()
@@ -52,7 +61,8 @@ export function useDeleteAgentInstance() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, agentId }: { id: string; agentId: string }) => {
-      const { error } = await agentsSupabase.from("agent_instances").delete().eq("id", id);
+      const client = getAgentsClient();
+      const { error } = await client.from("agent_instances").delete().eq("id", id);
       if (error) throw error;
       return agentId;
     },
