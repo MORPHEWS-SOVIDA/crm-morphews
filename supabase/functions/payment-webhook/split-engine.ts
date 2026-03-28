@@ -1027,7 +1027,7 @@ export async function processSaleSplitsV3(
   console.log(`[SplitEngine v4.1] Completed splits for sale ${saleId}:`, result);
 
   // =====================================================
-  // STEP 10: NOTIFY PARTNERS
+  // STEP 11: NOTIFY PARTNERS
   // =====================================================
   if (partnersToNotify.length > 0) {
     const consolidatedMap = new Map<string, typeof partnersToNotify[0]>();
