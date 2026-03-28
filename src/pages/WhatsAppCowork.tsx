@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { supabase } from '@/integrations/supabase/client';
-import { agentsSupabase } from '@/integrations/agents-supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +28,7 @@ function useAgentNotifications(orgId: string | undefined) {
     queryFn: async () => {
       if (!orgId) return [];
       // Agent notifications don't filter by org since the external DB may not have org matching
-      const { data, error } = await agentsSupabase
+      const { data, error } = await supabase
         .from('agent_notifications')
         .select('*')
         .eq('read', false)
@@ -48,7 +47,7 @@ function useAgentLogs(orgId: string | undefined) {
     queryKey: ['agent-logs', orgId],
     queryFn: async () => {
       if (!orgId) return [];
-      const { data, error } = await agentsSupabase
+      const { data, error } = await supabase
         .from('agent_execution_logs')
         .select('*')
         .order('created_at', { ascending: false })
@@ -149,7 +148,7 @@ export default function WhatsAppCowork() {
   const unreadNotifications = notifications.filter((n) => !n.read).length;
 
   const handleMarkNotificationRead = async (notifId: string) => {
-    await agentsSupabase
+    await supabase
       .from('agent_notifications')
       .update({ read: true, read_at: new Date().toISOString() })
       .eq('id', notifId);
