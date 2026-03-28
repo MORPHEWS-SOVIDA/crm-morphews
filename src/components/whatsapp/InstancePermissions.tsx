@@ -198,12 +198,25 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
 
   // Update instance distribution mode
   const updateDistributionModeMutation = useMutation({
-    mutationFn: async (mode: "bot" | "manual" | "auto") => {
+    mutationFn: async (mode: "bot" | "manual" | "auto" | "agent") => {
       const { error } = await supabase
         .from("whatsapp_instances")
         .update({ distribution_mode: mode })
         .eq("id", instanceId);
       if (error) throw error;
+
+      // Exclusividade: limpar vínculos do modo anterior
+      if (mode !== "agent") {
+        // Limpar agent_instances do Supabase externo
+        try { await unlinkAgentMutation.mutateAsync(instanceId); } catch {}
+      }
+      if (mode !== "bot") {
+        // Limpar schedules v1
+        await supabase
+          .from("instance_bot_schedules")
+          .delete()
+          .eq("instance_id", instanceId);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["instance-distribution-mode", instanceId] });
