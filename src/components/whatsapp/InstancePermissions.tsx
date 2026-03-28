@@ -20,8 +20,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InstanceBotSchedulesManager } from "./InstanceBotSchedulesManager";
+import { AgentInstanceConfigurator } from "./AgentInstanceConfigurator";
 import { WavoipSettings } from "./WavoipSettings";
 import { useOrgHasFeature } from "@/hooks/usePlanFeatures";
+import { useUnlinkAgentFromInstance } from "@/hooks/useAgentInstanceLink";
 
 interface InstancePermissionsProps {
   instanceId: string;
