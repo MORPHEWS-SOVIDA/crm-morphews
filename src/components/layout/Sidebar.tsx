@@ -223,6 +223,7 @@ export function Sidebar() {
     
     // AI Bots (permission controlled)
     { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeAIBots && hasFeature('ai_bots') },
+    { icon: Bot, label: 'Agentes IA', path: '/agentes-ia', visible: canSeeAIBots && hasFeature('ai_bots') },
     
     // Voice AI (permission controlled)
     { icon: Phone, label: 'Voice AI', path: '/voice-ai', visible: canSeeVoiceAI && hasFeature('voice_ai_calls') },
