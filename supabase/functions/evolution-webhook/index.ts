@@ -1177,8 +1177,18 @@ serve(async (req) => {
           const distributionMode = instConfig?.distribution_mode || 'manual';
           console.log("📋 Distribution mode for reopening:", distributionMode);
           
+          // MODO AGENT 2.0
+          if (distributionMode === 'agent' && !isGroup) {
+            console.log("🚀 Agent 2.0 mode (reopened), setting status to with_bot");
+            updateData.status = 'with_bot';
+            updateData.handling_bot_id = null;
+            updateData.bot_started_at = new Date().toISOString();
+            updateData.assigned_user_id = null;
+            updateData.assigned_at = null;
+            updateData.closed_at = null;
+          }
           // MODO BOT: Se instância está em modo robô E tem bot configurado
-          if (distributionMode === 'bot' && anyBotId && !isGroup) {
+          else if (distributionMode === 'bot' && anyBotId && !isGroup) {
             console.log("🤖 Bot mode enabled (reopened), setting status to with_bot - preserving message count");
             updateData.status = 'with_bot';
             updateData.handling_bot_id = anyBotId;
