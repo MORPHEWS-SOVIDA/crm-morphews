@@ -183,6 +183,9 @@ export function MobileNav() {
     if (canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_manage')) {
       commItems.push({ icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp' });
     }
+    if (canSeeWhatsApp && hasFeature('whatsapp_v1')) {
+      commItems.push({ icon: Bot, label: 'WhatsApp Cowork', path: '/whatsapp-cowork' });
+    }
     if (canSeeScheduledMessages && hasFeature('scheduled_messages')) {
       commItems.push({ icon: Send, label: 'Mensagens Agendadas', path: '/mensagens-agendadas' });
     }
