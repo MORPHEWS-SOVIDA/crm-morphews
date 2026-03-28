@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Loader2, Users, Eye, Send, Shield, Clock, RefreshCw, Zap, Trash2, Bot, Hand, Phone } from "lucide-react";
+import { Loader2, Users, Eye, Send, Shield, Clock, RefreshCw, Zap, Trash2, Bot, Hand, Phone, Cpu } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,8 +20,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InstanceBotSchedulesManager } from "./InstanceBotSchedulesManager";
+import { AgentInstanceConfigurator } from "./AgentInstanceConfigurator";
 import { WavoipSettings } from "./WavoipSettings";
 import { useOrgHasFeature } from "@/hooks/usePlanFeatures";
+import { useUnlinkAgentFromInstance } from "@/hooks/useAgentInstanceLink";
 
 interface InstancePermissionsProps {
   instanceId: string;
@@ -57,7 +59,8 @@ interface InstanceUser {
 export function InstancePermissions({ instanceId, instanceName, open, onOpenChange }: InstancePermissionsProps) {
   const queryClient = useQueryClient();
   const { profile } = useAuth();
-  const [distributionMode, setDistributionMode] = useState<"bot" | "manual" | "auto">("manual");
+  const [distributionMode, setDistributionMode] = useState<"bot" | "manual" | "auto" | "agent">("manual");
+  const unlinkAgentMutation = useUnlinkAgentFromInstance();
   const [timeoutMinutes, setTimeoutMinutes] = useState<number>(5);
   
   // Check if Wavoip feature is enabled for the organization
@@ -132,7 +135,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
   // Update local state when settings load
   useEffect(() => {
     if (instanceSettings?.distribution_mode) {
-      setDistributionMode(instanceSettings.distribution_mode as "bot" | "manual" | "auto");
+      setDistributionMode(instanceSettings.distribution_mode as "bot" | "manual" | "auto" | "agent");
     }
     if (instanceSettings?.redistribution_timeout_minutes !== undefined && instanceSettings?.redistribution_timeout_minutes !== null) {
       setTimeoutMinutes(instanceSettings.redistribution_timeout_minutes);
@@ -195,12 +198,25 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
 
   // Update instance distribution mode
   const updateDistributionModeMutation = useMutation({
-    mutationFn: async (mode: "bot" | "manual" | "auto") => {
+    mutationFn: async (mode: "bot" | "manual" | "auto" | "agent") => {
       const { error } = await supabase
         .from("whatsapp_instances")
         .update({ distribution_mode: mode })
         .eq("id", instanceId);
       if (error) throw error;
+
+      // Exclusividade: limpar vínculos do modo anterior
+      if (mode !== "agent") {
+        // Limpar agent_instances do Supabase externo
+        try { await unlinkAgentMutation.mutateAsync(instanceId); } catch {}
+      }
+      if (mode !== "bot") {
+        // Limpar schedules v1
+        await supabase
+          .from("instance_bot_schedules")
+          .delete()
+          .eq("instance_id", instanceId);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["instance-distribution-mode", instanceId] });
@@ -311,7 +327,7 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
               </Label>
               <Select
                 value={distributionMode}
-                onValueChange={(value: "bot" | "manual" | "auto") => {
+                onValueChange={(value: "bot" | "manual" | "auto" | "agent") => {
                   setDistributionMode(value);
                   updateDistributionModeMutation.mutate(value);
                 }}
@@ -338,6 +354,15 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
                       </div>
                     </div>
                   </SelectItem>
+                  <SelectItem value="agent">
+                    <div className="flex items-center gap-2">
+                      <Cpu className="h-4 w-4 text-emerald-600" />
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold">Agente IA 2.0</span>
+                        <span className="text-xs text-muted-foreground">Agente inteligente com processamento avançado</span>
+                      </div>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="manual">
                     <div className="flex items-center gap-2">
                       <Hand className="h-4 w-4 text-amber-600" />
@@ -352,9 +377,11 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
               <p className="text-xs text-muted-foreground mt-2">
                 {distributionMode === "bot" 
                   ? "🤖 Novas conversas vão para o ROBÔ DE IA. Ele atende, qualifica e transfere para um humano quando necessário."
-                  : distributionMode === "auto"
-                    ? "⚡ Novas conversas são distribuídas automaticamente via rodízio entre usuários participantes e aparecem na aba PRA VOCÊ apenas para o designado."
-                    : "🔵 Novas conversas aparecem na aba PENDENTES para todos os usuários. Qualquer um pode clicar em ATENDER para assumir."}
+                  : distributionMode === "agent"
+                    ? "🚀 Novas conversas são processadas pelo Agente IA 2.0 com raciocínio avançado e ferramentas integradas."
+                    : distributionMode === "auto"
+                      ? "⚡ Novas conversas são distribuídas automaticamente via rodízio entre usuários participantes e aparecem na aba PRA VOCÊ apenas para o designado."
+                      : "🔵 Novas conversas aparecem na aba PENDENTES para todos os usuários. Qualquer um pode clicar em ATENDER para assumir."}
               </p>
 
               {/* Aviso sobre robô */}
@@ -411,17 +438,26 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
               )}
             </div>
 
+            {/* Agente IA 2.0 Configurator */}
+            {distributionMode === "agent" && (
+              <div className="bg-emerald-50/50 dark:bg-emerald-950/30 rounded-lg p-4 border-2 border-emerald-200 dark:border-emerald-800">
+                <AgentInstanceConfigurator instanceId={instanceId} instanceName={instanceName} />
+              </div>
+            )}
+
             {/* Robôs IA com Agendamento */}
-            <div className="bg-purple-50/50 dark:bg-purple-950/30 rounded-lg p-4 border-2 border-purple-200 dark:border-purple-800">
-              <InstanceBotSchedulesManager 
-                instanceId={instanceId} 
-                distributionMode={distributionMode}
-                onRequestBotMode={() => {
-                  setDistributionMode("bot");
-                  updateDistributionModeMutation.mutate("bot");
-                }}
-              />
-            </div>
+            {distributionMode === "bot" && (
+              <div className="bg-purple-50/50 dark:bg-purple-950/30 rounded-lg p-4 border-2 border-purple-200 dark:border-purple-800">
+                <InstanceBotSchedulesManager 
+                  instanceId={instanceId} 
+                  distributionMode={distributionMode as "bot" | "manual" | "auto"}
+                  onRequestBotMode={() => {
+                    setDistributionMode("bot");
+                    updateDistributionModeMutation.mutate("bot");
+                  }}
+                />
+              </div>
+            )}
 
             {/* Adicionar usuário */}
             {usersWithoutAccess.length > 0 && (
