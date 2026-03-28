@@ -156,8 +156,8 @@ async function sendEvolutionMessage(params: {
 }) {
   const { instanceName, to, type, text, mediaUrl, mediaMimeType, fileName } = params;
 
-  // Formatar número para JID se necessário
-  const number = to.includes("@") ? to : to.replace(/\D/g, "");
+  // Extrair apenas o número, removendo sufixo @s.whatsapp.net ou @g.us
+  const number = to.includes("@") ? to.split("@")[0].replace(/\D/g, "") : to.replace(/\D/g, "");
 
   console.log("📡 Evolution API request:", {
     instance: instanceName,
