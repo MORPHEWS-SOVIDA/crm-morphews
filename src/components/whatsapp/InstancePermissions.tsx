@@ -377,9 +377,11 @@ export function InstancePermissions({ instanceId, instanceName, open, onOpenChan
               <p className="text-xs text-muted-foreground mt-2">
                 {distributionMode === "bot" 
                   ? "🤖 Novas conversas vão para o ROBÔ DE IA. Ele atende, qualifica e transfere para um humano quando necessário."
-                  : distributionMode === "auto"
-                    ? "⚡ Novas conversas são distribuídas automaticamente via rodízio entre usuários participantes e aparecem na aba PRA VOCÊ apenas para o designado."
-                    : "🔵 Novas conversas aparecem na aba PENDENTES para todos os usuários. Qualquer um pode clicar em ATENDER para assumir."}
+                  : distributionMode === "agent"
+                    ? "🚀 Novas conversas são processadas pelo Agente IA 2.0 com raciocínio avançado e ferramentas integradas."
+                    : distributionMode === "auto"
+                      ? "⚡ Novas conversas são distribuídas automaticamente via rodízio entre usuários participantes e aparecem na aba PRA VOCÊ apenas para o designado."
+                      : "🔵 Novas conversas aparecem na aba PENDENTES para todos os usuários. Qualquer um pode clicar em ATENDER para assumir."}
               </p>
 
               {/* Aviso sobre robô */}
