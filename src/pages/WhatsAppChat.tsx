@@ -1060,40 +1060,39 @@ export default function WhatsAppChat() {
     setClaimingConversationId(conversationId);
     try {
       const result = await claimConversation.mutateAsync({ conversationId, userId: user.id });
-      // Atualizar conversa local (status + assigned_user_id)
+      const { data: refreshedConversation } = await supabase
+        .from('whatsapp_conversations')
+        .select('id, status, assigned_user_id, lead_id')
+        .eq('id', conversationId)
+        .maybeSingle();
+
+      const resolvedStatus = refreshedConversation?.status || 'assigned';
+      const resolvedAssignedUserId = refreshedConversation?.assigned_user_id || user.id;
+      const resolvedLeadId = refreshedConversation?.lead_id || result?.linkedLeadId || null;
+
+      // Atualizar conversa local (status + assigned_user_id + lead_id)
       setConversations(prev => prev.map(c => 
         c.id === conversationId 
-          ? { ...c, status: 'assigned', assigned_user_id: user.id }
+          ? { ...c, status: resolvedStatus, assigned_user_id: resolvedAssignedUserId, lead_id: resolvedLeadId }
           : c
       ));
       // Atualizar selectedConversation se for a mesma (para liberar o input)
       setSelectedConversation(prev => 
         prev?.id === conversationId 
-          ? { ...prev, status: 'assigned', assigned_user_id: user.id }
+          ? { ...prev, status: resolvedStatus, assigned_user_id: resolvedAssignedUserId, lead_id: resolvedLeadId }
           : prev
       );
 
-      // Se lead foi auto-vinculado, recarregar dados do lead
-      if (result?.linkedLeadId) {
+      // Se lead foi auto-vinculado/encontrado, recarregar dados do lead
+      if (resolvedLeadId) {
         const { data: linkedLead } = await supabase
           .from('leads')
           .select('id, name, whatsapp, email, instagram, stage, stars, funnel_stage_id, source, needs_name_update')
-          .eq('id', result.linkedLeadId)
-          .single();
+          .eq('id', resolvedLeadId)
+          .maybeSingle();
         
         if (linkedLead) {
           setLead(linkedLead as any);
-          // Atualizar conversa local com lead_id
-          setConversations(prev => prev.map(c => 
-            c.id === conversationId 
-              ? { ...c, lead_id: result.linkedLeadId }
-              : c
-          ));
-          setSelectedConversation(prev => 
-            prev?.id === conversationId 
-              ? { ...prev, lead_id: result.linkedLeadId }
-              : prev
-          );
         }
       }
     } finally {

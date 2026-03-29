@@ -55,24 +55,49 @@ export function useConversationDistribution() {
       // Após assumir com sucesso, auto-vincular lead e verificar briefing
       let linkedLeadId: string | null = null;
       try {
-        // Buscar dados da conversa e configurações da organização
-        const { data: conv } = await supabase
-          .from("whatsapp_conversations")
-          .select(`
-            lead_id,
-            contact_name,
-            phone_number,
-            organization_id,
-            instance_id,
-            whatsapp_instances!inner(
-              organization_id,
-              organizations!inner(
-                whatsapp_ai_seller_briefing_enabled
-              )
-            )
-          `)
-          .eq("id", conversationId)
-          .single();
+        const normalizePhone = (value?: string | null) =>
+          (value || '').replace(/\D/g, '');
+
+        const buildPhoneCandidates = (value?: string | null) => {
+          const normalized = normalizePhone(value);
+          const withoutCountry = normalized.startsWith('55')
+            ? normalized.slice(2)
+            : normalized;
+
+          return [...new Set([
+            normalized,
+            withoutCountry,
+            withoutCountry.slice(-11),
+            withoutCountry.slice(-10),
+            withoutCountry ? `55${withoutCountry}` : '',
+          ].filter((candidate) => candidate.length >= 8))];
+        };
+
+        // Buscar dados mínimos da conversa
+        const { data: conv, error: convError } = await supabase
+          .from('whatsapp_conversations')
+          .select('lead_id, contact_name, phone_number, organization_id, instance_id')
+          .eq('id', conversationId)
+          .maybeSingle();
+
+        if (convError) {
+          console.warn('[claimConversation] Failed to fetch conversation:', convError);
+        }
+
+        let briefingEnabled = false;
+        if (conv?.organization_id) {
+          const { data: orgConfig, error: orgError } = await supabase
+            .from('organizations')
+            .select('whatsapp_ai_seller_briefing_enabled')
+            .eq('id', conv.organization_id)
+            .maybeSingle();
+
+          if (orgError) {
+            console.warn('[claimConversation] Failed to fetch organization config:', orgError);
+          }
+
+          briefingEnabled = !!orgConfig?.whatsapp_ai_seller_briefing_enabled;
+        }
 
         // ====================================================================
         // AUTO-VINCULAR LEAD pelo telefone (se não tiver lead vinculado)
@@ -86,24 +111,34 @@ export function useConversationDistribution() {
           const rawPhone = conv.phone_number.includes('@')
             ? conv.phone_number.split('@')[0]
             : conv.phone_number;
-          const digits = rawPhone.replace(/\D/g, '');
+          const digits = normalizePhone(rawPhone);
+          const phoneCandidates = buildPhoneCandidates(rawPhone);
 
           // Tentar encontrar lead pelo WhatsApp
-          const { data: existingLeads } = await supabase
+          const { data: existingLeads, error: existingLeadError } = await supabase
             .from('leads')
-            .select('id, name')
+            .select('id, name, whatsapp')
             .eq('organization_id', conv.organization_id)
-            .or(`whatsapp.ilike.%${digits}%,whatsapp.ilike.%${digits.slice(-11)}%`)
-            .limit(1);
+            .or(phoneCandidates.map((candidate) => `whatsapp.ilike.%${candidate}%`).join(','))
+            .limit(10);
 
-          if (existingLeads && existingLeads.length > 0) {
+          if (existingLeadError) {
+            console.warn('[claimConversation] Failed to search existing leads:', existingLeadError);
+          }
+
+          const matchedLead = (existingLeads || []).find((lead) =>
+            phoneCandidates.includes(normalizePhone(lead.whatsapp))
+          ) || existingLeads?.[0];
+
+          if (matchedLead) {
             // Lead encontrado - vincular
-            linkedLeadId = existingLeads[0].id;
-            console.log('[claimConversation] Found existing lead:', linkedLeadId, existingLeads[0].name);
+            linkedLeadId = matchedLead.id;
+            console.log('[claimConversation] Found existing lead:', linkedLeadId, matchedLead.name);
           } else {
             // Lead não encontrado - criar automaticamente
             const leadName = conv.contact_name || `WhatsApp ${digits.slice(-4)}`;
-            const whatsappFormatted = digits.length >= 12 ? digits : `55${digits}`;
+            const whatsappFormatted = phoneCandidates.find((candidate) => candidate.startsWith('55')) ||
+              (digits.length >= 12 ? digits : `55${digits}`);
 
             const { data: newLead, error: createError } = await supabase
               .from('leads')
@@ -136,10 +171,14 @@ export function useConversationDistribution() {
 
           // Vincular lead à conversa
           if (linkedLeadId) {
-            await supabase
+            const { error: linkConversationError } = await supabase
               .from('whatsapp_conversations')
               .update({ lead_id: linkedLeadId })
               .eq('id', conversationId);
+
+            if (linkConversationError) {
+              console.warn('[claimConversation] Failed to update conversation lead_id:', linkConversationError);
+            }
 
             // Registrar vínculo no log
             await supabase.from('conversation_lead_links').insert({
@@ -165,13 +204,12 @@ export function useConversationDistribution() {
         // ====================================================================
         // BRIEFING AUTOMÁTICO
         // ====================================================================
-        const orgConfig = (conv?.whatsapp_instances as any)?.organizations;
-        const shouldSendBriefing = orgConfig?.whatsapp_ai_seller_briefing_enabled && linkedLeadId;
+        const shouldSendBriefing = briefingEnabled && linkedLeadId;
 
         console.log('[claimConversation] Briefing check:', {
           conversationId,
           leadId: linkedLeadId,
-          briefingEnabled: orgConfig?.whatsapp_ai_seller_briefing_enabled,
+          briefingEnabled,
           shouldSendBriefing
         });
 

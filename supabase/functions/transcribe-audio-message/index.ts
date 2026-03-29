@@ -251,6 +251,7 @@ serve(async (req) => {
       .update({
         transcription: transcription,
         transcription_status: "completed",
+        content: transcription,
       })
       .eq("id", messageId);
 
