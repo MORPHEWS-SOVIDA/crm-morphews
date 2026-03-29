@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { agentsSupabase, isAgentsSupabaseConfigured } from "@/integrations/agents-supabase/client";
 
 export interface AgentLog {
   id: string;
-  bot_id: string | null;
+  agent_id: string | null;
   conversation_id: string | null;
   organization_id: string | null;
   success: boolean | null;
@@ -19,15 +19,18 @@ export function useAgentLogs(agentId?: string) {
   return useQuery({
     queryKey: ["agent-logs", agentId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!agentsSupabase || !isAgentsSupabaseConfigured) {
+        throw new Error("Supabase de agentes não configurado");
+      }
+      const { data, error } = await agentsSupabase
         .from("agent_execution_logs")
         .select("*")
-        .eq("bot_id", agentId!)
+        .eq("agent_id", agentId!)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return data as AgentLog[];
     },
-    enabled: !!agentId,
+    enabled: !!agentId && isAgentsSupabaseConfigured,
   });
 }
