@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Star, Clock } from "lucide-react";
+import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Star, Clock, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import { toast } from "sonner";
