@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await supabase
       .from("whatsapp_messages")
-      .select("content, body, direction, is_bot_message, created_at")
+      .select("content, direction, is_bot_message, created_at")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
       .limit(limit);
