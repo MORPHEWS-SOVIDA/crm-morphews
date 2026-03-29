@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAgentsIA } from "@/hooks/useAgentsIA";
 import { useAgentForInstance, useLinkAgentToInstance, useUnlinkAgentFromInstance } from "@/hooks/useAgentInstanceLink";
+import { useAgentTeams } from "@/hooks/useAgentTeams";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 
@@ -31,6 +32,7 @@ export function AgentInstanceConfigurator({ instanceId, instanceName }: Props) {
 
   const { data: agents, isLoading: loadingAgents } = useAgentsIA(orgId);
   const { data: currentLink, isLoading: loadingLink } = useAgentForInstance(instanceId);
+  const { data: teams } = useAgentTeams(orgId);
   const linkMutation = useLinkAgentToInstance();
   const unlinkMutation = useUnlinkAgentFromInstance();
 
@@ -51,6 +53,8 @@ export function AgentInstanceConfigurator({ instanceId, instanceName }: Props) {
 
   const handleSave = () => {
     if (!selectedAgentId || !orgId) return;
+    // Check if selected agent is a maestro of any team
+    const teamForAgent = teams?.find(t => t.maestro_agent_id === selectedAgentId);
     linkMutation.mutate({
       agentId: selectedAgentId,
       instanceId,
@@ -59,6 +63,7 @@ export function AgentInstanceConfigurator({ instanceId, instanceName }: Props) {
       workingDays,
       workingHoursStart: startTime,
       workingHoursEnd: endTime,
+      teamId: teamForAgent?.id || null,
     });
   };
 
