@@ -51,18 +51,19 @@ interface EvolutionInstance {
   manual_instance_number: string | null;
   manual_device_label: string | null;
   display_name_for_team: string | null;
-  distribution_mode: "manual" | "auto" | "bot" | "agent" | null;
+  distribution_mode: "manual" | "auto" | "bot" | "agent" | "agent_team" | null;
   channel_type: string | null;
   instagram_username: string | null;
 }
 
-type DistributionModeFilter = "all" | "manual" | "auto" | "bot" | "agent";
+type DistributionModeFilter = "all" | "manual" | "auto" | "bot" | "agent" | "agent_team";
 
 const DISTRIBUTION_MODE_LABELS: Record<string, string> = {
   manual: "Pendentes",
   auto: "Distribuição Auto",
   bot: "Robô IA",
   agent: "Agente 2.0",
+  agent_team: "Time Agentes 2.0",
 };
 
 export default function WhatsAppDMs() {
