@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Star, Clock } from "lucide-react";
+import { Loader2, Settings, RefreshCw, Hand, Bot, Phone, Star, Clock, Users } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
 import { toast } from "sonner";
@@ -202,6 +202,19 @@ export function InstanceSettingsDialog({
                     </p>
                   </div>
                 </div>
+                {/* Modo Time de Agentes 2.0 */}
+                <div className={`flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 ${distributionMode === 'agent_team' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30' : ''}`}>
+                  <RadioGroupItem value="agent_team" id="agent_team" className="mt-0.5" />
+                  <div className="flex-1">
+                    <Label htmlFor="agent_team" className="flex items-center gap-2 cursor-pointer">
+                      <Users className="h-4 w-4 text-emerald-600" />
+                      Time de Agentes IA 2.0
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Um time de agentes especialistas com maestro que direciona automaticamente
+                    </p>
+                  </div>
+                </div>
               </RadioGroup>
 
               {/* Nota sobre robô */}
@@ -209,6 +222,14 @@ export function InstanceSettingsDialog({
                 <div className="p-3 border rounded-lg bg-purple-50 dark:bg-purple-950/30 space-y-2">
                   <p className="text-xs text-muted-foreground">
                     💡 <strong>Importante:</strong> Configure os robôs e horários de atendimento nas <strong>Permissões</strong> desta instância.
+                  </p>
+                </div>
+              )}
+
+              {distributionMode === 'agent_team' && (
+                <div className="p-3 border rounded-lg bg-emerald-50 dark:bg-emerald-950/30 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    💡 <strong>Importante:</strong> Configure o time de agentes e suas rotas em <strong>Agentes IA 2.0 → Times</strong>.
                   </p>
                 </div>
               )}
