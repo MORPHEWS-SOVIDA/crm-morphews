@@ -55,6 +55,7 @@ export function useLinkAgentToInstance() {
       workingDays,
       workingHoursStart,
       workingHoursEnd,
+      teamId,
     }: {
       agentId: string;
       instanceId: string;
