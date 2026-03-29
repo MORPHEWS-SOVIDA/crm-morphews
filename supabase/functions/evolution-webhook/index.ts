@@ -1814,17 +1814,17 @@ serve(async (req) => {
               audioTranscriptionPromise = fetch(
                 `${SUPABASE_URL}/functions/v1/transcribe-audio-message`,
                 {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                  },
+                  body: JSON.stringify({
+                    messageId: messageId,
+                    organizationId: organizationId,
+                    mediaUrl: savedMediaUrl,
+                  }),
                 },
-                body: JSON.stringify({
-                  messageId: messageId,
-                  organizationId: organizationId,
-                  mediaUrl: savedMediaUrl,
-                }),
-              },
               ).then(async (res) => {
                 const result = await res.json().catch(() => ({}));
                 console.log("🎤 Transcription result:", result);
@@ -2000,7 +2000,9 @@ serve(async (req) => {
                 }
 
                 console.log(
-                  `🎤 Using transcription as userMessage for bot: ${transcribedAudio.substring(0, 120)}`,
+                  `🎤 Using transcription as userMessage for bot: ${
+                    transcribedAudio.substring(0, 120)
+                  }`,
                 );
               } else {
                 console.log(
