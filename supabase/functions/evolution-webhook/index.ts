@@ -2137,7 +2137,7 @@ serve(async (req) => {
               isFirstMessage,
               isReopened,
               messageType: msgData.type,
-              isWithinSchedule: isAgentMode ? true : isWithinSchedule,
+              isWithinSchedule: (isAgentMode || isAgentTeamMode) ? true : isWithinSchedule,
               // Enriched fields
               messageId: messageId,
               leadId: conversation.lead_id || null,
