@@ -8,7 +8,7 @@ export interface Agent {
   name: string;
   system_prompt: string | null;
   personality: string;
-  welcome_message: string | null;
+  
   is_active: boolean;
   max_messages: number;
   audio_enabled: boolean;
