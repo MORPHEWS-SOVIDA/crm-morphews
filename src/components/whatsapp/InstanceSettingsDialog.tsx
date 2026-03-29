@@ -202,6 +202,19 @@ export function InstanceSettingsDialog({
                     </p>
                   </div>
                 </div>
+                {/* Modo Time de Agentes 2.0 */}
+                <div className={`flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 ${distributionMode === 'agent_team' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30' : ''}`}>
+                  <RadioGroupItem value="agent_team" id="agent_team" className="mt-0.5" />
+                  <div className="flex-1">
+                    <Label htmlFor="agent_team" className="flex items-center gap-2 cursor-pointer">
+                      <Users className="h-4 w-4 text-emerald-600" />
+                      Time de Agentes IA 2.0
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Um time de agentes especialistas com maestro que direciona automaticamente
+                    </p>
+                  </div>
+                </div>
               </RadioGroup>
 
               {/* Nota sobre robô */}
