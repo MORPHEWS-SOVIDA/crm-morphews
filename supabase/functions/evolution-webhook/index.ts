@@ -2015,6 +2015,26 @@ serve(async (req) => {
               ((conversation.bot_messages_count ?? 0) === 0);
             const isReopened = wasClosed;
 
+            // Extract quoted message context if replying to a message
+            const quotedMessage = (() => {
+              try {
+                const ctx = data?.message?.extendedTextMessage?.contextInfo ||
+                  data?.message?.audioMessage?.contextInfo ||
+                  data?.message?.imageMessage?.contextInfo ||
+                  data?.message?.documentMessage?.contextInfo ||
+                  data?.message?.videoMessage?.contextInfo;
+                if (ctx?.quotedMessage) {
+                  const quoted = ctx.quotedMessage;
+                  return {
+                    text: quoted.conversation || quoted.extendedTextMessage?.text || null,
+                    type: quoted.audioMessage ? "audio" : quoted.imageMessage ? "image" : quoted.documentMessage ? "document" : "text",
+                    participant: ctx.participant || null,
+                  };
+                }
+                return null;
+              } catch { return null; }
+            })();
+
             const botPayload: any = {
               botId: useAgent20 ? agent20Id : botIdToUse,
               conversationId: conversation.id,
@@ -2029,6 +2049,16 @@ serve(async (req) => {
               isReopened,
               messageType: msgData.type,
               isWithinSchedule: isAgentMode ? true : isWithinSchedule,
+              // Enriched fields
+              messageId: messageId,
+              leadId: conversation.lead_id || null,
+              mediaCaption: msgData.mediaCaption || null,
+              transcription: (msgData.type === "audio" && messageContent !== msgData.content) ? messageContent : null,
+              isGroup: isGroup,
+              groupSubject: isGroup ? (groupSubject || null) : null,
+              waMessageId: key?.id || null,
+              contactProfilePic: contactProfilePic || null,
+              quotedMessage: quotedMessage,
             };
 
             // Tenta usar savedMediaUrl primeiro, depois fallback para URL encriptada do payload
