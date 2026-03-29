@@ -1588,10 +1588,10 @@ serve(async (req) => {
           const distributionMode = instConfig?.distribution_mode || "manual";
           console.log("📋 Distribution mode for reopening:", distributionMode);
 
-          // MODO AGENT 2.0
-          if (distributionMode === "agent" && !isGroup) {
+          // MODO AGENT 2.0 ou AGENT TEAM 2.0
+          if ((distributionMode === "agent" || distributionMode === "agent_team") && !isGroup) {
             console.log(
-              "🚀 Agent 2.0 mode (reopened), setting status to with_bot",
+              `🚀 ${distributionMode} mode (reopened), setting status to with_bot`,
             );
             updateData.status = "with_bot";
             updateData.handling_bot_id = null;
@@ -1599,6 +1599,24 @@ serve(async (req) => {
             updateData.assigned_user_id = null;
             updateData.assigned_at = null;
             updateData.closed_at = null;
+
+            // Limpar state do agente ativo ao reabrir (começa do Maestro novamente)
+            if (distributionMode === "agent_team") {
+              try {
+                const AGENTS_URL = Deno.env.get("AGENTS_SUPABASE_URL") ?? "";
+                const AGENTS_KEY = Deno.env.get("AGENTS_SUPABASE_ANON_KEY") ?? "";
+                if (AGENTS_URL && AGENTS_KEY) {
+                  const agentsClient = createClient(AGENTS_URL, AGENTS_KEY);
+                  await agentsClient
+                    .from("conversation_agent_state")
+                    .delete()
+                    .eq("conversation_id", conversation.id);
+                  console.log("🔄 Cleared agent state for reopened team conversation");
+                }
+              } catch (clearErr) {
+                console.error("⚠️ Error clearing agent state:", clearErr);
+              }
+            }
           } // MODO BOT: Se instância está em modo robô E tem bot configurado
           else if (distributionMode === "bot" && anyBotId && !isGroup) {
             console.log(
