@@ -1650,10 +1650,22 @@ serve(async (req) => {
               isWithinSchedule: isAgentMode ? true : isWithinSchedule,
             };
 
-            if ((msgData.type === 'audio' || msgData.type === 'image' || msgData.type === 'document' || msgData.type === 'video') && savedMediaUrl) {
-              botPayload.mediaUrl = savedMediaUrl;
+            // Tenta usar savedMediaUrl primeiro, depois fallback para URL encriptada do payload
+            const fallbackMediaUrl = 
+              msgData.audioUrl ||
+              msgData.mediaUrl ||
+              data?.message?.audioMessage?.url ||
+              data?.message?.imageMessage?.url ||
+              data?.message?.documentMessage?.url ||
+              data?.message?.videoMessage?.url ||
+              null;
+
+            const mediaUrlToSend = savedMediaUrl || fallbackMediaUrl;
+
+            if ((msgData.type === 'audio' || msgData.type === 'image' || msgData.type === 'document' || msgData.type === 'video') && mediaUrlToSend) {
+              botPayload.mediaUrl = mediaUrlToSend;
               botPayload.mediaMimeType = msgData.mediaMimeType;
-              console.log("📎 Including media for bot processing:", msgData.type, savedMediaUrl);
+              console.log(`📎 Media URL for bot: ${msgData.type} → ${mediaUrlToSend?.substring(0, 80)}`);
             }
 
             const targetUrl = useAgent20
