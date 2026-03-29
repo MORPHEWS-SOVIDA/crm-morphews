@@ -100,11 +100,6 @@ export default function AgentsIA() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {agent.welcome_message && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      "{agent.welcome_message}"
-                    </p>
-                  )}
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Brain className="h-4 w-4" />

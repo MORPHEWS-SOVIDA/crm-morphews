@@ -24,7 +24,7 @@ export interface AgentFormData {
   name: string;
   personality: string;
   system_prompt: string;
-  welcome_message?: string;
+  
   max_messages: number;
   audio_enabled?: boolean;
   audio_message?: string;
