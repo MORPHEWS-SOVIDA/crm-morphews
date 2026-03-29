@@ -3,11 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -21,15 +23,19 @@ interface TranscribeRequest {
   mediaUrl: string;
 }
 
-async function consumeEnergy(organizationId: string, amount: number, description: string): Promise<boolean> {
+async function consumeEnergy(
+  organizationId: string,
+  amount: number,
+  description: string,
+): Promise<boolean> {
   try {
     // Use the consume_energy RPC with its correct signature
-    const { data, error } = await supabase.rpc('consume_energy', {
+    const { data, error } = await supabase.rpc("consume_energy", {
       p_organization_id: organizationId,
       p_energy_amount: amount,
-      p_action_type: 'audio_transcription',
+      p_action_type: "audio_transcription",
       p_details: description,
-      p_model_used: 'whisper-large-v3-turbo',
+      p_model_used: "whisper-large-v3-turbo",
       p_tokens_used: 0,
       p_real_cost_usd: 0,
       p_bot_id: null,
@@ -42,13 +48,22 @@ async function consumeEnergy(organizationId: string, amount: number, description
     }
 
     // Check the result
-    if (data && typeof data === 'object') {
-      const result = data as { success?: boolean; error?: string; remaining?: number };
+    if (data && typeof data === "object") {
+      const result = data as {
+        success?: boolean;
+        error?: string;
+        remaining?: number;
+      };
       if (result.success === false || result.error) {
         console.log("❌ Insufficient energy for transcription");
         return false;
       }
-      console.log("⚡ Energy consumed:", amount, "remaining:", result.remaining);
+      console.log(
+        "⚡ Energy consumed:",
+        amount,
+        "remaining:",
+        result.remaining,
+      );
       return true;
     }
 
@@ -57,7 +72,7 @@ async function consumeEnergy(organizationId: string, amount: number, description
       console.log("⚡ Energy consumed:", amount);
       return true;
     }
-    
+
     console.log("❌ Energy consumption failed");
     return false;
   } catch (error) {
@@ -75,10 +90,14 @@ function getExtensionFromMimeType(mimeType: string): string {
   return "ogg";
 }
 
-async function transcribeAudioWithGroq(mediaUrl: string): Promise<string | null> {
+async function transcribeAudioWithGroq(
+  mediaUrl: string,
+): Promise<string | null> {
   if (!GROQ_API_KEY) {
     console.error("❌ GROQ_API_KEY not configured");
-    throw new Error("GROQ_API_KEY não configurada. Configure nas configurações de secrets.");
+    throw new Error(
+      "GROQ_API_KEY não configurada. Configure nas configurações de secrets.",
+    );
   }
 
   console.log("🎤 Transcribing audio with Groq Whisper from:", mediaUrl);
@@ -87,24 +106,36 @@ async function transcribeAudioWithGroq(mediaUrl: string): Promise<string | null>
     // Download audio from storage/URL
     console.log("📥 Downloading audio...");
     const audioResponse = await fetch(mediaUrl);
-    
+
     if (!audioResponse.ok) {
-      console.error("❌ Failed to download audio:", audioResponse.status, audioResponse.statusText);
-      throw new Error(`Failed to download audio: ${audioResponse.status} ${audioResponse.statusText}`);
+      console.error(
+        "❌ Failed to download audio:",
+        audioResponse.status,
+        audioResponse.statusText,
+      );
+      throw new Error(
+        `Failed to download audio: ${audioResponse.status} ${audioResponse.statusText}`,
+      );
     }
 
-    const contentType = audioResponse.headers.get("content-type") ?? "audio/ogg";
+    const contentType = audioResponse.headers.get("content-type") ??
+      "audio/ogg";
     const audioBuffer = await audioResponse.arrayBuffer();
-    
+
     // Check if buffer has data
     const bufferSize = audioBuffer.byteLength;
-    console.log("📊 Audio buffer size:", bufferSize, "bytes, content-type:", contentType);
-    
+    console.log(
+      "📊 Audio buffer size:",
+      bufferSize,
+      "bytes, content-type:",
+      contentType,
+    );
+
     if (bufferSize === 0) {
       console.error("❌ Audio buffer is empty!");
       throw new Error("Audio buffer is empty");
     }
-    
+
     if (bufferSize < 100) {
       console.error("❌ Audio buffer too small:", bufferSize, "bytes");
       throw new Error("Audio file too small, possibly corrupted");
@@ -119,10 +150,16 @@ async function transcribeAudioWithGroq(mediaUrl: string): Promise<string | null>
         return "";
       }
     })();
-    const resolvedContentType = (ctFromUrl || contentType || "audio/ogg").toLowerCase();
+    const resolvedContentType = (ctFromUrl || contentType || "audio/ogg")
+      .toLowerCase();
     const ext = getExtensionFromMimeType(resolvedContentType);
-    
-    console.log("🎧 Resolved content-type:", resolvedContentType, "extension:", ext);
+
+    console.log(
+      "🎧 Resolved content-type:",
+      resolvedContentType,
+      "extension:",
+      ext,
+    );
 
     // Create blob and FormData for Groq Whisper API
     const blob = new Blob([audioBuffer], { type: resolvedContentType });
@@ -133,36 +170,53 @@ async function transcribeAudioWithGroq(mediaUrl: string): Promise<string | null>
     formData.append("response_format", "text");
 
     console.log("🚀 Sending to Groq Whisper API...");
-    const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${GROQ_API_KEY}`,
+    const response = await fetch(
+      "https://api.groq.com/openai/v1/audio/transcriptions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${GROQ_API_KEY}`,
+        },
+        body: formData,
       },
-      body: formData,
-    });
+    );
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("❌ Groq Whisper transcription failed:", response.status, errText);
-      
+      console.error(
+        "❌ Groq Whisper transcription failed:",
+        response.status,
+        errText,
+      );
+
       if (response.status === 429) {
-        throw new Error("Rate limit exceeded. Tente novamente em alguns minutos.");
+        throw new Error(
+          "Rate limit exceeded. Tente novamente em alguns minutos.",
+        );
       }
       if (response.status === 401) {
         throw new Error("GROQ_API_KEY inválida. Verifique nas configurações.");
       }
-      
-      throw new Error(`Groq transcription error: ${response.status} - ${errText}`);
+
+      throw new Error(
+        `Groq transcription error: ${response.status} - ${errText}`,
+      );
     }
 
     const transcription = await response.text();
-    
+
     if (!transcription || transcription.trim().length === 0) {
-      console.log("⚠️ Empty transcription returned (audio may be silent or inaudible)");
+      console.log(
+        "⚠️ Empty transcription returned (audio may be silent or inaudible)",
+      );
       return "Áudio inaudível";
     }
-    
-    console.log("✅ Audio transcribed with Groq Whisper:", transcription.substring(0, 100) + (transcription.length > 100 ? "..." : ""));
+
+    console.log(
+      "✅ Audio transcribed with Groq Whisper:",
+      transcription.substring(0, 100) +
+        (transcription.length > 100 ? "..." : ""),
+    );
     return transcription.trim();
   } catch (error) {
     console.error("❌ Transcription failed:", error);
@@ -176,17 +230,31 @@ serve(async (req) => {
   }
 
   try {
-    const { messageId, organizationId, mediaUrl }: TranscribeRequest = await req.json();
+    const { messageId, organizationId, mediaUrl }: TranscribeRequest = await req
+      .json();
 
     if (!messageId || !organizationId || !mediaUrl) {
-      console.error("❌ Missing required fields:", { messageId: !!messageId, organizationId: !!organizationId, mediaUrl: !!mediaUrl });
+      console.error("❌ Missing required fields:", {
+        messageId: !!messageId,
+        organizationId: !!organizationId,
+        mediaUrl: !!mediaUrl,
+      });
       return new Response(
-        JSON.stringify({ error: "Missing required fields: messageId, organizationId, mediaUrl" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "Missing required fields: messageId, organizationId, mediaUrl",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
-    console.log("📝 Processing transcription request:", { messageId, organizationId, mediaUrlLength: mediaUrl?.length });
+    console.log("📝 Processing transcription request:", {
+      messageId,
+      organizationId,
+      mediaUrlLength: mediaUrl?.length,
+    });
 
     // Mark as processing
     await supabase
@@ -198,7 +266,7 @@ serve(async (req) => {
     const hasEnergy = await consumeEnergy(
       organizationId,
       TRANSCRIPTION_ENERGY_COST,
-      `Transcrição de áudio - mensagem ${messageId}`
+      `Transcrição de áudio - mensagem ${messageId}`,
     );
 
     if (!hasEnergy) {
@@ -210,7 +278,10 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ error: "Insufficient energy balance" }),
-        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -220,15 +291,22 @@ serve(async (req) => {
       transcription = await transcribeAudioWithGroq(mediaUrl);
     } catch (error) {
       console.error("❌ Transcription error:", error);
-      
+
       await supabase
         .from("whatsapp_messages")
         .update({ transcription_status: "failed" })
         .eq("id", messageId);
 
       return new Response(
-        JSON.stringify({ error: error instanceof Error ? error.message : "Transcription failed" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: error instanceof Error
+            ? error.message
+            : "Transcription failed",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -241,7 +319,10 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ error: "Transcription failed" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -251,6 +332,7 @@ serve(async (req) => {
       .update({
         transcription: transcription,
         transcription_status: "completed",
+        content: transcription,
       })
       .eq("id", messageId);
 
@@ -258,7 +340,10 @@ serve(async (req) => {
       console.error("❌ Failed to save transcription:", updateError);
       return new Response(
         JSON.stringify({ error: "Failed to save transcription" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -266,13 +351,18 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, transcription }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("❌ transcribe-audio-message error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });
