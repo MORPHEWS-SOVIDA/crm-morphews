@@ -1936,12 +1936,13 @@ serve(async (req) => {
           const botIdToUse = anyBotId;
           const isWithinSchedule = !!activeBotId;
 
-          // Decidir se deve processar: modo agent OU modo bot com botId
+          // Decidir se deve processar: modo agent, agent_team OU modo bot com botId
           const isAgentMode = currentDistMode === "agent";
+          const isAgentTeamMode = currentDistMode === "agent_team";
           const shouldProcessWithBot = !isGroup &&
             supportedBotTypes.includes(msgData.type) &&
             conversation.status === "with_bot" &&
-            (isAgentMode || botIdToUse); // Agent mode não precisa de botId v1
+            (isAgentMode || isAgentTeamMode || botIdToUse);
 
           if (shouldProcessWithBot) {
             const AGENTS_SUPABASE_URL = Deno.env.get("AGENTS_SUPABASE_URL") ??
@@ -1952,7 +1953,58 @@ serve(async (req) => {
             let useAgent20 = false;
             let agent20Id: string | null = null;
 
-            if (isAgentMode && AGENTS_SUPABASE_URL && AGENTS_SUPABASE_KEY) {
+            if (isAgentTeamMode && AGENTS_SUPABASE_URL && AGENTS_SUPABASE_KEY) {
+              // Modo agent_team: verificar state da conversa, senão buscar maestro
+              try {
+                const agentsClient = createClient(
+                  AGENTS_SUPABASE_URL,
+                  AGENTS_SUPABASE_KEY,
+                );
+
+                // 1. Verifica se já existe agente ativo para esta conversa
+                const { data: convState } = await agentsClient
+                  .from("conversation_agent_state")
+                  .select("active_agent_id")
+                  .eq("conversation_id", conversation.id)
+                  .maybeSingle();
+
+                if (convState?.active_agent_id) {
+                  agent20Id = convState.active_agent_id;
+                  useAgent20 = true;
+                  console.log(
+                    "🔀 Agent Team: using routed agent from state:",
+                    agent20Id,
+                  );
+                } else {
+                  // Primeira mensagem: buscar o maestro do time
+                  const { data: instanceLink } = await agentsClient
+                    .from("agent_instances")
+                    .select("team_id")
+                    .eq("instance_id", instance.id)
+                    .eq("is_active", true)
+                    .maybeSingle();
+
+                  if (instanceLink?.team_id) {
+                    const { data: team } = await agentsClient
+                      .from("agent_teams")
+                      .select("maestro_agent_id")
+                      .eq("id", instanceLink.team_id)
+                      .single();
+
+                    if (team?.maestro_agent_id) {
+                      agent20Id = team.maestro_agent_id;
+                      useAgent20 = true;
+                      console.log(
+                        "🎯 Agent Team: using maestro agent:",
+                        agent20Id,
+                      );
+                    }
+                  }
+                }
+              } catch (teamCheckError) {
+                console.error("⚠️ Error checking agent team:", teamCheckError);
+              }
+            } else if (isAgentMode && AGENTS_SUPABASE_URL && AGENTS_SUPABASE_KEY) {
               // Modo agent: buscar agente vinculado diretamente
               try {
                 const agentsClient = createClient(
@@ -1983,7 +2035,7 @@ serve(async (req) => {
                 console.error("⚠️ Error checking agent 2.0:", agentCheckError);
               }
             } else if (
-              !isAgentMode && AGENTS_SUPABASE_URL && AGENTS_SUPABASE_KEY
+              !isAgentMode && !isAgentTeamMode && AGENTS_SUPABASE_URL && AGENTS_SUPABASE_KEY
             ) {
               // Modo bot legado: verificar se tem agent 2.0 vinculado (compatibilidade)
               try {
