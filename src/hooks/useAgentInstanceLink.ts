@@ -43,7 +43,7 @@ export function useAgentForInstance(instanceId: string | null) {
   });
 }
 
-/** Link an agent to a WhatsApp instance (and set distribution_mode = 'agent') */
+/** Link an agent to a WhatsApp instance (sets distribution_mode = 'agent' or 'agent_team') */
 export function useLinkAgentToInstance() {
   const qc = useQueryClient();
   return useMutation({
@@ -63,6 +63,7 @@ export function useLinkAgentToInstance() {
       workingDays: string[];
       workingHoursStart: string;
       workingHoursEnd: string;
+      teamId?: string | null;
     }) => {
       const client = getAgentsClient();
 
@@ -84,13 +85,15 @@ export function useLinkAgentToInstance() {
           working_days: workingDays,
           working_hours_start: workingHoursStart,
           working_hours_end: workingHoursEnd,
+          ...(teamId ? { team_id: teamId } : {}),
         });
       if (error) throw error;
 
-      // 3. Set distribution_mode = 'agent' on the main DB
+      // 3. Set distribution_mode based on whether it's a team or solo agent
+      const mode = teamId ? "agent_team" : "agent";
       const { error: updateError } = await supabase
         .from("whatsapp_instances")
-        .update({ distribution_mode: "agent" })
+        .update({ distribution_mode: mode })
         .eq("id", instanceId);
       if (updateError) throw updateError;
 
