@@ -225,6 +225,14 @@ export function InstanceSettingsDialog({
                   </p>
                 </div>
               )}
+
+              {distributionMode === 'agent_team' && (
+                <div className="p-3 border rounded-lg bg-emerald-50 dark:bg-emerald-950/30 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    💡 <strong>Importante:</strong> Configure o time de agentes e suas rotas em <strong>Agentes IA 2.0 → Times</strong>.
+                  </p>
+                </div>
+              )}
               
               {/* Timeout de redistribuição - só aparece quando auto está selecionado */}
               {distributionMode === 'auto' && (
