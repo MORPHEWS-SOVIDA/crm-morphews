@@ -1750,6 +1750,7 @@ serve(async (req) => {
 
         // Conteúdo da mensagem (para grupos, incluir quem enviou)
         let messageContent = msgData.content;
+        let audioTranscriptionPromise: Promise<string | null> | null = null;
         if (isGroup && pushName && msgData.type === "text") {
           // Opcional: prefixar com nome do remetente em grupos
           // messageContent = `[${pushName}] ${msgData.content}`;
@@ -1810,25 +1811,38 @@ serve(async (req) => {
                 .update({ transcription_status: "pending" })
                 .eq("id", messageId);
 
-              fetch(`${SUPABASE_URL}/functions/v1/transcribe-audio-message`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              audioTranscriptionPromise = fetch(
+                `${SUPABASE_URL}/functions/v1/transcribe-audio-message`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                  },
+                  body: JSON.stringify({
+                    messageId: messageId,
+                    organizationId: organizationId,
+                    mediaUrl: savedMediaUrl,
+                  }),
                 },
-                body: JSON.stringify({
-                  messageId: messageId,
-                  organizationId: organizationId,
-                  mediaUrl: savedMediaUrl,
-                }),
-              }).then(async (res) => {
-                const result = await res.json();
+              ).then(async (res) => {
+                const result = await res.json().catch(() => ({}));
                 console.log("🎤 Transcription result:", result);
+
+                if (!res.ok || typeof result?.error === "string") {
+                  return null;
+                }
+
+                return typeof result?.transcription === "string" &&
+                    result.transcription.trim().length > 0
+                  ? result.transcription.trim()
+                  : null;
               }).catch((transcriptionError) => {
                 console.error(
                   "❌ Error calling transcription:",
                   transcriptionError,
                 );
+                return null;
               });
             }
           }
@@ -1966,6 +1980,36 @@ serve(async (req) => {
                 ? `🚀 Processing with Agent 2.0: ${agent20Id}`
                 : `🤖 Processing with legacy bot: ${botIdToUse}`,
             );
+
+            if (msgData.type === "audio" && audioTranscriptionPromise) {
+              const transcribedAudio = await audioTranscriptionPromise;
+
+              if (transcribedAudio) {
+                messageContent = transcribedAudio;
+
+                const { error: syncContentError } = await supabase
+                  .from("whatsapp_messages")
+                  .update({ content: transcribedAudio })
+                  .eq("id", messageId);
+
+                if (syncContentError) {
+                  console.error(
+                    "❌ Failed to sync transcription into message content:",
+                    syncContentError,
+                  );
+                }
+
+                console.log(
+                  `🎤 Using transcription as userMessage for bot: ${
+                    transcribedAudio.substring(0, 120)
+                  }`,
+                );
+              } else {
+                console.log(
+                  "⚠️ No transcription available before bot processing; continuing with mediaUrl fallback only.",
+                );
+              }
+            }
 
             const isFirstMessage = !wasClosed &&
               ((conversation.bot_messages_count ?? 0) === 0);
