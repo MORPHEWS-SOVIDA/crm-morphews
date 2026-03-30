@@ -17099,6 +17099,7 @@ export type Database = {
           custom_price_6_cents: number | null
           custom_price_cents: number | null
           display_order: number | null
+          external_product_id: string | null
           highlight_badge: string | null
           id: string
           is_featured: boolean | null
@@ -17121,6 +17122,7 @@ export type Database = {
           custom_price_6_cents?: number | null
           custom_price_cents?: number | null
           display_order?: number | null
+          external_product_id?: string | null
           highlight_badge?: string | null
           id?: string
           is_featured?: boolean | null
@@ -17143,6 +17145,7 @@ export type Database = {
           custom_price_6_cents?: number | null
           custom_price_cents?: number | null
           display_order?: number | null
+          external_product_id?: string | null
           highlight_badge?: string | null
           id?: string
           is_featured?: boolean | null
