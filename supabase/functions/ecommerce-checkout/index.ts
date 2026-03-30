@@ -123,7 +123,35 @@ serve(async (req) => {
       }
     }
 
-    // 1b. Enrich product items with names and images for order_items
+    // 1b. Resolve external_product_id aliases FIRST (before enrichment)
+    // External sites may send their own product UUIDs that differ from ours
+    {
+      const { data: aliasMappings } = await supabase
+        .from('storefront_products')
+        .select('external_product_id, product_id, combo_id, custom_name')
+        .in('external_product_id', productItems.map(i => i.product_id).filter(Boolean));
+      
+      if (aliasMappings && aliasMappings.length > 0) {
+        for (const alias of aliasMappings) {
+          if (!alias.external_product_id) continue;
+          const realId = alias.product_id || alias.combo_id;
+          if (realId) {
+            console.log(`[Checkout] Resolved external alias ${alias.external_product_id} → ${realId} (${alias.custom_name || 'n/a'})`);
+            for (const item of productItems) {
+              if (item.product_id === alias.external_product_id) {
+                item.product_id = realId;
+                if (alias.combo_id) {
+                  item.is_combo = true;
+                  item.combo_id = alias.combo_id;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 1c. Enrich product items with names and images for order_items
     const productIds = productItems.map(i => i.product_id).filter(Boolean);
     const productMap: Record<string, { name: string; image_url?: string }> = {};
     if (productIds.length > 0) {

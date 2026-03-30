@@ -23,8 +23,8 @@ async function resolveProductDetails(
   quantity?: number
 ): Promise<{ name: string; imageUrl: string | null; unitPrice: number; isCombo?: boolean } | null> {
   try {
-    // Try regular product first
-    const { data } = await supabase
+    // Try regular product first (by product_id OR external_product_id)
+    let { data } = await supabase
       .from('storefront_products')
       .select(`
         custom_price_cents,
@@ -37,6 +37,24 @@ async function resolveProductDetails(
       .eq('product_id', productId)
       .eq('is_visible', true)
       .single();
+
+    // Fallback: try by external_product_id (alias from external site)
+    if (!data?.product) {
+      const aliasResult = await supabase
+        .from('storefront_products')
+        .select(`
+          custom_price_cents,
+          product:lead_products(
+            name, ecommerce_title, image_url, ecommerce_images,
+            price_1_unit, price_3_units, price_6_units, base_price_cents
+          )
+        `)
+        .eq('storefront_id', storefrontId)
+        .eq('external_product_id', productId)
+        .eq('is_visible', true)
+        .single();
+      if ((aliasResult.data as any)?.product) data = aliasResult.data as any;
+    }
 
     if (data?.product) {
       const p = data.product as any;
