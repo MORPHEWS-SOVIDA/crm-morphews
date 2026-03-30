@@ -40,7 +40,7 @@ async function resolveProductDetails(
 
     // Fallback: try by external_product_id (alias from external site)
     if (!data?.product) {
-      const { data: aliasData } = await supabase
+      const aliasResult = await supabase
         .from('storefront_products')
         .select(`
           custom_price_cents,
@@ -50,10 +50,10 @@ async function resolveProductDetails(
           )
         `)
         .eq('storefront_id', storefrontId)
-        .eq('external_product_id' as any, productId)
+        .eq('external_product_id', productId)
         .eq('is_visible', true)
         .single();
-      if (aliasData?.product) data = aliasData;
+      if ((aliasResult.data as any)?.product) data = aliasResult.data as any;
     }
 
     if (data?.product) {
