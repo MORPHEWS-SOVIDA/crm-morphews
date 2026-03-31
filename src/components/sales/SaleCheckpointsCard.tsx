@@ -167,6 +167,7 @@ export function SaleCheckpointsCard({
   const syncLegacyMutation = useSyncSaleLegacyFromCheckpoints();
   const updateSale = useUpdateSale();
   const { data: permissions } = useMyPermissions();
+  const { data: closingInfo } = useSaleClosingInfo(saleId);
   const [expandedNotes, setExpandedNotes] = useState<Record<CheckpointType, boolean>>({} as any);
   const [noteInputs, setNoteInputs] = useState<Record<CheckpointType, string>>({} as any);
   const [showNoteInput, setShowNoteInput] = useState<Record<CheckpointType, boolean>>({} as any);
