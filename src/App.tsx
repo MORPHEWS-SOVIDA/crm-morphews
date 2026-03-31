@@ -87,7 +87,13 @@ const Expedition = lazy(() => import("./pages/Expedition"));
 const ExpeditionReport = lazy(() => import("./pages/ExpeditionReport"));
 const CorreiosLabels = lazy(() => import("./pages/CorreiosLabels"));
 const MyDeliveries = lazy(() => import("./pages/MyDeliveries"));
-const SerialLabelsPage = lazy(() => import("./pages/SerialLabelsPage"));
+const SerialLabelsIndexPage = lazy(() => import("./pages/serial-labels/SerialLabelsIndexPage"));
+const SerialAssociatePage = lazy(() => import("./pages/serial-labels/SerialAssociatePage"));
+const SerialSeparationPage = lazy(() => import("./pages/serial-labels/SerialSeparationPage"));
+const SerialReturnPage = lazy(() => import("./pages/serial-labels/SerialReturnPage"));
+const SerialScannerPage = lazy(() => import("./pages/serial-labels/SerialScannerPage"));
+const SerialSearchPage = lazy(() => import("./pages/serial-labels/SerialSearchPage"));
+const SerialRegisterBatchPage = lazy(() => import("./pages/serial-labels/SerialRegisterBatchPage"));
 const AllDeliveries = lazy(() => import("./pages/AllDeliveries"));
 const RomaneioPrint = lazy(() => import("./pages/RomaneioPrint"));
 const RomaneioBatchPrint = lazy(() => import("./pages/RomaneioBatchPrint"));
@@ -981,7 +987,55 @@ const App = () => (
                   path="/expedicao/etiquetas-seriais"
                   element={
                     <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
-                      <SerialLabelsPage />
+                      <SerialLabelsIndexPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/associar"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialAssociatePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/separacao"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialSeparationPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/devolucao"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialReturnPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/scanner"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialScannerPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/buscar"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialSearchPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/registrar-lote"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialRegisterBatchPage />
                     </ProtectedRoute>
                   }
                 />
