@@ -269,7 +269,6 @@ export default function SerialLabelsPage() {
                 <div>
                   <h3 className="font-semibold">Venda #{saleData.romaneio_number}</h3>
                 </div>
-                </div>
                 <Button variant="outline" size="sm" onClick={() => { setSaleData(null); setSaleItems([]); }}>
                   Trocar Venda
                 </Button>
