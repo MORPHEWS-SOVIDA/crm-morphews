@@ -6,11 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { QRScanner } from '@/components/serial-labels/QRScanner';
+import { AssignSerialsToProduct } from '@/components/serial-labels/AssignSerialsToProduct';
+import { SaleScanValidation } from '@/components/serial-labels/SaleScanValidation';
+import { ReturnScanPanel } from '@/components/serial-labels/ReturnScanPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 import { toast } from 'sonner';
-import { QrCode, Package, Search, ScanLine, Upload } from 'lucide-react';
+import { 
+  QrCode, Package, Search, ScanLine, Upload, 
+  Tag, RotateCcw, Truck, ClipboardList
+} from 'lucide-react';
 
 const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   available: { label: 'Disponível', variant: 'outline' },
@@ -24,8 +30,8 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
 export default function SerialLabelsPage() {
   const { profile } = useAuth();
   const { data: currentOrganizationId } = useCurrentTenantId();
-  const [activeTab, setActiveTab] = useState('scanner');
-  
+  const [activeTab, setActiveTab] = useState('associate');
+
   // Scanner state
   const [scanning, setScanning] = useState(false);
   const [scannedCode, setScannedCode] = useState('');
@@ -43,6 +49,12 @@ export default function SerialLabelsPage() {
   const [bulkEnd, setBulkEnd] = useState(5000);
   const [bulkLoading, setBulkLoading] = useState(false);
 
+  // Sale scan state
+  const [saleIdInput, setSaleIdInput] = useState('');
+  const [saleData, setSaleData] = useState<any>(null);
+  const [saleItems, setSaleItems] = useState<any[]>([]);
+  const [loadingSale, setLoadingSale] = useState(false);
+
   const lookupCode = async (code: string) => {
     if (!code || !currentOrganizationId) return;
     setScanLoading(true);
@@ -55,7 +67,7 @@ export default function SerialLabelsPage() {
         .maybeSingle();
 
       if (error) throw error;
-      
+
       if (data) {
         setScannedLabel(data);
         setScannedCode(code);
@@ -75,7 +87,6 @@ export default function SerialLabelsPage() {
 
   const handleScan = (code: string) => {
     lookupCode(code);
-    // Vibrate on scan for feedback
     if (navigator.vibrate) navigator.vibrate(100);
   };
 
@@ -145,6 +156,49 @@ export default function SerialLabelsPage() {
     }
   };
 
+  const loadSale = async () => {
+    if (!saleIdInput || !currentOrganizationId) return;
+    setLoadingSale(true);
+    try {
+      // Try to find sale by number or ID
+      let query = supabase
+        .from('sales')
+        .select('id, sale_number, client_name')
+        .eq('organization_id', currentOrganizationId);
+      
+      // If it looks like a number, search by sale_number
+      if (/^\d+$/.test(saleIdInput.trim())) {
+        query = query.eq('sale_number', parseInt(saleIdInput.trim()));
+      } else {
+        query = query.eq('id', saleIdInput.trim());
+      }
+
+      const { data: sale, error: saleErr } = await query.maybeSingle();
+      if (saleErr) throw saleErr;
+      if (!sale) {
+        toast.error('Venda não encontrada');
+        setLoadingSale(false);
+        return;
+      }
+
+      // Load sale items
+      const { data: items, error: itemsErr } = await supabase
+        .from('sale_items')
+        .select('id, product_id, product_name, quantity')
+        .eq('sale_id', sale.id);
+
+      if (itemsErr) throw itemsErr;
+
+      setSaleData(sale);
+      setSaleItems(items || []);
+      toast.success(`Venda #${sale.sale_number} carregada`);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao carregar venda');
+    } finally {
+      setLoadingSale(false);
+    }
+  };
+
   return (
     <div className="container max-w-4xl mx-auto p-4 space-y-4">
       <div className="flex items-center gap-3">
@@ -156,29 +210,103 @@ export default function SerialLabelsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="scanner" className="gap-1">
-            <ScanLine className="h-4 w-4" /> Scanner
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6">
+          <TabsTrigger value="associate" className="gap-1 text-xs">
+            <Tag className="h-3.5 w-3.5" /> Associar
           </TabsTrigger>
-          <TabsTrigger value="search" className="gap-1">
-            <Search className="h-4 w-4" /> Buscar
+          <TabsTrigger value="separation" className="gap-1 text-xs">
+            <ClipboardList className="h-3.5 w-3.5" /> Separação
           </TabsTrigger>
-          <TabsTrigger value="register" className="gap-1">
-            <Upload className="h-4 w-4" /> Registrar Lote
+          <TabsTrigger value="return" className="gap-1 text-xs">
+            <RotateCcw className="h-3.5 w-3.5" /> Devolver
+          </TabsTrigger>
+          <TabsTrigger value="scanner" className="gap-1 text-xs">
+            <ScanLine className="h-3.5 w-3.5" /> Scanner
+          </TabsTrigger>
+          <TabsTrigger value="search" className="gap-1 text-xs">
+            <Search className="h-3.5 w-3.5" /> Buscar
+          </TabsTrigger>
+          <TabsTrigger value="register" className="gap-1 text-xs">
+            <Upload className="h-3.5 w-3.5" /> Lote
           </TabsTrigger>
         </TabsList>
+
+        {/* Associate Tab - Link serials to products on stock entry */}
+        <TabsContent value="associate" className="space-y-4">
+          <AssignSerialsToProduct />
+        </TabsContent>
+
+        {/* Separation Tab - Scan to validate order */}
+        <TabsContent value="separation" className="space-y-4">
+          {!saleData ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5" />
+                  Conferência de Separação
+                </CardTitle>
+                <CardDescription>
+                  Digite o número da venda para iniciar a conferência
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Número da venda (ex: 12500)..."
+                    value={saleIdInput}
+                    onChange={e => setSaleIdInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && loadSale()}
+                  />
+                  <Button onClick={loadSale} disabled={loadingSale}>
+                    {loadingSale ? 'Carregando...' : 'Carregar'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold">Venda #{saleData.sale_number}</h3>
+                  {saleData.client_name && (
+                    <p className="text-sm text-muted-foreground">{saleData.client_name}</p>
+                  )}
+                </div>
+                <Button variant="outline" size="sm" onClick={() => { setSaleData(null); setSaleItems([]); }}>
+                  Trocar Venda
+                </Button>
+              </div>
+              <SaleScanValidation
+                saleId={saleData.id}
+                saleNumber={saleData.sale_number}
+                saleItems={saleItems}
+                mode="separation"
+                onComplete={() => {
+                  toast.success('Separação finalizada!');
+                  setSaleData(null);
+                  setSaleItems([]);
+                }}
+              />
+            </>
+          )}
+        </TabsContent>
+
+        {/* Return Tab */}
+        <TabsContent value="return" className="space-y-4">
+          <ReturnScanPanel />
+        </TabsContent>
 
         {/* Scanner Tab */}
         <TabsContent value="scanner" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Escanear Etiqueta</CardTitle>
-              <CardDescription>Aponte a câmera para o QR Code da etiqueta</CardDescription>
+              <CardTitle className="text-lg">Consultar Etiqueta</CardTitle>
+              <CardDescription>Aponte a câmera ou digite o código para consultar</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <QRScanner 
-                onScan={handleScan} 
-                scanning={scanning && activeTab === 'scanner'} 
+              <QRScanner
+                onScan={handleScan}
+                scanning={scanning && activeTab === 'scanner'}
               />
 
               {!scanning && (
@@ -192,7 +320,6 @@ export default function SerialLabelsPage() {
                 </Button>
               )}
 
-              {/* Manual input */}
               <div className="flex gap-2">
                 <Input
                   placeholder="Ou digite o código manualmente..."
@@ -205,7 +332,6 @@ export default function SerialLabelsPage() {
                 </Button>
               </div>
 
-              {/* Result */}
               {scannedLabel && (
                 <Card className="border-primary">
                   <CardContent className="pt-4 space-y-2">
@@ -215,20 +341,14 @@ export default function SerialLabelsPage() {
                         {STATUS_LABELS[scannedLabel.status]?.label || scannedLabel.status}
                       </Badge>
                     </div>
-                    {scannedLabel.lead_products?.name && (
+                    {(scannedLabel.lead_products?.name || scannedLabel.product_name) && (
                       <div className="flex items-center gap-2 text-sm">
                         <Package className="h-4 w-4 text-muted-foreground" />
-                        <span>{scannedLabel.lead_products.name}</span>
-                      </div>
-                    )}
-                    {scannedLabel.product_name && !scannedLabel.lead_products?.name && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                        <span>{scannedLabel.product_name}</span>
+                        <span>{scannedLabel.lead_products?.name || scannedLabel.product_name}</span>
                       </div>
                     )}
                     {scannedLabel.sale_id && (
-                      <a 
+                      <a
                         href={`/vendas/${scannedLabel.sale_id}`}
                         className="text-sm text-primary hover:underline"
                       >
@@ -257,7 +377,7 @@ export default function SerialLabelsPage() {
             <CardContent className="space-y-4">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Código da etiqueta (ex: ATMC00123)..."
+                  placeholder="Código da etiqueta (ex: VIDA10001)..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value.toUpperCase())}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -322,9 +442,9 @@ export default function SerialLabelsPage() {
                 <span className="font-mono">{bulkPrefix}{String(bulkEnd).padStart(5, '0')}</span>
               </div>
 
-              <Button 
-                className="w-full" 
-                onClick={handleBulkRegister} 
+              <Button
+                className="w-full"
+                onClick={handleBulkRegister}
                 disabled={bulkLoading || !currentOrganizationId}
               >
                 {bulkLoading ? 'Registrando...' : `Registrar ${Math.max(0, bulkEnd - bulkStart + 1).toLocaleString()} Etiquetas`}
