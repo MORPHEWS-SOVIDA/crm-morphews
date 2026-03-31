@@ -987,7 +987,55 @@ const App = () => (
                   path="/expedicao/etiquetas-seriais"
                   element={
                     <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
-                      <SerialLabelsPage />
+                      <SerialLabelsIndexPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/associar"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialAssociatePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/separacao"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialSeparationPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/devolucao"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialReturnPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/scanner"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialScannerPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/buscar"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialSearchPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/registrar-lote"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialRegisterBatchPage />
                     </ProtectedRoute>
                   }
                 />
