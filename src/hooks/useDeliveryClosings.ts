@@ -385,8 +385,8 @@ export function useCreateDeliveryClosing() {
       return closing;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['delivery-closings', undefined, variables.closingType] });
-      queryClient.invalidateQueries({ queryKey: ['available-closing-sales', undefined, variables.closingType] });
+      queryClient.invalidateQueries({ queryKey: ['delivery-closings'] });
+      queryClient.invalidateQueries({ queryKey: ['available-closing-sales'] });
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
     },
   });
