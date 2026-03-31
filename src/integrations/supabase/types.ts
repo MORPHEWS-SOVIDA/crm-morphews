@@ -13145,6 +13145,7 @@ export type Database = {
           shipped_at: string | null
           shipped_by: string | null
           status: Database["public"]["Enums"]["serial_label_status"]
+          stock_movement_id: string | null
           stocked_at: string | null
           stocked_by: string | null
           updated_at: string
@@ -13167,6 +13168,7 @@ export type Database = {
           shipped_at?: string | null
           shipped_by?: string | null
           status?: Database["public"]["Enums"]["serial_label_status"]
+          stock_movement_id?: string | null
           stocked_at?: string | null
           stocked_by?: string | null
           updated_at?: string
@@ -13189,6 +13191,7 @@ export type Database = {
           shipped_at?: string | null
           shipped_by?: string | null
           status?: Database["public"]["Enums"]["serial_label_status"]
+          stock_movement_id?: string | null
           stocked_at?: string | null
           stocked_by?: string | null
           updated_at?: string
@@ -13213,6 +13216,13 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_serial_labels_stock_movement_id_fkey"
+            columns: ["stock_movement_id"]
+            isOneToOne: false
+            referencedRelation: "stock_movements"
             referencedColumns: ["id"]
           },
         ]
