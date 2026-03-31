@@ -639,6 +639,17 @@ export default function DeliveryClosingPage({ closingType }: DeliveryClosingPage
           </TabsContent>
 
           <TabsContent value="history" className="mt-6">
+            {/* Romaneio search */}
+            <div className="mb-4">
+              <ClosingRomaneioSearch 
+                closingType={closingType} 
+                onSelectClosing={(closingId) => {
+                  setViewingClosingId(closingId);
+                  setHistoryStatusFilter('all');
+                }}
+              />
+            </div>
+
             {/* History filters */}
             <Card className="bg-muted/30 mb-4">
               <CardContent className="py-3">

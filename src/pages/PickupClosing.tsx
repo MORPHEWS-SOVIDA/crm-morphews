@@ -32,6 +32,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/hooks/useSales';
 import { calculateCategoryTotals } from '@/lib/paymentCategories';
+import { ClosingRomaneioSearch } from '@/components/expedition/ClosingRomaneioSearch';
 import { PaymentCategoryTotals } from '@/components/expedition/PaymentCategoryTotals';
 import {
   Dialog,
