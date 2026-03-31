@@ -716,11 +716,36 @@ export function SaleCheckpointsCard({
                     )}
                   </div>
                 )}
+                {/* Closing info */}
+                {closingInfo && (
+                  <div className="mt-2 p-2 rounded bg-muted/50 text-xs space-y-1">
+                    <Link 
+                      to={closingInfo.closingPath} 
+                      className="flex items-center gap-1.5 font-medium text-primary hover:underline"
+                    >
+                      {closingTypeIcons[closingInfo.closingType]}
+                      Fechamento #{closingInfo.closingNumber} — {closingInfo.closingTypeLabel}
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+                    {closingInfo.closingDate && (
+                      <span className="text-muted-foreground">
+                        Criado em {formatDateFull(parseISO(closingInfo.closingDate), 'dd/MM/yyyy', { locale: ptBR })}
+                      </span>
+                    )}
+                    {closingInfo.confirmedAuxiliarAt && (
+                      <div className="flex items-center gap-1 text-teal-600">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Baixado por {closingInfo.auxiliarName || 'Financeiro'} em{' '}
+                        {formatDateFull(parseISO(closingInfo.confirmedAuxiliarAt), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Finalizado - Confirmed by Thiago */}
+          {/* Finalizado - Confirmed by Admin */}
           <div
             className={`p-3 rounded-lg border transition-colors ${
               finalizedAt
@@ -757,6 +782,20 @@ export function SaleCheckpointsCard({
                         {finalizedByName}
                       </span>
                     )}
+                  </div>
+                )}
+                {/* Closing finalization info */}
+                {closingInfo && closingInfo.confirmedAdminAt && (
+                  <div className="mt-2 p-2 rounded bg-muted/50 text-xs space-y-1">
+                    <div className="flex items-center gap-1.5 font-medium">
+                      {closingTypeIcons[closingInfo.closingType]}
+                      Fechamento #{closingInfo.closingNumber} — {closingInfo.closingTypeLabel}
+                    </div>
+                    <div className="flex items-center gap-1 text-purple-600">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Finalizado por {closingInfo.adminName || 'Admin'} em{' '}
+                      {formatDateFull(parseISO(closingInfo.confirmedAdminAt), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                    </div>
                   </div>
                 )}
               </div>
