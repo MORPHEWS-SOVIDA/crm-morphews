@@ -541,9 +541,10 @@ export function useConfirmDeliveryClosing() {
       }
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['delivery-closings', undefined, variables.closingType] });
+      queryClient.invalidateQueries({ queryKey: ['delivery-closings'] });
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale-closing-status'] });
     },
   });
 }
