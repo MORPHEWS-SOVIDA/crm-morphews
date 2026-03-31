@@ -60,6 +60,7 @@ import {
   type DeliveryClosing as DeliveryClosingType,
 } from '@/hooks/useDeliveryClosings';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
+import { ClosingRomaneioSearch } from '@/components/expedition/ClosingRomaneioSearch';
 
 const iconMap = {
   Store: Store,
