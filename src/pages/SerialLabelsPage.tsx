@@ -268,9 +268,7 @@ export default function SerialLabelsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-semibold">Venda #{saleData.romaneio_number}</h3>
-                  {saleData.client_name && (
-                    <p className="text-sm text-muted-foreground">{saleData.client_name}</p>
-                  )}
+                </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => { setSaleData(null); setSaleItems([]); }}>
                   Trocar Venda
