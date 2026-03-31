@@ -278,7 +278,7 @@ export default function SerialLabelsPage() {
               </div>
               <SaleScanValidation
                 saleId={saleData.id}
-                saleNumber={saleData.sale_number}
+                saleNumber={saleData.romaneio_number}
                 saleItems={saleItems}
                 mode="separation"
                 onComplete={() => {
