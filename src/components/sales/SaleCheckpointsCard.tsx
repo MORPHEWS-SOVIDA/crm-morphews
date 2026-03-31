@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle2, Clock, User, ChevronDown, ChevronUp, History, RotateCcw, Send } from 'lucide-react';
+import { CheckCircle2, Clock, User, ChevronDown, ChevronUp, History, RotateCcw, Send, Store, Bike, Truck, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
