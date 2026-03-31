@@ -38,7 +38,7 @@ export default function SerialLabelsPage() {
   const [searchLoading, setSearchLoading] = useState(false);
 
   // Bulk register state
-  const [bulkPrefix, setBulkPrefix] = useState('ATMC');
+  const [bulkPrefix, setBulkPrefix] = useState('VIDA');
   const [bulkStart, setBulkStart] = useState(1);
   const [bulkEnd, setBulkEnd] = useState(5000);
   const [bulkLoading, setBulkLoading] = useState(false);
