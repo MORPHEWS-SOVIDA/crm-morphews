@@ -32,6 +32,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/hooks/useSales';
 import { calculateCategoryTotals } from '@/lib/paymentCategories';
+import { ClosingRomaneioSearch } from '@/components/expedition/ClosingRomaneioSearch';
 import { PaymentCategoryTotals } from '@/components/expedition/PaymentCategoryTotals';
 import {
   Dialog,
@@ -499,6 +500,17 @@ export default function PickupClosing() {
           </TabsContent>
 
           <TabsContent value="history" className="mt-6">
+            {/* Romaneio search */}
+            <div className="mb-4">
+              <ClosingRomaneioSearch 
+                closingType="pickup" 
+                onSelectClosing={(closingId) => {
+                  setViewingClosingId(closingId);
+                  setHistoryStatusFilter('all');
+                }}
+              />
+            </div>
+
             {/* History filters */}
             <Card className="bg-muted/30 mb-4">
               <CardContent className="py-3">
