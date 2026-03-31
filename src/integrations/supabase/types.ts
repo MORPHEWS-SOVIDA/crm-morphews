@@ -13126,6 +13126,97 @@ export type Database = {
           },
         ]
       }
+      product_serial_labels: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          batch_label: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          product_id: string | null
+          product_name: string | null
+          return_reason: string | null
+          returned_at: string | null
+          returned_by: string | null
+          sale_id: string | null
+          sale_item_id: string | null
+          serial_code: string
+          shipped_at: string | null
+          shipped_by: string | null
+          status: Database["public"]["Enums"]["serial_label_status"]
+          stocked_at: string | null
+          stocked_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          batch_label?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          product_id?: string | null
+          product_name?: string | null
+          return_reason?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          sale_id?: string | null
+          sale_item_id?: string | null
+          serial_code: string
+          shipped_at?: string | null
+          shipped_by?: string | null
+          status?: Database["public"]["Enums"]["serial_label_status"]
+          stocked_at?: string | null
+          stocked_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          batch_label?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          product_id?: string | null
+          product_name?: string | null
+          return_reason?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          sale_id?: string | null
+          sale_item_id?: string | null
+          serial_code?: string
+          shipped_at?: string | null
+          shipped_by?: string | null
+          status?: Database["public"]["Enums"]["serial_label_status"]
+          stocked_at?: string | null
+          stocked_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_serial_labels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_serial_labels_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "lead_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_serial_labels_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_standard_questions: {
         Row: {
           created_at: string
@@ -23629,6 +23720,13 @@ export type Database = {
         | "welcome"
         | "reactivation"
       secretary_recipient_type: "owners" | "users"
+      serial_label_status:
+        | "available"
+        | "in_stock"
+        | "assigned"
+        | "shipped"
+        | "delivered"
+        | "returned"
       standard_question_category:
         | "dores_articulares"
         | "emagrecimento"
@@ -23932,6 +24030,14 @@ export const Constants = {
         "reactivation",
       ],
       secretary_recipient_type: ["owners", "users"],
+      serial_label_status: [
+        "available",
+        "in_stock",
+        "assigned",
+        "shipped",
+        "delivered",
+        "returned",
+      ],
       standard_question_category: [
         "dores_articulares",
         "emagrecimento",

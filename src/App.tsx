@@ -87,6 +87,7 @@ const Expedition = lazy(() => import("./pages/Expedition"));
 const ExpeditionReport = lazy(() => import("./pages/ExpeditionReport"));
 const CorreiosLabels = lazy(() => import("./pages/CorreiosLabels"));
 const MyDeliveries = lazy(() => import("./pages/MyDeliveries"));
+const SerialLabelsPage = lazy(() => import("./pages/SerialLabelsPage"));
 const AllDeliveries = lazy(() => import("./pages/AllDeliveries"));
 const RomaneioPrint = lazy(() => import("./pages/RomaneioPrint"));
 const RomaneioBatchPrint = lazy(() => import("./pages/RomaneioBatchPrint"));
@@ -973,6 +974,14 @@ const App = () => (
                       <ErrorBoundary title="Relatório indisponível">
                         <MotoboyProductivityReport />
                       </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialLabelsPage />
                     </ProtectedRoute>
                   }
                 />
