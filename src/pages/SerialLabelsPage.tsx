@@ -22,7 +22,8 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
 };
 
 export default function SerialLabelsPage() {
-  const { currentOrganizationId } = useOrganization();
+  const { profile } = useAuth();
+  const { data: currentOrganizationId } = useCurrentTenantId();
   const [activeTab, setActiveTab] = useState('scanner');
   
   // Scanner state
