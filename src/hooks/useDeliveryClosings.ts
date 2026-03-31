@@ -518,13 +518,17 @@ export function useConfirmDeliveryClosing() {
                 .maybeSingle();
 
               if (existing && !existing.completed_at) {
-                // Update existing checkpoint to completed
+                // Update existing checkpoint to completed with auto-finalization note
                 await supabase
                   .from('sale_checkpoints')
-                  .update({ completed_at: now, completed_by: user.id })
+                  .update({ 
+                    completed_at: now, 
+                    completed_by: user.id,
+                    notes: 'FINALIZAÇÃO SEM HUMANO — etapa concluída pelo processo de FINALIZAÇÃO',
+                  })
                   .eq('id', existing.id);
               } else if (!existing) {
-                // Create completed checkpoint
+                // Create completed checkpoint with auto-finalization note
                 await supabase
                   .from('sale_checkpoints')
                   .insert({
@@ -533,6 +537,7 @@ export function useConfirmDeliveryClosing() {
                     checkpoint_type: checkpointType,
                     completed_at: now,
                     completed_by: user.id,
+                    notes: 'FINALIZAÇÃO SEM HUMANO — etapa concluída pelo processo de FINALIZAÇÃO',
                   });
               }
             }
@@ -629,11 +634,15 @@ export function useBulkConfirmDeliveryClosing() {
                     .maybeSingle();
 
                   if (existing && !existing.completed_at) {
-                    await supabase.from('sale_checkpoints').update({ completed_at: now, completed_by: user.id }).eq('id', existing.id);
+                    await supabase.from('sale_checkpoints').update({ 
+                      completed_at: now, completed_by: user.id,
+                      notes: 'FINALIZAÇÃO SEM HUMANO — etapa concluída pelo processo de FINALIZAÇÃO',
+                    }).eq('id', existing.id);
                   } else if (!existing) {
                     await supabase.from('sale_checkpoints').insert({
                       sale_id: saleId, organization_id: sale.organization_id,
                       checkpoint_type: checkpointType, completed_at: now, completed_by: user.id,
+                      notes: 'FINALIZAÇÃO SEM HUMANO — etapa concluída pelo processo de FINALIZAÇÃO',
                     });
                   }
                 }
