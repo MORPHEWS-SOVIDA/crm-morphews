@@ -163,12 +163,12 @@ export default function SerialLabelsPage() {
       // Try to find sale by number or ID
       let query = supabase
         .from('sales')
-        .select('id, sale_number, client_name')
+        .select('id, romaneio_number, lead_id')
         .eq('organization_id', currentOrganizationId);
       
-      // If it looks like a number, search by sale_number
+      // If it looks like a number, search by romaneio_number
       if (/^\d+$/.test(saleIdInput.trim())) {
-        query = query.eq('sale_number', parseInt(saleIdInput.trim()));
+        query = query.eq('romaneio_number', parseInt(saleIdInput.trim()));
       } else {
         query = query.eq('id', saleIdInput.trim());
       }
