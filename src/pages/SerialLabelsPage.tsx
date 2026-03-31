@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { QRScanner } from '@/components/serial-labels/QRScanner';
 import { supabase } from '@/integrations/supabase/client';
-import { useOrganization } from '@/hooks/useOrganization';
+import { useAuth } from '@/hooks/useAuth';
+import { useCurrentTenantId } from '@/hooks/useTenant';
 import { toast } from 'sonner';
 import { QrCode, Package, Search, ScanLine, Upload } from 'lucide-react';
 
