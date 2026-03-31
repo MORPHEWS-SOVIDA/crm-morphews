@@ -191,7 +191,7 @@ export default function SerialLabelsPage() {
 
       setSaleData(sale);
       setSaleItems(items || []);
-      toast.success(`Venda #${sale.sale_number} carregada`);
+      toast.success(`Venda #${sale.romaneio_number} carregada`);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao carregar venda');
     } finally {
