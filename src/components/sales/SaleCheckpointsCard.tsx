@@ -49,6 +49,76 @@ import { useQuery } from '@tanstack/react-query';
 import { useUpdateSale } from '@/hooks/useSales';
 import { useTenantMembers } from '@/hooks/multi-tenant';
 import { useDeliveryRegions, type DeliveryRegion } from '@/hooks/useDeliveryConfig';
+import { Link } from 'react-router-dom';
+import { format as formatDateFull, parseISO } from 'date-fns';
+
+// Closing type config
+const closingTypeIcons: Record<string, React.ReactNode> = {
+  pickup: <Store className="w-3.5 h-3.5" />,
+  motoboy: <Bike className="w-3.5 h-3.5" />,
+  carrier: <Truck className="w-3.5 h-3.5" />,
+};
+
+// Hook to fetch closing info for a sale
+function useSaleClosingInfo(saleId: string) {
+  return useQuery({
+    queryKey: ['sale-closing-info-inline', saleId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pickup_closing_sales')
+        .select(`
+          closing_id,
+          closing:pickup_closings(
+            closing_number,
+            closing_type,
+            closing_date,
+            confirmed_at_auxiliar,
+            confirmed_at_admin,
+            confirmed_by_auxiliar,
+            confirmed_by_admin
+          )
+        `)
+        .eq('sale_id', saleId)
+        .maybeSingle();
+
+      if (error || !data?.closing) return null;
+      const c = data.closing as any;
+
+      const userIds = [c.confirmed_by_auxiliar, c.confirmed_by_admin].filter(Boolean);
+      let profileMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', userIds);
+        (profiles || []).forEach((p: any) => {
+          profileMap[p.user_id] = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+        });
+      }
+
+      const closingTypeLabels: Record<string, string> = { pickup: 'Balcão', motoboy: 'Motoboy', carrier: 'Transportadora' };
+      const closingTypePaths: Record<string, string> = { 
+        pickup: '/expedicao/baixa-balcao?tab=historico', 
+        motoboy: '/expedicao/baixa-motoboy?tab=historico', 
+        carrier: '/expedicao/baixa-transportadora?tab=historico',
+      };
+
+      return {
+        closingNumber: c.closing_number as number,
+        closingType: c.closing_type as string,
+        closingTypeLabel: closingTypeLabels[c.closing_type] || c.closing_type,
+        closingPath: closingTypePaths[c.closing_type] || '/expedicao',
+        closingDate: c.closing_date as string,
+        auxiliarName: c.confirmed_by_auxiliar ? profileMap[c.confirmed_by_auxiliar] : null,
+        adminName: c.confirmed_by_admin ? profileMap[c.confirmed_by_admin] : null,
+        confirmedAuxiliarAt: c.confirmed_at_auxiliar as string | null,
+        confirmedAdminAt: c.confirmed_at_admin as string | null,
+      };
+    },
+    enabled: !!saleId,
+    staleTime: 60000,
+  });
+}
 
 // Hook to fetch delivery return reasons
 function useDeliveryReturnReasons() {
