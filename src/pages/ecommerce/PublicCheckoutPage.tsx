@@ -154,7 +154,7 @@ export default function PublicCheckoutPage() {
     }
   };
 
-
+  const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
