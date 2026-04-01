@@ -123,6 +123,8 @@ export interface CheckoutRequest {
   payment_method: PaymentMethod;
   installments?: number;
   affiliate_code?: string;
+  coupon_code?: string;
+  coupon_discount_cents?: number;
   card_token?: string;
   card_hash?: string;
   card_data?: CardData;
