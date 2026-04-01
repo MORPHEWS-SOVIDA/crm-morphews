@@ -57,6 +57,30 @@ Deno.serve(async (req) => {
       );
     }
 
+    // If just requesting storefront info, return it
+    if (action === 'get-storefront-info') {
+      return new Response(
+        JSON.stringify({
+          storefront: {
+            id: storefront.id,
+            name: storefront.name,
+            organization_id: storefront.organization_id,
+            logo_url: null,
+            external_site_url: null,
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // For registration, require name and email
+    if (!name || !email) {
+      return new Response(
+        JSON.stringify({ error: "Nome e email são obrigatórios" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Check if affiliate already exists for this org+email
     const { data: existing } = await supabaseAdmin
       .from("organization_affiliates")
