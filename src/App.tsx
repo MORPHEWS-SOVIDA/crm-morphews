@@ -1431,6 +1431,23 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                {/* Affiliate Dashboard Pages */}
+                <Route
+                  path="/ecommerce/afiliado-vendas"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                      <AffiliateSalesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/afiliado-links"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                      <AffiliateLinksPage />
+                    </ProtectedRoute>
+                  }
+                />
                 {/* Ecommerce Carteira - partners can see their balance */}
                 <Route
                   path="/ecommerce/carteira"
