@@ -15406,6 +15406,8 @@ export type Database = {
           conversion_sent_at: string | null
           conversion_sent_to_google: boolean | null
           conversion_sent_to_meta: boolean | null
+          coupon_code: string | null
+          coupon_discount_cents: number | null
           created_at: string
           created_by: string
           delivered_at: string | null
@@ -15514,6 +15516,8 @@ export type Database = {
           conversion_sent_at?: string | null
           conversion_sent_to_google?: boolean | null
           conversion_sent_to_meta?: boolean | null
+          coupon_code?: string | null
+          coupon_discount_cents?: number | null
           created_at?: string
           created_by: string
           delivered_at?: string | null
@@ -15624,6 +15628,8 @@ export type Database = {
           conversion_sent_at?: string | null
           conversion_sent_to_google?: boolean | null
           conversion_sent_to_meta?: boolean | null
+          coupon_code?: string | null
+          coupon_discount_cents?: number | null
           created_at?: string
           created_by?: string
           delivered_at?: string | null
@@ -18541,6 +18547,7 @@ export type Database = {
           created_at: string
           custom_css: string | null
           default_seller_user_id: string | null
+          external_site_url: string | null
           facebook_pixel_id: string | null
           favicon_url: string | null
           footer_config: Json | null
@@ -18573,6 +18580,7 @@ export type Database = {
           created_at?: string
           custom_css?: string | null
           default_seller_user_id?: string | null
+          external_site_url?: string | null
           facebook_pixel_id?: string | null
           favicon_url?: string | null
           footer_config?: Json | null
@@ -18605,6 +18613,7 @@ export type Database = {
           created_at?: string
           custom_css?: string | null
           default_seller_user_id?: string | null
+          external_site_url?: string | null
           facebook_pixel_id?: string | null
           favicon_url?: string | null
           footer_config?: Json | null
