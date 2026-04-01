@@ -256,7 +256,8 @@ export default function PublicCheckoutPage() {
   
   // Total includes shipping (shipping is NOT subject to PIX discount)
   const productTotal = paymentMethod === 'pix' ? pixSubtotal : subtotal;
-  const total = productTotal + shippingCost;
+  const couponDiscount = couponApplied?.discount_cents || 0;
+  const total = Math.max(0, productTotal - couponDiscount) + shippingCost;
   const totalToCharge = paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest + shippingCost : total;
 
   // Theme styles
