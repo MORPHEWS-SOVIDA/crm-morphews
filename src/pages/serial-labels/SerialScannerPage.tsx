@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 import { toast } from 'sonner';
 import { ArrowLeft, ScanLine, Search, Package } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { logSerialAction } from '@/hooks/useSerialLabelLogs';
 
 const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   available: { label: 'Disponível', variant: 'outline' },
