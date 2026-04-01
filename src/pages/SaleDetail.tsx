@@ -1661,6 +1661,13 @@ export default function SaleDetail() {
               finalizedByName={sale.finalized_by_profile 
                 ? `${sale.finalized_by_profile.first_name || ''} ${sale.finalized_by_profile.last_name || ''}`.trim() 
                 : null}
+              saleItems={sale.items?.map((item: any) => ({
+                id: item.id,
+                product_id: item.product_id,
+                product_name: item.product_name,
+                quantity: item.quantity,
+              }))}
+              romaneioNumber={sale.romaneio_number}
             />
 
             {/* Carrier Tracking Card - only for carrier delivery */}
