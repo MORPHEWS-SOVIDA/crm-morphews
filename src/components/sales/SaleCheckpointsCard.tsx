@@ -885,7 +885,7 @@ export function SaleCheckpointsCard({
         </CardContent>
       </Card>
 
-      {/* Expedition Validation Dialog */}
+      {/* Expedition Validation Dialog (fallback sem seriais) */}
       <AlertDialog open={showExpeditionDialog} onOpenChange={setShowExpeditionDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -902,6 +902,30 @@ export function SaleCheckpointsCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Scanner Dialog (quando tem saleItems) */}
+      <Dialog open={showScannerDialog} onOpenChange={setShowScannerDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              📷 Conferência por Scanner
+              {romaneioNumber && <span className="text-muted-foreground font-normal text-sm">Venda #{romaneioNumber}</span>}
+            </DialogTitle>
+          </DialogHeader>
+          {saleItems && saleItems.length > 0 && (
+            <SaleScanValidation
+              saleId={saleId}
+              saleNumber={romaneioNumber}
+              saleItems={saleItems}
+              mode="separation"
+              onComplete={async () => {
+                await handleValidateExpedition();
+                setShowScannerDialog(false);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Return Dialog */}
       <AlertDialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
