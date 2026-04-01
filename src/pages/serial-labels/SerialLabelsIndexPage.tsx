@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { QrCode, Tag, ClipboardList, RotateCcw, ScanLine, Search, Upload } from 'lucide-react';
+import { QrCode, Tag, ClipboardList, RotateCcw, ScanLine, Search, Upload, FileText } from 'lucide-react';
 
 const sections = [
   {
