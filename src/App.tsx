@@ -279,7 +279,7 @@ const App = () => (
                 <Route path="/t/:slug" element={<TracZAPRedirect />} />
                 
                 {/* Affiliate Registration (Public) */}
-                <Route path="/cadastro-afiliado/:storefrontSlug" element={<AffiliateRegistrationPage />} />
+                <Route path="/cadastro-afiliado/:tenantSlug/:storefrontSlug" element={<AffiliateRegistrationPage />} />
                 
                 {/* Partner Routes (Public) */}
                 <Route path="/parceiro/convite/:code" element={<PartnerInvitePage />} />

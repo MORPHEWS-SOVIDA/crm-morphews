@@ -18,7 +18,7 @@ interface StorefrontInfo {
 }
 
 export default function AffiliateRegistrationPage() {
-  const { storefrontSlug } = useParams<{ storefrontSlug: string }>();
+  const { tenantSlug, storefrontSlug } = useParams<{ tenantSlug: string; storefrontSlug: string }>();
   const [storefront, setStorefront] = useState<StorefrontInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
