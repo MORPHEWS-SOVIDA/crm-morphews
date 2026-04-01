@@ -213,6 +213,9 @@ const EcommerceParceiros = lazy(() => import("./pages/ecommerce/EcommerceParceir
 const EcommerceCarteira = lazy(() => import("./pages/ecommerce/EcommerceCarteira"));
 const CheckoutsPage = lazy(() => import("./pages/ecommerce/CheckoutsPage"));
 const PartnerLinksPage = lazy(() => import("./pages/ecommerce/PartnerLinksPage"));
+const AffiliateRegistrationPage = lazy(() => import("./pages/ecommerce/AffiliateRegistrationPage"));
+const AffiliateSalesPage = lazy(() => import("./pages/ecommerce/AffiliateSalesPage"));
+const AffiliateLinksPage = lazy(() => import("./pages/ecommerce/AffiliateLinksPage"));
 // Partner pages (public and portal)
 const PartnerInvitePage = lazy(() => import("./pages/partner/PartnerInvitePage"));
 const PartnerPortal = lazy(() => import("./pages/partner/PartnerPortal"));
@@ -274,6 +277,9 @@ const App = () => (
                 <Route path="/quiz/:slug" element={<QuizPublic />} />
                 <Route path="/pagar/:slug" element={<PaymentLinkCheckout />} />
                 <Route path="/t/:slug" element={<TracZAPRedirect />} />
+                
+                {/* Affiliate Registration (Public) */}
+                <Route path="/cadastro-afiliado/:storefrontSlug" element={<AffiliateRegistrationPage />} />
                 
                 {/* Partner Routes (Public) */}
                 <Route path="/parceiro/convite/:code" element={<PartnerInvitePage />} />
@@ -1422,6 +1428,23 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['settings_view']}>
                       <EcommerceParceiros />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Affiliate Dashboard Pages */}
+                <Route
+                  path="/ecommerce/afiliado-vendas"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                      <AffiliateSalesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ecommerce/afiliado-links"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                      <AffiliateLinksPage />
                     </ProtectedRoute>
                   }
                 />

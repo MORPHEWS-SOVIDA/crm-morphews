@@ -96,11 +96,63 @@ export default function PublicCheckoutPage() {
   const [sessionId] = useState(() => crypto.randomUUID());
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState<{ code: string; discount_cents: number; discount_type: string; discount_value: number } | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  
   // Capture affiliate code from URL
   const affiliateCode = useMemo(() => {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('ref') || null;
   }, []);
+
+  // Coupon validation
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim() || !checkout) return;
+    setIsValidatingCoupon(true);
+    try {
+      const { data: coupon, error } = await supabase
+        .from('coupons')
+        .select('id, code, discount_type, discount_value, is_active, expires_at, max_redemptions, redemptions_count, min_order_cents, product_ids, affiliate_id')
+        .eq('code', couponCode.trim().toUpperCase())
+        .eq('organization_id', checkout.organization_id)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (error || !coupon) {
+        toast.error('Cupom inválido ou expirado');
+        return;
+      }
+      if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+        toast.error('Cupom expirado');
+        return;
+      }
+      if (coupon.max_redemptions && coupon.redemptions_count >= coupon.max_redemptions) {
+        toast.error('Cupom esgotado');
+        return;
+      }
+      
+      let discountCents = 0;
+      if (coupon.discount_type === 'percentage') {
+        discountCents = Math.round(productPrice * (coupon.discount_value / 100));
+      } else {
+        discountCents = Math.round(coupon.discount_value * 100);
+      }
+      
+      setCouponApplied({
+        code: coupon.code,
+        discount_cents: discountCents,
+        discount_type: coupon.discount_type,
+        discount_value: coupon.discount_value,
+      });
+      toast.success(`Cupom ${coupon.code} aplicado! Desconto de ${formatCurrency(discountCents)}`);
+    } catch (err) {
+      toast.error('Erro ao validar cupom');
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -204,7 +256,8 @@ export default function PublicCheckoutPage() {
   
   // Total includes shipping (shipping is NOT subject to PIX discount)
   const productTotal = paymentMethod === 'pix' ? pixSubtotal : subtotal;
-  const total = productTotal + shippingCost;
+  const couponDiscount = couponApplied?.discount_cents || 0;
+  const total = Math.max(0, productTotal - couponDiscount) + shippingCost;
   const totalToCharge = paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest + shippingCost : total;
 
   // Theme styles
@@ -497,6 +550,8 @@ export default function PublicCheckoutPage() {
           cvv: cardData.card_cvv,
         } : undefined,
         affiliate_code: affiliateCode,
+        coupon_code: couponApplied?.code || undefined,
+        coupon_discount_cents: couponApplied?.discount_cents || undefined,
         utm: {
           ...trackingParams,
         },
@@ -718,6 +773,12 @@ export default function PublicCheckoutPage() {
                           Frete Grátis
                         </span>
                         <span>R$ 0,00</span>
+                      </div>
+                    )}
+                    {couponApplied && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Cupom ({couponApplied.code})</span>
+                        <span>-{formatCurrency(couponApplied.discount_cents)}</span>
                       </div>
                     )}
                     <div className="flex justify-between font-bold text-lg pt-2 border-t">
@@ -1086,6 +1147,34 @@ export default function PublicCheckoutPage() {
                         )}
                       </div>
                     )}
+
+                    {/* Coupon Code */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Cupom de desconto</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                          placeholder="Digite o cupom"
+                          disabled={!!couponApplied}
+                          className="flex-1"
+                        />
+                        {couponApplied ? (
+                          <Button type="button" variant="outline" size="sm" onClick={() => { setCouponApplied(null); setCouponCode(''); }}>
+                            Remover
+                          </Button>
+                        ) : (
+                          <Button type="button" variant="outline" size="sm" onClick={handleApplyCoupon} disabled={isValidatingCoupon || !couponCode.trim()}>
+                            {isValidatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Aplicar'}
+                          </Button>
+                        )}
+                      </div>
+                      {couponApplied && (
+                        <p className="text-sm text-green-600">
+                          ✓ Cupom {couponApplied.code} aplicado — Desconto: {formatCurrency(couponApplied.discount_cents)}
+                        </p>
+                      )}
+                    </div>
 
                     {/* Submit Button */}
                     <Button
