@@ -148,6 +148,8 @@ interface SaleCheckpointsCardProps {
   closedByName?: string | null;
   finalizedAt?: string | null;
   finalizedByName?: string | null;
+  saleItems?: Array<{ id: string; product_id: string; product_name: string; quantity: number }>;
+  romaneioNumber?: string | number;
 }
 
 export function SaleCheckpointsCard({ 
@@ -159,6 +161,8 @@ export function SaleCheckpointsCard({
   closedByName,
   finalizedAt,
   finalizedByName,
+  saleItems,
+  romaneioNumber,
 }: SaleCheckpointsCardProps) {
   const { data: checkpoints = [], isLoading } = useSaleCheckpoints(saleId);
   const { data: history = [] } = useSaleCheckpointHistory(saleId);
