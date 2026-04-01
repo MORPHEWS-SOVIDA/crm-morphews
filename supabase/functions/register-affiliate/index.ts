@@ -12,11 +12,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { storefrontSlug, name, email, phone, how_promote } = await req.json();
+    const { tenantSlug, storefrontSlug, name, email, phone, how_promote } = await req.json();
 
-    if (!storefrontSlug || !name || !email) {
+    if (!tenantSlug || !storefrontSlug || !name || !email) {
       return new Response(
-        JSON.stringify({ error: "Nome, email e loja são obrigatórios" }),
+        JSON.stringify({ error: "Tenant, loja, nome e email são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -26,17 +26,32 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find storefront by slug
+    // Find tenant organization
+    const { data: tenant } = await supabaseAdmin
+      .from("organizations")
+      .select("id")
+      .eq("slug", tenantSlug)
+      .maybeSingle();
+
+    if (!tenant) {
+      return new Response(
+        JSON.stringify({ error: "Organização não encontrada" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Find storefront by slug within the tenant
     const { data: storefront, error: sfError } = await supabaseAdmin
       .from("tenant_storefronts")
       .select("id, name, organization_id")
       .eq("slug", storefrontSlug)
+      .eq("organization_id", tenant.id)
       .eq("is_active", true)
       .maybeSingle();
 
     if (sfError || !storefront) {
       return new Response(
-        JSON.stringify({ error: "Loja não encontrada" }),
+        JSON.stringify({ error: "Loja não encontrada nesta organização" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

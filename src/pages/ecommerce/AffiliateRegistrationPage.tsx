@@ -18,7 +18,7 @@ interface StorefrontInfo {
 }
 
 export default function AffiliateRegistrationPage() {
-  const { storefrontSlug } = useParams<{ storefrontSlug: string }>();
+  const { tenantSlug, storefrontSlug } = useParams<{ tenantSlug: string; storefrontSlug: string }>();
   const [storefront, setStorefront] = useState<StorefrontInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -32,18 +32,29 @@ export default function AffiliateRegistrationPage() {
 
   useEffect(() => {
     async function loadStorefront() {
-      if (!storefrontSlug) return;
+      if (!storefrontSlug || !tenantSlug) return;
+      
+      // Find org by tenant slug first
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('slug', tenantSlug)
+        .maybeSingle();
+
+      if (!org) { setLoading(false); return; }
+
       const { data } = await supabase
         .from('tenant_storefronts')
         .select('id, name, logo_url, organization_id, external_site_url')
         .eq('slug', storefrontSlug)
+        .eq('organization_id', org.id)
         .eq('is_active', true)
         .maybeSingle();
       setStorefront(data as StorefrontInfo | null);
       setLoading(false);
     }
     loadStorefront();
-  }, [storefrontSlug]);
+  }, [tenantSlug, storefrontSlug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +67,7 @@ export default function AffiliateRegistrationPage() {
     try {
       const { data, error } = await supabase.functions.invoke('register-affiliate', {
         body: {
+          tenantSlug,
           storefrontSlug,
           name: form.name,
           email: form.email,
