@@ -96,6 +96,11 @@ export default function PublicCheckoutPage() {
   const [sessionId] = useState(() => crypto.randomUUID());
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState<{ code: string; discount_cents: number; discount_type: string; discount_value: number } | null>(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  
   // Capture affiliate code from URL
   const affiliateCode = useMemo(() => {
     const urlParams = new URLSearchParams(window.location.search);
