@@ -23,6 +23,7 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
 
 export default function SerialScannerPage() {
   const { data: orgId } = useCurrentTenantId();
+  const { user } = useAuth();
   const [scanning, setScanning] = useState(false);
   const [code, setCode] = useState('');
   const [label, setLabel] = useState<any>(null);
