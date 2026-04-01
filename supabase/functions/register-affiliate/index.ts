@@ -12,11 +12,12 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { tenantSlug, storefrontSlug, name, email, phone, how_promote } = await req.json();
+    const body = await req.json();
+    const { tenantSlug, storefrontSlug, action, name, email, phone, how_promote } = body;
 
-    if (!tenantSlug || !storefrontSlug || !name || !email) {
+    if (!tenantSlug || !storefrontSlug) {
       return new Response(
-        JSON.stringify({ error: "Tenant, loja, nome e email são obrigatórios" }),
+        JSON.stringify({ error: "Tenant e loja são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -43,7 +44,7 @@ Deno.serve(async (req) => {
     // Find storefront by slug within the tenant
     const { data: storefront, error: sfError } = await supabaseAdmin
       .from("tenant_storefronts")
-      .select("id, name, organization_id")
+      .select("id, name, organization_id, logo_url, external_site_url")
       .eq("slug", storefrontSlug)
       .eq("organization_id", tenant.id)
       .eq("is_active", true)
@@ -53,6 +54,30 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Loja não encontrada nesta organização" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // If just requesting storefront info, return it
+    if (action === 'get-storefront-info') {
+      return new Response(
+        JSON.stringify({
+          storefront: {
+            id: storefront.id,
+            name: storefront.name,
+            organization_id: storefront.organization_id,
+            logo_url: storefront.logo_url ?? null,
+            external_site_url: storefront.external_site_url ?? null,
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // For registration, require name and email
+    if (!name || !email) {
+      return new Response(
+        JSON.stringify({ error: "Nome e email são obrigatórios" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

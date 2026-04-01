@@ -34,23 +34,27 @@ export default function AffiliateRegistrationPage() {
     async function loadStorefront() {
       if (!storefrontSlug || !tenantSlug) return;
       
-      // Find org by tenant slug first
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('id')
-        .eq('slug', tenantSlug)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase.functions.invoke('register-affiliate', {
+          body: {
+            tenantSlug,
+            storefrontSlug,
+            action: 'get-storefront-info',
+          },
+        });
 
-      if (!org) { setLoading(false); return; }
+        if (error || data?.error) {
+          console.error('Load storefront error:', error || data?.error);
+          setLoading(false);
+          return;
+        }
 
-      const { data } = await supabase
-        .from('tenant_storefronts')
-        .select('id, name, logo_url, organization_id, external_site_url')
-        .eq('slug', storefrontSlug)
-        .eq('organization_id', org.id)
-        .eq('is_active', true)
-        .maybeSingle();
-      setStorefront(data as StorefrontInfo | null);
+        if (data?.storefront) {
+          setStorefront(data.storefront as StorefrontInfo);
+        }
+      } catch (err) {
+        console.error('Load storefront error:', err);
+      }
       setLoading(false);
     }
     loadStorefront();
