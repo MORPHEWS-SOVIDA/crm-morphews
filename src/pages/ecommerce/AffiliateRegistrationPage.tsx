@@ -67,6 +67,7 @@ export default function AffiliateRegistrationPage() {
     try {
       const { data, error } = await supabase.functions.invoke('register-affiliate', {
         body: {
+          tenantSlug,
           storefrontSlug,
           name: form.name,
           email: form.email,
