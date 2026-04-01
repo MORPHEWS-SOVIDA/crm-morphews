@@ -107,7 +107,54 @@ export default function PublicCheckoutPage() {
     return urlParams.get('ref') || null;
   }, []);
 
-  const [formData, setFormData] = useState({
+  // Coupon validation
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim() || !checkout) return;
+    setIsValidatingCoupon(true);
+    try {
+      const { data: coupon, error } = await supabase
+        .from('coupons')
+        .select('id, code, discount_type, discount_value, is_active, expires_at, max_redemptions, redemptions_count, min_order_cents, product_ids, affiliate_id')
+        .eq('code', couponCode.trim().toUpperCase())
+        .eq('organization_id', checkout.organization_id)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (error || !coupon) {
+        toast.error('Cupom inválido ou expirado');
+        return;
+      }
+      if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+        toast.error('Cupom expirado');
+        return;
+      }
+      if (coupon.max_redemptions && coupon.redemptions_count >= coupon.max_redemptions) {
+        toast.error('Cupom esgotado');
+        return;
+      }
+      
+      let discountCents = 0;
+      if (coupon.discount_type === 'percentage') {
+        discountCents = Math.round(productPrice * (coupon.discount_value / 100));
+      } else {
+        discountCents = Math.round(coupon.discount_value * 100);
+      }
+      
+      setCouponApplied({
+        code: coupon.code,
+        discount_cents: discountCents,
+        discount_type: coupon.discount_type,
+        discount_value: coupon.discount_value,
+      });
+      toast.success(`Cupom ${coupon.code} aplicado! Desconto de ${formatCurrency(discountCents)}`);
+    } catch (err) {
+      toast.error('Erro ao validar cupom');
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+
     name: '',
     email: '',
     phone: '',
