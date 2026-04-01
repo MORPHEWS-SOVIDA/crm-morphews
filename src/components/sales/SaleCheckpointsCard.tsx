@@ -182,6 +182,7 @@ export function SaleCheckpointsCard({
   const [selectedReturnReason, setSelectedReturnReason] = useState<string>('');
   const [returnNotes, setReturnNotes] = useState('');
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
+  const [showScannerDialog, setShowScannerDialog] = useState(false);
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
 
   // Get the selected region
