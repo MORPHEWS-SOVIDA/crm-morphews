@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     // Find storefront by slug within the tenant
     const { data: storefront, error: sfError } = await supabaseAdmin
       .from("tenant_storefronts")
-      .select("id, name, organization_id")
+      .select("id, name, organization_id, logo_url, external_site_url")
       .eq("slug", storefrontSlug)
       .eq("organization_id", tenant.id)
       .eq("is_active", true)
