@@ -45,13 +45,16 @@ export default function SerialScannerPage() {
         setLabel(data);
         setCode(c);
         toast.success(`Etiqueta encontrada: ${c}`);
+        if (orgId) logSerialAction({ organization_id: orgId, serial_code: c.trim().toUpperCase(), action: 'scan_lookup', user_id: user?.id, success: true, details: { status: data.status } });
       } else {
         setLabel(null);
         setCode(c);
         toast.info(`Etiqueta ${c} não registrada no sistema`);
+        if (orgId) logSerialAction({ organization_id: orgId, serial_code: c.trim().toUpperCase(), action: 'scan_lookup', user_id: user?.id, success: false, error_message: 'Código não encontrado' });
       }
     } catch {
       toast.error('Erro ao buscar etiqueta');
+      if (orgId) logSerialAction({ organization_id: orgId, serial_code: c.trim().toUpperCase(), action: 'scan_lookup', user_id: user?.id, success: false, error_message: 'Erro na busca' });
     } finally {
       setLoading(false);
     }
