@@ -32,18 +32,29 @@ export default function AffiliateRegistrationPage() {
 
   useEffect(() => {
     async function loadStorefront() {
-      if (!storefrontSlug) return;
+      if (!storefrontSlug || !tenantSlug) return;
+      
+      // Find org by tenant slug first
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('slug', tenantSlug)
+        .maybeSingle();
+
+      if (!org) { setLoading(false); return; }
+
       const { data } = await supabase
         .from('tenant_storefronts')
         .select('id, name, logo_url, organization_id, external_site_url')
         .eq('slug', storefrontSlug)
+        .eq('organization_id', org.id)
         .eq('is_active', true)
         .maybeSingle();
       setStorefront(data as StorefrontInfo | null);
       setLoading(false);
     }
     loadStorefront();
-  }, [storefrontSlug]);
+  }, [tenantSlug, storefrontSlug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
