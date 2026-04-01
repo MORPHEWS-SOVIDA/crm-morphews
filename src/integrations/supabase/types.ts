@@ -16016,6 +16016,53 @@ export type Database = {
           },
         ]
       }
+      serial_label_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          error_message: string | null
+          id: string
+          organization_id: string
+          sale_id: string | null
+          serial_code: string | null
+          success: boolean | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          organization_id: string
+          sale_id?: string | null
+          serial_code?: string | null
+          success?: boolean | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          error_message?: string | null
+          id?: string
+          organization_id?: string
+          sale_id?: string | null
+          serial_code?: string | null
+          success?: boolean | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "serial_label_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shipping_carriers: {
         Row: {
           correios_service_code: string | null

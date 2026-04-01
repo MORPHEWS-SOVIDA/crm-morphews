@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 import { toast } from 'sonner';
 import { ArrowLeft, ScanLine, Search, Package } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { logSerialAction } from '@/hooks/useSerialLabelLogs';
 
 const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   available: { label: 'Disponível', variant: 'outline' },
@@ -21,6 +23,7 @@ const STATUS_LABELS: Record<string, { label: string; variant: 'default' | 'secon
 
 export default function SerialScannerPage() {
   const { data: orgId } = useCurrentTenantId();
+  const { user } = useAuth();
   const [scanning, setScanning] = useState(false);
   const [code, setCode] = useState('');
   const [label, setLabel] = useState<any>(null);
@@ -42,13 +45,16 @@ export default function SerialScannerPage() {
         setLabel(data);
         setCode(c);
         toast.success(`Etiqueta encontrada: ${c}`);
+        if (orgId) logSerialAction({ organization_id: orgId, serial_code: c.trim().toUpperCase(), action: 'scan_lookup', user_id: user?.id, success: true, details: { status: data.status } });
       } else {
         setLabel(null);
         setCode(c);
         toast.info(`Etiqueta ${c} não registrada no sistema`);
+        if (orgId) logSerialAction({ organization_id: orgId, serial_code: c.trim().toUpperCase(), action: 'scan_lookup', user_id: user?.id, success: false, error_message: 'Código não encontrado' });
       }
     } catch {
       toast.error('Erro ao buscar etiqueta');
+      if (orgId) logSerialAction({ organization_id: orgId, serial_code: c.trim().toUpperCase(), action: 'scan_lookup', user_id: user?.id, success: false, error_message: 'Erro na busca' });
     } finally {
       setLoading(false);
     }

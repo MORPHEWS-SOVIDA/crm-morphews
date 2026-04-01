@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { QrCode, Tag, ClipboardList, RotateCcw, ScanLine, Search, Upload } from 'lucide-react';
+import { QrCode, Tag, ClipboardList, RotateCcw, ScanLine, Search, Upload, FileText } from 'lucide-react';
 
 const sections = [
   {
@@ -44,6 +44,13 @@ const sections = [
     icon: Upload,
     href: '/expedicao/etiquetas-seriais/registrar-lote',
     color: 'text-primary',
+  },
+  {
+    title: 'Logs / Auditoria',
+    description: 'Histórico de scans, registros, erros e rastreabilidade completa',
+    icon: FileText,
+    href: '/expedicao/etiquetas-seriais/logs',
+    color: 'text-muted-foreground',
   },
 ];
 
