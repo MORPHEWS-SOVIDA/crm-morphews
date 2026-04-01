@@ -45,6 +45,13 @@ const sections = [
     href: '/expedicao/etiquetas-seriais/registrar-lote',
     color: 'text-primary',
   },
+  {
+    title: 'Logs / Auditoria',
+    description: 'Histórico de scans, registros, erros e rastreabilidade completa',
+    icon: FileText,
+    href: '/expedicao/etiquetas-seriais/logs',
+    color: 'text-muted-foreground',
+  },
 ];
 
 export default function SerialLabelsIndexPage() {

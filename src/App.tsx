@@ -1040,6 +1040,14 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/expedicao/etiquetas-seriais/logs"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialLogsPage />
+                    </ProtectedRoute>
+                  }
+                />
                 
                 {/* 2FA - for managers only */}
                 <Route
