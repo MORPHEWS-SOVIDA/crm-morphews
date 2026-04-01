@@ -69,16 +69,16 @@ export default function AffiliateRegistrationPage() {
       // Create affiliate record (inactive - needs admin approval)
       const { error: affiliateError } = await supabase
         .from('organization_affiliates')
-        .insert({
+        .insert([{
           organization_id: storefront.organization_id,
           email: form.email,
           name: form.name,
           phone: form.phone || null,
-          is_active: false, // Needs admin approval
+          is_active: false,
           user_id: authData.user?.id || null,
           default_commission_type: 'percentage',
-          default_commission_value: 10, // default, admin can change
-        });
+          default_commission_value: 10,
+        }]);
 
       if (affiliateError) {
         // If duplicate, still show success
