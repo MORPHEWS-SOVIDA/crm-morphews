@@ -45,7 +45,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: CheckoutRequest = await req.json();
-    const { customer, items, payment_method, affiliate_code, storefront_id, landing_page_id, standalone_checkout_id, offer_id, cart_id, utm } = body;
+    const { customer, items, payment_method, affiliate_code, coupon_code, coupon_discount_cents, storefront_id, landing_page_id, standalone_checkout_id, offer_id, cart_id, utm } = body;
 
     // Validate CPF/CNPJ early for credit card payments (gateway requires valid document)
     const docValidation = validateDocument(customer?.document || '');
