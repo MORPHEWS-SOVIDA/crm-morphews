@@ -775,6 +775,12 @@ export default function PublicCheckoutPage() {
                         <span>R$ 0,00</span>
                       </div>
                     )}
+                    {couponApplied && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Cupom ({couponApplied.code})</span>
+                        <span>-{formatCurrency(couponApplied.discount_cents)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between font-bold text-lg pt-2 border-t">
                       <span>Total</span>
                       <span style={{ color: theme.primary_color }}>{formatCurrency(totalToCharge)}</span>
