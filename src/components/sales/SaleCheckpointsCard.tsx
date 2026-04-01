@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { SaleScanValidation } from '@/components/serial-labels/SaleScanValidation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -146,6 +148,8 @@ interface SaleCheckpointsCardProps {
   closedByName?: string | null;
   finalizedAt?: string | null;
   finalizedByName?: string | null;
+  saleItems?: Array<{ id: string; product_id: string; product_name: string; quantity: number }>;
+  romaneioNumber?: string | number;
 }
 
 export function SaleCheckpointsCard({ 
@@ -157,6 +161,8 @@ export function SaleCheckpointsCard({
   closedByName,
   finalizedAt,
   finalizedByName,
+  saleItems,
+  romaneioNumber,
 }: SaleCheckpointsCardProps) {
   const { data: checkpoints = [], isLoading } = useSaleCheckpoints(saleId);
   const { data: history = [] } = useSaleCheckpointHistory(saleId);
@@ -176,6 +182,7 @@ export function SaleCheckpointsCard({
   const [selectedReturnReason, setSelectedReturnReason] = useState<string>('');
   const [returnNotes, setReturnNotes] = useState('');
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
+  const [showScannerDialog, setShowScannerDialog] = useState(false);
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
 
   // Get the selected region
@@ -387,11 +394,17 @@ export function SaleCheckpointsCard({
         <Button
           size="sm"
           className="mt-2 w-full"
-          onClick={() => setShowExpeditionDialog(true)}
+          onClick={() => {
+            if (saleItems && saleItems.length > 0) {
+              setShowScannerDialog(true);
+            } else {
+              setShowExpeditionDialog(true);
+            }
+          }}
           disabled={toggleMutation.isPending}
         >
           <CheckCircle2 className="w-4 h-4 mr-2" />
-          Validar Expedição
+          {saleItems && saleItems.length > 0 ? '📷 Escanear e Validar' : 'Validar Expedição'}
         </Button>
       );
     }
@@ -872,7 +885,7 @@ export function SaleCheckpointsCard({
         </CardContent>
       </Card>
 
-      {/* Expedition Validation Dialog */}
+      {/* Expedition Validation Dialog (fallback sem seriais) */}
       <AlertDialog open={showExpeditionDialog} onOpenChange={setShowExpeditionDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -889,6 +902,30 @@ export function SaleCheckpointsCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Scanner Dialog (quando tem saleItems) */}
+      <Dialog open={showScannerDialog} onOpenChange={setShowScannerDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              📷 Conferência por Scanner
+              {romaneioNumber && <span className="text-muted-foreground font-normal text-sm">Venda #{romaneioNumber}</span>}
+            </DialogTitle>
+          </DialogHeader>
+          {saleItems && saleItems.length > 0 && (
+            <SaleScanValidation
+              saleId={saleId}
+              saleNumber={romaneioNumber}
+              saleItems={saleItems}
+              mode="separation"
+              onComplete={async () => {
+                await handleValidateExpedition();
+                setShowScannerDialog(false);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Return Dialog */}
       <AlertDialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
