@@ -132,8 +132,8 @@ export function useExpeditionSales(dateFrom?: string, dateTo?: string) {
 
 export function getDefaultExpeditionDateRange() {
   const now = new Date();
-  const from = startOfMonth(now);
-  const to = endOfMonth(now);
+  const from = addDays(startOfDay(now), -15);
+  const to = addDays(startOfDay(now), 15);
   return {
     from: format(from, 'yyyy-MM-dd') + 'T00:00:00',
     to: format(to, 'yyyy-MM-dd') + 'T23:59:59',
