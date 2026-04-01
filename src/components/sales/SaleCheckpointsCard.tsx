@@ -394,11 +394,17 @@ export function SaleCheckpointsCard({
         <Button
           size="sm"
           className="mt-2 w-full"
-          onClick={() => setShowExpeditionDialog(true)}
+          onClick={() => {
+            if (saleItems && saleItems.length > 0) {
+              setShowScannerDialog(true);
+            } else {
+              setShowExpeditionDialog(true);
+            }
+          }}
           disabled={toggleMutation.isPending}
         >
           <CheckCircle2 className="w-4 h-4 mr-2" />
-          Validar Expedição
+          {saleItems && saleItems.length > 0 ? '📷 Escanear e Validar' : 'Validar Expedição'}
         </Button>
       );
     }
