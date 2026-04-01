@@ -65,8 +65,8 @@ Deno.serve(async (req) => {
             id: storefront.id,
             name: storefront.name,
             organization_id: storefront.organization_id,
-            logo_url: null,
-            external_site_url: null,
+            logo_url: storefront.logo_url ?? null,
+            external_site_url: storefront.external_site_url ?? null,
           }
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
