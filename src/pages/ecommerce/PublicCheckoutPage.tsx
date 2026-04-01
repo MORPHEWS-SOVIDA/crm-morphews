@@ -1139,6 +1139,34 @@ export default function PublicCheckoutPage() {
                       </div>
                     )}
 
+                    {/* Coupon Code */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Cupom de desconto</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                          placeholder="Digite o cupom"
+                          disabled={!!couponApplied}
+                          className="flex-1"
+                        />
+                        {couponApplied ? (
+                          <Button type="button" variant="outline" size="sm" onClick={() => { setCouponApplied(null); setCouponCode(''); }}>
+                            Remover
+                          </Button>
+                        ) : (
+                          <Button type="button" variant="outline" size="sm" onClick={handleApplyCoupon} disabled={isValidatingCoupon || !couponCode.trim()}>
+                            {isValidatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Aplicar'}
+                          </Button>
+                        )}
+                      </div>
+                      {couponApplied && (
+                        <p className="text-sm text-green-600">
+                          ✓ Cupom {couponApplied.code} aplicado — Desconto: {formatCurrency(couponApplied.discount_cents)}
+                        </p>
+                      )}
+                    </div>
+
                     {/* Submit Button */}
                     <Button
                       type="submit"
