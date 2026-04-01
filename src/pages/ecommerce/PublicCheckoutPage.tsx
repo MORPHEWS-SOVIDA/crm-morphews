@@ -550,6 +550,8 @@ export default function PublicCheckoutPage() {
           cvv: cardData.card_cvv,
         } : undefined,
         affiliate_code: affiliateCode,
+        coupon_code: couponApplied?.code || undefined,
+        coupon_discount_cents: couponApplied?.discount_cents || undefined,
         utm: {
           ...trackingParams,
         },
