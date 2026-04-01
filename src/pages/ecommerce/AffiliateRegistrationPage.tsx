@@ -67,6 +67,9 @@ export default function AffiliateRegistrationPage() {
       if (authError) throw authError;
 
       // Create affiliate record (inactive - needs admin approval)
+      // Generate a temporary affiliate code (trigger may override it)
+      const tempCode = 'AFF' + crypto.randomUUID().replace(/-/g, '').slice(0, 7).toUpperCase();
+      
       const { error: affiliateError } = await supabase
         .from('organization_affiliates')
         .insert([{
@@ -76,8 +79,7 @@ export default function AffiliateRegistrationPage() {
           phone: form.phone || null,
           is_active: false,
           user_id: authData.user?.id || null,
-          default_commission_type: 'percentage',
-          default_commission_value: 10,
+          affiliate_code: tempCode,
         }]);
 
       if (affiliateError) {
