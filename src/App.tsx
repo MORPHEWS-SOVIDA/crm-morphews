@@ -213,6 +213,9 @@ const EcommerceParceiros = lazy(() => import("./pages/ecommerce/EcommerceParceir
 const EcommerceCarteira = lazy(() => import("./pages/ecommerce/EcommerceCarteira"));
 const CheckoutsPage = lazy(() => import("./pages/ecommerce/CheckoutsPage"));
 const PartnerLinksPage = lazy(() => import("./pages/ecommerce/PartnerLinksPage"));
+const AffiliateRegistrationPage = lazy(() => import("./pages/ecommerce/AffiliateRegistrationPage"));
+const AffiliateSalesPage = lazy(() => import("./pages/ecommerce/AffiliateSalesPage"));
+const AffiliateLinksPage = lazy(() => import("./pages/ecommerce/AffiliateLinksPage"));
 // Partner pages (public and portal)
 const PartnerInvitePage = lazy(() => import("./pages/partner/PartnerInvitePage"));
 const PartnerPortal = lazy(() => import("./pages/partner/PartnerPortal"));
