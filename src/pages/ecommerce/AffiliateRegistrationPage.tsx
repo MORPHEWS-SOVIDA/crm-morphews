@@ -54,45 +54,21 @@ export default function AffiliateRegistrationPage() {
 
     setSubmitting(true);
     try {
-      // Create auth account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: form.email,
-        password: crypto.randomUUID().slice(0, 16) + 'Aa1!', // temp password, user will reset
-        options: {
-          data: { full_name: form.name },
-          emailRedirectTo: window.location.origin + '/login',
+      const { data, error } = await supabase.functions.invoke('register-affiliate', {
+        body: {
+          storefrontSlug,
+          name: form.name,
+          email: form.email,
+          phone: form.phone || null,
+          how_promote: form.how_promote || null,
         },
       });
 
-      if (authError) throw authError;
-
-      // Create affiliate record (inactive - needs admin approval)
-      // Generate a temporary affiliate code (trigger may override it)
-      const tempCode = 'AFF' + crypto.randomUUID().replace(/-/g, '').slice(0, 7).toUpperCase();
-      
-      const { error: affiliateError } = await supabase
-        .from('organization_affiliates')
-        .insert([{
-          organization_id: storefront.organization_id,
-          email: form.email,
-          name: form.name,
-          phone: form.phone || null,
-          is_active: false,
-          user_id: authData.user?.id || null,
-          affiliate_code: tempCode,
-        }]);
-
-      if (affiliateError) {
-        // If duplicate, still show success
-        if (affiliateError.message?.includes('duplicate') || affiliateError.code === '23505') {
-          setSubmitted(true);
-          return;
-        }
-        throw affiliateError;
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       setSubmitted(true);
-      toast.success('Cadastro enviado! Aguarde aprovação.');
+      toast.success(data?.message || 'Cadastro enviado! Aguarde aprovação.');
     } catch (err: any) {
       console.error('Registration error:', err);
       toast.error(err.message || 'Erro ao cadastrar');
