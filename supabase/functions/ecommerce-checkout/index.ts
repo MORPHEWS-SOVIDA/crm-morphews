@@ -896,7 +896,53 @@ serve(async (req) => {
       }
     }
 
-    // 8. Create ecommerce_order record for the Vendas Online panel
+    // 7b. Coupon-based affiliate attribution (double-check)
+    // If no affiliate_code via URL but coupon has an affiliate_id, attribute via coupon
+    if (!affiliate_code && coupon_code) {
+      const { data: couponData } = await supabase
+        .from('coupons')
+        .select('affiliate_id, code')
+        .eq('code', coupon_code)
+        .eq('organization_id', organizationId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (couponData?.affiliate_id) {
+        // Find the affiliate code for this affiliate_id
+        const { data: affData } = await supabase
+          .from('organization_affiliates')
+          .select('affiliate_code')
+          .eq('id', couponData.affiliate_id)
+          .maybeSingle();
+
+        const { error: couponAttrError } = await supabase
+          .from('affiliate_attributions')
+          .insert({
+            sale_id: sale.id,
+            organization_id: organizationId,
+            affiliate_id: couponData.affiliate_id,
+            attribution_type: 'coupon',
+            code_or_ref: affData?.affiliate_code || coupon_code,
+          });
+
+        if (!couponAttrError) {
+          console.log(`[Checkout] Coupon-based attribution: coupon=${coupon_code} → affiliate=${couponData.affiliate_id}`);
+        }
+      }
+
+      // Increment coupon usage
+      await supabase.rpc('increment_coupon_usage', { coupon_id: couponData?.affiliate_id ? coupon_code : coupon_code });
+    }
+
+    // Store coupon info on sale
+    if (coupon_code) {
+      await supabase
+        .from('sales')
+        .update({ coupon_code, coupon_discount_cents: coupon_discount_cents || 0 })
+        .eq('id', sale.id);
+    }
+
+
     const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
     const { data: orderData } = await supabase
       .from('ecommerce_orders')
