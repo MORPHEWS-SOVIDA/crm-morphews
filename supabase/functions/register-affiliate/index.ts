@@ -12,11 +12,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { storefrontSlug, name, email, phone, how_promote } = await req.json();
+    const { tenantSlug, storefrontSlug, name, email, phone, how_promote } = await req.json();
 
-    if (!storefrontSlug || !name || !email) {
+    if (!tenantSlug || !storefrontSlug || !name || !email) {
       return new Response(
-        JSON.stringify({ error: "Nome, email e loja são obrigatórios" }),
+        JSON.stringify({ error: "Tenant, loja, nome e email são obrigatórios" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
