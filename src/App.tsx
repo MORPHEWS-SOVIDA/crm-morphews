@@ -1432,6 +1432,14 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/ecommerce/afiliados"
+                  element={
+                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                      <EcommerceAfiliados />
+                    </ProtectedRoute>
+                  }
+                />
                 {/* Affiliate Dashboard Pages */}
                 <Route
                   path="/ecommerce/afiliado-vendas"
