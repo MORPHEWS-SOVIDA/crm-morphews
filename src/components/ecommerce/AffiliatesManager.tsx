@@ -55,7 +55,8 @@ function formatCurrency(cents: number) {
 }
 
 export function AffiliatesManager() {
-  const { organizationId } = useAuth();
+  const { profile } = useAuth();
+  const organizationId = profile?.organization_id;
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [editAffiliate, setEditAffiliate] = useState<OrgAffiliate | null>(null);
