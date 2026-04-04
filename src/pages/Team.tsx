@@ -253,7 +253,7 @@ function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember
   );
 }
 
-function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser }: {
+function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser, activeFilter, onFilterChange }: {
   members: OrgMember[];
   user: any;
   myPermissions: any;
@@ -263,46 +263,90 @@ function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, han
   onRequestDelete: (member: OrgMember) => void;
   isTogglingActive: string | null;
   isDeletingUser: string | null;
+  activeFilter: FilterCategory;
+  onFilterChange: (filter: FilterCategory) => void;
 }) {
-  const [showInactive, setShowInactive] = useState(false);
+  // Calculate counts for each category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<FilterCategory, number> = {
+      all: members.filter(m => m.is_active).length,
+      members: 0, managers: 0, admin: 0, owner: 0,
+      delivery: 0, coproducer: 0, affiliate_manager: 0, affiliate: 0,
+      inactive: members.filter(m => !m.is_active).length,
+    };
+    
+    members.filter(m => m.is_active).forEach(m => {
+      FILTER_CATEGORIES.forEach(cat => {
+        if (cat.key === "all" || cat.key === "inactive") return;
+        if (cat.filterFn) {
+          if (cat.filterFn(m)) counts[cat.key]++;
+        } else if (cat.roles.includes(m.role)) {
+          counts[cat.key]++;
+        }
+      });
+    });
+    
+    return counts;
+  }, [members]);
 
-  const activeMembers = members.filter(m => m.is_active);
-  const inactiveMembers = members.filter(m => !m.is_active);
-
-  if (members.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-        <p>Nenhum membro encontrado</p>
-      </div>
-    );
-  }
+  // Filter members based on selected category
+  const filteredMembers = useMemo(() => {
+    if (activeFilter === "all") return members.filter(m => m.is_active);
+    if (activeFilter === "inactive") return members.filter(m => !m.is_active);
+    
+    const cat = FILTER_CATEGORIES.find(c => c.key === activeFilter);
+    if (!cat) return members.filter(m => m.is_active);
+    
+    return members.filter(m => {
+      if (!m.is_active && activeFilter !== "inactive") return false;
+      if (cat.filterFn) return cat.filterFn(m);
+      return cat.roles.includes(m.role);
+    });
+  }, [members, activeFilter]);
 
   const sharedProps = { user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser };
 
   return (
-    <div className="space-y-3">
-      {/* Active members */}
-      {activeMembers.map((member) => (
-        <MemberRow key={member.id} member={member} {...sharedProps} />
-      ))}
+    <div className="space-y-4">
+      {/* Filter chips */}
+      <div className="flex flex-wrap gap-2">
+        {FILTER_CATEGORIES.map(cat => {
+          const count = categoryCounts[cat.key];
+          const isActive = activeFilter === cat.key;
+          if (count === 0 && cat.key !== "all") return null;
+          return (
+            <button
+              key={cat.key}
+              onClick={() => onFilterChange(cat.key)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                isActive 
+                  ? 'bg-primary text-primary-foreground border-primary' 
+                  : 'bg-card text-muted-foreground border-border hover:bg-muted'
+              }`}
+            >
+              {cat.label}
+              <span className={`text-xs rounded-full px-1.5 py-0.5 ${
+                isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Inactive members toggle */}
-      {inactiveMembers.length > 0 && (
-        <>
-          <button
-            onClick={() => setShowInactive(!showInactive)}
-            className="flex items-center gap-2 w-full py-3 px-4 rounded-lg border border-dashed border-muted-foreground/30 text-muted-foreground hover:bg-muted/30 transition-colors text-sm font-medium"
-          >
-            {showInactive ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            <Ban className="w-4 h-4" />
-            {inactiveMembers.length} usuário{inactiveMembers.length > 1 ? 's' : ''} desativado{inactiveMembers.length > 1 ? 's' : ''}
-          </button>
-
-          {showInactive && inactiveMembers.map((member) => (
+      {/* Filtered members */}
+      {filteredMembers.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p>Nenhum membro encontrado nesta categoria</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredMembers.map((member) => (
             <MemberRow key={member.id} member={member} {...sharedProps} />
           ))}
-        </>
+        </div>
       )}
     </div>
   );
