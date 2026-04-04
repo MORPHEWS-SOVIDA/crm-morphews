@@ -273,6 +273,7 @@ function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, han
     const counts: Record<FilterCategory, number> = {
       all: members.filter(m => m.is_active).length,
       members: 0, managers: 0, admin: 0, owner: 0,
+      shipping: 0, finance: 0,
       delivery: 0, coproducer: 0, affiliate_manager: 0, affiliate: 0,
       inactive: members.filter(m => !m.is_active).length,
       other: 0,
