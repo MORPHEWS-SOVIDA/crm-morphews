@@ -293,13 +293,13 @@ function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, han
   // Filter members based on selected category
   const filteredMembers = useMemo(() => {
     if (activeFilter === "all") return members.filter(m => m.is_active);
-    if (activeFilter === "inactive") return members.filter(m => !m.is_active);
+    if ((activeFilter as string) === "inactive") return members.filter(m => !m.is_active);
     
     const cat = FILTER_CATEGORIES.find(c => c.key === activeFilter);
     if (!cat) return members.filter(m => m.is_active);
     
     return members.filter(m => {
-      if (!m.is_active && activeFilter !== "inactive") return false;
+      if (!m.is_active) return false;
       if (cat.filterFn) return cat.filterFn(m);
       return cat.roles.includes(m.role);
     });
