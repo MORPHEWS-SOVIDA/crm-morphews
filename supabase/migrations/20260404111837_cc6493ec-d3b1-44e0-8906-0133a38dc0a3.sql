@@ -1,0 +1,1 @@
+ALTER TYPE org_role ADD VALUE IF NOT EXISTS 'partner_affiliate_manager' AFTER 'partner_affiliate';
