@@ -94,6 +94,11 @@ const FILTER_CATEGORIES: FilterCategoryConfig[] = [
   { key: "inactive", label: "Desativados", icon: Ban, roles: [], filterFn: (m) => !m.is_active },
 ];
 
+interface StorefrontAssociation {
+  storefront_name: string;
+  storefront_slug: string;
+}
+
 interface OrgMember {
   id: string;
   user_id: string;
@@ -109,6 +114,7 @@ interface OrgMember {
   is_active: boolean;
   deactivated_at: string | null;
   deactivated_by: string | null;
+  storefronts?: StorefrontAssociation[];
   profile?: {
     first_name: string;
     last_name: string;
