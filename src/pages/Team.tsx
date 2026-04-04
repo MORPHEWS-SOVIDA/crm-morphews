@@ -518,10 +518,60 @@ export default function Team() {
         }
       }
 
+      // Get storefront associations for partner members
+      const partnerUserIds = membersData
+        .filter(m => ["partner_coproducer", "partner_affiliate", "partner_affiliate_manager"].includes(m.role))
+        .map(m => m.user_id);
+      
+      let storefrontMap: Record<string, StorefrontAssociation[]> = {};
+      if (partnerUserIds.length > 0) {
+        // Get virtual accounts for these users
+        const { data: virtualAccounts } = await supabase
+          .from("virtual_accounts")
+          .select("id, user_id")
+          .in("user_id", partnerUserIds);
+        
+        if (virtualAccounts?.length) {
+          const vaMap: Record<string, string> = {}; // va_id -> user_id
+          virtualAccounts.forEach(va => { vaMap[va.id] = va.user_id; });
+          
+          const { data: associations } = await supabase
+            .from("partner_associations")
+            .select("virtual_account_id, linked_storefront_id")
+            .in("virtual_account_id", virtualAccounts.map(va => va.id))
+            .eq("is_active", true)
+            .not("linked_storefront_id", "is", null);
+          
+          if (associations?.length) {
+            const sfIds = [...new Set(associations.map(a => a.linked_storefront_id!))];
+            const { data: storefronts } = await supabase
+              .from("tenant_storefronts")
+              .select("id, name, slug")
+              .in("id", sfIds);
+            
+            const sfLookup: Record<string, { name: string; slug: string }> = {};
+            storefronts?.forEach(sf => { sfLookup[sf.id] = { name: sf.name, slug: sf.slug }; });
+            
+            associations.forEach(a => {
+              const userId = vaMap[a.virtual_account_id];
+              const sf = sfLookup[a.linked_storefront_id!];
+              if (userId && sf) {
+                if (!storefrontMap[userId]) storefrontMap[userId] = [];
+                // Deduplicate
+                if (!storefrontMap[userId].some(s => s.storefront_slug === sf.slug)) {
+                  storefrontMap[userId].push({ storefront_name: sf.name, storefront_slug: sf.slug });
+                }
+              }
+            });
+          }
+        }
+      }
+
       const membersWithProfiles = membersData.map(member => ({
         ...member,
         profile: profiles?.find(p => p.user_id === member.user_id) || null,
         team: member.team_id ? teamsMap[member.team_id] || null : null,
+        storefronts: storefrontMap[member.user_id] || [],
       }));
 
       return membersWithProfiles as OrgMember[];
