@@ -83,10 +83,12 @@ interface FilterCategoryConfig {
 
 const FILTER_CATEGORIES: FilterCategoryConfig[] = [
   { key: "all", label: "Todos", icon: Users, roles: [] },
-  { key: "members", label: "Membros", icon: User, roles: ["member", "seller", "shipping", "finance"] },
+  { key: "members", label: "Membros", icon: User, roles: ["member", "seller"] },
   { key: "managers", label: "Gerentes", icon: Crown, roles: ["manager"], filterFn: (m) => m.role === "manager" || m.is_sales_manager },
   { key: "admin", label: "Admin", icon: Shield, roles: ["admin"] },
   { key: "owner", label: "Proprietário", icon: Crown, roles: ["owner"] },
+  { key: "shipping", label: "Expedição", icon: Users, roles: ["shipping"] },
+  { key: "finance", label: "Financeiro", icon: Users, roles: ["finance"] },
   { key: "delivery", label: "Entregador", icon: Users, roles: ["delivery"] },
   { key: "coproducer", label: "Co-produtor", icon: Users, roles: ["partner_coproducer"] },
   { key: "affiliate_manager", label: "Ger. Afiliado", icon: Users, roles: ["partner_affiliate_manager"] },
