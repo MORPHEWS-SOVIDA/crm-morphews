@@ -1705,7 +1705,7 @@ export default function Team() {
               </div>
             )}
 
-            <MembersListWithFilter members={members} user={user} myPermissions={myPermissions} getRoleBadge={getRoleBadge} handleEditMember={handleEditMember} handleToggleUserActive={handleToggleUserActive} onRequestDelete={(member) => { setDeleteMemberTarget(member); setDeleteConfirmText(""); }} isTogglingActive={isTogglingActive} isDeletingUser={isDeletingUser} />
+            <MembersListWithFilter members={members} user={user} myPermissions={myPermissions} getRoleBadge={getRoleBadge} handleEditMember={handleEditMember} handleToggleUserActive={handleToggleUserActive} onRequestDelete={(member) => { setDeleteMemberTarget(member); setDeleteConfirmText(""); }} isTogglingActive={isTogglingActive} isDeletingUser={isDeletingUser} activeFilter={memberFilter} onFilterChange={setMemberFilter} />
           </CardContent>
         </Card>
 
