@@ -71,7 +71,7 @@ const ORG_ROLE_LABELS: Record<OrgRole, { label: string; description: string }> =
 const ASSIGNABLE_ROLES: OrgRole[] = ["admin", "manager", "seller", "member", "shipping", "delivery", "finance", "partner_coproducer", "partner_affiliate", "partner_affiliate_manager"];
 
 // Filter category definitions
-type FilterCategory = "all" | "members" | "managers" | "admin" | "owner" | "delivery" | "coproducer" | "affiliate_manager" | "affiliate" | "inactive" | "other";
+type FilterCategory = "all" | "members" | "managers" | "admin" | "owner" | "shipping" | "finance" | "delivery" | "coproducer" | "affiliate_manager" | "affiliate" | "inactive" | "other";
 
 interface FilterCategoryConfig {
   key: FilterCategory;
@@ -83,10 +83,12 @@ interface FilterCategoryConfig {
 
 const FILTER_CATEGORIES: FilterCategoryConfig[] = [
   { key: "all", label: "Todos", icon: Users, roles: [] },
-  { key: "members", label: "Membros", icon: User, roles: ["member", "seller", "shipping", "finance"] },
+  { key: "members", label: "Membros", icon: User, roles: ["member", "seller"] },
   { key: "managers", label: "Gerentes", icon: Crown, roles: ["manager"], filterFn: (m) => m.role === "manager" || m.is_sales_manager },
   { key: "admin", label: "Admin", icon: Shield, roles: ["admin"] },
   { key: "owner", label: "Proprietário", icon: Crown, roles: ["owner"] },
+  { key: "shipping", label: "Expedição", icon: Users, roles: ["shipping"] },
+  { key: "finance", label: "Financeiro", icon: Users, roles: ["finance"] },
   { key: "delivery", label: "Entregador", icon: Users, roles: ["delivery"] },
   { key: "coproducer", label: "Co-produtor", icon: Users, roles: ["partner_coproducer"] },
   { key: "affiliate_manager", label: "Ger. Afiliado", icon: Users, roles: ["partner_affiliate_manager"] },
@@ -271,6 +273,7 @@ function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, han
     const counts: Record<FilterCategory, number> = {
       all: members.filter(m => m.is_active).length,
       members: 0, managers: 0, admin: 0, owner: 0,
+      shipping: 0, finance: 0,
       delivery: 0, coproducer: 0, affiliate_manager: 0, affiliate: 0,
       inactive: members.filter(m => !m.is_active).length,
       other: 0,
