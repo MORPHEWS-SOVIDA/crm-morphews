@@ -291,13 +291,13 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
           </div>
         </div>
 
-        {/* Entregue + Pago (Completed) */}
+        {/* Finalizado */}
         <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
           <div className="p-2 rounded-full bg-emerald-500/20">
             <CheckCircle className="w-4 h-4 text-emerald-600" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground font-medium">Entregue + Pago</p>
+            <p className="text-xs text-muted-foreground font-medium">Finalizado</p>
             <p className="text-lg font-bold text-emerald-600">{summaryData.completedCount}</p>
             <p className="text-xs text-muted-foreground">{formatCurrency(summaryData.completedValue)}</p>
           </div>
