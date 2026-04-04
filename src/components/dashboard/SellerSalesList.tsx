@@ -233,15 +233,22 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
           </div>
         </div>
         
-        {/* Total de Comissões - ONLY from completed (delivered + paid) sales */}
+        {/* Total de Comissões - from all visible sales */}
         <div className="flex items-center gap-4 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
           <div className="p-3 rounded-full bg-green-500/20">
             <TrendingUp className="w-6 h-6 text-green-600" />
           </div>
           <div>
             <p className="text-sm text-muted-foreground font-medium">Total em Comissões</p>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(summaryData.completedCommission)}</p>
-            <p className="text-xs text-muted-foreground">Vendas entregues e pagas</p>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(summaryData.totalCommission)}</p>
+            {summaryData.completedCommission !== summaryData.totalCommission && (
+              <p className="text-xs text-muted-foreground">
+                {formatCurrency(summaryData.completedCommission)} de vendas finalizadas
+              </p>
+            )}
+            {summaryData.completedCommission === summaryData.totalCommission && (
+              <p className="text-xs text-muted-foreground">Vendas finalizadas</p>
+            )}
           </div>
         </div>
       </div>
