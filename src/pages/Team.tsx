@@ -71,7 +71,7 @@ const ORG_ROLE_LABELS: Record<OrgRole, { label: string; description: string }> =
 const ASSIGNABLE_ROLES: OrgRole[] = ["admin", "manager", "seller", "member", "shipping", "delivery", "finance", "partner_coproducer", "partner_affiliate", "partner_affiliate_manager"];
 
 // Filter category definitions
-type FilterCategory = "all" | "members" | "managers" | "admin" | "owner" | "delivery" | "coproducer" | "affiliate_manager" | "affiliate" | "inactive";
+type FilterCategory = "all" | "members" | "managers" | "admin" | "owner" | "delivery" | "coproducer" | "affiliate_manager" | "affiliate" | "inactive" | "other";
 
 interface FilterCategoryConfig {
   key: FilterCategory;
