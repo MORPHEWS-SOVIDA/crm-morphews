@@ -781,20 +781,23 @@ serve(async (req) => {
           "Content-Type": "application/json",
           "apikey": EVOLUTION_API_KEY,
         },
-        body: JSON.stringify({
-          url: webhookUrl,
-          byEvents: false,
-          base64: true,
-          headers: {
-            "Content-Type": "application/json",
-          },
-          events: [
-            "MESSAGES_UPSERT",
-            "CONNECTION_UPDATE",
-            "QRCODE_UPDATED",
-            "GROUPS_UPSERT",
-          ],
-        }),
+         body: JSON.stringify({
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              byEvents: false,
+              base64: true,
+              headers: {
+                "Content-Type": "application/json",
+              },
+              events: [
+                "MESSAGES_UPSERT",
+                "CONNECTION_UPDATE",
+                "QRCODE_UPDATED",
+                "GROUPS_UPSERT",
+              ],
+            },
+          }),
       });
 
       const webhookSetResult = await webhookSetResponse.json().catch(() => ({}));
