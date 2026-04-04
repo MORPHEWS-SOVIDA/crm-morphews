@@ -18968,7 +18968,12 @@ export type Database = {
       }
       user_permissions: {
         Row: {
+          affiliates_manage: boolean
+          affiliates_view: boolean
           ai_bots_view: boolean
+          ai_product_recommendations_view: boolean
+          ai_sales_chatbot_view: boolean
+          ai_telesales_copilot_view: boolean
           bank_account_manage: boolean | null
           cash_verification_confirm: boolean
           cash_verification_view: boolean
@@ -18979,14 +18984,18 @@ export type Database = {
           deliveries_view_all: boolean
           deliveries_view_own: boolean
           demands_view: boolean
+          ecommerce_manage: boolean
+          ecommerce_view: boolean
           expedition_report_view: boolean | null
           expedition_view: boolean
           fiscal_invoices_view: boolean | null
+          google_integrations_manage: boolean
           helper_donna_view: boolean
           hide_sidebar: boolean | null
           id: string
           instagram_view: boolean
           integrations_view: boolean
+          landing_pages_manage: boolean
           leads_create: boolean
           leads_delete: boolean
           leads_edit: boolean
@@ -18994,6 +19003,7 @@ export type Database = {
           leads_view: boolean
           leads_view_only_own: boolean
           organization_id: string
+          payment_gateways_manage: boolean
           payment_links_create: boolean | null
           payment_links_view_transactions: boolean | null
           post_sale_manage: boolean
@@ -19032,6 +19042,7 @@ export type Database = {
           settings_standard_questions: boolean
           settings_teams: boolean
           settings_view: boolean
+          storefronts_manage: boolean
           team_add_member: boolean
           team_change_commission: boolean
           team_change_permissions: boolean
@@ -19042,8 +19053,12 @@ export type Database = {
           team_toggle_manager: boolean
           team_view: boolean
           telesales_charge_card: boolean | null
+          telesales_manage: boolean
+          telesales_view: boolean
+          tracking_pixels_manage: boolean
           updated_at: string
           user_id: string
+          virtual_wallet_view: boolean
           voice_ai_manage: boolean | null
           voice_ai_view: boolean | null
           whatsapp_ai_settings_view: boolean | null
@@ -19054,7 +19069,12 @@ export type Database = {
           withdrawal_request: boolean | null
         }
         Insert: {
+          affiliates_manage?: boolean
+          affiliates_view?: boolean
           ai_bots_view?: boolean
+          ai_product_recommendations_view?: boolean
+          ai_sales_chatbot_view?: boolean
+          ai_telesales_copilot_view?: boolean
           bank_account_manage?: boolean | null
           cash_verification_confirm?: boolean
           cash_verification_view?: boolean
@@ -19065,14 +19085,18 @@ export type Database = {
           deliveries_view_all?: boolean
           deliveries_view_own?: boolean
           demands_view?: boolean
+          ecommerce_manage?: boolean
+          ecommerce_view?: boolean
           expedition_report_view?: boolean | null
           expedition_view?: boolean
           fiscal_invoices_view?: boolean | null
+          google_integrations_manage?: boolean
           helper_donna_view?: boolean
           hide_sidebar?: boolean | null
           id?: string
           instagram_view?: boolean
           integrations_view?: boolean
+          landing_pages_manage?: boolean
           leads_create?: boolean
           leads_delete?: boolean
           leads_edit?: boolean
@@ -19080,6 +19104,7 @@ export type Database = {
           leads_view?: boolean
           leads_view_only_own?: boolean
           organization_id: string
+          payment_gateways_manage?: boolean
           payment_links_create?: boolean | null
           payment_links_view_transactions?: boolean | null
           post_sale_manage?: boolean
@@ -19118,6 +19143,7 @@ export type Database = {
           settings_standard_questions?: boolean
           settings_teams?: boolean
           settings_view?: boolean
+          storefronts_manage?: boolean
           team_add_member?: boolean
           team_change_commission?: boolean
           team_change_permissions?: boolean
@@ -19128,8 +19154,12 @@ export type Database = {
           team_toggle_manager?: boolean
           team_view?: boolean
           telesales_charge_card?: boolean | null
+          telesales_manage?: boolean
+          telesales_view?: boolean
+          tracking_pixels_manage?: boolean
           updated_at?: string
           user_id: string
+          virtual_wallet_view?: boolean
           voice_ai_manage?: boolean | null
           voice_ai_view?: boolean | null
           whatsapp_ai_settings_view?: boolean | null
@@ -19140,7 +19170,12 @@ export type Database = {
           withdrawal_request?: boolean | null
         }
         Update: {
+          affiliates_manage?: boolean
+          affiliates_view?: boolean
           ai_bots_view?: boolean
+          ai_product_recommendations_view?: boolean
+          ai_sales_chatbot_view?: boolean
+          ai_telesales_copilot_view?: boolean
           bank_account_manage?: boolean | null
           cash_verification_confirm?: boolean
           cash_verification_view?: boolean
@@ -19151,14 +19186,18 @@ export type Database = {
           deliveries_view_all?: boolean
           deliveries_view_own?: boolean
           demands_view?: boolean
+          ecommerce_manage?: boolean
+          ecommerce_view?: boolean
           expedition_report_view?: boolean | null
           expedition_view?: boolean
           fiscal_invoices_view?: boolean | null
+          google_integrations_manage?: boolean
           helper_donna_view?: boolean
           hide_sidebar?: boolean | null
           id?: string
           instagram_view?: boolean
           integrations_view?: boolean
+          landing_pages_manage?: boolean
           leads_create?: boolean
           leads_delete?: boolean
           leads_edit?: boolean
@@ -19166,6 +19205,7 @@ export type Database = {
           leads_view?: boolean
           leads_view_only_own?: boolean
           organization_id?: string
+          payment_gateways_manage?: boolean
           payment_links_create?: boolean | null
           payment_links_view_transactions?: boolean | null
           post_sale_manage?: boolean
@@ -19204,6 +19244,7 @@ export type Database = {
           settings_standard_questions?: boolean
           settings_teams?: boolean
           settings_view?: boolean
+          storefronts_manage?: boolean
           team_add_member?: boolean
           team_change_commission?: boolean
           team_change_permissions?: boolean
@@ -19214,8 +19255,12 @@ export type Database = {
           team_toggle_manager?: boolean
           team_view?: boolean
           telesales_charge_card?: boolean | null
+          telesales_manage?: boolean
+          telesales_view?: boolean
+          tracking_pixels_manage?: boolean
           updated_at?: string
           user_id?: string
+          virtual_wallet_view?: boolean
           voice_ai_manage?: boolean | null
           voice_ai_view?: boolean | null
           whatsapp_ai_settings_view?: boolean | null
