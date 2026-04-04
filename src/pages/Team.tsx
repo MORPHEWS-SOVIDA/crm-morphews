@@ -406,6 +406,7 @@ export default function Team() {
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<string[]>([]);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isTogglingVisibility, setIsTogglingVisibility] = useState<string | null>(null);
+  const [memberFilter, setMemberFilter] = useState<FilterCategory>("all");
   const [mainTab, setMainTab] = useState<"usuarios" | "associacoes">("usuarios");
   const [newUserData, setNewUserData] = useState({
     firstName: "",
