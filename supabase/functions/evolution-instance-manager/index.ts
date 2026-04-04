@@ -201,6 +201,7 @@ serve(async (req) => {
           readStatus: instanceSettings.read_status,
           syncFullHistory: instanceSettings.sync_full_history,
           webhook: {
+            enabled: true,
             url: webhookUrl,
             byEvents: false,
             base64: true,
@@ -211,7 +212,7 @@ serve(async (req) => {
               "MESSAGES_UPSERT",
               "CONNECTION_UPDATE",
               "QRCODE_UPDATED",
-              "GROUPS_UPSERT", // Evento de grupos
+              "GROUPS_UPSERT",
             ],
           },
         }),
@@ -258,19 +259,22 @@ serve(async (req) => {
             "Content-Type": "application/json",
             "apikey": EVOLUTION_API_KEY,
           },
-          body: JSON.stringify({
-            url: webhookUrl,
-            byEvents: false,
-            base64: true,
-            headers: {
-              "Content-Type": "application/json",
+           body: JSON.stringify({
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              byEvents: false,
+              base64: true,
+              headers: {
+                "Content-Type": "application/json",
+              },
+              events: [
+                "MESSAGES_UPSERT",
+                "CONNECTION_UPDATE",
+                "QRCODE_UPDATED",
+                "GROUPS_UPSERT",
+              ],
             },
-            events: [
-              "MESSAGES_UPSERT",
-              "CONNECTION_UPDATE",
-              "QRCODE_UPDATED",
-              "GROUPS_UPSERT",
-            ],
           }),
         });
 
@@ -777,20 +781,23 @@ serve(async (req) => {
           "Content-Type": "application/json",
           "apikey": EVOLUTION_API_KEY,
         },
-        body: JSON.stringify({
-          url: webhookUrl,
-          byEvents: false,
-          base64: true,
-          headers: {
-            "Content-Type": "application/json",
-          },
-          events: [
-            "MESSAGES_UPSERT",
-            "CONNECTION_UPDATE",
-            "QRCODE_UPDATED",
-            "GROUPS_UPSERT",
-          ],
-        }),
+         body: JSON.stringify({
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              byEvents: false,
+              base64: true,
+              headers: {
+                "Content-Type": "application/json",
+              },
+              events: [
+                "MESSAGES_UPSERT",
+                "CONNECTION_UPDATE",
+                "QRCODE_UPDATED",
+                "GROUPS_UPSERT",
+              ],
+            },
+          }),
       });
 
       const webhookSetResult = await webhookSetResponse.json().catch(() => ({}));
@@ -895,19 +902,22 @@ serve(async (req) => {
             "Content-Type": "application/json",
             "apikey": EVOLUTION_API_KEY,
           },
-          body: JSON.stringify({
-            url: webhookUrl,
-            byEvents: false,
-            base64: true,
-            headers: {
-              "Content-Type": "application/json",
+           body: JSON.stringify({
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              byEvents: false,
+              base64: true,
+              headers: {
+                "Content-Type": "application/json",
+              },
+              events: [
+                "MESSAGES_UPSERT",
+                "CONNECTION_UPDATE",
+                "QRCODE_UPDATED",
+                "GROUPS_UPSERT",
+              ],
             },
-            events: [
-              "MESSAGES_UPSERT",
-              "CONNECTION_UPDATE",
-              "QRCODE_UPDATED",
-              "GROUPS_UPSERT",
-            ],
           }),
         });
         console.log("Webhook configured for manual instance:", manualInstanceId);
@@ -979,6 +989,7 @@ serve(async (req) => {
           integration: "INSTAGRAM",
           qrcode: false, // Instagram usa OAuth, não QR
           webhook: {
+            enabled: true,
             url: webhookUrl,
             byEvents: false,
             base64: true,
