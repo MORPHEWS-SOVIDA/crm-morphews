@@ -154,15 +154,16 @@ function SaleRow({ sale }: { sale: SellerSaleItem }) {
 function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
   const summaryData = useMemo(() => {
     let totalSales = 0;
-    let pendingCount = 0; // draft + pending_expedition + payment_confirmed + dispatched
+    let pendingCount = 0;
     let pendingValue = 0;
-    let deliveredCount = 0; // status = delivered (regardless of payment)
+    let deliveredCount = 0; // delivered OR finalized (finalized implies delivered)
     let deliveredValue = 0;
-    let paidCount = 0; // payment_status = paid_now or paid_in_delivery (regardless of delivery)
+    let paidCount = 0; // paid OR finalized (finalized implies paid)
     let paidValue = 0;
-    let completedCount = 0; // status = finalized - this is what earns commission
+    let completedCount = 0; // finalized only
     let completedValue = 0;
-    let completedCommission = 0; // ONLY commission from finalized sales
+    let completedCommission = 0;
+    let totalCommission = 0; // commission from all sales in view
 
     for (const sale of sales) {
       const value = sale.total_cents || 0;
@@ -170,9 +171,11 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
       const isPaid = sale.payment_status === 'paid_now' || sale.payment_status === 'paid_in_delivery';
       const isDelivered = sale.status === 'delivered';
       const isFinalized = sale.status === 'finalized';
+      const isClosed = sale.status === 'closed';
       const isPending = ['draft', 'pending_expedition', 'payment_confirmed', 'dispatched'].includes(sale.status);
 
       totalSales += value;
+      totalCommission += commission;
 
       // Teles Pendentes: draft, pending_expedition, payment_confirmed, dispatched
       if (isPending) {
@@ -180,20 +183,20 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
         pendingValue += value;
       }
 
-      // Entregue: status = delivered (can be paid or not)
-      if (isDelivered) {
+      // Entregue: delivered, finalized, or closed (all imply delivery happened)
+      if (isDelivered || isFinalized || isClosed) {
         deliveredCount++;
         deliveredValue += value;
       }
 
-      // Pago: payment_status = paid_now or paid_in_delivery
-      if (isPaid) {
+      // Pago: explicitly paid OR finalized/closed (which imply payment confirmed)
+      if (isPaid || isFinalized || isClosed) {
         paidCount++;
         paidValue += value;
       }
 
-      // Finalizado: ONLY finalized sales count for commission payout
-      if (isFinalized) {
+      // Finalizado: ONLY finalized sales count for guaranteed commission
+      if (isFinalized || isClosed) {
         completedCount++;
         completedValue += value;
         completedCommission += commission;
@@ -202,6 +205,7 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
 
     return {
       totalSales,
+      totalCommission,
       pendingCount,
       pendingValue,
       deliveredCount,
@@ -229,15 +233,22 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
           </div>
         </div>
         
-        {/* Total de Comissões - ONLY from completed (delivered + paid) sales */}
+        {/* Total de Comissões - from all visible sales */}
         <div className="flex items-center gap-4 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
           <div className="p-3 rounded-full bg-green-500/20">
             <TrendingUp className="w-6 h-6 text-green-600" />
           </div>
           <div>
             <p className="text-sm text-muted-foreground font-medium">Total em Comissões</p>
-            <p className="text-2xl font-bold text-green-600">{formatCurrency(summaryData.completedCommission)}</p>
-            <p className="text-xs text-muted-foreground">Vendas entregues e pagas</p>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(summaryData.totalCommission)}</p>
+            {summaryData.completedCommission !== summaryData.totalCommission && (
+              <p className="text-xs text-muted-foreground">
+                {formatCurrency(summaryData.completedCommission)} de vendas finalizadas
+              </p>
+            )}
+            {summaryData.completedCommission === summaryData.totalCommission && (
+              <p className="text-xs text-muted-foreground">Vendas finalizadas</p>
+            )}
           </div>
         </div>
       </div>
@@ -280,13 +291,13 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
           </div>
         </div>
 
-        {/* Entregue + Pago (Completed) */}
+        {/* Finalizado */}
         <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
           <div className="p-2 rounded-full bg-emerald-500/20">
             <CheckCircle className="w-4 h-4 text-emerald-600" />
           </div>
           <div>
-            <p className="text-xs text-muted-foreground font-medium">Entregue + Pago</p>
+            <p className="text-xs text-muted-foreground font-medium">Finalizado</p>
             <p className="text-lg font-bold text-emerald-600">{summaryData.completedCount}</p>
             <p className="text-xs text-muted-foreground">{formatCurrency(summaryData.completedValue)}</p>
           </div>
