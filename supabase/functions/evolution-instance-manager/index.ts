@@ -989,6 +989,7 @@ serve(async (req) => {
           integration: "INSTAGRAM",
           qrcode: false, // Instagram usa OAuth, não QR
           webhook: {
+            enabled: true,
             url: webhookUrl,
             byEvents: false,
             base64: true,
