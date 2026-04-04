@@ -1061,6 +1061,16 @@ export default function Team() {
         return <Badge className="bg-cyan-500/20 text-cyan-600 border-cyan-500/30">Entregador</Badge>;
       case "finance":
         return <Badge className="bg-teal-500/20 text-teal-600 border-teal-500/30">Financeiro</Badge>;
+      case "partner_coproducer":
+        return <Badge className="bg-indigo-500/20 text-indigo-600 border-indigo-500/30">Co-produtor</Badge>;
+      case "partner_affiliate":
+        return <Badge className="bg-pink-500/20 text-pink-600 border-pink-500/30">Afiliado</Badge>;
+      case "partner_affiliate_manager":
+        return <Badge className="bg-rose-500/20 text-rose-600 border-rose-500/30"><Crown className="w-3 h-3 mr-1" />Ger. Afiliado</Badge>;
+      case "partner_industry":
+        return <Badge className="bg-slate-500/20 text-slate-600 border-slate-500/30">Indústria</Badge>;
+      case "partner_factory":
+        return <Badge className="bg-stone-500/20 text-stone-600 border-stone-500/30">Fábrica</Badge>;
       default:
         return <Badge variant="outline">Membro</Badge>;
     }
