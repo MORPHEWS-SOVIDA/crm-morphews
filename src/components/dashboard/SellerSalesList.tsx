@@ -154,15 +154,16 @@ function SaleRow({ sale }: { sale: SellerSaleItem }) {
 function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
   const summaryData = useMemo(() => {
     let totalSales = 0;
-    let pendingCount = 0; // draft + pending_expedition + payment_confirmed + dispatched
+    let pendingCount = 0;
     let pendingValue = 0;
-    let deliveredCount = 0; // status = delivered (regardless of payment)
+    let deliveredCount = 0; // delivered OR finalized (finalized implies delivered)
     let deliveredValue = 0;
-    let paidCount = 0; // payment_status = paid_now or paid_in_delivery (regardless of delivery)
+    let paidCount = 0; // paid OR finalized (finalized implies paid)
     let paidValue = 0;
-    let completedCount = 0; // status = finalized - this is what earns commission
+    let completedCount = 0; // finalized only
     let completedValue = 0;
-    let completedCommission = 0; // ONLY commission from finalized sales
+    let completedCommission = 0;
+    let totalCommission = 0; // commission from all sales in view
 
     for (const sale of sales) {
       const value = sale.total_cents || 0;
@@ -170,9 +171,11 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
       const isPaid = sale.payment_status === 'paid_now' || sale.payment_status === 'paid_in_delivery';
       const isDelivered = sale.status === 'delivered';
       const isFinalized = sale.status === 'finalized';
+      const isClosed = sale.status === 'closed';
       const isPending = ['draft', 'pending_expedition', 'payment_confirmed', 'dispatched'].includes(sale.status);
 
       totalSales += value;
+      totalCommission += commission;
 
       // Teles Pendentes: draft, pending_expedition, payment_confirmed, dispatched
       if (isPending) {
@@ -180,20 +183,20 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
         pendingValue += value;
       }
 
-      // Entregue: status = delivered (can be paid or not)
-      if (isDelivered) {
+      // Entregue: delivered, finalized, or closed (all imply delivery happened)
+      if (isDelivered || isFinalized || isClosed) {
         deliveredCount++;
         deliveredValue += value;
       }
 
-      // Pago: payment_status = paid_now or paid_in_delivery
-      if (isPaid) {
+      // Pago: explicitly paid OR finalized/closed (which imply payment confirmed)
+      if (isPaid || isFinalized || isClosed) {
         paidCount++;
         paidValue += value;
       }
 
-      // Finalizado: ONLY finalized sales count for commission payout
-      if (isFinalized) {
+      // Finalizado: ONLY finalized sales count for guaranteed commission
+      if (isFinalized || isClosed) {
         completedCount++;
         completedValue += value;
         completedCommission += commission;
@@ -202,6 +205,7 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
 
     return {
       totalSales,
+      totalCommission,
       pendingCount,
       pendingValue,
       deliveredCount,
