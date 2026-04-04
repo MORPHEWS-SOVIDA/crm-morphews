@@ -154,88 +154,101 @@ function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember
 }) {
   return (
     <div
-      className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors ${!member.is_active ? 'opacity-60' : ''}`}
+      className={`flex flex-col gap-2 p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors ${!member.is_active ? 'opacity-60' : ''}`}
     >
-      <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
-          {member.profile?.first_name?.[0] || "U"}
-        </div>
-        <div>
-          <p className="font-medium">
-            {member.profile 
-              ? `${member.profile.first_name} ${member.profile.last_name}`
-              : "Usuário"}
-          </p>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Mail className="w-3 h-3" />
-            <span>{member.profile?.email || "—"}</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
+            {member.profile?.first_name?.[0] || "U"}
+          </div>
+          <div>
+            <p className="font-medium">
+              {member.profile 
+                ? `${member.profile.first_name} ${member.profile.last_name}`
+                : "Usuário"}
+            </p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Mail className="w-3 h-3" />
+              <span>{member.profile?.email || "—"}</span>
+            </div>
           </div>
         </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          {getRoleBadge(member.role)}
+          {member.team && (
+            <Badge 
+              variant="outline" 
+              className="border-opacity-30"
+              style={{ 
+                backgroundColor: `${member.team.color}20`,
+                color: member.team.color,
+                borderColor: `${member.team.color}50`,
+              }}
+            >
+              <Users className="w-3 h-3 mr-1" />
+              {member.team.name}
+            </Badge>
+          )}
+          {member.is_sales_manager && (
+            <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
+              <Crown className="w-3 h-3 mr-1" />
+              Gerente
+            </Badge>
+          )}
+          {member.role !== "owner" && !["partner_coproducer", "partner_affiliate", "partner_affiliate_manager"].includes(member.role) && (
+            <Badge 
+              variant="outline" 
+              className={member.can_see_all_leads 
+                ? "bg-green-500/10 text-green-600 border-green-500/30" 
+                : "bg-amber-500/10 text-amber-600 border-amber-500/30"}
+            >
+              {member.can_see_all_leads ? (
+                <><Eye className="w-3 h-3 mr-1" />Vê todos</>
+              ) : (
+                <><EyeOff className="w-3 h-3 mr-1" />Só seus</>
+              )}
+            </Badge>
+          )}
+          {!member.is_active && (
+            <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">
+              <Ban className="w-3 h-3 mr-1" />
+              Desativado
+            </Badge>
+          )}
+          {member.user_id !== user?.id && myPermissions?.team_edit_member && (
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={() => handleEditMember(member)}>
+              <Pencil className="w-4 h-4" />
+            </Button>
+          )}
+          {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_edit_member && (
+            <Button 
+              variant="ghost" size="icon" 
+              className={member.is_active ? "text-muted-foreground hover:text-amber-600" : "text-muted-foreground hover:text-green-600"}
+              onClick={() => handleToggleUserActive(member)}
+              disabled={isTogglingActive === member.id}
+              title={member.is_active ? "Desativar usuário" : "Reativar usuário"}
+            >
+              {isTogglingActive === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : member.is_active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+            </Button>
+          )}
+          {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_delete_member && (
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onRequestDelete(member)} disabled={isDeletingUser === member.id}>
+              {isDeletingUser === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            </Button>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-3 flex-wrap">
-        {getRoleBadge(member.role)}
-        {member.team && (
-          <Badge 
-            variant="outline" 
-            className="border-opacity-30"
-            style={{ 
-              backgroundColor: `${member.team.color}20`,
-              color: member.team.color,
-              borderColor: `${member.team.color}50`,
-            }}
-          >
-            <Users className="w-3 h-3 mr-1" />
-            {member.team.name}
-          </Badge>
-        )}
-        {member.is_sales_manager && (
-          <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
-            <Crown className="w-3 h-3 mr-1" />
-            Gerente
-          </Badge>
-        )}
-        {member.role !== "owner" && (
-          <Badge 
-            variant="outline" 
-            className={member.can_see_all_leads 
-              ? "bg-green-500/10 text-green-600 border-green-500/30" 
-              : "bg-amber-500/10 text-amber-600 border-amber-500/30"}
-          >
-            {member.can_see_all_leads ? (
-              <><Eye className="w-3 h-3 mr-1" />Vê todos</>
-            ) : (
-              <><EyeOff className="w-3 h-3 mr-1" />Só seus</>
-            )}
-          </Badge>
-        )}
-        {!member.is_active && (
-          <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">
-            <Ban className="w-3 h-3 mr-1" />
-            Desativado
-          </Badge>
-        )}
-        {member.user_id !== user?.id && myPermissions?.team_edit_member && (
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={() => handleEditMember(member)}>
-            <Pencil className="w-4 h-4" />
-          </Button>
-        )}
-        {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_edit_member && (
-          <Button 
-            variant="ghost" size="icon" 
-            className={member.is_active ? "text-muted-foreground hover:text-amber-600" : "text-muted-foreground hover:text-green-600"}
-            onClick={() => handleToggleUserActive(member)}
-            disabled={isTogglingActive === member.id}
-            title={member.is_active ? "Desativar usuário" : "Reativar usuário"}
-          >
-            {isTogglingActive === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : member.is_active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-          </Button>
-        )}
-        {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_delete_member && (
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onRequestDelete(member)} disabled={isDeletingUser === member.id}>
-            {isDeletingUser === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-          </Button>
-        )}
-      </div>
+      {/* Storefront associations for partner roles */}
+      {member.storefronts && member.storefronts.length > 0 && (
+        <div className="flex items-center gap-2 ml-14 flex-wrap">
+          <span className="text-xs text-muted-foreground">Lojas:</span>
+          {member.storefronts.map((sf) => (
+            <Badge key={sf.storefront_slug} variant="outline" className="text-xs bg-accent/50">
+              {sf.storefront_name}
+            </Badge>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
