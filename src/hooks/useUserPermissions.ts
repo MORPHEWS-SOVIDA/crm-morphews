@@ -544,6 +544,24 @@ export function useApplyRoleDefaults() {
           // Scheduled Messages
           scheduled_messages_view: permsObj.scheduled_messages_view ?? false,
           scheduled_messages_manage: permsObj.scheduled_messages_manage ?? false,
+          // E-commerce
+          ecommerce_view: permsObj.ecommerce_view ?? false,
+          ecommerce_manage: permsObj.ecommerce_manage ?? false,
+          storefronts_manage: permsObj.storefronts_manage ?? false,
+          landing_pages_manage: permsObj.landing_pages_manage ?? false,
+          affiliates_view: permsObj.affiliates_view ?? false,
+          affiliates_manage: permsObj.affiliates_manage ?? false,
+          payment_gateways_manage: permsObj.payment_gateways_manage ?? false,
+          virtual_wallet_view: permsObj.virtual_wallet_view ?? false,
+          telesales_view: permsObj.telesales_view ?? false,
+          telesales_manage: permsObj.telesales_manage ?? false,
+          // IA de Vendas
+          ai_sales_chatbot_view: permsObj.ai_sales_chatbot_view ?? false,
+          ai_product_recommendations_view: permsObj.ai_product_recommendations_view ?? false,
+          ai_telesales_copilot_view: permsObj.ai_telesales_copilot_view ?? false,
+          // Integrações & Tracking
+          google_integrations_manage: permsObj.google_integrations_manage ?? false,
+          tracking_pixels_manage: permsObj.tracking_pixels_manage ?? false,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'organization_id,user_id',
