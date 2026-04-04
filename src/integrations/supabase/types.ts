@@ -23727,6 +23727,7 @@ export type Database = {
         | "entregador"
         | "delivery"
         | "partner_affiliate"
+        | "partner_affiliate_manager"
         | "partner_coproducer"
         | "partner_industry"
         | "partner_factory"
@@ -24030,6 +24031,7 @@ export const Constants = {
         "entregador",
         "delivery",
         "partner_affiliate",
+        "partner_affiliate_manager",
         "partner_coproducer",
         "partner_industry",
         "partner_factory",

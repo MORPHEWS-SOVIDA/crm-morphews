@@ -49,7 +49,7 @@ import { checkDuplicateUserWhatsApp } from "@/hooks/useCheckDuplicateUserWhatsAp
 import { Link2 } from "lucide-react";
 
 // All organization roles from org_role enum
-type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance" | "delivery";
+type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance" | "delivery" | "partner_coproducer" | "partner_affiliate" | "partner_affiliate_manager" | "partner_industry" | "partner_factory";
 
 const ORG_ROLE_LABELS: Record<OrgRole, { label: string; description: string }> = {
   owner: { label: "Proprietário", description: "Dono da organização com todos os poderes" },
@@ -60,10 +60,44 @@ const ORG_ROLE_LABELS: Record<OrgRole, { label: string; description: string }> =
   shipping: { label: "Expedição", description: "Valida expedição e despacha vendas" },
   delivery: { label: "Entregador", description: "Vê apenas suas entregas atribuídas" },
   finance: { label: "Financeiro", description: "Confirma pagamentos e acessa relatórios" },
+  partner_coproducer: { label: "Co-produtor", description: "Parceiro co-produtor vinculado a lojas" },
+  partner_affiliate: { label: "Afiliado", description: "Afiliado que divulga e gera vendas" },
+  partner_affiliate_manager: { label: "Gerente de Afiliados", description: "Gerencia afiliados e recebe comissão sobre vendas da equipe" },
+  partner_industry: { label: "Indústria", description: "Parceiro industrial" },
+  partner_factory: { label: "Fábrica", description: "Parceiro de manufatura" },
 };
 
 // Roles that can be assigned (owner is never assignable via UI)
-const ASSIGNABLE_ROLES: OrgRole[] = ["admin", "manager", "seller", "member", "shipping", "delivery", "finance"];
+const ASSIGNABLE_ROLES: OrgRole[] = ["admin", "manager", "seller", "member", "shipping", "delivery", "finance", "partner_coproducer", "partner_affiliate", "partner_affiliate_manager"];
+
+// Filter category definitions
+type FilterCategory = "all" | "members" | "managers" | "admin" | "owner" | "delivery" | "coproducer" | "affiliate_manager" | "affiliate" | "inactive" | "other";
+
+interface FilterCategoryConfig {
+  key: FilterCategory;
+  label: string;
+  icon: typeof Users;
+  roles: OrgRole[];
+  filterFn?: (m: OrgMember) => boolean;
+}
+
+const FILTER_CATEGORIES: FilterCategoryConfig[] = [
+  { key: "all", label: "Todos", icon: Users, roles: [] },
+  { key: "members", label: "Membros", icon: User, roles: ["member", "seller", "shipping", "finance"] },
+  { key: "managers", label: "Gerentes", icon: Crown, roles: ["manager"], filterFn: (m) => m.role === "manager" || m.is_sales_manager },
+  { key: "admin", label: "Admin", icon: Shield, roles: ["admin"] },
+  { key: "owner", label: "Proprietário", icon: Crown, roles: ["owner"] },
+  { key: "delivery", label: "Entregador", icon: Users, roles: ["delivery"] },
+  { key: "coproducer", label: "Co-produtor", icon: Users, roles: ["partner_coproducer"] },
+  { key: "affiliate_manager", label: "Ger. Afiliado", icon: Users, roles: ["partner_affiliate_manager"] },
+  { key: "affiliate", label: "Afiliado", icon: Users, roles: ["partner_affiliate"] },
+  { key: "inactive", label: "Desativados", icon: Ban, roles: [], filterFn: (m) => !m.is_active },
+];
+
+interface StorefrontAssociation {
+  storefront_name: string;
+  storefront_slug: string;
+}
 
 interface OrgMember {
   id: string;
@@ -80,6 +114,7 @@ interface OrgMember {
   is_active: boolean;
   deactivated_at: string | null;
   deactivated_by: string | null;
+  storefronts?: StorefrontAssociation[];
   profile?: {
     first_name: string;
     last_name: string;
@@ -119,93 +154,106 @@ function MemberRow({ member, user, myPermissions, getRoleBadge, handleEditMember
 }) {
   return (
     <div
-      className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors ${!member.is_active ? 'opacity-60' : ''}`}
+      className={`flex flex-col gap-2 p-4 rounded-lg border bg-card hover:bg-muted/30 transition-colors ${!member.is_active ? 'opacity-60' : ''}`}
     >
-      <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
-          {member.profile?.first_name?.[0] || "U"}
-        </div>
-        <div>
-          <p className="font-medium">
-            {member.profile 
-              ? `${member.profile.first_name} ${member.profile.last_name}`
-              : "Usuário"}
-          </p>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Mail className="w-3 h-3" />
-            <span>{member.profile?.email || "—"}</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
+            {member.profile?.first_name?.[0] || "U"}
+          </div>
+          <div>
+            <p className="font-medium">
+              {member.profile 
+                ? `${member.profile.first_name} ${member.profile.last_name}`
+                : "Usuário"}
+            </p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Mail className="w-3 h-3" />
+              <span>{member.profile?.email || "—"}</span>
+            </div>
           </div>
         </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          {getRoleBadge(member.role)}
+          {member.team && (
+            <Badge 
+              variant="outline" 
+              className="border-opacity-30"
+              style={{ 
+                backgroundColor: `${member.team.color}20`,
+                color: member.team.color,
+                borderColor: `${member.team.color}50`,
+              }}
+            >
+              <Users className="w-3 h-3 mr-1" />
+              {member.team.name}
+            </Badge>
+          )}
+          {member.is_sales_manager && (
+            <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
+              <Crown className="w-3 h-3 mr-1" />
+              Gerente
+            </Badge>
+          )}
+          {member.role !== "owner" && !["partner_coproducer", "partner_affiliate", "partner_affiliate_manager"].includes(member.role) && (
+            <Badge 
+              variant="outline" 
+              className={member.can_see_all_leads 
+                ? "bg-green-500/10 text-green-600 border-green-500/30" 
+                : "bg-amber-500/10 text-amber-600 border-amber-500/30"}
+            >
+              {member.can_see_all_leads ? (
+                <><Eye className="w-3 h-3 mr-1" />Vê todos</>
+              ) : (
+                <><EyeOff className="w-3 h-3 mr-1" />Só seus</>
+              )}
+            </Badge>
+          )}
+          {!member.is_active && (
+            <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">
+              <Ban className="w-3 h-3 mr-1" />
+              Desativado
+            </Badge>
+          )}
+          {member.user_id !== user?.id && myPermissions?.team_edit_member && (
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={() => handleEditMember(member)}>
+              <Pencil className="w-4 h-4" />
+            </Button>
+          )}
+          {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_edit_member && (
+            <Button 
+              variant="ghost" size="icon" 
+              className={member.is_active ? "text-muted-foreground hover:text-amber-600" : "text-muted-foreground hover:text-green-600"}
+              onClick={() => handleToggleUserActive(member)}
+              disabled={isTogglingActive === member.id}
+              title={member.is_active ? "Desativar usuário" : "Reativar usuário"}
+            >
+              {isTogglingActive === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : member.is_active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+            </Button>
+          )}
+          {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_delete_member && (
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onRequestDelete(member)} disabled={isDeletingUser === member.id}>
+              {isDeletingUser === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            </Button>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-3 flex-wrap">
-        {getRoleBadge(member.role)}
-        {member.team && (
-          <Badge 
-            variant="outline" 
-            className="border-opacity-30"
-            style={{ 
-              backgroundColor: `${member.team.color}20`,
-              color: member.team.color,
-              borderColor: `${member.team.color}50`,
-            }}
-          >
-            <Users className="w-3 h-3 mr-1" />
-            {member.team.name}
-          </Badge>
-        )}
-        {member.is_sales_manager && (
-          <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
-            <Crown className="w-3 h-3 mr-1" />
-            Gerente
-          </Badge>
-        )}
-        {member.role !== "owner" && (
-          <Badge 
-            variant="outline" 
-            className={member.can_see_all_leads 
-              ? "bg-green-500/10 text-green-600 border-green-500/30" 
-              : "bg-amber-500/10 text-amber-600 border-amber-500/30"}
-          >
-            {member.can_see_all_leads ? (
-              <><Eye className="w-3 h-3 mr-1" />Vê todos</>
-            ) : (
-              <><EyeOff className="w-3 h-3 mr-1" />Só seus</>
-            )}
-          </Badge>
-        )}
-        {!member.is_active && (
-          <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">
-            <Ban className="w-3 h-3 mr-1" />
-            Desativado
-          </Badge>
-        )}
-        {member.user_id !== user?.id && myPermissions?.team_edit_member && (
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" onClick={() => handleEditMember(member)}>
-            <Pencil className="w-4 h-4" />
-          </Button>
-        )}
-        {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_edit_member && (
-          <Button 
-            variant="ghost" size="icon" 
-            className={member.is_active ? "text-muted-foreground hover:text-amber-600" : "text-muted-foreground hover:text-green-600"}
-            onClick={() => handleToggleUserActive(member)}
-            disabled={isTogglingActive === member.id}
-            title={member.is_active ? "Desativar usuário" : "Reativar usuário"}
-          >
-            {isTogglingActive === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : member.is_active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-          </Button>
-        )}
-        {member.user_id !== user?.id && member.role !== "owner" && myPermissions?.team_delete_member && (
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onRequestDelete(member)} disabled={isDeletingUser === member.id}>
-            {isDeletingUser === member.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-          </Button>
-        )}
-      </div>
+      {/* Storefront associations for partner roles */}
+      {member.storefronts && member.storefronts.length > 0 && (
+        <div className="flex items-center gap-2 ml-14 flex-wrap">
+          <span className="text-xs text-muted-foreground">Lojas:</span>
+          {member.storefronts.map((sf) => (
+            <Badge key={sf.storefront_slug} variant="outline" className="text-xs bg-accent/50">
+              {sf.storefront_name}
+            </Badge>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser }: {
+function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser, activeFilter, onFilterChange }: {
   members: OrgMember[];
   user: any;
   myPermissions: any;
@@ -215,46 +263,91 @@ function MembersListWithFilter({ members, user, myPermissions, getRoleBadge, han
   onRequestDelete: (member: OrgMember) => void;
   isTogglingActive: string | null;
   isDeletingUser: string | null;
+  activeFilter: FilterCategory;
+  onFilterChange: (filter: FilterCategory) => void;
 }) {
-  const [showInactive, setShowInactive] = useState(false);
+  // Calculate counts for each category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<FilterCategory, number> = {
+      all: members.filter(m => m.is_active).length,
+      members: 0, managers: 0, admin: 0, owner: 0,
+      delivery: 0, coproducer: 0, affiliate_manager: 0, affiliate: 0,
+      inactive: members.filter(m => !m.is_active).length,
+      other: 0,
+    };
+    
+    members.filter(m => m.is_active).forEach(m => {
+      FILTER_CATEGORIES.forEach(cat => {
+        if (cat.key === "all" || cat.key === "inactive") return;
+        if (cat.filterFn) {
+          if (cat.filterFn(m)) counts[cat.key]++;
+        } else if (cat.roles.includes(m.role)) {
+          counts[cat.key]++;
+        }
+      });
+    });
+    
+    return counts;
+  }, [members]);
 
-  const activeMembers = members.filter(m => m.is_active);
-  const inactiveMembers = members.filter(m => !m.is_active);
-
-  if (members.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-        <p>Nenhum membro encontrado</p>
-      </div>
-    );
-  }
+  // Filter members based on selected category
+  const filteredMembers = useMemo(() => {
+    if (activeFilter === "all") return members.filter(m => m.is_active);
+    if ((activeFilter as string) === "inactive") return members.filter(m => !m.is_active);
+    
+    const cat = FILTER_CATEGORIES.find(c => c.key === activeFilter);
+    if (!cat) return members.filter(m => m.is_active);
+    
+    return members.filter(m => {
+      if (!m.is_active) return false;
+      if (cat.filterFn) return cat.filterFn(m);
+      return cat.roles.includes(m.role);
+    });
+  }, [members, activeFilter]);
 
   const sharedProps = { user, myPermissions, getRoleBadge, handleEditMember, handleToggleUserActive, onRequestDelete, isTogglingActive, isDeletingUser };
 
   return (
-    <div className="space-y-3">
-      {/* Active members */}
-      {activeMembers.map((member) => (
-        <MemberRow key={member.id} member={member} {...sharedProps} />
-      ))}
+    <div className="space-y-4">
+      {/* Filter chips */}
+      <div className="flex flex-wrap gap-2">
+        {FILTER_CATEGORIES.map(cat => {
+          const count = categoryCounts[cat.key];
+          const isActive = activeFilter === cat.key;
+          if (count === 0 && cat.key !== "all") return null;
+          return (
+            <button
+              key={cat.key}
+              onClick={() => onFilterChange(cat.key)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                isActive 
+                  ? 'bg-primary text-primary-foreground border-primary' 
+                  : 'bg-card text-muted-foreground border-border hover:bg-muted'
+              }`}
+            >
+              {cat.label}
+              <span className={`text-xs rounded-full px-1.5 py-0.5 ${
+                isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Inactive members toggle */}
-      {inactiveMembers.length > 0 && (
-        <>
-          <button
-            onClick={() => setShowInactive(!showInactive)}
-            className="flex items-center gap-2 w-full py-3 px-4 rounded-lg border border-dashed border-muted-foreground/30 text-muted-foreground hover:bg-muted/30 transition-colors text-sm font-medium"
-          >
-            {showInactive ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            <Ban className="w-4 h-4" />
-            {inactiveMembers.length} usuário{inactiveMembers.length > 1 ? 's' : ''} desativado{inactiveMembers.length > 1 ? 's' : ''}
-          </button>
-
-          {showInactive && inactiveMembers.map((member) => (
+      {/* Filtered members */}
+      {filteredMembers.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p>Nenhum membro encontrado nesta categoria</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredMembers.map((member) => (
             <MemberRow key={member.id} member={member} {...sharedProps} />
           ))}
-        </>
+        </div>
       )}
     </div>
   );
@@ -313,6 +406,7 @@ export default function Team() {
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<string[]>([]);
   const [isUpdatingRole, setIsUpdatingRole] = useState(false);
   const [isTogglingVisibility, setIsTogglingVisibility] = useState<string | null>(null);
+  const [memberFilter, setMemberFilter] = useState<FilterCategory>("all");
   const [mainTab, setMainTab] = useState<"usuarios" | "associacoes">("usuarios");
   const [newUserData, setNewUserData] = useState({
     firstName: "",
@@ -424,10 +518,60 @@ export default function Team() {
         }
       }
 
+      // Get storefront associations for partner members
+      const partnerUserIds = membersData
+        .filter(m => ["partner_coproducer", "partner_affiliate", "partner_affiliate_manager"].includes(m.role))
+        .map(m => m.user_id);
+      
+      let storefrontMap: Record<string, StorefrontAssociation[]> = {};
+      if (partnerUserIds.length > 0) {
+        // Get virtual accounts for these users
+        const { data: virtualAccounts } = await supabase
+          .from("virtual_accounts")
+          .select("id, user_id")
+          .in("user_id", partnerUserIds);
+        
+        if (virtualAccounts?.length) {
+          const vaMap: Record<string, string> = {}; // va_id -> user_id
+          virtualAccounts.forEach(va => { vaMap[va.id] = va.user_id; });
+          
+          const { data: associations } = await supabase
+            .from("partner_associations")
+            .select("virtual_account_id, linked_storefront_id")
+            .in("virtual_account_id", virtualAccounts.map(va => va.id))
+            .eq("is_active", true)
+            .not("linked_storefront_id", "is", null);
+          
+          if (associations?.length) {
+            const sfIds = [...new Set(associations.map(a => a.linked_storefront_id!))];
+            const { data: storefronts } = await supabase
+              .from("tenant_storefronts")
+              .select("id, name, slug")
+              .in("id", sfIds);
+            
+            const sfLookup: Record<string, { name: string; slug: string }> = {};
+            storefronts?.forEach(sf => { sfLookup[sf.id] = { name: sf.name, slug: sf.slug }; });
+            
+            associations.forEach(a => {
+              const userId = vaMap[a.virtual_account_id];
+              const sf = sfLookup[a.linked_storefront_id!];
+              if (userId && sf) {
+                if (!storefrontMap[userId]) storefrontMap[userId] = [];
+                // Deduplicate
+                if (!storefrontMap[userId].some(s => s.storefront_slug === sf.slug)) {
+                  storefrontMap[userId].push({ storefront_name: sf.name, storefront_slug: sf.slug });
+                }
+              }
+            });
+          }
+        }
+      }
+
       const membersWithProfiles = membersData.map(member => ({
         ...member,
         profile: profiles?.find(p => p.user_id === member.user_id) || null,
         team: member.team_id ? teamsMap[member.team_id] || null : null,
+        storefronts: storefrontMap[member.user_id] || [],
       }));
 
       return membersWithProfiles as OrgMember[];
@@ -967,6 +1111,16 @@ export default function Team() {
         return <Badge className="bg-cyan-500/20 text-cyan-600 border-cyan-500/30">Entregador</Badge>;
       case "finance":
         return <Badge className="bg-teal-500/20 text-teal-600 border-teal-500/30">Financeiro</Badge>;
+      case "partner_coproducer":
+        return <Badge className="bg-indigo-500/20 text-indigo-600 border-indigo-500/30">Co-produtor</Badge>;
+      case "partner_affiliate":
+        return <Badge className="bg-pink-500/20 text-pink-600 border-pink-500/30">Afiliado</Badge>;
+      case "partner_affiliate_manager":
+        return <Badge className="bg-rose-500/20 text-rose-600 border-rose-500/30"><Crown className="w-3 h-3 mr-1" />Ger. Afiliado</Badge>;
+      case "partner_industry":
+        return <Badge className="bg-slate-500/20 text-slate-600 border-slate-500/30">Indústria</Badge>;
+      case "partner_factory":
+        return <Badge className="bg-stone-500/20 text-stone-600 border-stone-500/30">Fábrica</Badge>;
       default:
         return <Badge variant="outline">Membro</Badge>;
     }
@@ -1611,7 +1765,7 @@ export default function Team() {
               </div>
             )}
 
-            <MembersListWithFilter members={members} user={user} myPermissions={myPermissions} getRoleBadge={getRoleBadge} handleEditMember={handleEditMember} handleToggleUserActive={handleToggleUserActive} onRequestDelete={(member) => { setDeleteMemberTarget(member); setDeleteConfirmText(""); }} isTogglingActive={isTogglingActive} isDeletingUser={isDeletingUser} />
+            <MembersListWithFilter members={members} user={user} myPermissions={myPermissions} getRoleBadge={getRoleBadge} handleEditMember={handleEditMember} handleToggleUserActive={handleToggleUserActive} onRequestDelete={(member) => { setDeleteMemberTarget(member); setDeleteConfirmText(""); }} isTogglingActive={isTogglingActive} isDeletingUser={isDeletingUser} activeFilter={memberFilter} onFilterChange={setMemberFilter} />
           </CardContent>
         </Card>
 
