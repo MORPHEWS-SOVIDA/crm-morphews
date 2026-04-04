@@ -201,6 +201,7 @@ serve(async (req) => {
           readStatus: instanceSettings.read_status,
           syncFullHistory: instanceSettings.sync_full_history,
           webhook: {
+            enabled: true,
             url: webhookUrl,
             byEvents: false,
             base64: true,
@@ -211,7 +212,7 @@ serve(async (req) => {
               "MESSAGES_UPSERT",
               "CONNECTION_UPDATE",
               "QRCODE_UPDATED",
-              "GROUPS_UPSERT", // Evento de grupos
+              "GROUPS_UPSERT",
             ],
           },
         }),
