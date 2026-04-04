@@ -49,7 +49,7 @@ import { checkDuplicateUserWhatsApp } from "@/hooks/useCheckDuplicateUserWhatsAp
 import { Link2 } from "lucide-react";
 
 // All organization roles from org_role enum
-type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance" | "delivery";
+type OrgRole = "owner" | "admin" | "member" | "manager" | "seller" | "shipping" | "finance" | "delivery" | "partner_coproducer" | "partner_affiliate" | "partner_affiliate_manager" | "partner_industry" | "partner_factory";
 
 const ORG_ROLE_LABELS: Record<OrgRole, { label: string; description: string }> = {
   owner: { label: "Proprietário", description: "Dono da organização com todos os poderes" },
@@ -60,10 +60,39 @@ const ORG_ROLE_LABELS: Record<OrgRole, { label: string; description: string }> =
   shipping: { label: "Expedição", description: "Valida expedição e despacha vendas" },
   delivery: { label: "Entregador", description: "Vê apenas suas entregas atribuídas" },
   finance: { label: "Financeiro", description: "Confirma pagamentos e acessa relatórios" },
+  partner_coproducer: { label: "Co-produtor", description: "Parceiro co-produtor vinculado a lojas" },
+  partner_affiliate: { label: "Afiliado", description: "Afiliado que divulga e gera vendas" },
+  partner_affiliate_manager: { label: "Gerente de Afiliados", description: "Gerencia afiliados e recebe comissão sobre vendas da equipe" },
+  partner_industry: { label: "Indústria", description: "Parceiro industrial" },
+  partner_factory: { label: "Fábrica", description: "Parceiro de manufatura" },
 };
 
 // Roles that can be assigned (owner is never assignable via UI)
-const ASSIGNABLE_ROLES: OrgRole[] = ["admin", "manager", "seller", "member", "shipping", "delivery", "finance"];
+const ASSIGNABLE_ROLES: OrgRole[] = ["admin", "manager", "seller", "member", "shipping", "delivery", "finance", "partner_coproducer", "partner_affiliate", "partner_affiliate_manager"];
+
+// Filter category definitions
+type FilterCategory = "all" | "members" | "managers" | "admin" | "owner" | "delivery" | "coproducer" | "affiliate_manager" | "affiliate" | "inactive";
+
+interface FilterCategoryConfig {
+  key: FilterCategory;
+  label: string;
+  icon: typeof Users;
+  roles: OrgRole[];
+  filterFn?: (m: OrgMember) => boolean;
+}
+
+const FILTER_CATEGORIES: FilterCategoryConfig[] = [
+  { key: "all", label: "Todos", icon: Users, roles: [] },
+  { key: "members", label: "Membros", icon: User, roles: ["member", "seller", "shipping", "finance"] },
+  { key: "managers", label: "Gerentes", icon: Crown, roles: ["manager"], filterFn: (m) => m.role === "manager" || m.is_sales_manager },
+  { key: "admin", label: "Admin", icon: Shield, roles: ["admin"] },
+  { key: "owner", label: "Proprietário", icon: Crown, roles: ["owner"] },
+  { key: "delivery", label: "Entregador", icon: Users, roles: ["delivery"] },
+  { key: "coproducer", label: "Co-produtor", icon: Users, roles: ["partner_coproducer"] },
+  { key: "affiliate_manager", label: "Ger. Afiliado", icon: Users, roles: ["partner_affiliate_manager"] },
+  { key: "affiliate", label: "Afiliado", icon: Users, roles: ["partner_affiliate"] },
+  { key: "inactive", label: "Desativados", icon: Ban, roles: [], filterFn: (m) => !m.is_active },
+];
 
 interface OrgMember {
   id: string;
