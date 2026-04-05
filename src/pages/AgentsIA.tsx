@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bot, Plus, Settings, Trash2, Zap, MessageSquare, Brain, Users } from "lucide-react";
 import { useAgentsIA, useUpdateAgent, useDeleteAgent, type Agent } from "@/hooks/useAgentsIA";
+import { AgentWizard } from "@/components/agents-ia/AgentWizard";
 import { AgentCreateDialog } from "@/components/agents-ia/AgentCreateDialog";
 import { AgentConfigDialog } from "@/components/agents-ia/AgentConfigDialog";
 import { AgentTeamsTab } from "@/components/agents-ia/AgentTeamsTab";
@@ -18,6 +19,9 @@ const PERSONALITY_ICONS: Record<string, string> = {
   Profissional: "💼",
   Amigável: "😊",
   Direto: "🎯",
+  Formal: "🎩",
+  Casual: "😎",
+  Empático: "💛",
 };
 
 export default function AgentsIA() {
@@ -27,7 +31,8 @@ export default function AgentsIA() {
   const updateAgent = useUpdateAgent();
   const deleteAgent = useDeleteAgent();
 
-  const [showCreate, setShowCreate] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
+  const [showManualCreate, setShowManualCreate] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
 
   const handleToggleActive = (agent: Agent) => {
@@ -62,8 +67,14 @@ export default function AgentsIA() {
           </TabsList>
 
           <TabsContent value="agents" className="space-y-6">
-            <div className="flex justify-end">
-              <Button onClick={() => setShowCreate(true)} size="lg" className="gap-2">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setShowManualCreate(true)}
+                className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline transition-colors"
+              >
+                Prefiro configurar manualmente →
+              </button>
+              <Button onClick={() => setShowWizard(true)} size="lg" className="gap-2">
                 <Plus className="h-5 w-5" />
                 Criar Novo Agente
               </Button>
@@ -180,7 +191,7 @@ export default function AgentsIA() {
                   <p className="text-muted-foreground max-w-md mb-6">
                     Crie seu primeiro agente inteligente 2.0 para automatizar atendimentos com IA avançada.
                   </p>
-                  <Button onClick={() => setShowCreate(true)} size="lg" className="gap-2">
+                  <Button onClick={() => setShowWizard(true)} size="lg" className="gap-2">
                     <Zap className="h-5 w-5" />
                     Criar Meu Primeiro Agente
                   </Button>
@@ -195,9 +206,15 @@ export default function AgentsIA() {
         </Tabs>
       </div>
 
+      <AgentWizard
+        open={showWizard}
+        onOpenChange={setShowWizard}
+        organizationId={organizationId}
+      />
+
       <AgentCreateDialog
-        open={showCreate}
-        onOpenChange={setShowCreate}
+        open={showManualCreate}
+        onOpenChange={setShowManualCreate}
         organizationId={organizationId}
       />
 
