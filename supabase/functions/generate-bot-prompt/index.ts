@@ -16,8 +16,17 @@ serve(async (req) => {
       name,
       serviceType,
       description,
-      currentPrompt,
-      // All behavioral settings
+      companyName,
+      segment,
+      products,
+      targetAudience,
+      mainObjection,
+      tone,
+      gender,
+      presentName,
+      qualificationStrategy,
+      neverDo,
+      transferReasons,
       useEmojis,
       responseLength,
       interpretAudio,
@@ -34,130 +43,109 @@ serve(async (req) => {
       sendProductLinks,
     } = await req.json();
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
     const serviceLabels: Record<string, string> = {
-      sales: "vendas",
-      support: "suporte técnico",
+      sales: "Vendas",
+      support: "Suporte técnico / Pós-venda",
       sac: "SAC (atendimento ao cliente)",
-      social_selling: "social selling e relacionamento",
-      qualification: "qualificação de leads",
+      social_selling: "Social selling e relacionamento",
+      qualification: "Qualificação de leads",
+      scheduling: "Agendamento",
     };
-
     const serviceLabel = serviceLabels[serviceType] || serviceType;
 
-    // Build context about capabilities
-    const capabilities: string[] = [];
-    
-    if (useEmojis === true) {
-      capabilities.push("- O robô DEVE usar emojis nas respostas para tornar a conversa mais natural e acolhedora");
-    } else if (useEmojis === false) {
-      capabilities.push("- O robô NÃO deve usar emojis nas respostas, manter comunicação limpa e profissional");
+    const systemPrompt = `Você é um especialista em prompt engineering para agentes de vendas e atendimento no WhatsApp.
+
+Sua tarefa é gerar um system prompt completo, detalhado e expert-level para um agente de IA que vai atender clientes pelo WhatsApp.
+
+O prompt gerado deve ter entre 2.500 e 4.000 caracteres e incluir obrigatoriamente estas seções:
+
+1. IDENTIDADE — Nome, gênero, empresa, tom de voz, uso de emojis
+2. MISSÃO — Objetivo principal do agente com clareza absoluta
+3. CONTEXTO DO NEGÓCIO — Segmento, produtos/serviços, público-alvo
+4. COMO ATENDER — Fluxo passo a passo de como conduzir a conversa
+5. QUALIFICAÇÃO — Como entender o problema do cliente antes de oferecer solução
+6. OBJEÇÕES — Como lidar com a principal objeção identificada
+7. REGRAS CRÍTICAS — O que NUNCA fazer, formatado como lista clara
+8. QUANDO TRANSFERIR PARA HUMANO — Condições exatas
+9. ESTILO ANTI-ROBÔ — Exemplos de frases naturais vs frases robóticas
+10. MEMÓRIA DE CONTEXTO — Instrução para nunca repetir perguntas já respondidas
+
+Gere o prompt em português brasileiro. Seja específico, não genérico. Use as informações fornecidas para criar um agente que pareça um humano especialista, não um chatbot.
+
+Retorne APENAS o texto do prompt, sem explicações, sem markdown de código, sem comentários adicionais.`;
+
+    // Build transfer reasons string
+    let transferReasonsStr = "";
+    if (Array.isArray(transferReasons) && transferReasons.length > 0) {
+      const reasonLabels: Record<string, string> = {
+        explicit_request: "Cliente pediu explicitamente",
+        serious_complaint: "Reclamação grave",
+        after_attempts: "Após 2 tentativas sem resolver",
+        refund: "Pedido de reembolso",
+        never: "Nunca transferir",
+      };
+      transferReasonsStr = transferReasons.map((r: string) => reasonLabels[r] || r).join(", ");
+    } else if (typeof transferReasons === "string") {
+      transferReasonsStr = transferReasons;
     }
 
-    if (interpretAudio) capabilities.push("- O robô consegue ouvir e interpretar áudios enviados pelo cliente");
-    if (interpretImages) capabilities.push("- O robô consegue analisar imagens/fotos enviadas pelo cliente");
-    if (interpretDocuments) capabilities.push("- O robô consegue ler e interpretar documentos (PDF, etc.) enviados pelo cliente");
-    
-    if (voiceEnabled) {
-      const styleLabel = voiceStyle === 'natural' ? 'natural e humano' : voiceStyle === 'formal' ? 'formal e profissional' : 'descontraído';
-      capabilities.push(`- O robô pode responder por áudio com estilo ${styleLabel} — deve ocasionalmente sugerir "posso te mandar um áudio explicando?" quando o assunto for complexo`);
-    }
+    const userMessage = `Crie um system prompt expert-level para este agente:
 
-    if (maxMessages) {
-      capabilities.push(`- Após ${maxMessages} mensagens sem resolução, o robô deve encaminhar para um atendente humano de forma natural`);
-    }
+MISSÃO: ${serviceLabel}
+NOME: ${name || "Não definido"}
+EMPRESA: ${companyName || "Não informada"}
+SEGMENTO: ${segment || "Não informado"}
+PRODUTOS/SERVIÇOS: ${products || "Não informados"}
+PÚBLICO-ALVO: ${targetAudience || "Não informado"}
+PRINCIPAL OBJEÇÃO: ${mainObjection || "Não informada"}
+TOM DE VOZ: ${tone || "casual"}
+GÊNERO: ${gender || "neutro"}
+USA EMOJIS: ${useEmojis === true ? "Sim" : useEmojis === false ? "Não" : "Sim"}
+APRESENTA-SE COM NOME: ${presentName === true ? "Sim" : presentName === false ? "Não" : "Sim"}
+PROCESSA ÁUDIO: ${interpretAudio ? "Sim" : "Não"}
+PROCESSA IMAGENS: ${interpretImages ? "Sim" : "Não"}
+ESTRATÉGIA DE QUALIFICAÇÃO: ${qualificationStrategy || "Não definida"}
+NUNCA FAZER: ${neverDo || "Não definido"}
+TRANSFERIR PARA HUMANO QUANDO: ${transferReasonsStr || "Cliente pedir explicitamente"}
+LIMITE DE MENSAGENS: ${maxMessages || "Sem limite definido"}
 
-    if (qualificationEnabled && qualificationQuestions?.length > 0) {
-      const questions = qualificationQuestions.map((q: any) => q.questionText).join(", ");
-      capabilities.push(`- No início da conversa, o robô deve fazer perguntas de qualificação de forma natural: ${questions}`);
-    }
+${description ? `Contexto adicional: ${description}` : ""}`;
 
-    if (productScope === 'all' || productScope === 'selected') {
-      const mediaActions: string[] = [];
-      if (sendProductImages) mediaActions.push("fotos");
-      if (sendProductVideos) mediaActions.push("vídeos");
-      if (sendProductLinks) mediaActions.push("links");
-      if (mediaActions.length > 0) {
-        capabilities.push(`- Quando falar sobre produtos, o robô pode enviar ${mediaActions.join(", ")} automaticamente — deve mencionar os produtos com naturalidade`);
-      }
-      capabilities.push("- O robô tem acesso ao catálogo de produtos e deve saber recomendar e tirar dúvidas sobre eles");
-    } else if (productScope === 'none') {
-      capabilities.push("- O robô NÃO tem acesso a produtos e não deve tentar vender ou recomendar produtos");
-    }
-
-    const capabilitiesBlock = capabilities.length > 0
-      ? `\n\nCapacidades e regras de comportamento que o robô TEM (incorpore naturalmente no prompt):\n${capabilities.join("\n")}`
-      : "";
-
-    const systemPrompt = `Você é um especialista em criar system prompts para robôs de atendimento via WhatsApp.
-
-Sua tarefa é gerar um system prompt completo e pronto para uso, em português brasileiro.
-
-Regras:
-- O prompt deve ser escrito em segunda pessoa, como se você estivesse instruindo o robô diretamente
-- Inclua: personalidade, tom de voz, regras de comportamento, forma de se apresentar
-- Se a descrição mencionar expressões regionais, sotaque ou gírias, incorpore no prompt
-- Se a descrição mencionar regras específicas de negócio, inclua como instruções claras
-- O prompt deve ser autocontido - tudo que o robô precisa saber para se comportar corretamente
-- NÃO inclua instruções sobre produtos específicos ou FAQ (esses são injetados separadamente pelo sistema)
-- NÃO inclua a mensagem de boas-vindas no prompt (é configurada separadamente)
-- INCORPORE as capacidades e regras de comportamento fornecidas como parte natural do prompt, não como lista separada
-- Escreva de forma clara e organizada, usando seções com títulos quando fizer sentido
-- Retorne APENAS o texto do prompt, sem explicações ou comentários adicionais`;
-
-    const userMessage = `Crie um system prompt para um robô de WhatsApp com as seguintes características:
-
-Nome: ${name}
-Tipo de serviço: ${serviceLabel}
-${description ? `\nDescrição do usuário:\n${description}` : ""}
-${capabilitiesBlock}
-${currentPrompt ? `\nPrompt atual (use como referência para manter o que já funciona, mas atualize com as novas capacidades):\n${currentPrompt}` : ""}
-
-Gere o system prompt completo:`;
-
-    const response = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMessage },
-          ],
-        }),
-      }
-    );
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      }),
+    });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Anthropic API error:", response.status, errorText);
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Limite de requisições excedido, tente novamente em instantes." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos insuficientes para gerar o prompt." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("Erro ao gerar prompt com IA");
+      throw new Error(`Erro ao gerar prompt com Claude: ${response.status}`);
     }
 
     const data = await response.json();
-    const generatedPrompt = data.choices?.[0]?.message?.content;
+    const generatedPrompt = data.content?.[0]?.text;
 
     if (!generatedPrompt) {
-      throw new Error("IA não retornou um prompt válido");
+      throw new Error("Claude não retornou um prompt válido");
     }
 
     return new Response(
