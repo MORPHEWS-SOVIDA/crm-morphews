@@ -9,7 +9,8 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
+const RAW_EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
+const EVOLUTION_API_URL = RAW_EVOLUTION_API_URL.startsWith("http") ? RAW_EVOLUTION_API_URL.replace(/\/$/, "") : `https://${RAW_EVOLUTION_API_URL.replace(/\/$/, "")}`;
 const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
 const PUBLIC_APP_URL = Deno.env.get("PUBLIC_APP_URL") ?? "https://atomic.ia.br";
 
