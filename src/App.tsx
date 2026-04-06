@@ -161,6 +161,7 @@ const FiscalInvoices = lazy(() => import("./pages/FiscalInvoices"));
 const FiscalInvoiceDetail = lazy(() => import("./pages/FiscalInvoiceDetail"));
 const SalesHourlyReport = lazy(() => import("./pages/SalesHourlyReport"));
 const SalesDetailedReportPage = lazy(() => import("./pages/SalesDetailedReportPage"));
+const CommissionReportPage = lazy(() => import("./pages/CommissionReportPage"));
 const MotoboyProductivityReport = lazy(() => import("./pages/MotoboyProductivityReport"));
 
 // Admin
