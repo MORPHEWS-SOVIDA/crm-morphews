@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-export type CheckpointType = 'printed' | 'pending_expedition' | 'dispatched' | 'delivered' | 'payment_confirmed';
+export type CheckpointType = 'printed' | 'pending_expedition' | 'dispatched' | 'seller_delivery_confirmed' | 'delivered' | 'payment_confirmed';
 
 export interface SaleCheckpoint {
   id: string;
