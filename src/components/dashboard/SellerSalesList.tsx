@@ -456,6 +456,7 @@ export function SellerSalesList({ viewAsUserId }: { viewAsUserId?: string } = {}
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="returned">Voltou</SelectItem>
                 <SelectItem value="dispatched">Despachado</SelectItem>
+                <SelectItem value="seller_confirmed">Conf. Vendedor</SelectItem>
                 <SelectItem value="separated">Separado</SelectItem>
                 <SelectItem value="draft">Rascunho</SelectItem>
                 <SelectItem value="delivered">Entregue</SelectItem>
