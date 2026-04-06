@@ -389,42 +389,58 @@ export function useSales(filters?: { status?: SaleStatus; limit?: number; dateFr
     queryFn: async () => {
       if (!organizationId) return [];
 
-      let query = supabase
-        .from('sales')
-        .select(`
-          *,
-          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link, lead_source),
-          items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at, combo_id, combo_item_parent_id)
-        `)
-        .eq('organization_id', organizationId)
-        .neq('status', 'ecommerce_pending') // Hide e-commerce orders awaiting payment from ERP
-        .or('is_ecommerce_origin.eq.false,is_ecommerce_origin.is.null,and(is_ecommerce_origin.eq.true,status.neq.cancelled)') // Hide cancelled e-commerce orders from ERP
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      const buildQuery = () => {
+        let query = supabase
+          .from('sales')
+          .select(`
+            *,
+            lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link, lead_source),
+            items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at, combo_id, combo_item_parent_id)
+          `)
+          .eq('organization_id', organizationId)
+          .neq('status', 'ecommerce_pending')
+          .or('is_ecommerce_origin.eq.false,is_ecommerce_origin.is.null,and(is_ecommerce_origin.eq.true,status.neq.cancelled)')
+          .order('created_at', { ascending: false });
 
-      // Server-side date filtering for performance
-      if (filters?.dateFrom) {
-        const field = filters.dateField || 'created_at';
-        query = query.gte(field, filters.dateFrom);
+        if (filters?.dateFrom) {
+          const field = filters.dateField || 'created_at';
+          query = query.gte(field, filters.dateFrom);
+        }
+
+        if (filters?.dateTo) {
+          const field = filters.dateField || 'created_at';
+          query = query.lte(field, `${filters.dateTo}T23:59:59.999Z`);
+        }
+
+        if (filters?.status) {
+          query = query.eq('status', filters.status);
+        }
+
+        if (!permissions?.sales_view_all && user?.id) {
+          query = query.or(`created_by.eq.${user.id},seller_user_id.eq.${user.id}`);
+        }
+
+        return query;
+      };
+
+      const pageSize = Math.min(limit, 1000);
+      let from = 0;
+      let data: any[] = [];
+
+      while (data.length < limit) {
+        const to = Math.min(from + pageSize - 1, limit - 1);
+        const { data: batch, error } = await buildQuery().range(from, to);
+
+        if (error) throw error;
+
+        if (!batch?.length) break;
+
+        data = data.concat(batch);
+
+        if (batch.length < pageSize) break;
+
+        from += pageSize;
       }
-      if (filters?.dateTo) {
-        const field = filters.dateField || 'created_at';
-        query = query.lte(field, `${filters.dateTo}T23:59:59.999Z`);
-      }
-
-      if (filters?.status) {
-        query = query.eq('status', filters.status);
-      }
-
-      // Filter by user if they don't have sales_view_all permission
-      if (!permissions?.sales_view_all && user?.id) {
-        // User can only see sales they created or are the seller of
-        query = query.or(`created_by.eq.${user.id},seller_user_id.eq.${user.id}`);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
 
       // Fetch seller profiles and delivery user profiles separately
       const sellerUserIds = [...new Set((data || []).map(s => s.seller_user_id).filter(Boolean))] as string[];

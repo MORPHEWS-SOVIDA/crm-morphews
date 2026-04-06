@@ -106,42 +106,60 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
       const endDate = endOfMonth(new Date(year, month - 1));
       const periodField = selectedStatus === 'finalized' ? 'delivered_at' : 'created_at';
 
-      let query = supabase
-        .from('sales')
-        .select(`
-          id,
-          created_at,
-          delivered_at,
-          total_cents,
-          status,
-          payment_status,
-          seller_user_id,
-          seller_commission_cents,
-          leads!inner (name),
-          sale_items (
+      const buildQuery = () => {
+        let query = supabase
+          .from('sales')
+          .select(`
             id,
-            product_name,
-            quantity,
+            created_at,
+            delivered_at,
             total_cents,
-            commission_cents,
-            commission_percentage
-          )
-        `)
-        .eq('organization_id', tenantId)
-        .neq('status', 'cancelled');
+            status,
+            payment_status,
+            seller_user_id,
+            seller_commission_cents,
+            leads!inner (name),
+            sale_items (
+              id,
+              product_name,
+              quantity,
+              total_cents,
+              commission_cents,
+              commission_percentage
+            )
+          `)
+          .eq('organization_id', tenantId)
+          .neq('status', 'cancelled');
 
-      if (selectedStatus === 'finalized') {
-        query = query.eq('status', 'finalized');
-      } else if (selectedStatus === 'pending') {
-        query = query.neq('status', 'finalized');
+        if (selectedStatus === 'finalized') {
+          query = query.eq('status', 'finalized');
+        } else if (selectedStatus === 'pending') {
+          query = query.neq('status', 'finalized');
+        }
+
+        return query
+          .gte(periodField, startDate.toISOString())
+          .lte(periodField, endDate.toISOString())
+          .order(periodField, { ascending: false });
+      };
+
+      let data: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+
+      while (true) {
+        const { data: batch, error } = await buildQuery().range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        if (!batch?.length) break;
+
+        data = data.concat(batch);
+
+        if (batch.length < pageSize) break;
+
+        from += pageSize;
       }
-
-      const { data, error } = await query
-        .gte(periodField, startDate.toISOString())
-        .lte(periodField, endDate.toISOString())
-        .order(periodField, { ascending: false });
-
-      if (error) throw error;
 
       return (data || []).map((sale: any) => ({
         ...sale,
