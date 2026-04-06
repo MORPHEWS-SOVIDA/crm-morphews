@@ -263,7 +263,7 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
       </div>
 
       {/* Row 2: Status breakdown */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {/* Teles Pendentes */}
         <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
           <div className="p-2 rounded-full bg-amber-500/20">
@@ -273,6 +273,18 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
             <p className="text-xs text-muted-foreground font-medium">Teles Pendentes</p>
             <p className="text-lg font-bold text-amber-600">{summaryData.pendingCount}</p>
             <p className="text-xs text-muted-foreground">{formatCurrency(summaryData.pendingValue)}</p>
+          </div>
+        </div>
+
+        {/* Confirmado Vendedor */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+          <div className="p-2 rounded-full bg-cyan-500/20">
+            <Smartphone className="w-4 h-4 text-cyan-600" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Conf. Vendedor</p>
+            <p className="text-lg font-bold text-cyan-600">{summaryData.sellerConfirmedCount}</p>
+            <p className="text-xs text-muted-foreground">{formatCurrency(summaryData.sellerConfirmedCommission)}</p>
           </div>
         </div>
 
