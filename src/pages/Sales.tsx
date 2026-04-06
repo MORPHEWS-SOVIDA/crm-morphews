@@ -175,6 +175,8 @@ export default function Sales() {
   const { data: sales = [], isLoading } = useSales(
     activeTab !== 'all' ? { status: activeTab } : undefined
   );
+  // Server-side search for romaneio numbers not in the loaded 500
+  const { data: serverSearchResults = [], isLoading: isSearching } = useSearchSaleByRomaneio(searchTerm);
   const { data: products = [] } = useProducts();
   const { data: leadSources = [] } = useLeadSources();
   const { data: teamMembers = [] } = useTeamMembers();
