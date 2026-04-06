@@ -25,6 +25,10 @@ interface ToggleCheckpointData {
   checkpointType: CheckpointType;
   complete: boolean;
   notes?: string;
+  sellerDeliveryConfirmation?: {
+    proofUrls: string[];
+    deliveryDate: string;
+  };
 }
 
 export const checkpointLabels: Record<CheckpointType, string> = {
@@ -105,7 +109,7 @@ export function useToggleSaleCheckpoint() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ saleId, checkpointType, complete, notes }: ToggleCheckpointData) => {
+    mutationFn: async ({ saleId, checkpointType, complete, notes, sellerDeliveryConfirmation }: ToggleCheckpointData) => {
       // Get organization_id from sale
       const { data: sale, error: saleError } = await supabase
         .from('sales')
@@ -114,6 +118,14 @@ export function useToggleSaleCheckpoint() {
         .single();
 
       if (saleError) throw saleError;
+
+      if (
+        checkpointType === 'seller_delivery_confirmed' &&
+        complete &&
+        (!sellerDeliveryConfirmation?.deliveryDate || !sellerDeliveryConfirmation.proofUrls?.length)
+      ) {
+        throw new Error('Data de entrega e comprovante são obrigatórios');
+      }
 
       // Check if checkpoint exists
       const { data: existing } = await supabase
@@ -192,6 +204,8 @@ export function useToggleSaleCheckpoint() {
           const { error } = await supabase.from('sales').update({ 
             seller_delivery_confirmed_at: new Date().toISOString(),
             seller_delivery_confirmed_by: user?.id,
+            seller_delivery_confirmed_date: sellerDeliveryConfirmation?.deliveryDate ?? null,
+            seller_delivery_proof_urls: sellerDeliveryConfirmation?.proofUrls ?? [],
           } as any).eq('id', saleId);
           if (error) throw error;
         } else if (checkpointType === 'delivered') {
@@ -266,6 +280,7 @@ export function useToggleSaleCheckpoint() {
             .update({ 
               seller_delivery_confirmed_at: null, 
               seller_delivery_confirmed_by: null,
+              seller_delivery_confirmed_date: null,
               seller_delivery_proof_urls: [],
             } as any)
             .eq('id', saleId);
@@ -303,6 +318,7 @@ export function useToggleSaleCheckpoint() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sale-checkpoints', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['sale-checkpoint-history', data.saleId] });
+      queryClient.invalidateQueries({ queryKey: ['seller-delivery-date', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['sale', data.saleId] });
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['post-sale-sales'] });
