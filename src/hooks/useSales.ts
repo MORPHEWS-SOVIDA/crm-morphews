@@ -336,14 +336,8 @@ export function useSearchSaleByRomaneio(searchTerm: string) {
           items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at, combo_id, combo_item_parent_id)
         `)
         .eq('organization_id', organizationId)
-        .neq('status', 'ecommerce_pending');
-
-      if (isNumericSearch) {
-        query = query.eq('romaneio_number', parseInt(trimmed, 10));
-      } else {
-        // Text search by lead name
-        query = query.ilike('lead_name_cache', `%${trimmed}%`);
-      }
+        .neq('status', 'ecommerce_pending')
+        .eq('romaneio_number', parseInt(trimmed, 10));
 
       // Respect permissions
       if (!permissions?.sales_view_all && user?.id) {
