@@ -215,13 +215,18 @@ export function SaleCheckpointsCard({
     }
 
     // If trying to UNCHECK a checkpoint, check uncheck permission
-    // This applies to: printed, pending_expedition, dispatched, delivered
-    const expeditionCheckpoints: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'delivered'];
+    const expeditionCheckpoints: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'seller_delivery_confirmed', 'delivered'];
     if (isCompleted && expeditionCheckpoints.includes(type)) {
       if (!permissions?.sales_uncheck_checkpoint) {
         toast.error('Sem permissão para desmarcar etapas de expedição');
         return;
       }
+    }
+
+    // seller_delivery_confirmed: open proof dialog instead of direct toggle
+    if (type === 'seller_delivery_confirmed' && !isCompleted) {
+      setShowProofDialog(true);
+      return;
     }
 
     // Check permissions for MARKING checkpoints
