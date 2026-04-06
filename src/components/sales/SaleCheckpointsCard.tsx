@@ -123,6 +123,24 @@ function useSaleClosingInfo(saleId: string) {
   });
 }
 
+// Hook to fetch seller delivery confirmed date
+function useSellerDeliveryDate(saleId: string) {
+  return useQuery({
+    queryKey: ['seller-delivery-date', saleId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('seller_delivery_confirmed_date')
+        .eq('id', saleId)
+        .maybeSingle();
+      if (error) return null;
+      return (data as any)?.seller_delivery_confirmed_date as string | null;
+    },
+    enabled: !!saleId,
+    staleTime: 60000,
+  });
+}
+
 // Hook to fetch delivery return reasons
 function useDeliveryReturnReasons() {
   return useQuery({
@@ -175,6 +193,7 @@ export function SaleCheckpointsCard({
   const updateSale = useUpdateSale();
   const { data: permissions } = useMyPermissions();
   const { data: closingInfo } = useSaleClosingInfo(saleId);
+  const { data: sellerDeliveryDate } = useSellerDeliveryDate(saleId);
   const [expandedNotes, setExpandedNotes] = useState<Record<CheckpointType, boolean>>({} as any);
   const [noteInputs, setNoteInputs] = useState<Record<CheckpointType, string>>({} as any);
   const [showNoteInput, setShowNoteInput] = useState<Record<CheckpointType, boolean>>({} as any);
@@ -383,14 +402,21 @@ export function SaleCheckpointsCard({
     return false;
   };
 
-  const handleSellerDeliveryConfirm = async (proofUrls: string[]) => {
+  const handleSellerDeliveryConfirm = async (proofUrls: string[], deliveryDate: string) => {
     try {
       await toggleMutation.mutateAsync({
         saleId,
         checkpointType: 'seller_delivery_confirmed',
         complete: true,
-        notes: `Comprovante(s) anexado(s): ${proofUrls.length} arquivo(s)`,
+        notes: `Comprovante(s) anexado(s): ${proofUrls.length} arquivo(s). Entrega em: ${deliveryDate}`,
       });
+
+      // Save delivery date
+      await supabase
+        .from('sales')
+        .update({ seller_delivery_confirmed_date: deliveryDate } as any)
+        .eq('id', saleId);
+
       setShowProofDialog(false);
       toast.success('Entrega confirmada pelo vendedor');
     } catch (error) {
@@ -616,6 +642,13 @@ export function SaleCheckpointsCard({
                               {status.completedBy}
                             </span>
                           )}
+                        </div>
+                      )}
+
+                      {/* Show delivery date for seller_delivery_confirmed */}
+                      {type === 'seller_delivery_confirmed' && status.isCompleted && sellerDeliveryDate && (
+                        <div className="mt-1 text-xs font-medium text-primary">
+                          📦 Venda entregue dia {format(new Date(sellerDeliveryDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
                         </div>
                       )}
 

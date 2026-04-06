@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ExternalLink, ChevronLeft, ChevronRight, Loader2, Package, DollarSign, TrendingUp, Clock, Truck, CheckCircle } from 'lucide-react';
+import { ExternalLink, ChevronLeft, ChevronRight, Loader2, Package, DollarSign, TrendingUp, Clock, Truck, CheckCircle, Smartphone } from 'lucide-react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -156,14 +156,17 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
     let totalSales = 0;
     let pendingCount = 0;
     let pendingValue = 0;
-    let deliveredCount = 0; // delivered OR finalized (finalized implies delivered)
+    let deliveredCount = 0;
     let deliveredValue = 0;
-    let paidCount = 0; // paid OR finalized (finalized implies paid)
+    let paidCount = 0;
     let paidValue = 0;
-    let completedCount = 0; // finalized only
+    let completedCount = 0;
     let completedValue = 0;
     let completedCommission = 0;
-    let totalCommission = 0; // commission from all sales in view
+    let totalCommission = 0;
+    let sellerConfirmedCount = 0;
+    let sellerConfirmedValue = 0;
+    let sellerConfirmedCommission = 0;
 
     for (const sale of sales) {
       const value = sale.total_cents || 0;
@@ -177,29 +180,32 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
       totalSales += value;
       totalCommission += commission;
 
-      // Teles Pendentes: draft, pending_expedition, payment_confirmed, dispatched
       if (isPending) {
         pendingCount++;
         pendingValue += value;
       }
 
-      // Entregue: delivered, finalized, or closed (all imply delivery happened)
       if (isDelivered || isFinalized || isClosed) {
         deliveredCount++;
         deliveredValue += value;
       }
 
-      // Pago: explicitly paid OR finalized/closed (which imply payment confirmed)
       if (isPaid || isFinalized || isClosed) {
         paidCount++;
         paidValue += value;
       }
 
-      // Finalizado: ONLY finalized sales count for guaranteed commission
       if (isFinalized || isClosed) {
         completedCount++;
         completedValue += value;
         completedCommission += commission;
+      }
+
+      // Seller confirmed
+      if (sale.seller_delivery_confirmed_at) {
+        sellerConfirmedCount++;
+        sellerConfirmedValue += value;
+        sellerConfirmedCommission += commission;
       }
     }
 
@@ -215,6 +221,9 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
       completedCount,
       completedValue,
       completedCommission,
+      sellerConfirmedCount,
+      sellerConfirmedValue,
+      sellerConfirmedCommission,
     };
   }, [sales]);
 
@@ -254,7 +263,7 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
       </div>
 
       {/* Row 2: Status breakdown */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {/* Teles Pendentes */}
         <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
           <div className="p-2 rounded-full bg-amber-500/20">
@@ -264,6 +273,18 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
             <p className="text-xs text-muted-foreground font-medium">Teles Pendentes</p>
             <p className="text-lg font-bold text-amber-600">{summaryData.pendingCount}</p>
             <p className="text-xs text-muted-foreground">{formatCurrency(summaryData.pendingValue)}</p>
+          </div>
+        </div>
+
+        {/* Confirmado Vendedor */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+          <div className="p-2 rounded-full bg-cyan-500/20">
+            <Smartphone className="w-4 h-4 text-cyan-600" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium">Conf. Vendedor</p>
+            <p className="text-lg font-bold text-cyan-600">{summaryData.sellerConfirmedCount}</p>
+            <p className="text-xs text-muted-foreground">{formatCurrency(summaryData.sellerConfirmedCommission)}</p>
           </div>
         </div>
 
@@ -435,6 +456,7 @@ export function SellerSalesList({ viewAsUserId }: { viewAsUserId?: string } = {}
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="returned">Voltou</SelectItem>
                 <SelectItem value="dispatched">Despachado</SelectItem>
+                <SelectItem value="seller_confirmed">Conf. Vendedor</SelectItem>
                 <SelectItem value="separated">Separado</SelectItem>
                 <SelectItem value="draft">Rascunho</SelectItem>
                 <SelectItem value="delivered">Entregue</SelectItem>

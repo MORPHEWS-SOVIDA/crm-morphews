@@ -20,6 +20,7 @@ export interface SellerSaleItem {
   melhor_envio_tracking_status: string | null;
   created_at: string;
   delivered_at: string | null;
+  seller_delivery_confirmed_at: string | null;
   commission_percentage: number;
   commission_cents: number;
 }
@@ -123,6 +124,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
           carrier_tracking_status,
           created_at,
           delivered_at,
+          seller_delivery_confirmed_at,
           seller_commission_cents,
           seller_commission_percentage,
           lead:leads!sales_lead_id_fkey(name, whatsapp),
@@ -145,6 +147,9 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
         } else if (statusFilter === 'separated') {
           // Separated = pending_expedition or payment_confirmed
           query = query.in('status', ['pending_expedition', 'payment_confirmed'] as any);
+        } else if (statusFilter === 'seller_confirmed') {
+          // Seller confirmed: has seller_delivery_confirmed_at set
+          query = query.not('seller_delivery_confirmed_at', 'is', null);
         } else {
           query = query.eq('status', statusFilter as any);
         }
@@ -198,6 +203,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
           melhor_envio_tracking_status: melhorEnvioTrackingStatus,
           created_at: s.created_at,
           delivered_at: s.delivered_at,
+          seller_delivery_confirmed_at: s.seller_delivery_confirmed_at,
           commission_percentage: commissionPercentage,
           commission_cents: commissionCents,
         };

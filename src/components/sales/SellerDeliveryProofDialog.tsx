@@ -9,15 +9,20 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Upload, Image, Mic, X, Loader2 } from 'lucide-react';
+import { Upload, Image, Mic, X, Loader2, CalendarIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface SellerDeliveryProofDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   saleId: string;
-  onConfirm: (proofUrls: string[]) => void;
+  onConfirm: (proofUrls: string[], deliveryDate: string) => void;
   isLoading?: boolean;
 }
 
@@ -31,6 +36,7 @@ export function SellerDeliveryProofDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [deliveryDate, setDeliveryDate] = useState<Date>(new Date());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,7 +109,7 @@ export function SellerDeliveryProofDialog({
         } as any)
         .eq('id', saleId);
 
-      onConfirm(urls);
+      onConfirm(urls, format(deliveryDate, 'yyyy-MM-dd'));
       // Cleanup
       previews.forEach(p => { if (p !== 'audio') URL.revokeObjectURL(p); });
       setFiles([]);
@@ -121,6 +127,7 @@ export function SellerDeliveryProofDialog({
       previews.forEach(p => { if (p !== 'audio') URL.revokeObjectURL(p); });
       setFiles([]);
       setPreviews([]);
+      setDeliveryDate(new Date());
     }
     onOpenChange(val);
   };
@@ -138,6 +145,35 @@ export function SellerDeliveryProofDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Data de entrega */}
+          <div>
+            <Label className="text-sm font-medium">Data que o cliente recebeu *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal mt-1",
+                    !deliveryDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {deliveryDate ? format(deliveryDate, "dd/MM/yyyy", { locale: ptBR }) : 'Selecionar data'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={deliveryDate}
+                  onSelect={(d) => d && setDeliveryDate(d)}
+                  disabled={(date) => date > new Date()}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <div>
             <Label className="text-sm font-medium">Comprovante(s) *</Label>
             <p className="text-xs text-muted-foreground mb-2">
