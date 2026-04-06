@@ -338,7 +338,7 @@ async function analyzeImageWithAI(base64: string, mimeType: string): Promise<{
   notes?: string;
   rawText: string;
 } | null> {
-  if (!LOVABLE_API_KEY) {
+  if (!GEMINI_API_KEY && !LOVABLE_API_KEY) {
     console.error("LOVABLE_API_KEY not configured");
     return null;
   }
@@ -576,7 +576,7 @@ async function parseCommandWithAI(
   contextLeadName?: string,
   conversationHistory?: string[]
 ): Promise<ParsedCommand | null> {
-  if (!LOVABLE_API_KEY) return null;
+  if (!GEMINI_API_KEY && !LOVABLE_API_KEY) return null;
 
   // Build conversation context from history
   const historyContext = conversationHistory && conversationHistory.length > 0

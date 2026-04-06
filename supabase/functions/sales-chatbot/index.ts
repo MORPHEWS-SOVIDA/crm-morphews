@@ -74,7 +74,7 @@ serve(async (req) => {
       mode = "sales" // sales | recommendations | telesales
     } = await req.json();
 
-    if (!LOVABLE_API_KEY) {
+    if (!GEMINI_API_KEY && !LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 

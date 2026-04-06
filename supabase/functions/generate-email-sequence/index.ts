@@ -221,7 +221,7 @@ RETORNE um JSON válido:
   ]
 }`;
 
-    if (!LOVABLE_API_KEY) {
+    if (!GEMINI_API_KEY && !LOVABLE_API_KEY) {
       console.warn("LOVABLE_API_KEY not configured, using default presets");
       return new Response(JSON.stringify({ steps: presets }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
