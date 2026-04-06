@@ -10,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Upload, Image, Mic, X, Loader2, CalendarIcon } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -19,13 +21,29 @@ import { extractStorageFilePath } from '@/lib/storage-utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
+type NoAttachReason = 'no_file' | 'no_call_recording' | 'other_method';
+type ConfirmationMethod = 'call' | 'whatsapp' | 'in_person' | 'motoboy_informed';
+
 interface SellerDeliveryProofDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   saleId: string;
-  onConfirm: (proofUrls: string[], deliveryDate: string) => Promise<void> | void;
+  onConfirm: (proofUrls: string[], deliveryDate: string, confirmationMethod?: string, noAttachReason?: string) => Promise<void> | void;
   isLoading?: boolean;
 }
+
+const noAttachReasonLabels: Record<NoAttachReason, string> = {
+  no_file: 'Não tenho como anexar',
+  no_call_recording: 'Fiz uma ligação e não tenho como baixar minha ligação',
+  other_method: 'Fiz de outra forma',
+};
+
+const confirmationMethodLabels: Record<ConfirmationMethod, string> = {
+  call: 'Por ligação',
+  whatsapp: 'Por WhatsApp',
+  in_person: 'Pessoalmente',
+  motoboy_informed: 'Motoboy me informou',
+};
 
 export function SellerDeliveryProofDialog({
   open,
@@ -38,7 +56,12 @@ export function SellerDeliveryProofDialog({
   const [previews, setPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [deliveryDate, setDeliveryDate] = useState<Date>(new Date());
+  const [noAttachReason, setNoAttachReason] = useState<NoAttachReason | null>(null);
+  const [confirmationMethod, setConfirmationMethod] = useState<ConfirmationMethod | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const hasFiles = files.length > 0;
+  const skippingAttach = noAttachReason !== null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
@@ -56,9 +79,12 @@ export function SellerDeliveryProofDialog({
       return true;
     });
 
-    setFiles(prev => [...prev, ...validFiles]);
+    // If adding files, clear skip reason
+    if (validFiles.length > 0) {
+      setNoAttachReason(null);
+    }
 
-    // Generate previews for images
+    setFiles(prev => [...prev, ...validFiles]);
     validFiles.forEach(f => {
       if (f.type.startsWith('image/')) {
         const url = URL.createObjectURL(f);
@@ -79,9 +105,27 @@ export function SellerDeliveryProofDialog({
     setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleSelectNoAttach = (reason: NoAttachReason) => {
+    setNoAttachReason(reason);
+    // Clear files when choosing not to attach
+    previews.forEach(p => { if (p !== 'audio') URL.revokeObjectURL(p); });
+    setFiles([]);
+    setPreviews([]);
+  };
+
+  const canSubmit = () => {
+    if (hasFiles) return true;
+    if (skippingAttach && confirmationMethod) return true;
+    return false;
+  };
+
   const handleSubmit = async () => {
-    if (files.length === 0) {
-      toast.error('Anexe pelo menos 1 arquivo (print ou áudio)');
+    if (!canSubmit()) {
+      if (skippingAttach && !confirmationMethod) {
+        toast.error('Selecione como você confirmou a entrega');
+      } else {
+        toast.error('Anexe arquivos ou selecione um motivo');
+      }
       return;
     }
 
@@ -89,22 +133,30 @@ export function SellerDeliveryProofDialog({
     const uploadedPaths: string[] = [];
     try {
       const urls: string[] = [];
-      for (const file of files) {
-        const ext = file.name.split('.').pop() || 'bin';
-        const path = `${saleId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error } = await supabase.storage
-          .from('delivery-proofs')
-          .upload(path, file);
-        if (error) throw error;
-        uploadedPaths.push(path);
 
-        const { data: urlData } = supabase.storage
-          .from('delivery-proofs')
-          .getPublicUrl(path);
-        urls.push(urlData.publicUrl);
+      if (hasFiles) {
+        for (const file of files) {
+          const ext = file.name.split('.').pop() || 'bin';
+          const path = `${saleId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          const { error } = await supabase.storage
+            .from('delivery-proofs')
+            .upload(path, file);
+          if (error) throw error;
+          uploadedPaths.push(path);
+
+          const { data: urlData } = supabase.storage
+            .from('delivery-proofs')
+            .getPublicUrl(path);
+          urls.push(urlData.publicUrl);
+        }
       }
 
-      await onConfirm(urls, format(deliveryDate, 'yyyy-MM-dd'));
+      await onConfirm(
+        urls,
+        format(deliveryDate, 'yyyy-MM-dd'),
+        confirmationMethod || undefined,
+        noAttachReason || undefined,
+      );
       toast.success('Entrega confirmada pelo vendedor');
       handleClose(false);
     } catch (err) {
@@ -112,12 +164,8 @@ export function SellerDeliveryProofDialog({
         const { error: cleanupError } = await supabase.storage
           .from('delivery-proofs')
           .remove(uploadedPaths.map(path => extractStorageFilePath(path, 'delivery-proofs')));
-
-        if (cleanupError) {
-          console.error('Cleanup error:', cleanupError);
-        }
+        if (cleanupError) console.error('Cleanup error:', cleanupError);
       }
-
       console.error('Upload error:', err);
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar arquivos');
     } finally {
@@ -131,19 +179,21 @@ export function SellerDeliveryProofDialog({
       setFiles([]);
       setPreviews([]);
       setDeliveryDate(new Date());
+      setNoAttachReason(null);
+      setConfirmationMethod(null);
     }
     onOpenChange(val);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             📱 Confirmar Entrega pelo Vendedor
           </DialogTitle>
           <DialogDescription>
-            Anexe print da conversa no WhatsApp ou gravação de ligação confirmando a entrega com o cliente.
+            Anexe print da conversa no WhatsApp ou gravação de ligação, ou indique o motivo caso não possua comprovante.
           </DialogDescription>
         </DialogHeader>
 
@@ -177,8 +227,9 @@ export function SellerDeliveryProofDialog({
             </Popover>
           </div>
 
+          {/* Comprovantes (opcional agora) */}
           <div>
-            <Label className="text-sm font-medium">Comprovante(s) *</Label>
+            <Label className="text-sm font-medium">Comprovante(s)</Label>
             <p className="text-xs text-muted-foreground mb-2">
               Aceita: imagens (print screen) ou áudios (gravação de ligação)
             </p>
@@ -197,13 +248,15 @@ export function SellerDeliveryProofDialog({
               variant="outline"
               className="w-full"
               onClick={() => fileInputRef.current?.click()}
+              disabled={skippingAttach}
             >
               <Upload className="w-4 h-4 mr-2" />
               Selecionar Arquivos
             </Button>
           </div>
 
-          {files.length > 0 && (
+          {/* Preview dos arquivos */}
+          {hasFiles && (
             <div className="space-y-2">
               {files.map((file, i) => (
                 <div key={i} className="flex items-center gap-2 p-2 rounded border bg-muted/30">
@@ -234,6 +287,50 @@ export function SellerDeliveryProofDialog({
               ))}
             </div>
           )}
+
+          {/* Opções de não anexar */}
+          {!hasFiles && (
+            <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Não tem comprovante? Selecione o motivo:
+              </Label>
+              <RadioGroup
+                value={noAttachReason || ''}
+                onValueChange={(v) => handleSelectNoAttach(v as NoAttachReason)}
+              >
+                {(Object.entries(noAttachReasonLabels) as [NoAttachReason, string][]).map(([key, label]) => (
+                  <div key={key} className="flex items-center space-x-2">
+                    <RadioGroupItem value={key} id={`no-attach-${key}`} />
+                    <Label htmlFor={`no-attach-${key}`} className="text-sm cursor-pointer">
+                      {label}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
+
+          {/* Método de confirmação (aparece quando não tem anexo) */}
+          {skippingAttach && (
+            <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
+              <Label className="text-sm font-medium">
+                Como você confirmou essa entrega? *
+              </Label>
+              <RadioGroup
+                value={confirmationMethod || ''}
+                onValueChange={(v) => setConfirmationMethod(v as ConfirmationMethod)}
+              >
+                {(Object.entries(confirmationMethodLabels) as [ConfirmationMethod, string][]).map(([key, label]) => (
+                  <div key={key} className="flex items-center space-x-2">
+                    <RadioGroupItem value={key} id={`confirm-method-${key}`} />
+                    <Label htmlFor={`confirm-method-${key}`} className="text-sm cursor-pointer">
+                      {label}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -242,7 +339,7 @@ export function SellerDeliveryProofDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={files.length === 0 || uploading || isLoading}
+            disabled={!canSubmit() || uploading || isLoading}
           >
             {uploading ? (
               <>
