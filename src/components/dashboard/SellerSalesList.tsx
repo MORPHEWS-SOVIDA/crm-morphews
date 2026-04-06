@@ -330,7 +330,7 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
 
 export function SellerSalesList({ viewAsUserId }: { viewAsUserId?: string } = {}) {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('finalized');
   const { user } = useAuth();
   const { tenantId, isLoading: isTenantLoading } = useTenant();
   

@@ -118,7 +118,7 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
             payment_status,
             seller_user_id,
             seller_commission_cents,
-            leads!inner (name),
+            leads (name),
             sale_items (
               id,
               product_name,
