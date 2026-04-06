@@ -124,6 +124,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
           carrier_tracking_status,
           created_at,
           delivered_at,
+          seller_delivery_confirmed_at,
           seller_commission_cents,
           seller_commission_percentage,
           lead:leads!sales_lead_id_fkey(name, whatsapp),
