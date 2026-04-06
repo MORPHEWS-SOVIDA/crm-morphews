@@ -124,7 +124,7 @@ export default function SalesReport() {
 
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [selectedSales, setSelectedSales] = useState<string[]>([]);
-  const [showCommissionReport, setShowCommissionReport] = useState(false);
+  
   
   // Date filters
   const today = new Date();
