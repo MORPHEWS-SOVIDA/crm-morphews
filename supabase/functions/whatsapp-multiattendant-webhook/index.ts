@@ -6,6 +6,56 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-secret",
 };
 
+// ============================================================================
+// AI PROVIDER: Gemini Direct (GEMINI_API_KEY) > Lovable Gateway (LOVABLE_API_KEY)
+// ============================================================================
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+
+const GEMINI_MODEL_MAP: Record<string, string> = {
+  'google/gemini-3-flash-preview': 'gemini-2.0-flash',
+  'google/gemini-3.1-flash-preview': 'gemini-2.0-flash',
+  'google/gemini-2.5-flash': 'gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-lite',
+  'google/gemini-2.5-pro': 'gemini-2.5-pro',
+  'google/gemini-3-pro-image-preview': 'gemini-2.0-flash',
+  'google/gemini-3.1-pro-preview': 'gemini-2.5-pro',
+  'openai/gpt-5': 'gemini-2.5-pro',
+  'openai/gpt-5-mini': 'gemini-2.5-flash',
+  'openai/gpt-5-nano': 'gemini-2.0-flash-lite',
+};
+
+function getAIConfig(model: string) {
+  if (GEMINI_API_KEY) {
+    return {
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      headers: { 'Authorization': `Bearer ${GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
+      model: GEMINI_MODEL_MAP[model] || 'gemini-2.0-flash',
+    };
+  }
+  const lk = Deno.env.get("LOVABLE_API_KEY") ?? "";
+  return {
+    url: getAIConfig('').url,
+    headers: { 'Authorization': `Bearer ${lk}`, 'Content-Type': 'application/json' },
+    model,
+  };
+}
+
+function getEmbeddingConfig() {
+  if (GEMINI_API_KEY) {
+    return {
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai/embeddings',
+      headers: { 'Authorization': `Bearer ${GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
+    };
+  }
+  const lk = Deno.env.get("LOVABLE_API_KEY") ?? "";
+  return {
+    url: getEmbeddingConfig().url,
+    headers: { 'Authorization': `Bearer ${lk}`, 'Content-Type': 'application/json' },
+  };
+}
+
+
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -374,7 +424,7 @@ async function generateAIResponse(
 
     const systemPrompt = `Você é assistente virtual de um CRM de vendas. Ajude vendedores a gerenciar leads e conversas.${leadContext}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(getAIConfig('').url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -417,7 +467,7 @@ async function analyzeImage(imageUrl: string, base64Data?: string): Promise<stri
       return null;
     }
     
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(getAIConfig('').url, {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({

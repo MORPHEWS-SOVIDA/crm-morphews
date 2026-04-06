@@ -7,6 +7,56 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
+// ============================================================================
+// AI PROVIDER: Gemini Direct (GEMINI_API_KEY) > Lovable Gateway (LOVABLE_API_KEY)
+// ============================================================================
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+
+const GEMINI_MODEL_MAP: Record<string, string> = {
+  'google/gemini-3-flash-preview': 'gemini-2.0-flash',
+  'google/gemini-3.1-flash-preview': 'gemini-2.0-flash',
+  'google/gemini-2.5-flash': 'gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-lite',
+  'google/gemini-2.5-pro': 'gemini-2.5-pro',
+  'google/gemini-3-pro-image-preview': 'gemini-2.0-flash',
+  'google/gemini-3.1-pro-preview': 'gemini-2.5-pro',
+  'openai/gpt-5': 'gemini-2.5-pro',
+  'openai/gpt-5-mini': 'gemini-2.5-flash',
+  'openai/gpt-5-nano': 'gemini-2.0-flash-lite',
+};
+
+function getAIConfig(model: string) {
+  if (GEMINI_API_KEY) {
+    return {
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      headers: { 'Authorization': `Bearer ${GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
+      model: GEMINI_MODEL_MAP[model] || 'gemini-2.0-flash',
+    };
+  }
+  const lk = Deno.env.get("LOVABLE_API_KEY") ?? "";
+  return {
+    url: getAIConfig('').url,
+    headers: { 'Authorization': `Bearer ${lk}`, 'Content-Type': 'application/json' },
+    model,
+  };
+}
+
+function getEmbeddingConfig() {
+  if (GEMINI_API_KEY) {
+    return {
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai/embeddings',
+      headers: { 'Authorization': `Bearer ${GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
+    };
+  }
+  const lk = Deno.env.get("LOVABLE_API_KEY") ?? "";
+  return {
+    url: getEmbeddingConfig().url,
+    headers: { 'Authorization': `Bearer ${lk}`, 'Content-Type': 'application/json' },
+  };
+}
+
+
+
 const SYSTEM_PROMPT = `You are an expert Instagram DM screenshot analyzer. Your job is to extract information about EVERY SINGLE conversation row visible in the screenshot. Missing even one is a CRITICAL failure.
 
 IMPORTANT CONTEXT:
@@ -185,7 +235,7 @@ async function extractFromScreenshot(
     console.log(`[EXTRACT] Calling Lovable AI (Gemini 2.5 Flash) for ${filePath} (mime: ${mimeType}, base64 length: ${base64.length})...`);
 
     // Use Lovable AI gateway with Gemini 2.5 Flash (supports vision, fast, accurate)
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch(getAIConfig('').url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
