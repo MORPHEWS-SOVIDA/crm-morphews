@@ -472,7 +472,7 @@ export default function Sales() {
         </div>
 
         {/* Summary Card - Total value of filtered sales */}
-        {(hasActiveFilters || searchTerm) && filteredSales.length > 0 && (
+        {(hasActiveFilters || searchTerm) && displaySales.length > 0 && (
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="py-4">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -482,7 +482,7 @@ export default function Sales() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Vendas filtradas</p>
-                    <p className="text-lg font-semibold">{filteredSales.length} vendas</p>
+                    <p className="text-lg font-semibold">{displaySales.length} vendas</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -889,7 +889,7 @@ export default function Sales() {
                   </Card>
                 ))}
               </div>
-            ) : filteredSales.length === 0 ? (
+            ) : displaySales.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <ShoppingCart className="w-12 h-12 text-muted-foreground mb-4" />
@@ -907,7 +907,7 @@ export default function Sales() {
               </Card>
             ) : (
               <div className="grid gap-4">
-                {filteredSales.map((sale) => (
+                {displaySales.map((sale) => (
                   <Card key={sale.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex flex-col lg:flex-row lg:items-center gap-4">
