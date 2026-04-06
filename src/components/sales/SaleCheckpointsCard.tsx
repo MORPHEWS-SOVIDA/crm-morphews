@@ -652,6 +652,7 @@ export function SaleCheckpointsCard({
                         </div>
                       )}
 
+                      {status.notes && (
                         <Collapsible
                           open={expandedNotes[type]}
                           onOpenChange={(open) => setExpandedNotes(prev => ({ ...prev, [type]: open }))}
