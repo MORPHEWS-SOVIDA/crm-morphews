@@ -97,15 +97,16 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
 
   // Fetch sales with items for the selected month
   const { data: salesData, isLoading } = useQuery({
-    queryKey: ['commission-report', tenantId, selectedMonth],
+    queryKey: ['commission-report', tenantId, selectedMonth, selectedStatus],
     queryFn: async () => {
       if (!tenantId) return [];
 
       const [year, month] = selectedMonth.split('-').map(Number);
       const startDate = startOfMonth(new Date(year, month - 1));
       const endDate = endOfMonth(new Date(year, month - 1));
+      const periodField = selectedStatus === 'finalized' ? 'delivered_at' : 'created_at';
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('sales')
         .select(`
           id,
@@ -127,10 +128,18 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
           )
         `)
         .eq('organization_id', tenantId)
-        .neq('status', 'cancelled')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: false });
+        .neq('status', 'cancelled');
+
+      if (selectedStatus === 'finalized') {
+        query = query.eq('status', 'finalized');
+      } else if (selectedStatus === 'pending') {
+        query = query.neq('status', 'finalized');
+      }
+
+      const { data, error } = await query
+        .gte(periodField, startDate.toISOString())
+        .lte(periodField, endDate.toISOString())
+        .order(periodField, { ascending: false });
 
       if (error) throw error;
 
