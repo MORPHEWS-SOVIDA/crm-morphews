@@ -645,7 +645,13 @@ export function SaleCheckpointsCard({
                         </div>
                       )}
 
-                      {status.notes && (
+                      {/* Show delivery date for seller_delivery_confirmed */}
+                      {type === 'seller_delivery_confirmed' && status.isCompleted && sellerDeliveryDate && (
+                        <div className="mt-1 text-xs font-medium text-primary">
+                          📦 Venda entregue dia {format(new Date(sellerDeliveryDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+                        </div>
+                      )}
+
                         <Collapsible
                           open={expandedNotes[type]}
                           onOpenChange={(open) => setExpandedNotes(prev => ({ ...prev, [type]: open }))}
