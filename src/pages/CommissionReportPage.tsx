@@ -191,7 +191,7 @@ export default function CommissionReportPage() {
           .neq('status', 'cancelled');
 
         if (statusFilter !== 'all') {
-          query = query.eq('status', statusFilter);
+          query = query.eq('status', statusFilter as any);
         }
 
         query = query
