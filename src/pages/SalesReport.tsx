@@ -402,11 +402,13 @@ export default function SalesReport() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => setShowCommissionReport(true)}
+              asChild
               className="gap-2 bg-green-50 border-green-300 hover:bg-green-100 text-green-800"
             >
-              <Percent className="h-4 w-4" />
-              Relatório de Comissões
+              <Link to="/relatorios/vendas/relatorio-comissoes">
+                <Percent className="h-4 w-4" />
+                Relatório de Comissões
+              </Link>
             </Button>
             <Button
               variant="outline"

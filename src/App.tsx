@@ -1099,6 +1099,16 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/relatorios/vendas/relatorio-comissoes"
+                  element={
+                    <ProtectedRoute requiredPermissions={['reports_view']}>
+                      <ErrorBoundary title="Relatório indisponível">
+                        <CommissionReportPage />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/relatorios/atribuicao"
                   element={
                     <ProtectedRoute requiredPermissions={['reports_view']}>
