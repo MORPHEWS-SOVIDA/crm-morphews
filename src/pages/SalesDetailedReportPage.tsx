@@ -145,8 +145,7 @@ export default function SalesDetailedReportPage() {
     
     return sales.filter((sale) => {
       
-      // Status filters
-      if (statusFilter !== 'all' && sale.status !== statusFilter) return false;
+      // Remaining client-side filters (status and dates already filtered server-side)
       if (deliveryTypeFilter !== 'all' && sale.delivery_type !== deliveryTypeFilter) return false;
       if (paymentMethodFilter !== 'all' && sale.payment_method !== paymentMethodFilter) return false;
       
@@ -167,8 +166,7 @@ export default function SalesDetailedReportPage() {
       return true;
     });
   }, [
-    sales, dateField, startDate, endDate,
-    statusFilter, deliveryTypeFilter, paymentMethodFilter,
+    sales, deliveryTypeFilter, paymentMethodFilter,
     regionFilter, carrierFilter, sellerFilter,
     clientSearch
   ]);
