@@ -383,14 +383,21 @@ export function SaleCheckpointsCard({
     return false;
   };
 
-  const handleSellerDeliveryConfirm = async (proofUrls: string[]) => {
+  const handleSellerDeliveryConfirm = async (proofUrls: string[], deliveryDate: string) => {
     try {
       await toggleMutation.mutateAsync({
         saleId,
         checkpointType: 'seller_delivery_confirmed',
         complete: true,
-        notes: `Comprovante(s) anexado(s): ${proofUrls.length} arquivo(s)`,
+        notes: `Comprovante(s) anexado(s): ${proofUrls.length} arquivo(s). Entrega em: ${deliveryDate}`,
       });
+
+      // Save delivery date
+      await supabase
+        .from('sales')
+        .update({ seller_delivery_confirmed_date: deliveryDate } as any)
+        .eq('id', saleId);
+
       setShowProofDialog(false);
       toast.success('Entrega confirmada pelo vendedor');
     } catch (error) {
