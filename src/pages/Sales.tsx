@@ -50,6 +50,7 @@ import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { QuickPaymentLinkButton } from '@/components/payment-links/QuickPaymentLinkButton';
 import { 
   useSales, 
+  useSearchSaleByRomaneio,
   SaleStatus, 
   DeliveryType,
   formatCurrency, 
@@ -174,6 +175,8 @@ export default function Sales() {
   const { data: sales = [], isLoading } = useSales(
     activeTab !== 'all' ? { status: activeTab } : undefined
   );
+  // Server-side search for romaneio numbers not in the loaded 500
+  const { data: serverSearchResults = [], isLoading: isSearching } = useSearchSaleByRomaneio(searchTerm);
   const { data: products = [] } = useProducts();
   const { data: leadSources = [] } = useLeadSources();
   const { data: teamMembers = [] } = useTeamMembers();
@@ -361,10 +364,26 @@ export default function Sales() {
     managerFilter, teamMembers, paymentMethodFilter, deliveryRegionFilter, statusFilter
   ]);
 
+  // Merge: if client-side filter found nothing but server search has results, use server results
+  const displaySales = useMemo(() => {
+    if (searchTerm.trim().length >= 3 && filteredSales.length === 0 && serverSearchResults.length > 0) {
+      return serverSearchResults;
+    }
+    // Also merge server results that aren't already in filtered (for partial matches)
+    if (searchTerm.trim().length >= 3 && serverSearchResults.length > 0) {
+      const existingIds = new Set(filteredSales.map(s => s.id));
+      const newResults = serverSearchResults.filter(s => !existingIds.has(s.id));
+      if (newResults.length > 0) {
+        return [...filteredSales, ...newResults];
+      }
+    }
+    return filteredSales;
+  }, [filteredSales, serverSearchResults, searchTerm]);
+
   // Calculate total value of filtered sales
   const totalFilteredValue = useMemo(() => {
-    return filteredSales.reduce((sum, sale) => sum + sale.total_cents, 0);
-  }, [filteredSales]);
+    return displaySales.reduce((sum, sale) => sum + sale.total_cents, 0);
+  }, [displaySales]);
 
   const getStatusIcon = (status: SaleStatus) => {
     const tab = STATUS_TABS.find(t => t.value === status);
@@ -453,7 +472,7 @@ export default function Sales() {
         </div>
 
         {/* Summary Card - Total value of filtered sales */}
-        {(hasActiveFilters || searchTerm) && filteredSales.length > 0 && (
+        {(hasActiveFilters || searchTerm) && displaySales.length > 0 && (
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="py-4">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -463,7 +482,7 @@ export default function Sales() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Vendas filtradas</p>
-                    <p className="text-lg font-semibold">{filteredSales.length} vendas</p>
+                    <p className="text-lg font-semibold">{displaySales.length} vendas</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -870,7 +889,15 @@ export default function Sales() {
                   </Card>
                 ))}
               </div>
-            ) : filteredSales.length === 0 ? (
+            ) : isSearching ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Search className="w-12 h-12 text-muted-foreground mb-4 animate-pulse" />
+                  <h3 className="text-lg font-medium mb-2">Buscando no histórico completo...</h3>
+                  <p className="text-muted-foreground">Procurando romaneio {searchTerm}</p>
+                </CardContent>
+              </Card>
+            ) : displaySales.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <ShoppingCart className="w-12 h-12 text-muted-foreground mb-4" />
@@ -888,7 +915,7 @@ export default function Sales() {
               </Card>
             ) : (
               <div className="grid gap-4">
-                {filteredSales.map((sale) => (
+                {displaySales.map((sale) => (
                   <Card key={sale.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex flex-col lg:flex-row lg:items-center gap-4">

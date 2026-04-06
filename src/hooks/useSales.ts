@@ -315,6 +315,69 @@ function useOrganizationId() {
   return profile?.organization_id ?? tenantId ?? null;
 }
 
+export function useSearchSaleByRomaneio(searchTerm: string) {
+  const organizationId = useOrganizationId();
+  const { user } = useAuth();
+  const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
+
+  const trimmed = searchTerm.trim();
+  const isNumericSearch = /^\d+$/.test(trimmed) && trimmed.length >= 3;
+
+  return useQuery({
+    queryKey: ['sales-search-romaneio', organizationId, trimmed],
+    queryFn: async () => {
+      if (!organizationId || !trimmed) return [];
+
+      let query = supabase
+        .from('sales')
+        .select(`
+          *,
+          lead:leads(id, name, whatsapp, email, street, street_number, complement, neighborhood, city, state, cep, secondary_phone, delivery_notes, google_maps_link, lead_source),
+          items:sale_items(id, sale_id, product_id, product_name, quantity, unit_price_cents, discount_cents, total_cents, notes, requisition_number, created_at, combo_id, combo_item_parent_id)
+        `)
+        .eq('organization_id', organizationId)
+        .neq('status', 'ecommerce_pending')
+        .eq('romaneio_number', parseInt(trimmed, 10));
+
+      // Respect permissions
+      if (!permissions?.sales_view_all && user?.id) {
+        query = query.or(`created_by.eq.${user.id},seller_user_id.eq.${user.id}`);
+      }
+
+      const { data, error } = await query.limit(20);
+      if (error) throw error;
+
+      // Fetch seller profiles
+      const allUserIds = [...new Set([
+        ...(data || []).map(s => s.seller_user_id).filter(Boolean),
+        ...(data || []).map(s => s.assigned_delivery_user_id).filter(Boolean),
+      ])] as string[];
+
+      let userProfiles: Record<string, { first_name: string; last_name: string }> = {};
+      if (allUserIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', allUserIds);
+        if (profiles) {
+          userProfiles = profiles.reduce((acc, p) => {
+            acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+            return acc;
+          }, {} as Record<string, { first_name: string; last_name: string }>);
+        }
+      }
+
+      return (data || []).map(sale => ({
+        ...sale,
+        seller_profile: sale.seller_user_id ? userProfiles[sale.seller_user_id] : undefined,
+        delivery_user_profile: sale.assigned_delivery_user_id ? userProfiles[sale.assigned_delivery_user_id] : undefined,
+      })) as Sale[];
+    },
+    enabled: !!organizationId && !permissionsLoading && isNumericSearch,
+    staleTime: 30 * 1000,
+  });
+}
+
 export function useSales(filters?: { status?: SaleStatus; limit?: number; dateFrom?: string; dateTo?: string; dateField?: string }) {
   const organizationId = useOrganizationId();
   const { user } = useAuth();
