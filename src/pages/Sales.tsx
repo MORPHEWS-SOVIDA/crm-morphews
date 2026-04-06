@@ -50,6 +50,7 @@ import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { QuickPaymentLinkButton } from '@/components/payment-links/QuickPaymentLinkButton';
 import { 
   useSales, 
+  useSearchSaleByRomaneio,
   SaleStatus, 
   DeliveryType,
   formatCurrency, 
