@@ -109,7 +109,7 @@ export function SellerDeliveryProofDialog({
         } as any)
         .eq('id', saleId);
 
-      onConfirm(urls);
+      onConfirm(urls, format(deliveryDate, 'yyyy-MM-dd'));
       // Cleanup
       previews.forEach(p => { if (p !== 'audio') URL.revokeObjectURL(p); });
       setFiles([]);
