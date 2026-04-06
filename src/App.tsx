@@ -161,6 +161,7 @@ const FiscalInvoices = lazy(() => import("./pages/FiscalInvoices"));
 const FiscalInvoiceDetail = lazy(() => import("./pages/FiscalInvoiceDetail"));
 const SalesHourlyReport = lazy(() => import("./pages/SalesHourlyReport"));
 const SalesDetailedReportPage = lazy(() => import("./pages/SalesDetailedReportPage"));
+const CommissionReportPage = lazy(() => import("./pages/CommissionReportPage"));
 const MotoboyProductivityReport = lazy(() => import("./pages/MotoboyProductivityReport"));
 
 // Admin
@@ -1093,6 +1094,16 @@ const App = () => (
                     <ProtectedRoute requiredPermissions={['reports_view']}>
                       <ErrorBoundary title="Relatório indisponível">
                         <SalesDetailedReportPage />
+                      </ErrorBoundary>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/relatorios/vendas/relatorio-comissoes"
+                  element={
+                    <ProtectedRoute requiredPermissions={['reports_view']}>
+                      <ErrorBoundary title="Relatório indisponível">
+                        <CommissionReportPage />
                       </ErrorBoundary>
                     </ProtectedRoute>
                   }

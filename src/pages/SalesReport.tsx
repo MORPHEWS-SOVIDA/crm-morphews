@@ -124,7 +124,7 @@ export default function SalesReport() {
 
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [selectedSales, setSelectedSales] = useState<string[]>([]);
-  const [showCommissionReport, setShowCommissionReport] = useState(false);
+  
   
   // Date filters
   const today = new Date();
@@ -365,14 +365,6 @@ export default function SalesReport() {
     );
   }
 
-  // Show commission report view
-  if (showCommissionReport) {
-    return (
-      <Layout>
-        <CommissionReport onClose={() => setShowCommissionReport(false)} />
-      </Layout>
-    );
-  }
 
   return (
     <Layout>
@@ -402,11 +394,13 @@ export default function SalesReport() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => setShowCommissionReport(true)}
+              asChild
               className="gap-2 bg-green-50 border-green-300 hover:bg-green-100 text-green-800"
             >
-              <Percent className="h-4 w-4" />
-              Relatório de Comissões
+              <Link to="/relatorios/vendas/relatorio-comissoes">
+                <Percent className="h-4 w-4" />
+                Relatório de Comissões
+              </Link>
             </Button>
             <Button
               variant="outline"
