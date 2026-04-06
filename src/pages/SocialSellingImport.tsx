@@ -347,14 +347,22 @@ export default function SocialSellingImport() {
                   Processamento concluído!
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-4 gap-4 mb-4">
                 <div className="text-center p-3 bg-background rounded-lg">
-                  <p className="text-2xl font-bold">{result.usernames.length}</p>
-                  <p className="text-xs text-muted-foreground">Usernames Extraídos</p>
+                  <p className="text-2xl font-bold">{result.total_extracted}</p>
+                  <p className="text-xs text-muted-foreground">Total Extraídos</p>
                 </div>
                 <div className="text-center p-3 bg-background rounded-lg">
                   <p className="text-2xl font-bold text-green-600">{result.leads_created}</p>
-                  <p className="text-xs text-muted-foreground">Novos Leads Criados</p>
+                  <p className="text-xs text-muted-foreground">Novos Leads</p>
+                </div>
+                <div className="text-center p-3 bg-background rounded-lg">
+                  <p className="text-2xl font-bold text-amber-600">{result.leads_existing || 0}</p>
+                  <p className="text-xs text-muted-foreground">Já Existentes</p>
+                </div>
+                <div className="text-center p-3 bg-background rounded-lg">
+                  <p className="text-2xl font-bold text-muted-foreground">{result.leads_skipped || 0}</p>
+                  <p className="text-xs text-muted-foreground">Duplicados</p>
                 </div>
               </div>
               {result.usernames.length > 0 && (
