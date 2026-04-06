@@ -97,42 +97,69 @@ export function CommissionReport({ onClose }: CommissionReportProps) {
 
   // Fetch sales with items for the selected month
   const { data: salesData, isLoading } = useQuery({
-    queryKey: ['commission-report', tenantId, selectedMonth],
+    queryKey: ['commission-report', tenantId, selectedMonth, selectedStatus],
     queryFn: async () => {
       if (!tenantId) return [];
 
       const [year, month] = selectedMonth.split('-').map(Number);
       const startDate = startOfMonth(new Date(year, month - 1));
       const endDate = endOfMonth(new Date(year, month - 1));
+      const periodField = selectedStatus === 'finalized' ? 'delivered_at' : 'created_at';
 
-      const { data, error } = await supabase
-        .from('sales')
-        .select(`
-          id,
-          created_at,
-          delivered_at,
-          total_cents,
-          status,
-          payment_status,
-          seller_user_id,
-          seller_commission_cents,
-          leads!inner (name),
-          sale_items (
+      const buildQuery = () => {
+        let query = supabase
+          .from('sales')
+          .select(`
             id,
-            product_name,
-            quantity,
+            created_at,
+            delivered_at,
             total_cents,
-            commission_cents,
-            commission_percentage
-          )
-        `)
-        .eq('organization_id', tenantId)
-        .neq('status', 'cancelled')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: false });
+            status,
+            payment_status,
+            seller_user_id,
+            seller_commission_cents,
+            leads!inner (name),
+            sale_items (
+              id,
+              product_name,
+              quantity,
+              total_cents,
+              commission_cents,
+              commission_percentage
+            )
+          `)
+          .eq('organization_id', tenantId)
+          .neq('status', 'cancelled');
 
-      if (error) throw error;
+        if (selectedStatus === 'finalized') {
+          query = query.eq('status', 'finalized');
+        } else if (selectedStatus === 'pending') {
+          query = query.neq('status', 'finalized');
+        }
+
+        return query
+          .gte(periodField, startDate.toISOString())
+          .lte(periodField, endDate.toISOString())
+          .order(periodField, { ascending: false });
+      };
+
+      let data: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+
+      while (true) {
+        const { data: batch, error } = await buildQuery().range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        if (!batch?.length) break;
+
+        data = data.concat(batch);
+
+        if (batch.length < pageSize) break;
+
+        from += pageSize;
+      }
 
       return (data || []).map((sale: any) => ({
         ...sale,

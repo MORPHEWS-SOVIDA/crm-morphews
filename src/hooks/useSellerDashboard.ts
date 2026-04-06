@@ -458,20 +458,20 @@ export function useSellerDashboard(options: SellerDashboardOptions = {}) {
         }
       });
 
-      // Comissões a Receber: vendas FINALIZADAS, filtradas pela data de FINALIZAÇÃO do mês
+      // Comissões a Receber: vendas FINALIZADAS, filtradas pela data de ENTREGA do mês
       const { data: toReceiveSales } = await supabase
         .from('sales')
         .select(`
           id, 
           total_cents, 
-          finalized_at,
+          delivered_at,
           sale_items(commission_cents)
         `)
         .eq('organization_id', tenantId)
         .eq('seller_user_id', targetUserId)
         .eq('status', 'finalized')
-        .gte('finalized_at', monthStart.toISOString())
-        .lte('finalized_at', monthEnd.toISOString());
+        .gte('delivered_at', monthStart.toISOString())
+        .lte('delivered_at', monthEnd.toISOString());
 
       // All finalized sales count for commission
       const toReceiveSalesFiltered = toReceiveSales || [];

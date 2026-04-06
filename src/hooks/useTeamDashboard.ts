@@ -413,15 +413,15 @@ export function useTeamDashboard(options: TeamDashboardOptions = {}) {
         .select(`
           id, 
           total_cents, 
-          finalized_at,
+          delivered_at,
           seller_user_id,
           sale_items(commission_cents)
         `)
         .eq('organization_id', tenantId)
         .in('seller_user_id', memberUserIds)
         .eq('status', 'finalized')
-        .gte('finalized_at', monthStart.toISOString())
-        .lte('finalized_at', monthEnd.toISOString());
+        .gte('delivered_at', monthStart.toISOString())
+        .lte('delivered_at', monthEnd.toISOString());
 
       // All finalized sales count for commission
       const toReceiveSalesFiltered = toReceiveSales || [];

@@ -63,6 +63,13 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
   const monthKey = format(month, 'yyyy-MM');
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
+  const usesDeliveredPeriod = ['delivered', 'paid', 'closed', 'finalized'].includes(statusFilter || '');
+  const usesSellerConfirmedPeriod = statusFilter === 'seller_confirmed';
+  const periodField = usesSellerConfirmedPeriod
+    ? 'seller_delivery_confirmed_at'
+    : usesDeliveredPeriod
+      ? 'delivered_at'
+      : 'created_at';
   
   // Debug logs - sempre executar para diagnóstico
   console.log('[useSellerSalesList] Hook State:', {
@@ -72,6 +79,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
     isTenantLoading,
     month: monthKey,
     statusFilter,
+    periodField,
     monthStart: monthStart.toISOString(),
     monthEnd: monthEnd.toISOString(),
   });
@@ -95,8 +103,9 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
 
       console.log('[useSellerSalesList] Fetching sales from Supabase...', {
         tenantId,
-        userId: user.id,
-        userEmail: user.email,
+        userId: targetUserId,
+        userEmail: user?.email,
+        periodField,
         monthStart: monthStart.toISOString(),
         monthEnd: monthEnd.toISOString(),
       });
@@ -104,9 +113,9 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
       // Build query
       console.log('[useSellerSalesList] Building query with params:', {
         organization_id: tenantId,
-        seller_user_id: user.id,
-        created_at_gte: monthStart.toISOString(),
-        created_at_lte: monthEnd.toISOString(),
+        seller_user_id: targetUserId,
+        [`${periodField}_gte`]: monthStart.toISOString(),
+        [`${periodField}_lte`]: monthEnd.toISOString(),
         statusFilter,
       });
 
@@ -133,9 +142,9 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
         `)
         .eq('organization_id', tenantId)
         .eq('seller_user_id', targetUserId)
-        .gte('created_at', monthStart.toISOString())
-        .lte('created_at', monthEnd.toISOString())
-        .order('created_at', { ascending: false });
+        .gte(periodField, monthStart.toISOString())
+        .lte(periodField, monthEnd.toISOString())
+        .order(periodField, { ascending: false });
 
       // Apply status filter if not "all"
       if (statusFilter && statusFilter !== 'all') {
