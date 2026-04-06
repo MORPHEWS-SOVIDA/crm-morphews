@@ -564,13 +564,14 @@ serve(async (req) => {
       })
       .eq("id", import_id);
 
-    console.log(`[MAIN] Done: ${leadsCreated} created, ${leadsSkipped} skipped, ${uniqueEntries.length} total entries`);
+    console.log(`[MAIN] Done: ${leadsCreated} created, ${leadsExisting} existing, ${leadsSkipped} skipped, ${uniqueEntries.length} total entries`);
 
     return new Response(
       JSON.stringify({
         success: true,
         usernames: allExtractedNames,
         leads_created: leadsCreated,
+        leads_existing: leadsExisting,
         leads_skipped: leadsSkipped,
         total_extracted: uniqueEntries.length,
       }),
