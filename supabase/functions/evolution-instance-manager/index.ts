@@ -457,7 +457,9 @@ serve(async (req) => {
       console.log("Status response:", statusResult);
 
       const isConnected = statusResult?.instance?.state === "open";
-      const status = isConnected ? "connected" : (statusResult?.instance?.state || "pending");
+      // Map Evolution states to valid DB values: pending, active, disconnected, canceled
+      const rawState = statusResult?.instance?.state || "pending";
+      const status = isConnected ? "active" : (rawState === "close" || rawState === "closed" ? "disconnected" : "pending");
 
       // Extrair número do telefone (Evolution v1: connectionState não traz ownerJid; precisamos do fetchInstances)
       let phoneNumber: string | null = instance.phone_number;
