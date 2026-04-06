@@ -188,6 +188,12 @@ export function useToggleSaleCheckpoint() {
             status: 'dispatched'
           }).eq('id', saleId);
           if (error) throw error;
+        } else if (checkpointType === 'seller_delivery_confirmed') {
+          const { error } = await supabase.from('sales').update({ 
+            seller_delivery_confirmed_at: new Date().toISOString(),
+            seller_delivery_confirmed_by: user?.id,
+          } as any).eq('id', saleId);
+          if (error) throw error;
         } else if (checkpointType === 'delivered') {
           const { error } = await supabase.from('sales').update({ 
             delivered_at: new Date().toISOString(),
