@@ -36,6 +36,7 @@ export function SellerDeliveryProofDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [deliveryDate, setDeliveryDate] = useState<Date>(new Date());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
