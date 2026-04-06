@@ -1,0 +1,1 @@
+ALTER TABLE public.sales ADD COLUMN seller_delivery_confirmed_date DATE;
