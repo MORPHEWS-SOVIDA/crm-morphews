@@ -15481,6 +15481,9 @@ export type Database = {
             | null
           seller_commission_cents: number | null
           seller_commission_percentage: number | null
+          seller_delivery_confirmed_at: string | null
+          seller_delivery_confirmed_by: string | null
+          seller_delivery_proof_urls: string[] | null
           seller_user_id: string | null
           shipping_address_id: string | null
           shipping_carrier_id: string | null
@@ -15593,6 +15596,9 @@ export type Database = {
             | null
           seller_commission_cents?: number | null
           seller_commission_percentage?: number | null
+          seller_delivery_confirmed_at?: string | null
+          seller_delivery_confirmed_by?: string | null
+          seller_delivery_proof_urls?: string[] | null
           seller_user_id?: string | null
           shipping_address_id?: string | null
           shipping_carrier_id?: string | null
@@ -15705,6 +15711,9 @@ export type Database = {
             | null
           seller_commission_cents?: number | null
           seller_commission_percentage?: number | null
+          seller_delivery_confirmed_at?: string | null
+          seller_delivery_confirmed_by?: string | null
+          seller_delivery_proof_urls?: string[] | null
           seller_user_id?: string | null
           shipping_address_id?: string | null
           shipping_carrier_id?: string | null
