@@ -1000,6 +1000,15 @@ export function SaleCheckpointsCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Seller Delivery Proof Dialog */}
+      <SellerDeliveryProofDialog
+        open={showProofDialog}
+        onOpenChange={setShowProofDialog}
+        saleId={saleId}
+        onConfirm={handleSellerDeliveryConfirm}
+        isLoading={toggleMutation.isPending}
+      />
     </>
   );
 }
