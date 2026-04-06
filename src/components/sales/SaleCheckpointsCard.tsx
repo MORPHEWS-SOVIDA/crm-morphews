@@ -403,25 +403,16 @@ export function SaleCheckpointsCard({
   };
 
   const handleSellerDeliveryConfirm = async (proofUrls: string[], deliveryDate: string) => {
-    try {
-      await toggleMutation.mutateAsync({
-        saleId,
-        checkpointType: 'seller_delivery_confirmed',
-        complete: true,
-        notes: `Comprovante(s) anexado(s): ${proofUrls.length} arquivo(s). Entrega em: ${deliveryDate}`,
-      });
-
-      // Save delivery date
-      await supabase
-        .from('sales')
-        .update({ seller_delivery_confirmed_date: deliveryDate } as any)
-        .eq('id', saleId);
-
-      setShowProofDialog(false);
-      toast.success('Entrega confirmada pelo vendedor');
-    } catch (error) {
-      toast.error('Erro ao confirmar entrega');
-    }
+    await toggleMutation.mutateAsync({
+      saleId,
+      checkpointType: 'seller_delivery_confirmed',
+      complete: true,
+      notes: `Comprovante(s) anexado(s): ${proofUrls.length} arquivo(s). Entrega em: ${deliveryDate}`,
+      sellerDeliveryConfirmation: {
+        proofUrls,
+        deliveryDate,
+      },
+    });
   };
 
   // Check if "Entregue" is checked to show Voltou button

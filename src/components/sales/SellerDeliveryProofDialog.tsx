@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { extractStorageFilePath } from '@/lib/storage-utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -22,7 +23,7 @@ interface SellerDeliveryProofDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   saleId: string;
-  onConfirm: (proofUrls: string[], deliveryDate: string) => void;
+  onConfirm: (proofUrls: string[], deliveryDate: string) => Promise<void> | void;
   isLoading?: boolean;
 }
 
@@ -85,6 +86,7 @@ export function SellerDeliveryProofDialog({
     }
 
     setUploading(true);
+    const uploadedPaths: string[] = [];
     try {
       const urls: string[] = [];
       for (const file of files) {
@@ -94,6 +96,7 @@ export function SellerDeliveryProofDialog({
           .from('delivery-proofs')
           .upload(path, file);
         if (error) throw error;
+        uploadedPaths.push(path);
 
         const { data: urlData } = supabase.storage
           .from('delivery-proofs')
@@ -101,22 +104,22 @@ export function SellerDeliveryProofDialog({
         urls.push(urlData.publicUrl);
       }
 
-      // Save proof URLs to sales table
-      await supabase
-        .from('sales')
-        .update({
-          seller_delivery_proof_urls: urls,
-        } as any)
-        .eq('id', saleId);
-
-      onConfirm(urls, format(deliveryDate, 'yyyy-MM-dd'));
-      // Cleanup
-      previews.forEach(p => { if (p !== 'audio') URL.revokeObjectURL(p); });
-      setFiles([]);
-      setPreviews([]);
+      await onConfirm(urls, format(deliveryDate, 'yyyy-MM-dd'));
+      toast.success('Entrega confirmada pelo vendedor');
+      handleClose(false);
     } catch (err) {
+      if (uploadedPaths.length > 0) {
+        const { error: cleanupError } = await supabase.storage
+          .from('delivery-proofs')
+          .remove(uploadedPaths.map(path => extractStorageFilePath(path, 'delivery-proofs')));
+
+        if (cleanupError) {
+          console.error('Cleanup error:', cleanupError);
+        }
+      }
+
       console.error('Upload error:', err);
-      toast.error('Erro ao enviar arquivos');
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar arquivos');
     } finally {
       setUploading(false);
     }
