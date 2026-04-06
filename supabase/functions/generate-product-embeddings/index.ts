@@ -6,6 +6,45 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ============================================================================
+// AI PROVIDER: Gemini Direct (GEMINI_API_KEY) > Lovable Gateway (LOVABLE_API_KEY)
+// ============================================================================
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const _LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+
+const _GEMINI_MAP: Record<string, string> = {
+  'google/gemini-3-flash-preview': 'gemini-2.0-flash',
+  'google/gemini-3.1-flash-preview': 'gemini-2.0-flash',
+  'google/gemini-2.5-flash': 'gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-lite',
+  'google/gemini-2.5-pro': 'gemini-2.5-pro',
+  'google/gemini-3-pro-image-preview': 'gemini-2.0-flash',
+  'google/gemini-3.1-pro-preview': 'gemini-2.5-pro',
+  'openai/gpt-5': 'gemini-2.5-pro',
+  'openai/gpt-5-mini': 'gemini-2.5-flash',
+  'openai/gpt-5-nano': 'gemini-2.0-flash-lite',
+};
+
+function _aiUrl() {
+  return GEMINI_API_KEY
+    ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+    : 'https://ai.gateway.lovable.dev/v1/chat/completions';
+}
+function _aiHeaders() {
+  const key = GEMINI_API_KEY || _LOVABLE_KEY;
+  return { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
+}
+function _aiModel(m: string) {
+  return GEMINI_API_KEY ? (_GEMINI_MAP[m] || 'gemini-2.0-flash') : m;
+}
+function _embedUrl() {
+  return GEMINI_API_KEY
+    ? 'https://generativelanguage.googleapis.com/v1beta/openai/embeddings'
+    : 'https://ai.gateway.lovable.dev/v1/embeddings';
+}
+
+
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
@@ -16,12 +55,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 async function generateEmbedding(text: string): Promise<number[]> {
   // Use OpenAI's embedding model via proxy or direct call
   // For now, we'll use a simpler approach with Gemini text embedding
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+  const response = await fetch(_embedUrl(), {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
+    headers: _aiHeaders(),
     body: JSON.stringify({
       model: 'text-embedding-3-small',
       input: text.substring(0, 8000), // Limit to avoid token limits

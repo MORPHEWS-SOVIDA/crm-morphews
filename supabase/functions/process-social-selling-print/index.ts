@@ -7,6 +7,45 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
+// ============================================================================
+// AI PROVIDER: Gemini Direct (GEMINI_API_KEY) > Lovable Gateway (LOVABLE_API_KEY)
+// ============================================================================
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const _LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+
+const _GEMINI_MAP: Record<string, string> = {
+  'google/gemini-3-flash-preview': 'gemini-2.0-flash',
+  'google/gemini-3.1-flash-preview': 'gemini-2.0-flash',
+  'google/gemini-2.5-flash': 'gemini-2.5-flash',
+  'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-lite',
+  'google/gemini-2.5-pro': 'gemini-2.5-pro',
+  'google/gemini-3-pro-image-preview': 'gemini-2.0-flash',
+  'google/gemini-3.1-pro-preview': 'gemini-2.5-pro',
+  'openai/gpt-5': 'gemini-2.5-pro',
+  'openai/gpt-5-mini': 'gemini-2.5-flash',
+  'openai/gpt-5-nano': 'gemini-2.0-flash-lite',
+};
+
+function _aiUrl() {
+  return GEMINI_API_KEY
+    ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+    : 'https://ai.gateway.lovable.dev/v1/chat/completions';
+}
+function _aiHeaders() {
+  const key = GEMINI_API_KEY || _LOVABLE_KEY;
+  return { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
+}
+function _aiModel(m: string) {
+  return GEMINI_API_KEY ? (_GEMINI_MAP[m] || 'gemini-2.0-flash') : m;
+}
+function _embedUrl() {
+  return GEMINI_API_KEY
+    ? 'https://generativelanguage.googleapis.com/v1beta/openai/embeddings'
+    : 'https://ai.gateway.lovable.dev/v1/embeddings';
+}
+
+
+
 const SYSTEM_PROMPT = `You are an expert Instagram DM screenshot analyzer. Your job is to extract information about EVERY SINGLE conversation row visible in the screenshot. Missing even one is a CRITICAL failure.
 
 IMPORTANT CONTEXT:
@@ -185,14 +224,12 @@ async function extractFromScreenshot(
     console.log(`[EXTRACT] Calling Lovable AI (Gemini 2.5 Flash) for ${filePath} (mime: ${mimeType}, base64 length: ${base64.length})...`);
 
     // Use Lovable AI gateway with Gemini 2.5 Flash (supports vision, fast, accurate)
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+
+    const response = await fetch(_aiUrl(), {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: _aiHeaders(),
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: _aiModel('google/gemini-2.5-flash'),
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
