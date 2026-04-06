@@ -373,7 +373,7 @@ export function useSearchSaleByRomaneio(searchTerm: string) {
         delivery_user_profile: sale.assigned_delivery_user_id ? userProfiles[sale.assigned_delivery_user_id] : undefined,
       })) as Sale[];
     },
-    enabled: !!organizationId && !permissionsLoading && trimmed.length >= 3,
+    enabled: !!organizationId && !permissionsLoading && isNumericSearch,
     staleTime: 30 * 1000,
   });
 }
