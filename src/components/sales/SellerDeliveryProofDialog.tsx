@@ -22,7 +22,7 @@ interface SellerDeliveryProofDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   saleId: string;
-  onConfirm: (proofUrls: string[]) => void;
+  onConfirm: (proofUrls: string[], deliveryDate: string) => void;
   isLoading?: boolean;
 }
 
