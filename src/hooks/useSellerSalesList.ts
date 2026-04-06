@@ -203,6 +203,7 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
           melhor_envio_tracking_status: melhorEnvioTrackingStatus,
           created_at: s.created_at,
           delivered_at: s.delivered_at,
+          seller_delivery_confirmed_at: s.seller_delivery_confirmed_at,
           commission_percentage: commissionPercentage,
           commission_cents: commissionCents,
         };
