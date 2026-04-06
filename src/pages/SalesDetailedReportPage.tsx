@@ -139,22 +139,11 @@ export default function SalesDetailedReportPage() {
   const { data: deliveryRegions } = useDeliveryRegions();
   const { data: shippingCarriers } = useShippingCarriers();
 
-  // Filter sales
+  // Filter sales (date and status are already filtered server-side, apply remaining client-side filters)
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     
     return sales.filter((sale) => {
-      // Date filter
-      const dateValue = sale[dateField as keyof typeof sale];
-      if (dateValue && startDate && endDate) {
-        const saleDate = typeof dateValue === 'string' ? parseISO(dateValue) : null;
-        if (saleDate) {
-          const start = parseISO(startDate);
-          const end = parseISO(endDate);
-          end.setHours(23, 59, 59, 999);
-          if (saleDate < start || saleDate > end) return false;
-        }
-      }
       
       // Status filters
       if (statusFilter !== 'all' && sale.status !== statusFilter) return false;
