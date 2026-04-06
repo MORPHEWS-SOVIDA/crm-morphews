@@ -181,7 +181,7 @@ export default function SocialSellingImport() {
       }
 
       setResult(processResult);
-      toast.success(`${processResult.leads_created} leads criados a partir de ${processResult.total_extracted} usernames`);
+      toast.success(`${processResult.leads_created} novos leads, ${processResult.leads_existing || 0} já existentes, ${processResult.leads_skipped || 0} duplicados — ${processResult.total_extracted} extraídos`);
       queryClient.invalidateQueries({ queryKey: ['social-selling-activities'] });
       queryClient.invalidateQueries({ queryKey: ['social-selling-imports'] });
     } catch (err) {
