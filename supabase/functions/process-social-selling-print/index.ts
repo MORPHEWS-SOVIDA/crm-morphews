@@ -402,7 +402,8 @@ serve(async (req) => {
     console.log(`[MAIN] Target stage: "${targetStage?.name}" (id: ${targetFunnelStageId}, enum: ${stageEnum})`);
     
     let leadsCreated = 0;
-    let leadsSkipped = 0;
+    let leadsSkipped = 0; // activity already existed (true duplicate)
+    let leadsExisting = 0; // lead existed but new activity created
     const allExtractedNames: string[] = [];
 
     for (const entry of uniqueEntries) {
