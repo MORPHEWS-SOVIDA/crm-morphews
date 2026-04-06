@@ -40,6 +40,25 @@ function getAIConfig(model: string) {
   };
 }
 
+async function fetchAI(body: Record<string, any>, stream = false): Promise<Response> {
+  const model = body.model || '';
+  const config = getAIConfig(model);
+  return fetch(config.url, {
+    method: 'POST',
+    headers: config.headers,
+    body: JSON.stringify({ ...body, model: config.model }),
+  });
+}
+
+async function fetchEmbedding(body: Record<string, any>): Promise<Response> {
+  const config = getEmbeddingConfig();
+  return fetch(config.url, {
+    method: 'POST',
+    headers: config.headers,
+    body: JSON.stringify(body),
+  });
+}
+
 function getEmbeddingConfig() {
   if (GEMINI_API_KEY) {
     return {
@@ -424,13 +443,7 @@ async function generateAIResponse(
 
     const systemPrompt = `Você é assistente virtual de um CRM de vendas. Ajude vendedores a gerenciar leads e conversas.${leadContext}`;
 
-    const response = await fetch(getAIConfig('').url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      fetchAI({
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
@@ -467,10 +480,7 @@ async function analyzeImage(imageUrl: string, base64Data?: string): Promise<stri
       return null;
     }
     
-    const response = await fetch(getAIConfig('').url, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+      fetchAI({
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: "Analise imagens e extraia informações relevantes de leads/negócios em português." },

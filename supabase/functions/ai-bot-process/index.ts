@@ -40,6 +40,25 @@ function getAIConfig(model: string) {
   };
 }
 
+async function fetchAI(body: Record<string, any>, stream = false): Promise<Response> {
+  const model = body.model || '';
+  const config = getAIConfig(model);
+  return fetch(config.url, {
+    method: 'POST',
+    headers: config.headers,
+    body: JSON.stringify({ ...body, model: config.model }),
+  });
+}
+
+async function fetchEmbedding(body: Record<string, any>): Promise<Response> {
+  const config = getEmbeddingConfig();
+  return fetch(config.url, {
+    method: 'POST',
+    headers: config.headers,
+    body: JSON.stringify(body),
+  });
+}
+
 function getEmbeddingConfig() {
   if (GEMINI_API_KEY) {
     return {
@@ -711,13 +730,7 @@ async function analyzeImage(
       : modelToUse;
 
     // Usar modelo configurado via Lovable AI para análise de imagem
-    const response = await fetch(getAIConfig('').url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+      fetchAI({
         model: effectiveModel,
         messages: [
           {
@@ -1605,13 +1618,7 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
       console.log('🧠 PRIMARY: Lovable AI Gateway:', gatewayModel);
 
       try {
-        const response = await fetch(getAIConfig('').url, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+          fetchAI({
             model: gatewayModel,
             messages: chatMessages,
             max_tokens: isProModel ? 1200 : 900,

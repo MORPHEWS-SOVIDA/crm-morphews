@@ -40,6 +40,25 @@ function getAIConfig(model: string) {
   };
 }
 
+async function fetchAI(body: Record<string, any>, stream = false): Promise<Response> {
+  const model = body.model || '';
+  const config = getAIConfig(model);
+  return fetch(config.url, {
+    method: 'POST',
+    headers: config.headers,
+    body: JSON.stringify({ ...body, model: config.model }),
+  });
+}
+
+async function fetchEmbedding(body: Record<string, any>): Promise<Response> {
+  const config = getEmbeddingConfig();
+  return fetch(config.url, {
+    method: 'POST',
+    headers: config.headers,
+    body: JSON.stringify(body),
+  });
+}
+
 function getEmbeddingConfig() {
   if (GEMINI_API_KEY) {
     return {
@@ -120,13 +139,7 @@ serve(async (req) => {
         console.log(`Generating ${request.type} image with prompt:`, prompt.substring(0, 100) + '...');
 
         try {
-          const response = await fetch(getAIConfig('').url, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
+            fetchAI({
               model: "google/gemini-2.5-flash-image-preview",
               messages: [
                 {
