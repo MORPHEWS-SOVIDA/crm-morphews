@@ -1582,7 +1582,7 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
     // Groq is FALLBACK only (avoids 100k token/day rate limits)
     // ====================================================================
 
-    if (LOVABLE_API_KEY) {
+    if (GEMINI_API_KEY || LOVABLE_API_KEY) {
       const gatewayModel = isProModel ? modelToUse : 'google/gemini-2.5-flash';
       console.log('🧠 PRIMARY: Lovable AI Gateway:', gatewayModel);
 
