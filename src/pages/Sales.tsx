@@ -364,10 +364,26 @@ export default function Sales() {
     managerFilter, teamMembers, paymentMethodFilter, deliveryRegionFilter, statusFilter
   ]);
 
+  // Merge: if client-side filter found nothing but server search has results, use server results
+  const displaySales = useMemo(() => {
+    if (searchTerm.trim().length >= 3 && filteredSales.length === 0 && serverSearchResults.length > 0) {
+      return serverSearchResults;
+    }
+    // Also merge server results that aren't already in filtered (for partial matches)
+    if (searchTerm.trim().length >= 3 && serverSearchResults.length > 0) {
+      const existingIds = new Set(filteredSales.map(s => s.id));
+      const newResults = serverSearchResults.filter(s => !existingIds.has(s.id));
+      if (newResults.length > 0) {
+        return [...filteredSales, ...newResults];
+      }
+    }
+    return filteredSales;
+  }, [filteredSales, serverSearchResults, searchTerm]);
+
   // Calculate total value of filtered sales
   const totalFilteredValue = useMemo(() => {
-    return filteredSales.reduce((sum, sale) => sum + sale.total_cents, 0);
-  }, [filteredSales]);
+    return displaySales.reduce((sum, sale) => sum + sale.total_cents, 0);
+  }, [displaySales]);
 
   const getStatusIcon = (status: SaleStatus) => {
     const tab = STATUS_TABS.find(t => t.value === status);
