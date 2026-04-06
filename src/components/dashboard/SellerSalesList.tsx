@@ -156,14 +156,17 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
     let totalSales = 0;
     let pendingCount = 0;
     let pendingValue = 0;
-    let deliveredCount = 0; // delivered OR finalized (finalized implies delivered)
+    let deliveredCount = 0;
     let deliveredValue = 0;
-    let paidCount = 0; // paid OR finalized (finalized implies paid)
+    let paidCount = 0;
     let paidValue = 0;
-    let completedCount = 0; // finalized only
+    let completedCount = 0;
     let completedValue = 0;
     let completedCommission = 0;
-    let totalCommission = 0; // commission from all sales in view
+    let totalCommission = 0;
+    let sellerConfirmedCount = 0;
+    let sellerConfirmedValue = 0;
+    let sellerConfirmedCommission = 0;
 
     for (const sale of sales) {
       const value = sale.total_cents || 0;
@@ -177,29 +180,32 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
       totalSales += value;
       totalCommission += commission;
 
-      // Teles Pendentes: draft, pending_expedition, payment_confirmed, dispatched
       if (isPending) {
         pendingCount++;
         pendingValue += value;
       }
 
-      // Entregue: delivered, finalized, or closed (all imply delivery happened)
       if (isDelivered || isFinalized || isClosed) {
         deliveredCount++;
         deliveredValue += value;
       }
 
-      // Pago: explicitly paid OR finalized/closed (which imply payment confirmed)
       if (isPaid || isFinalized || isClosed) {
         paidCount++;
         paidValue += value;
       }
 
-      // Finalizado: ONLY finalized sales count for guaranteed commission
       if (isFinalized || isClosed) {
         completedCount++;
         completedValue += value;
         completedCommission += commission;
+      }
+
+      // Seller confirmed
+      if (sale.seller_delivery_confirmed_at) {
+        sellerConfirmedCount++;
+        sellerConfirmedValue += value;
+        sellerConfirmedCommission += commission;
       }
     }
 
@@ -215,6 +221,9 @@ function SalesSummary({ sales }: { sales: SellerSaleItem[] }) {
       completedCount,
       completedValue,
       completedCommission,
+      sellerConfirmedCount,
+      sellerConfirmedValue,
+      sellerConfirmedCommission,
     };
   }, [sales]);
 
