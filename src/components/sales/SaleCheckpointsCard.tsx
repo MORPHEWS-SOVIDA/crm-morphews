@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SellerDeliveryProofDialog } from './SellerDeliveryProofDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SaleScanValidation } from '@/components/serial-labels/SaleScanValidation';
@@ -184,7 +185,7 @@ export function SaleCheckpointsCard({
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
   const [showScannerDialog, setShowScannerDialog] = useState(false);
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
-
+  const [showProofDialog, setShowProofDialog] = useState(false);
   // Get the selected region
   const selectedRegion = deliveryRegionId 
     ? (regions as DeliveryRegion[]).find(r => r.id === deliveryRegionId) 
@@ -214,13 +215,18 @@ export function SaleCheckpointsCard({
     }
 
     // If trying to UNCHECK a checkpoint, check uncheck permission
-    // This applies to: printed, pending_expedition, dispatched, delivered
-    const expeditionCheckpoints: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'delivered'];
+    const expeditionCheckpoints: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'seller_delivery_confirmed', 'delivered'];
     if (isCompleted && expeditionCheckpoints.includes(type)) {
       if (!permissions?.sales_uncheck_checkpoint) {
         toast.error('Sem permissão para desmarcar etapas de expedição');
         return;
       }
+    }
+
+    // seller_delivery_confirmed: open proof dialog instead of direct toggle
+    if (type === 'seller_delivery_confirmed' && !isCompleted) {
+      setShowProofDialog(true);
+      return;
     }
 
     // Check permissions for MARKING checkpoints
@@ -371,9 +377,25 @@ export function SaleCheckpointsCard({
     if (type === 'printed') return permissions?.sales_mark_printed;
     if (type === 'pending_expedition') return permissions?.sales_validate_expedition;
     if (type === 'dispatched') return permissions?.sales_dispatch;
+    if (type === 'seller_delivery_confirmed') return true; // Any user can confirm
     if (type === 'delivered') return permissions?.sales_mark_delivered;
     if (type === 'payment_confirmed') return permissions?.sales_confirm_payment;
     return false;
+  };
+
+  const handleSellerDeliveryConfirm = async (proofUrls: string[]) => {
+    try {
+      await toggleMutation.mutateAsync({
+        saleId,
+        checkpointType: 'seller_delivery_confirmed',
+        complete: true,
+        notes: `Comprovante(s) anexado(s): ${proofUrls.length} arquivo(s)`,
+      });
+      setShowProofDialog(false);
+      toast.success('Entrega confirmada pelo vendedor');
+    } catch (error) {
+      toast.error('Erro ao confirmar entrega');
+    }
   };
 
   // Check if "Entregue" is checked to show Voltou button
@@ -978,6 +1000,15 @@ export function SaleCheckpointsCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Seller Delivery Proof Dialog */}
+      <SellerDeliveryProofDialog
+        open={showProofDialog}
+        onOpenChange={setShowProofDialog}
+        saleId={saleId}
+        onConfirm={handleSellerDeliveryConfirm}
+        isLoading={toggleMutation.isPending}
+      />
     </>
   );
 }

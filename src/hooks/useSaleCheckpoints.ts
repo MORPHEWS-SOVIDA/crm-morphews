@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 
-export type CheckpointType = 'printed' | 'pending_expedition' | 'dispatched' | 'delivered' | 'payment_confirmed';
+export type CheckpointType = 'printed' | 'pending_expedition' | 'dispatched' | 'seller_delivery_confirmed' | 'delivered' | 'payment_confirmed';
 
 export interface SaleCheckpoint {
   id: string;
@@ -31,6 +31,7 @@ export const checkpointLabels: Record<CheckpointType, string> = {
   printed: 'Impresso',
   pending_expedition: 'Pedido Separado',
   dispatched: 'Despachado',
+  seller_delivery_confirmed: 'Confirmado pelo Vendedor',
   delivered: 'Entregue',
   payment_confirmed: 'Pagamento Confirmado',
 };
@@ -40,6 +41,7 @@ export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned' | 'c
   printed: '🖨️',
   pending_expedition: '📦',
   dispatched: '🚚',
+  seller_delivery_confirmed: '📱',
   returned: '⚠️',
   delivered: '✅',
   payment_confirmed: '💰',
@@ -48,7 +50,7 @@ export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned' | 'c
   finalized: '🏆',
 };
 
-export const checkpointOrder: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'];
+export const checkpointOrder: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'seller_delivery_confirmed', 'delivered', 'payment_confirmed'];
 
 // Labels for closing status steps (not part of checkpoints, come from sales table)
 export const closingStepLabels = {
@@ -186,6 +188,12 @@ export function useToggleSaleCheckpoint() {
             status: 'dispatched'
           }).eq('id', saleId);
           if (error) throw error;
+        } else if (checkpointType === 'seller_delivery_confirmed') {
+          const { error } = await supabase.from('sales').update({ 
+            seller_delivery_confirmed_at: new Date().toISOString(),
+            seller_delivery_confirmed_by: user?.id,
+          } as any).eq('id', saleId);
+          if (error) throw error;
         } else if (checkpointType === 'delivered') {
           const { error } = await supabase.from('sales').update({ 
             delivered_at: new Date().toISOString(),
@@ -250,6 +258,16 @@ export function useToggleSaleCheckpoint() {
           const { error } = await supabase
             .from('sales')
             .update({ dispatched_at: null, status: nextStatus })
+            .eq('id', saleId);
+          if (error) throw error;
+        } else if (checkpointType === 'seller_delivery_confirmed') {
+          const { error } = await supabase
+            .from('sales')
+            .update({ 
+              seller_delivery_confirmed_at: null, 
+              seller_delivery_confirmed_by: null,
+              seller_delivery_proof_urls: [],
+            } as any)
             .eq('id', saleId);
           if (error) throw error;
         } else if (checkpointType === 'delivered') {
