@@ -10,8 +10,9 @@ const corsHeaders = {
 // AI PROVIDER: Gemini Direct (GEMINI_API_KEY) > Lovable Gateway (LOVABLE_API_KEY)
 // ============================================================================
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const _LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 
-const GEMINI_MODEL_MAP: Record<string, string> = {
+const _GEMINI_MAP: Record<string, string> = {
   'google/gemini-3-flash-preview': 'gemini-2.0-flash',
   'google/gemini-3.1-flash-preview': 'gemini-2.0-flash',
   'google/gemini-2.5-flash': 'gemini-2.5-flash',
@@ -24,53 +25,22 @@ const GEMINI_MODEL_MAP: Record<string, string> = {
   'openai/gpt-5-nano': 'gemini-2.0-flash-lite',
 };
 
-function getAIConfig(model: string) {
-  if (GEMINI_API_KEY) {
-    return {
-      url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-      headers: { 'Authorization': `Bearer ${GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
-      model: GEMINI_MODEL_MAP[model] || 'gemini-2.0-flash',
-    };
-  }
-  const lk = Deno.env.get("LOVABLE_API_KEY") ?? "";
-  return {
-    url: getAIConfig('').url,
-    headers: { 'Authorization': `Bearer ${lk}`, 'Content-Type': 'application/json' },
-    model,
-  };
+function _aiUrl() {
+  return GEMINI_API_KEY
+    ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+    : 'https://ai.gateway.lovable.dev/v1/chat/completions';
 }
-
-async function fetchAI(body: Record<string, any>, stream = false): Promise<Response> {
-  const model = body.model || '';
-  const config = getAIConfig(model);
-  return fetch(config.url, {
-    method: 'POST',
-    headers: config.headers,
-    body: JSON.stringify({ ...body, model: config.model }),
-  });
+function _aiHeaders() {
+  const key = GEMINI_API_KEY || _LOVABLE_KEY;
+  return { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
 }
-
-async function fetchEmbedding(body: Record<string, any>): Promise<Response> {
-  const config = getEmbeddingConfig();
-  return fetch(config.url, {
-    method: 'POST',
-    headers: config.headers,
-    body: JSON.stringify(body),
-  });
+function _aiModel(m: string) {
+  return GEMINI_API_KEY ? (_GEMINI_MAP[m] || 'gemini-2.0-flash') : m;
 }
-
-function getEmbeddingConfig() {
-  if (GEMINI_API_KEY) {
-    return {
-      url: 'https://generativelanguage.googleapis.com/v1beta/openai/embeddings',
-      headers: { 'Authorization': `Bearer ${GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
-    };
-  }
-  const lk = Deno.env.get("LOVABLE_API_KEY") ?? "";
-  return {
-    url: getEmbeddingConfig().url,
-    headers: { 'Authorization': `Bearer ${lk}`, 'Content-Type': 'application/json' },
-  };
+function _embedUrl() {
+  return GEMINI_API_KEY
+    ? 'https://generativelanguage.googleapis.com/v1beta/openai/embeddings'
+    : 'https://ai.gateway.lovable.dev/v1/embeddings';
 }
 
 
@@ -316,8 +286,7 @@ Retorne um JSON com a estrutura:
   ]
 }`;
 
-      fetchAI({
-        model: "google/gemini-2.5-flash",
+        model: _aiModel('google/gemini-2.5-flash'),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
