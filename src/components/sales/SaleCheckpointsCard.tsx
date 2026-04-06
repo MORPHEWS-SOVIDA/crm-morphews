@@ -402,12 +402,30 @@ export function SaleCheckpointsCard({
     return false;
   };
 
-  const handleSellerDeliveryConfirm = async (proofUrls: string[], deliveryDate: string) => {
+  const handleSellerDeliveryConfirm = async (proofUrls: string[], deliveryDate: string, confirmationMethod?: string, noAttachReason?: string) => {
+    let notes = '';
+    if (proofUrls.length > 0) {
+      notes = `Comprovante(s) anexado(s): ${proofUrls.length} arquivo(s). Entrega em: ${deliveryDate}`;
+    } else {
+      const reasonLabels: Record<string, string> = {
+        no_file: 'Sem anexo disponível',
+        no_call_recording: 'Ligação sem gravação',
+        other_method: 'Confirmado de outra forma',
+      };
+      const methodLabels: Record<string, string> = {
+        call: 'Por ligação',
+        whatsapp: 'Por WhatsApp',
+        in_person: 'Pessoalmente',
+        motoboy_informed: 'Motoboy informou',
+      };
+      notes = `Sem comprovante (${reasonLabels[noAttachReason || ''] || noAttachReason}). Método: ${methodLabels[confirmationMethod || ''] || confirmationMethod}. Entrega em: ${deliveryDate}`;
+    }
+
     await toggleMutation.mutateAsync({
       saleId,
       checkpointType: 'seller_delivery_confirmed',
       complete: true,
-      notes: `Comprovante(s) anexado(s): ${proofUrls.length} arquivo(s). Entrega em: ${deliveryDate}`,
+      notes,
       sellerDeliveryConfirmation: {
         proofUrls,
         deliveryDate,
