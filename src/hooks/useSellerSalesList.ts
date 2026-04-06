@@ -147,6 +147,9 @@ export function useSellerSalesList(options: UseSellerSalesListOptions) {
         } else if (statusFilter === 'separated') {
           // Separated = pending_expedition or payment_confirmed
           query = query.in('status', ['pending_expedition', 'payment_confirmed'] as any);
+        } else if (statusFilter === 'seller_confirmed') {
+          // Seller confirmed: has seller_delivery_confirmed_at set
+          query = query.not('seller_delivery_confirmed_at', 'is', null);
         } else {
           query = query.eq('status', statusFilter as any);
         }
