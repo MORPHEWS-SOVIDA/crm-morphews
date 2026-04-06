@@ -156,6 +156,7 @@ export default function SalesReport() {
     dateTo: endDate,
     dateField: dateField,
     limit: 5000,
+    bypassUserScope: true,
   });
   const { data: users } = useUsers();
   const { data: deliveryRegions } = useDeliveryRegions();

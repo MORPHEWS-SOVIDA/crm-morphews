@@ -378,7 +378,7 @@ export function useSearchSaleByRomaneio(searchTerm: string) {
   });
 }
 
-export function useSales(filters?: { status?: SaleStatus; limit?: number; dateFrom?: string; dateTo?: string; dateField?: string }) {
+export function useSales(filters?: { status?: SaleStatus; limit?: number; dateFrom?: string; dateTo?: string; dateField?: string; bypassUserScope?: boolean }) {
   const organizationId = useOrganizationId();
   const { user } = useAuth();
   const { data: permissions, isLoading: permissionsLoading } = useMyPermissions();
@@ -416,7 +416,7 @@ export function useSales(filters?: { status?: SaleStatus; limit?: number; dateFr
           query = query.eq('status', filters.status);
         }
 
-        if (!permissions?.sales_view_all && user?.id) {
+        if (!filters?.bypassUserScope && !permissions?.sales_view_all && user?.id) {
           query = query.or(`created_by.eq.${user.id},seller_user_id.eq.${user.id}`);
         }
 

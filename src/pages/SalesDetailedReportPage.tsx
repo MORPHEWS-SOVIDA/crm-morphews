@@ -134,6 +134,7 @@ export default function SalesDetailedReportPage() {
     dateField: dateField,
     status: statusFilter !== 'all' ? statusFilter as any : undefined,
     limit: 5000,
+    bypassUserScope: true,
   });
   const { data: users } = useUsers();
   const { data: deliveryRegions } = useDeliveryRegions();
