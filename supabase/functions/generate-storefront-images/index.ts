@@ -100,6 +100,10 @@ Ultra high resolution, cinematic quality, professional marketing photography`;
 
     console.log(`Generating ${type} for ${storeName} with prompt:`, prompt.substring(0, 100) + '...');
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-2.5-flash-image-preview'),
         messages: [
           {

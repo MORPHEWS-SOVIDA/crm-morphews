@@ -346,6 +346,10 @@ async function analyzeImageWithAI(base64: string, mimeType: string): Promise<{
   try {
     console.log("📸 Analyzing image with AI...", { mimeType, size: base64.length });
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-2.5-flash'),
         messages: [
           {
@@ -688,6 +692,10 @@ AÇÕES DISPONÍVEIS:
 
   try {
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-2.5-flash'),
         messages: [
           { role: "system", content: systemPrompt },

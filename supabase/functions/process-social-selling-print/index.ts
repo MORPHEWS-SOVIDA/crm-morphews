@@ -225,6 +225,10 @@ async function extractFromScreenshot(
 
     // Use Lovable AI gateway with Gemini 2.5 Flash (supports vision, fast, accurate)
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-2.5-flash'),
         messages: [
           { role: "system", content: SYSTEM_PROMPT },

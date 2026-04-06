@@ -110,6 +110,10 @@ serve(async (req) => {
 
         try {
 
+          const response = await fetch(_aiUrl(), {
+            method: "POST",
+            headers: _aiHeaders(),
+            body: JSON.stringify({
               model: _aiModel('google/gemini-2.5-flash-image-preview'),
               messages: [
                 {

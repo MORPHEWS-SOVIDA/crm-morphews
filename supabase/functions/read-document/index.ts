@@ -158,6 +158,10 @@ async function analyzeDocumentWithVision(
 
   const systemPrompt = useMedicalMode ? MEDICAL_TURBO_PROMPT : GENERIC_PROMPT;
 
+  const response = await fetch(_aiUrl(), {
+    method: "POST",
+    headers: _aiHeaders(),
+    body: JSON.stringify({
       model: _aiModel('google/gemini-2.5-flash'),
       messages: [
         { role: "system", content: systemPrompt },

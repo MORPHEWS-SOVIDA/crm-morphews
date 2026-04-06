@@ -103,6 +103,10 @@ serve(async (req) => {
 
     // For MVP, we'll generate an animated image as a "video" substitute
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-2.5-flash-image-preview'),
         messages: [
           {

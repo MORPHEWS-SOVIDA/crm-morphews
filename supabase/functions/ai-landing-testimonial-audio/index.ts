@@ -186,6 +186,10 @@ serve(async (req) => {
               ? `Professional Brazilian man in his 30s-40s, friendly smile, speaking, natural lighting, portrait style, ultra realistic`
               : `Professional Brazilian woman in her 30s-40s, friendly smile, speaking, natural lighting, portrait style, ultra realistic`;
 
+            const response = await fetch(_aiUrl(), {
+              method: "POST",
+              headers: _aiHeaders(),
+              body: JSON.stringify({
                 model: _aiModel('google/gemini-2.5-flash-image-preview'),
                 messages: [{ role: "user", content: avatarPrompt }],
                 modalities: ["image", "text"],

@@ -413,6 +413,10 @@ async function generateAIResponse(
 
     const systemPrompt = `Você é assistente virtual de um CRM de vendas. Ajude vendedores a gerenciar leads e conversas.${leadContext}`;
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-2.5-flash'),
         messages: [
           { role: "system", content: systemPrompt },
@@ -449,6 +453,10 @@ async function analyzeImage(imageUrl: string, base64Data?: string): Promise<stri
       return null;
     }
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-2.5-flash'),
         messages: [
           { role: "system", content: "Analise imagens e extraia informações relevantes de leads/negócios em português." },

@@ -204,6 +204,10 @@ Ajude o vendedor a fechar a venda!`;
 
     // Call Lovable AI Gateway with streaming
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-3-flash-preview'),
         messages: aiMessages,
         stream: true,

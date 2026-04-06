@@ -251,6 +251,10 @@ serve(async (req) => {
 
     // 6) Transcribe
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-2.5-flash'),
         messages: [
           {
@@ -359,6 +363,10 @@ Retorne APENAS um JSON válido no formato abaixo, sem markdown ou explicações 
 TRANSCRIÇÃO:
 ${transcription}`;
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-2.5-flash'),
         messages: [
           {

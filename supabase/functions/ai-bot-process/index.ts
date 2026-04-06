@@ -701,6 +701,10 @@ async function analyzeImage(
 
     // Usar modelo configurado via Lovable AI para análise de imagem
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel(effectiveModel),
         messages: [
           {
@@ -1589,6 +1593,10 @@ ${semanticResults.length > 0 ? 'Use as informações da busca semântica para re
 
       try {
 
+        const response = await fetch(_aiUrl(), {
+          method: "POST",
+          headers: _aiHeaders(),
+          body: JSON.stringify({
             model: _aiModel(gatewayModel),
             messages: chatMessages,
             max_tokens: isProModel ? 1200 : 900,

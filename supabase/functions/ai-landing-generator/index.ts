@@ -233,6 +233,10 @@ Retorne APENAS o JSON, sem markdown ou explicações.`;
     console.log("Calling Lovable AI for landing page generation...");
     console.log("Testimonial style:", testimonialStyle, "Count:", testimonialCount);
 
+    const response = await fetch(_aiUrl(), {
+      method: "POST",
+      headers: _aiHeaders(),
+      body: JSON.stringify({
         model: _aiModel('google/gemini-2.5-flash'),
         messages: [
           { role: "system", content: systemPrompt },
