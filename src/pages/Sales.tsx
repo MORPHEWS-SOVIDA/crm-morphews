@@ -889,6 +889,14 @@ export default function Sales() {
                   </Card>
                 ))}
               </div>
+            ) : isSearching ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Search className="w-12 h-12 text-muted-foreground mb-4 animate-pulse" />
+                  <h3 className="text-lg font-medium mb-2">Buscando no histórico completo...</h3>
+                  <p className="text-muted-foreground">Procurando romaneio {searchTerm}</p>
+                </CardContent>
+              </Card>
             ) : displaySales.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
