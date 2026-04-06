@@ -185,7 +185,7 @@ export function SaleCheckpointsCard({
   const [showExpeditionDialog, setShowExpeditionDialog] = useState(false);
   const [showScannerDialog, setShowScannerDialog] = useState(false);
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
-
+  const [showProofDialog, setShowProofDialog] = useState(false);
   // Get the selected region
   const selectedRegion = deliveryRegionId 
     ? (regions as DeliveryRegion[]).find(r => r.id === deliveryRegionId) 
