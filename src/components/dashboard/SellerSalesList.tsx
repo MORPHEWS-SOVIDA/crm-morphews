@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ExternalLink, ChevronLeft, ChevronRight, Loader2, Package, DollarSign, TrendingUp, Clock, Truck, CheckCircle } from 'lucide-react';
+import { ExternalLink, ChevronLeft, ChevronRight, Loader2, Package, DollarSign, TrendingUp, Clock, Truck, CheckCircle, Smartphone } from 'lucide-react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
