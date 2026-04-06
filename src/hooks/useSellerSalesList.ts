@@ -20,6 +20,7 @@ export interface SellerSaleItem {
   melhor_envio_tracking_status: string | null;
   created_at: string;
   delivered_at: string | null;
+  seller_delivery_confirmed_at: string | null;
   commission_percentage: number;
   commission_cents: number;
 }
