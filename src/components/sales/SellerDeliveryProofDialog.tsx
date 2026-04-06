@@ -145,6 +145,35 @@ export function SellerDeliveryProofDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Data de entrega */}
+          <div>
+            <Label className="text-sm font-medium">Data que o cliente recebeu *</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal mt-1",
+                    !deliveryDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {deliveryDate ? format(deliveryDate, "dd/MM/yyyy", { locale: ptBR }) : 'Selecionar data'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={deliveryDate}
+                  onSelect={(d) => d && setDeliveryDate(d)}
+                  disabled={(date) => date > new Date()}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <div>
             <Label className="text-sm font-medium">Comprovante(s) *</Label>
             <p className="text-xs text-muted-foreground mb-2">
