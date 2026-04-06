@@ -258,19 +258,19 @@ Return a JSON array of objects. The array length MUST match the total number of 
       }),
     });
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error(`[EXTRACT] AI API error ${aiResponse.status} for ${filePath}: ${errText.substring(0, 500)}`);
-      if (aiResponse.status === 402) {
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[EXTRACT] AI API error ${response.status} for ${filePath}: ${errText.substring(0, 500)}`);
+      if (response.status === 402) {
         return { entries: [], error: "Créditos de IA esgotados. Recarregue no painel de Usage.", errorCode: 402 };
       }
-      if (aiResponse.status === 429) {
+      if (response.status === 429) {
         return { entries: [], error: "Limite de requisições excedido. Tente novamente em alguns minutos.", errorCode: 429 };
       }
-      return { entries: [], error: `Erro na API de IA: ${aiResponse.status}` };
+      return { entries: [], error: `Erro na API de IA: ${response.status}` };
     }
 
-    const aiData = await aiResponse.json();
+    const aiData = await response.json();
     const content = aiData.choices?.[0]?.message?.content || "[]";
     console.log(`[EXTRACT] AI response for ${filePath}: ${content.substring(0, 800)}`);
 
