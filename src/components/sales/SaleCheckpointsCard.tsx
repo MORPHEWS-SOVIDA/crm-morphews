@@ -123,6 +123,24 @@ function useSaleClosingInfo(saleId: string) {
   });
 }
 
+// Hook to fetch seller delivery confirmed date
+function useSellerDeliveryDate(saleId: string) {
+  return useQuery({
+    queryKey: ['seller-delivery-date', saleId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('seller_delivery_confirmed_date')
+        .eq('id', saleId)
+        .maybeSingle();
+      if (error) return null;
+      return (data as any)?.seller_delivery_confirmed_date as string | null;
+    },
+    enabled: !!saleId,
+    staleTime: 60000,
+  });
+}
+
 // Hook to fetch delivery return reasons
 function useDeliveryReturnReasons() {
   return useQuery({
