@@ -32,7 +32,7 @@ export default function SocialSellingImport() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [result, setResult] = useState<{ usernames: string[]; leads_created: number } | null>(null);
+  const [result, setResult] = useState<{ usernames: string[]; leads_created: number; leads_existing: number; leads_skipped: number; total_extracted: number } | null>(null);
 
   // Fetch sellers
   const { data: sellers } = useQuery({
@@ -181,7 +181,7 @@ export default function SocialSellingImport() {
       }
 
       setResult(processResult);
-      toast.success(`${processResult.leads_created} leads criados a partir de ${processResult.total_extracted} usernames`);
+      toast.success(`${processResult.leads_created} novos leads, ${processResult.leads_existing || 0} já existentes, ${processResult.leads_skipped || 0} duplicados — ${processResult.total_extracted} extraídos`);
       queryClient.invalidateQueries({ queryKey: ['social-selling-activities'] });
       queryClient.invalidateQueries({ queryKey: ['social-selling-imports'] });
     } catch (err) {
@@ -347,14 +347,22 @@ export default function SocialSellingImport() {
                   Processamento concluído!
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-4 gap-4 mb-4">
                 <div className="text-center p-3 bg-background rounded-lg">
-                  <p className="text-2xl font-bold">{result.usernames.length}</p>
-                  <p className="text-xs text-muted-foreground">Usernames Extraídos</p>
+                  <p className="text-2xl font-bold">{result.total_extracted}</p>
+                  <p className="text-xs text-muted-foreground">Total Extraídos</p>
                 </div>
                 <div className="text-center p-3 bg-background rounded-lg">
                   <p className="text-2xl font-bold text-green-600">{result.leads_created}</p>
-                  <p className="text-xs text-muted-foreground">Novos Leads Criados</p>
+                  <p className="text-xs text-muted-foreground">Novos Leads</p>
+                </div>
+                <div className="text-center p-3 bg-background rounded-lg">
+                  <p className="text-2xl font-bold text-amber-600">{result.leads_existing || 0}</p>
+                  <p className="text-xs text-muted-foreground">Já Existentes</p>
+                </div>
+                <div className="text-center p-3 bg-background rounded-lg">
+                  <p className="text-2xl font-bold text-muted-foreground">{result.leads_skipped || 0}</p>
+                  <p className="text-xs text-muted-foreground">Duplicados</p>
                 </div>
               </div>
               {result.usernames.length > 0 && (

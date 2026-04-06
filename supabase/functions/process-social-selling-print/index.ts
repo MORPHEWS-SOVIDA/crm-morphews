@@ -402,7 +402,8 @@ serve(async (req) => {
     console.log(`[MAIN] Target stage: "${targetStage?.name}" (id: ${targetFunnelStageId}, enum: ${stageEnum})`);
     
     let leadsCreated = 0;
-    let leadsSkipped = 0;
+    let leadsSkipped = 0; // activity already existed (true duplicate)
+    let leadsExisting = 0; // lead existed but new activity created
     const allExtractedNames: string[] = [];
 
     for (const entry of uniqueEntries) {
@@ -440,6 +441,7 @@ serve(async (req) => {
 
         if (existingLead) {
           leadId = existingLead.id;
+          leadsExisting++;
         } else {
           const { data: newLead, error: leadErr } = await supabase
             .from("leads")
@@ -514,6 +516,7 @@ serve(async (req) => {
 
         if (existingLeadByName) {
           leadId = existingLeadByName.id;
+          leadsExisting++;
         } else {
           const { data: newLead, error: leadErr } = await supabase
             .from("leads")
@@ -561,13 +564,14 @@ serve(async (req) => {
       })
       .eq("id", import_id);
 
-    console.log(`[MAIN] Done: ${leadsCreated} created, ${leadsSkipped} skipped, ${uniqueEntries.length} total entries`);
+    console.log(`[MAIN] Done: ${leadsCreated} created, ${leadsExisting} existing, ${leadsSkipped} skipped, ${uniqueEntries.length} total entries`);
 
     return new Response(
       JSON.stringify({
         success: true,
         usernames: allExtractedNames,
         leads_created: leadsCreated,
+        leads_existing: leadsExisting,
         leads_skipped: leadsSkipped,
         total_extracted: uniqueEntries.length,
       }),
