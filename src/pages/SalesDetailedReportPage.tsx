@@ -127,8 +127,14 @@ export default function SalesDetailedReportPage() {
   // Search filters
   const [clientSearch, setClientSearch] = useState('');
 
-  // Fetch data
-  const { data: sales, isLoading: salesLoading } = useSales();
+  // Fetch data - pass date filters server-side to avoid 500-row limit truncation
+  const { data: sales, isLoading: salesLoading } = useSales({
+    dateFrom: startDate,
+    dateTo: endDate,
+    dateField: dateField,
+    status: statusFilter !== 'all' ? statusFilter as any : undefined,
+    limit: 5000,
+  });
   const { data: users } = useUsers();
   const { data: deliveryRegions } = useDeliveryRegions();
   const { data: shippingCarriers } = useShippingCarriers();
