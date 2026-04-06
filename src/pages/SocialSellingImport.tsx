@@ -32,7 +32,7 @@ export default function SocialSellingImport() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [result, setResult] = useState<{ usernames: string[]; leads_created: number } | null>(null);
+  const [result, setResult] = useState<{ usernames: string[]; leads_created: number; leads_existing: number; leads_skipped: number; total_extracted: number } | null>(null);
 
   // Fetch sellers
   const { data: sellers } = useQuery({
