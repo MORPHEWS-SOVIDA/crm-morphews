@@ -31,6 +31,7 @@ export const checkpointLabels: Record<CheckpointType, string> = {
   printed: 'Impresso',
   pending_expedition: 'Pedido Separado',
   dispatched: 'Despachado',
+  seller_delivery_confirmed: 'Confirmado pelo Vendedor',
   delivered: 'Entregue',
   payment_confirmed: 'Pagamento Confirmado',
 };
