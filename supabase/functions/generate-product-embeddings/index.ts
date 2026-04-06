@@ -55,12 +55,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 async function generateEmbedding(text: string): Promise<number[]> {
   // Use OpenAI's embedding model via proxy or direct call
   // For now, we'll use a simpler approach with Gemini text embedding
-  const response = await fetch(getEmbeddingConfig().url, {
+  const response = await fetch(_embedUrl(), {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
+    headers: _aiHeaders(),
     body: JSON.stringify({
       model: 'text-embedding-3-small',
       input: text.substring(0, 8000), // Limit to avoid token limits

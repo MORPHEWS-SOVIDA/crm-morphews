@@ -46,7 +46,6 @@ function _embedUrl() {
 
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const LOVABLE_AI_URL = getAIConfig('').url;
 
 interface PresetStep {
   step_number: number;

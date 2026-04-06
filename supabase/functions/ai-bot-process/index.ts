@@ -873,15 +873,10 @@ async function getBotKnowledge(botId: string): Promise<Array<{question: string, 
 // ============================================================================
 
 async function generateQueryEmbedding(text: string): Promise<number[] | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
-  
   try {
-    const response = await fetch(getEmbeddingConfig().url, {
+    const response = await fetch(_embedUrl(), {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: _aiHeaders(),
       body: JSON.stringify({
         model: 'text-embedding-3-small',
         input: text.substring(0, 2000),
