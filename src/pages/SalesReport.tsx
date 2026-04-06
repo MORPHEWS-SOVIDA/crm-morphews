@@ -365,14 +365,6 @@ export default function SalesReport() {
     );
   }
 
-  // Show commission report view
-  if (showCommissionReport) {
-    return (
-      <Layout>
-        <CommissionReport onClose={() => setShowCommissionReport(false)} />
-      </Layout>
-    );
-  }
 
   return (
     <Layout>
