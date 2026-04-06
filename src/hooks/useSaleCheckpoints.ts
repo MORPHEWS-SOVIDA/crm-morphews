@@ -50,7 +50,7 @@ export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned' | 'c
   finalized: '🏆',
 };
 
-export const checkpointOrder: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'delivered', 'payment_confirmed'];
+export const checkpointOrder: CheckpointType[] = ['printed', 'pending_expedition', 'dispatched', 'seller_delivery_confirmed', 'delivered', 'payment_confirmed'];
 
 // Labels for closing status steps (not part of checkpoints, come from sales table)
 export const closingStepLabels = {
