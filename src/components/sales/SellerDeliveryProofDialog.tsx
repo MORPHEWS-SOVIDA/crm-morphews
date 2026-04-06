@@ -127,6 +127,7 @@ export function SellerDeliveryProofDialog({
       previews.forEach(p => { if (p !== 'audio') URL.revokeObjectURL(p); });
       setFiles([]);
       setPreviews([]);
+      setDeliveryDate(new Date());
     }
     onOpenChange(val);
   };
