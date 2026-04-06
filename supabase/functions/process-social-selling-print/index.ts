@@ -516,6 +516,7 @@ serve(async (req) => {
 
         if (existingLeadByName) {
           leadId = existingLeadByName.id;
+          leadsExisting++;
         } else {
           const { data: newLead, error: leadErr } = await supabase
             .from("leads")
