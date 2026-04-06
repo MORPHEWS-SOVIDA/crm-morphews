@@ -41,6 +41,7 @@ export const checkpointEmojis: Record<CheckpointType | 'draft' | 'returned' | 'c
   printed: '🖨️',
   pending_expedition: '📦',
   dispatched: '🚚',
+  seller_delivery_confirmed: '📱',
   returned: '⚠️',
   delivered: '✅',
   payment_confirmed: '💰',
