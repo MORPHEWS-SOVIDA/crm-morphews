@@ -377,9 +377,25 @@ export function SaleCheckpointsCard({
     if (type === 'printed') return permissions?.sales_mark_printed;
     if (type === 'pending_expedition') return permissions?.sales_validate_expedition;
     if (type === 'dispatched') return permissions?.sales_dispatch;
+    if (type === 'seller_delivery_confirmed') return true; // Any user can confirm
     if (type === 'delivered') return permissions?.sales_mark_delivered;
     if (type === 'payment_confirmed') return permissions?.sales_confirm_payment;
     return false;
+  };
+
+  const handleSellerDeliveryConfirm = async (proofUrls: string[]) => {
+    try {
+      await toggleMutation.mutateAsync({
+        saleId,
+        checkpointType: 'seller_delivery_confirmed',
+        complete: true,
+        notes: `Comprovante(s) anexado(s): ${proofUrls.length} arquivo(s)`,
+      });
+      setShowProofDialog(false);
+      toast.success('Entrega confirmada pelo vendedor');
+    } catch (error) {
+      toast.error('Erro ao confirmar entrega');
+    }
   };
 
   // Check if "Entregue" is checked to show Voltou button
