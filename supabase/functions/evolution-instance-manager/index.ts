@@ -380,39 +380,114 @@ serve(async (req) => {
       if (!qrResult?.base64 && !qrResult?.pairingCode) {
         console.log("No QR returned, attempting recovery...");
         
-        // Tentar logout primeiro para forçar estado de desconectado
+        // Verificar se a instância existe na Evolution
+        let instanceExists = true;
         try {
-          const logoutResp = await fetch(`${EVOLUTION_API_URL}/instance/logout/${instance.evolution_instance_id}`, {
-            method: "DELETE",
-            headers: { "apikey": EVOLUTION_API_KEY },
+          const checkResp = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instance.evolution_instance_id}`, {
+            method: "GET",
+            headers: { apikey: EVOLUTION_API_KEY },
           });
-          console.log("Logout response:", logoutResp.status);
+          console.log("Instance check response:", checkResp.status);
+          if (checkResp.status === 404) {
+            instanceExists = false;
+          }
         } catch (e) {
-          console.warn("Logout failed:", e);
+          console.warn("Instance check failed:", e);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        // 2ª tentativa
-        qrResult = await fetchQR();
-
-        // Se ainda não retornou, tentar restart com POST (compatibilidade)
-        if (!qrResult?.base64 && !qrResult?.pairingCode) {
-          for (const method of ["POST", "PUT"]) {
+        if (!instanceExists) {
+          // Instância não existe mais na Evolution — recriar automaticamente
+          console.log("Instance does not exist in Evolution, recreating:", instance.evolution_instance_id);
+          const webhookUrl = getWebhookUrl(instance.evolution_instance_id);
+          const savedSettings = (instance as any).evolution_settings || {};
+          
+          try {
+            const createResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: EVOLUTION_API_KEY,
+              },
+              body: JSON.stringify({
+                instanceName: instance.evolution_instance_id,
+                qrcode: true,
+                integration: "WHATSAPP-BAILEYS",
+                rejectCall: savedSettings.reject_call ?? true,
+                msgCall: savedSettings.msg_call ?? "Não posso atender agora, me envie uma mensagem.",
+                groupsIgnore: savedSettings.groups_ignore ?? false,
+                alwaysOnline: savedSettings.always_online ?? false,
+                readMessages: savedSettings.read_messages ?? true,
+                readStatus: savedSettings.read_status ?? false,
+                syncFullHistory: savedSettings.sync_full_history ?? false,
+                webhook: {
+                  enabled: true,
+                  url: webhookUrl,
+                  byEvents: false,
+                  base64: true,
+                  headers: { "Content-Type": "application/json" },
+                  events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED", "GROUPS_UPSERT"],
+                },
+              }),
+            });
+            const createResult = await createResponse.json().catch(() => ({}));
+            console.log("Recreate instance result:", { status: createResponse.status, result: createResult });
+            
+            // Configurar webhook separadamente (garantir)
             try {
-              const restartResp = await fetch(`${EVOLUTION_API_URL}/instance/restart/${instance.evolution_instance_id}`, {
-                method,
-                headers: { "apikey": EVOLUTION_API_KEY },
+              await fetch(`${EVOLUTION_API_URL}/webhook/set/${instance.evolution_instance_id}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+                body: JSON.stringify({
+                  webhook: {
+                    enabled: true,
+                    url: webhookUrl,
+                    byEvents: false,
+                    base64: true,
+                    headers: { "Content-Type": "application/json" },
+                    events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED", "GROUPS_UPSERT"],
+                  },
+                }),
               });
-              console.log(`Restart (${method}) response:`, restartResp.status);
-              if (restartResp.ok) break;
-            } catch (_) {}
+            } catch (e) {
+              console.warn("Could not set webhook after recreate:", e);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            qrResult = await fetchQR();
+          } catch (e) {
+            console.error("Failed to recreate instance:", e);
+          }
+        } else {
+          // Instância existe, tentar logout para forçar desconexão
+          try {
+            const logoutResp = await fetch(`${EVOLUTION_API_URL}/instance/logout/${instance.evolution_instance_id}`, {
+              method: "DELETE",
+              headers: { apikey: EVOLUTION_API_KEY },
+            });
+            console.log("Logout response:", logoutResp.status);
+          } catch (e) {
+            console.warn("Logout failed:", e);
           }
 
           await new Promise(resolve => setTimeout(resolve, 3000));
-
-          // 3ª tentativa final
           qrResult = await fetchQR();
+
+          // Se ainda não retornou, tentar restart
+          if (!qrResult?.base64 && !qrResult?.pairingCode) {
+            for (const method of ["POST", "PUT"]) {
+              try {
+                const restartResp = await fetch(`${EVOLUTION_API_URL}/instance/restart/${instance.evolution_instance_id}`, {
+                  method,
+                  headers: { apikey: EVOLUTION_API_KEY },
+                });
+                console.log(`Restart (${method}) response:`, restartResp.status);
+                if (restartResp.ok) break;
+              } catch (_) {}
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            qrResult = await fetchQR();
+          }
         }
       }
 
