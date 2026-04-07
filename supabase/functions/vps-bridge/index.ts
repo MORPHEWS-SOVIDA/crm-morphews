@@ -338,7 +338,7 @@ async function downloadAndStoreMedia(
       return null;
     }
 
-    const endpoint = `${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${instance.name}`;
+    const endpoint = `${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${context.instanceName}`;
 
     const retryDelays = [0, 800, 1800];
 
