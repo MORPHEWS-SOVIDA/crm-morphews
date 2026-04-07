@@ -468,6 +468,16 @@ export default function WhatsAppDMs() {
             )}
             
             <Button 
+              onClick={handleSyncAll}
+              variant="outline"
+              className="gap-2"
+              disabled={isSyncing}
+            >
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
+            </Button>
+
+            <Button 
               onClick={() => setShowManualDialog(true)}
               variant="outline"
               className="gap-2"
