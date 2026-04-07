@@ -887,8 +887,9 @@ serve(async (req) => {
     // CONNECTION UPDATE (com resiliência contra desconexões transitórias)
     // =====================
     if (event === "connection.update" || event === "CONNECTION_UPDATE") {
-      const state = body?.data?.state || body?.state || "";
-      const isConnected = state === "open";
+      const state = body?.data?.state || body?.data?.status || body?.state || body?.status || "";
+      const normalizedState = typeof state === "string" ? state.toLowerCase() : "";
+      const isConnected = ["open", "connected", "ready"].includes(normalizedState);
 
       console.log("Connection update:", { instanceName, state, isConnected });
 
@@ -903,7 +904,15 @@ serve(async (req) => {
           // RESILIÊNCIA: Se a instância estava conectada e recebemos um state transitório
           // (como "connecting", "close" durante restart), NÃO desconectar imediatamente.
           // Apenas aceitar desconexão se o state for explicitamente "close" ou "closed".
-          const isExplicitDisconnect = state === "close" || state === "closed" || state === "refused" || state === "loggedOut";
+          const isExplicitDisconnect = [
+            "close",
+            "closed",
+            "refused",
+            "loggedout",
+            "logged_out",
+            "logout",
+            "disconnected",
+          ].includes(normalizedState);
           const wasConnected = instance.is_connected === true;
 
           if (!isConnected && wasConnected && !isExplicitDisconnect) {
