@@ -356,15 +356,40 @@ Deno.serve(async (req) => {
 
       // ── STORAGE UPLOAD ──────────────────────────────────
       case "storage_upload": {
-        const fileBody = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+        // Clean base64: remove data URI prefix, whitespace, newlines
+        let rawBase64 = typeof data === "string" ? data : "";
+        if (rawBase64.includes(",") && rawBase64.startsWith("data:")) {
+          rawBase64 = rawBase64.split(",")[1];
+        }
+        rawBase64 = rawBase64.replace(/\s/g, "").replace(/[^A-Za-z0-9+/=]/g, "");
+        // Fix padding if needed
+        while (rawBase64.length % 4 !== 0) rawBase64 += "=";
+        
+        const fileBody = Uint8Array.from(atob(rawBase64), (c) => c.charCodeAt(0));
+        const uploadBucket = bucket || table || "whatsapp-media";
+        const uploadPath = storagePath || body.path || body.filePath || body.fileName;
+        
+        console.log("vps-bridge storage_upload:", JSON.stringify({
+          bucket: uploadBucket,
+          path: uploadPath,
+          base64Length: rawBase64.length,
+          contentType: normalizedOptions?.contentType || body.contentType,
+        }));
+        
         const { data: uploadData, error } = await supabase.storage
-          .from(bucket)
-          .upload(storagePath, fileBody, {
-            contentType: normalizedOptions?.contentType || "application/octet-stream",
+          .from(uploadBucket)
+          .upload(uploadPath, fileBody, {
+            contentType: normalizedOptions?.contentType || body.contentType || "application/octet-stream",
             upsert: normalizedOptions?.upsert ?? true,
           });
         if (error) throw error;
-        return json({ data: uploadData });
+        
+        // Also return the public URL so the VPS can use it immediately
+        const { data: urlData } = supabase.storage
+          .from(uploadBucket)
+          .getPublicUrl(uploadPath);
+        
+        return json({ data: uploadData, publicUrl: urlData?.publicUrl || null });
       }
 
       // ── STORAGE DOWNLOAD ────────────────────────────────

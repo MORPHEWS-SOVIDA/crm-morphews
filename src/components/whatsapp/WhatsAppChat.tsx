@@ -482,16 +482,37 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
           table: "whatsapp_messages",
         },
         (payload) => {
-          // Só invalidar mensagens se for da conversa ativa
+          // Invalidar mensagens da conversa ativa
           if (activeConversation?.id && payload.new && (payload.new as any).conversation_id === activeConversation.id) {
             queryClient.invalidateQueries({ queryKey: ["whatsapp-messages", activeConversation.id] });
           }
-          // Throttle conversation list invalidation (max once per 3 seconds on mobile, 1s on desktop)
+          // Throttle conversation list invalidation
           const throttleMs = isMobile ? 3000 : 1000;
           const now = Date.now();
           if (now - lastConvInvalidation.current > throttleMs) {
             lastConvInvalidation.current = now;
             queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "whatsapp_conversations",
+        },
+        (payload) => {
+          // Auto-refresh conversation list on any conversation update (new message count, status, etc.)
+          const throttleMs = isMobile ? 3000 : 1000;
+          const now = Date.now();
+          if (now - lastConvInvalidation.current > throttleMs) {
+            lastConvInvalidation.current = now;
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-conversations-org"] });
+          }
+          // Also refresh active conversation details if it was updated
+          if (activeConversation?.id && payload.new && (payload.new as any).id === activeConversation.id) {
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-messages", activeConversation.id] });
           }
         }
       )
