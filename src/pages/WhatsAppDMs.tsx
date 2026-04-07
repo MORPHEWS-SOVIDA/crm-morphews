@@ -91,6 +91,7 @@ export default function WhatsAppDMs() {
   const [permissionsInstance, setPermissionsInstance] = useState<EvolutionInstance | null>(null);
   const [deleteInstance, setDeleteInstance] = useState<EvolutionInstance | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // QR Codes em memória (não salvar no banco por ser muito grande)
   const [qrCodesMap, setQrCodesMap] = useState<Record<string, string>>({});
@@ -169,6 +170,27 @@ export default function WhatsAppDMs() {
       }
     } finally {
       if (!silent) setIsCheckingStatus(null);
+    }
+  };
+
+  const handleSyncAll = async () => {
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("evolution-instance-manager", {
+        body: { action: "sync_all" },
+      });
+      if (error) throw error;
+      
+      const changed = data?.results?.filter((r: any) => r.changed)?.length || 0;
+      toast({ 
+        title: "Sincronização concluída", 
+        description: `${data?.synced || 0} instâncias verificadas, ${changed} atualizadas` 
+      });
+      refetch();
+    } catch (err: any) {
+      toast({ title: "Erro ao sincronizar", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -467,6 +489,16 @@ export default function WhatsAppDMs() {
               </Button>
             )}
             
+            <Button 
+              onClick={handleSyncAll}
+              variant="outline"
+              className="gap-2"
+              disabled={isSyncing}
+            >
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
+            </Button>
+
             <Button 
               onClick={() => setShowManualDialog(true)}
               variant="outline"

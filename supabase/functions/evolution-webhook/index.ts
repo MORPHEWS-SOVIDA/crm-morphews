@@ -884,7 +884,7 @@ serve(async (req) => {
     console.log("Evolution Webhook:", { event, instanceName });
 
     // =====================
-    // CONNECTION UPDATE
+    // CONNECTION UPDATE (com resiliência contra desconexões transitórias)
     // =====================
     if (event === "connection.update" || event === "CONNECTION_UPDATE") {
       const state = body?.data?.state || body?.state || "";
@@ -895,11 +895,28 @@ serve(async (req) => {
       if (instanceName) {
         const { data: instance } = await supabase
           .from("whatsapp_instances")
-          .select("id, organization_id")
+          .select("id, organization_id, is_connected, status")
           .eq("evolution_instance_id", instanceName)
           .single();
 
         if (instance) {
+          // RESILIÊNCIA: Se a instância estava conectada e recebemos um state transitório
+          // (como "connecting", "close" durante restart), NÃO desconectar imediatamente.
+          // Apenas aceitar desconexão se o state for explicitamente "close" ou "closed".
+          const isExplicitDisconnect = state === "close" || state === "closed" || state === "refused" || state === "loggedOut";
+          const wasConnected = instance.is_connected === true;
+
+          if (!isConnected && wasConnected && !isExplicitDisconnect) {
+            console.log("⚠️ Ignoring transient disconnection:", { 
+              instanceName, state, 
+              reason: "Instance was connected and state is not an explicit disconnect" 
+            });
+            // Não atualizar o banco - é provavelmente um restart temporário
+            return new Response(JSON.stringify({ success: true, skipped: true, reason: "transient_state" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
           const updateData: any = {
             is_connected: isConnected,
             status: isConnected ? "active" : "disconnected",
@@ -918,6 +935,7 @@ serve(async (req) => {
           console.log("Instance status updated:", {
             instanceId: instance.id,
             isConnected,
+            state,
           });
 
           // =====================
