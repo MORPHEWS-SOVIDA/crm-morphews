@@ -43,7 +43,7 @@ function extractPhoneFromOwnerValue(value: unknown): string | null {
   return digits ? digits : null;
 }
 
-async function fetchOwnerPhoneFromEvolution(instanceName: string): Promise<string | null> {
+async function fetchEvolutionInstanceData(instanceName: string): Promise<any | null> {
   if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) return null;
 
   try {
@@ -59,15 +59,27 @@ async function fetchOwnerPhoneFromEvolution(instanceName: string): Promise<strin
 
     const list = await res.json().catch(() => null);
     const items: any[] = Array.isArray(list) ? list : [];
-
-    const found = items.find((it) => it?.instance?.instanceName === instanceName);
-    const owner = found?.instance?.owner ?? found?.instance?.ownerJid;
-
-    return extractPhoneFromOwnerValue(owner);
+    return items.find((it) => it?.instance?.instanceName === instanceName)?.instance ?? null;
   } catch (e) {
-    console.warn("Could not fetch owner phone from Evolution:", e);
+    console.warn("Could not fetch instance data from Evolution:", e);
     return null;
   }
+}
+
+function normalizeEvolutionState(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized || null;
+}
+
+function isDisconnectedEvolutionState(state: string | null): boolean {
+  return ["close", "closed", "disconnected", "loggedout", "logged_out", "refused", "logout"].includes(state ?? "");
+}
+
+async function fetchOwnerPhoneFromEvolution(instanceName: string): Promise<string | null> {
+  const found = await fetchEvolutionInstanceData(instanceName);
+  const owner = found?.owner ?? found?.ownerJid;
+  return extractPhoneFromOwnerValue(owner);
 }
 
 // Verificar limite de instâncias do plano
@@ -581,45 +593,68 @@ serve(async (req) => {
       const statusResult = await statusResponse.json().catch(() => ({}));
       console.log("Status response:", statusResult);
 
-      const isConnected = statusResult?.instance?.state === "open";
-      // Map Evolution states to valid DB values: pending, active, disconnected, canceled
-      const rawState = statusResult?.instance?.state || "pending";
-      const status = isConnected ? "active" : (rawState === "close" || rawState === "closed" ? "disconnected" : "pending");
+      let evolutionInstanceData = await fetchEvolutionInstanceData(instance.evolution_instance_id);
+      const stateFromConnection = normalizeEvolutionState(statusResult?.instance?.state);
+      const stateFromFetchInstances = normalizeEvolutionState(evolutionInstanceData?.status);
+      const effectiveState = stateFromConnection ?? stateFromFetchInstances;
 
-      // Extrair número do telefone (Evolution v1: connectionState não traz ownerJid; precisamos do fetchInstances)
+      let isConnected = !!instance.is_connected;
+      let status = instance.status || "pending";
+
+      if (effectiveState === "open") {
+        isConnected = true;
+        status = "active";
+      } else if (isDisconnectedEvolutionState(effectiveState)) {
+        isConnected = false;
+        status = "disconnected";
+      } else {
+        console.warn("Unknown/empty Evolution state, preserving stored status", {
+          instanceId,
+          storedStatus: instance.status,
+          storedConnected: instance.is_connected,
+          stateFromConnection,
+          stateFromFetchInstances,
+        });
+      }
+
       let phoneNumber: string | null = instance.phone_number;
-
-      // Tentativa 1: quando existir ownerJid (algumas builds podem enviar)
-      const ownerJid = statusResult?.instance?.ownerJid;
+      const ownerJid = statusResult?.instance?.ownerJid ?? evolutionInstanceData?.ownerJid ?? evolutionInstanceData?.owner;
       const fromOwnerJid = extractPhoneFromOwnerValue(ownerJid);
       if (fromOwnerJid) {
         phoneNumber = fromOwnerJid;
         console.log("Phone number extracted from ownerJid:", phoneNumber);
       }
 
-      // Tentativa 2: fetchInstances (traz .instance.owner)
       if (isConnected && !phoneNumber) {
-        const fetchedPhone = await fetchOwnerPhoneFromEvolution(instance.evolution_instance_id);
+        if (!evolutionInstanceData) {
+          evolutionInstanceData = await fetchEvolutionInstanceData(instance.evolution_instance_id);
+        }
+        const fetchedPhone = extractPhoneFromOwnerValue(evolutionInstanceData?.owner ?? evolutionInstanceData?.ownerJid);
         if (fetchedPhone) {
           phoneNumber = fetchedPhone;
           console.log("Phone number fetched from fetchInstances:", phoneNumber);
         }
       }
 
-      // Atualizar no banco incluindo phone_number
-      await supabase
-        .from("whatsapp_instances")
-        .update({
-          is_connected: isConnected,
-          status: status,
-          phone_number: phoneNumber,
-        })
-        .eq("id", instanceId);
+      if (
+        isConnected !== instance.is_connected ||
+        status !== instance.status ||
+        phoneNumber !== instance.phone_number
+      ) {
+        await supabase
+          .from("whatsapp_instances")
+          .update({
+            is_connected: isConnected,
+            status,
+            phone_number: phoneNumber,
+          })
+          .eq("id", instanceId);
+      }
 
       return new Response(JSON.stringify({
         success: true,
         is_connected: isConnected,
-        status: status,
+        status,
         raw: statusResult,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1254,6 +1289,7 @@ serve(async (req) => {
 
       // Buscar todos os estados da Evolution API de uma vez
       let evolutionInstances: any[] = [];
+      const evolutionInstanceMap = new Map<string, any>();
       try {
         const res = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
           method: "GET",
@@ -1261,6 +1297,12 @@ serve(async (req) => {
         });
         if (res.ok) {
           evolutionInstances = (await res.json().catch(() => [])) as any[];
+          for (const item of evolutionInstances) {
+            const instanceData = item?.instance;
+            if (instanceData?.instanceName) {
+              evolutionInstanceMap.set(instanceData.instanceName, instanceData);
+            }
+          }
         }
       } catch (e) {
         console.warn("sync_all: Could not fetch Evolution instances:", e);
@@ -1269,9 +1311,9 @@ serve(async (req) => {
       for (const inst of list) {
         if (!inst.evolution_instance_id) continue;
 
-        // Buscar estado individual via connectionState
-        let isConnected = false;
+        let stateFromConnection: string | null = null;
         let phoneNumber = inst.phone_number;
+        const evolutionInstanceData = evolutionInstanceMap.get(inst.evolution_instance_id) ?? null;
 
         try {
           const statusRes = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${inst.evolution_instance_id}`, {
@@ -1279,19 +1321,30 @@ serve(async (req) => {
             headers: { apikey: EVOLUTION_API_KEY },
           });
           const statusData = await statusRes.json().catch(() => ({}));
-          isConnected = statusData?.instance?.state === "open";
-
-          // Extrair telefone do fetchInstances
-          if (isConnected && !phoneNumber) {
-            const found = evolutionInstances.find((it: any) => it?.instance?.instanceName === inst.evolution_instance_id);
-            const phone = extractPhoneFromOwnerValue(found?.instance?.owner ?? found?.instance?.ownerJid);
-            if (phone) phoneNumber = phone;
-          }
+          stateFromConnection = normalizeEvolutionState(statusData?.instance?.state);
         } catch (e) {
           console.warn(`sync_all: Error checking ${inst.name}:`, e);
         }
 
-        const newStatus = isConnected ? "active" : "disconnected";
+        const stateFromFetchInstances = normalizeEvolutionState(evolutionInstanceData?.status);
+        const effectiveState = stateFromConnection ?? stateFromFetchInstances;
+
+        let isConnected = !!inst.is_connected;
+        let newStatus = inst.status || "pending";
+
+        if (effectiveState === "open") {
+          isConnected = true;
+          newStatus = "active";
+        } else if (isDisconnectedEvolutionState(effectiveState)) {
+          isConnected = false;
+          newStatus = "disconnected";
+        }
+
+        if (isConnected && !phoneNumber) {
+          const phone = extractPhoneFromOwnerValue(evolutionInstanceData?.owner ?? evolutionInstanceData?.ownerJid);
+          if (phone) phoneNumber = phone;
+        }
+
         const changed = inst.is_connected !== isConnected || inst.status !== newStatus;
 
         if (changed || (phoneNumber && phoneNumber !== inst.phone_number)) {
@@ -1311,6 +1364,7 @@ serve(async (req) => {
           name: inst.name,
           was: { connected: inst.is_connected, status: inst.status },
           now: { connected: isConnected, status: newStatus },
+          effectiveState,
           changed,
         });
       }
