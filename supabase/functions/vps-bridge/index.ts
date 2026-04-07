@@ -92,7 +92,47 @@ function applyMatchFilters<T>(query: T, match: Record<string, unknown> | null): 
   if (!match) return nextQuery;
 
   for (const [k, v] of Object.entries(match)) {
-    if (Array.isArray(v)) {
+    // Handle PostgREST-style keys: "eq.column_name", "in.column_name", "is.column_name"
+    const dotIdx = k.indexOf(".");
+    if (dotIdx > 0) {
+      const operator = k.slice(0, dotIdx);
+      const col = k.slice(dotIdx + 1);
+      switch (operator) {
+        case "eq":
+          nextQuery = nextQuery.eq(col, v);
+          break;
+        case "neq":
+          nextQuery = nextQuery.neq(col, v);
+          break;
+        case "gt":
+          nextQuery = nextQuery.gt(col, v);
+          break;
+        case "gte":
+          nextQuery = nextQuery.gte(col, v);
+          break;
+        case "lt":
+          nextQuery = nextQuery.lt(col, v);
+          break;
+        case "lte":
+          nextQuery = nextQuery.lte(col, v);
+          break;
+        case "like":
+          nextQuery = nextQuery.like(col, v);
+          break;
+        case "ilike":
+          nextQuery = nextQuery.ilike(col, v);
+          break;
+        case "is":
+          nextQuery = nextQuery.is(col, v);
+          break;
+        case "in":
+          nextQuery = nextQuery.in(col, Array.isArray(v) ? v : [v]);
+          break;
+        default:
+          // Unknown operator, treat as eq
+          nextQuery = nextQuery.eq(col, v);
+      }
+    } else if (Array.isArray(v)) {
       nextQuery = nextQuery.in(k, v);
     } else if (v === null) {
       nextQuery = nextQuery.is(k, null);
