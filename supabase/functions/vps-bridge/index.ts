@@ -271,7 +271,8 @@ Deno.serve(async (req) => {
       // ── INSERT ───────────────────────────────────────────
       case "insert": {
         let query = db.from(table).insert(data);
-        if (typeof normalizedOptions?.select === "string") query = query.select(normalizedOptions.select);
+        const insertSelect = typeof body.select === "string" ? body.select : typeof normalizedOptions?.select === "string" ? normalizedOptions.select : null;
+        if (insertSelect) query = query.select(insertSelect);
         if (normalizedOptions?.single) query = query.single();
         const { data: inserted, error } = await query;
         if (error) throw error;
@@ -294,7 +295,8 @@ Deno.serve(async (req) => {
         }
         let query = db.from(table).update(data);
         query = applyMatchFilters(query, normalizedMatch);
-        if (typeof normalizedOptions?.select === "string") query = query.select(normalizedOptions.select);
+        const updateSelect = typeof body.select === "string" ? body.select : typeof normalizedOptions?.select === "string" ? normalizedOptions.select : null;
+        if (updateSelect) query = query.select(updateSelect);
         if (normalizedOptions?.single) query = query.single();
         const { data: updated, error } = await query;
         if (error) throw error;
