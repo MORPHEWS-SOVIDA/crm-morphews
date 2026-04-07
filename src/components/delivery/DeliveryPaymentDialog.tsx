@@ -382,12 +382,16 @@ export function DeliveryPaymentDialog({
         {/* STEP 2b: Card/PIX proof upload */}
         {step === 'card_proof' && (
           <div className="py-4 space-y-4">
+            {/* Banner chamativo */}
+            <div className="p-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl text-white text-center shadow-lg animate-pulse">
+              <Camera className="w-8 h-8 mx-auto mb-1" />
+              <p className="text-lg font-extrabold tracking-wide">📸 TIRE A FOTO DO COMPROVANTE</p>
+              <p className="text-sm font-medium opacity-90 mt-1">
+                Foto do ticket da maquininha ou comprovante PIX
+              </p>
+            </div>
+
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Camera className="w-4 h-4" />
-                Foto do comprovante
-              </Label>
-              
               <input
                 type="file"
                 accept="image/*"
@@ -419,12 +423,19 @@ export function DeliveryPaymentDialog({
               ) : (
                 <label 
                   htmlFor="proof-upload"
-                  className="flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                  className="flex flex-col items-center justify-center h-40 border-3 border-dashed border-amber-400 rounded-xl cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors bg-amber-50/50 dark:bg-amber-950/10"
                 >
-                  <Camera className="w-8 h-8 text-muted-foreground mb-2" />
-                  <span className="text-sm text-muted-foreground">Tirar foto ou selecionar</span>
+                  <Camera className="w-10 h-10 text-amber-500 mb-2" />
+                  <span className="text-base font-semibold text-amber-700 dark:text-amber-400">Toque para abrir a câmera</span>
+                  <span className="text-xs text-amber-600/70 dark:text-amber-500/70 mt-1">ou selecione da galeria</span>
                 </label>
               )}
+            </div>
+
+            <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+              <p className="text-sm text-red-700 dark:text-red-300 font-medium text-center">
+                ⚠️ Sem foto, a entrega <strong>não será confirmada</strong>
+              </p>
             </div>
           </div>
         )}
