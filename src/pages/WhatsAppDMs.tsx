@@ -91,6 +91,7 @@ export default function WhatsAppDMs() {
   const [permissionsInstance, setPermissionsInstance] = useState<EvolutionInstance | null>(null);
   const [deleteInstance, setDeleteInstance] = useState<EvolutionInstance | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   // QR Codes em memória (não salvar no banco por ser muito grande)
   const [qrCodesMap, setQrCodesMap] = useState<Record<string, string>>({});
