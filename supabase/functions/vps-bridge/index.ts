@@ -23,7 +23,7 @@ function normalizeMatch(
   column: unknown,
   value: unknown,
 ) {
-  const rawMatch = body.match ?? options?.match ?? body.filter ?? body.where ?? body.eq;
+  const rawMatch = body.match ?? options?.match ?? body.filter ?? body.filters ?? body.where ?? body.criteria ?? body.query ?? body.eq;
 
   if (isPlainObject(rawMatch)) {
     const key = typeof rawMatch.column === "string"
@@ -73,6 +73,14 @@ function normalizeMatch(
 
   if (action !== "select" && body.id !== undefined) {
     return { id: body.id };
+  }
+
+  if (action !== "select" && isPlainObject(body.data) && body.data.id !== undefined) {
+    return { id: body.data.id };
+  }
+
+  if (action !== "select" && body.recordId !== undefined) {
+    return { id: body.recordId };
   }
 
   return null;
@@ -148,7 +156,7 @@ Deno.serve(async (req) => {
     } = body;
     const normalizedOptions = isPlainObject(options) ? options : undefined;
     const normalizedMatch = normalizeMatch(action, body, normalizedOptions, column, value);
-    const rpcName = body.rpc ?? body.function ?? body.functionName ?? body.fn ?? body.procedure;
+    const rpcName = body.rpc ?? body.function ?? body.functionName ?? body.fn ?? body.procedure ?? body.rpcName ?? body.name;
     const rpcArgs = isPlainObject(args)
       ? args
       : isPlainObject(body.params)
@@ -201,6 +209,10 @@ Deno.serve(async (req) => {
       // ── UPDATE ───────────────────────────────────────────
       case "update": {
         if (!normalizedMatch) {
+          console.warn("vps-bridge update rejected: missing match filters", {
+            table,
+            receivedKeys: Object.keys(body),
+          });
           return json({
             error: "Update requires match filters",
             action,
@@ -232,6 +244,10 @@ Deno.serve(async (req) => {
       // ── DELETE ──────────────────────────────────────────
       case "delete": {
         if (!normalizedMatch) {
+          console.warn("vps-bridge delete rejected: missing match filters", {
+            table,
+            receivedKeys: Object.keys(body),
+          });
           return json({
             error: "Delete requires match filters",
             action,
@@ -250,6 +266,9 @@ Deno.serve(async (req) => {
       case "call_rpc":
       case "rpc": {
         if (typeof rpcName !== "string" || !rpcName.trim()) {
+          console.warn("vps-bridge rpc rejected: missing function name", {
+            receivedKeys: Object.keys(body),
+          });
           return json({
             error: "RPC function name is required",
             action,
