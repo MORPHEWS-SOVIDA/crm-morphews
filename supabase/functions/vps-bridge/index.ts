@@ -151,6 +151,102 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function firstNonEmptyString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
+function digitsOnly(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\D/g, "") : "";
+}
+
+function toRemoteJid(value: unknown): string | null {
+  const raw = firstNonEmptyString(value);
+  if (!raw) return null;
+  if (raw.includes("@")) return raw;
+  const digits = digitsOnly(raw);
+  return digits ? `${digits}@s.whatsapp.net` : null;
+}
+
+function getMediaMessageId(data: Record<string, unknown>): string | null {
+  return firstNonEmptyString(
+    data.external_id,
+    data.externalId,
+    data.provider_message_id,
+    data.providerMessageId,
+    data.z_api_message_id,
+    data.zApiMessageId,
+    data.message_id,
+    data.messageId,
+    data.key_id,
+    data.keyId,
+  );
+}
+
+async function resolveConversationContext(supabase: any, conversationId: string) {
+  const { data: convRows, error: convError } = await supabase
+    .from("whatsapp_conversations")
+    .select("instance_id, organization_id, phone_number, sendable_phone, customer_phone_e164, chat_id")
+    .eq("id", conversationId)
+    .limit(1);
+
+  if (convError) {
+    console.error("❌ Failed to load conversation context:", convError);
+    return null;
+  }
+
+  const conversation = Array.isArray(convRows) ? convRows[0] : convRows;
+  if (!conversation?.instance_id || !conversation?.organization_id) {
+    console.error("❌ No conversation context found for ID:", conversationId);
+    return null;
+  }
+
+  const { data: instRows, error: instError } = await supabase
+    .from("whatsapp_instances")
+    .select("name")
+    .eq("id", conversation.instance_id)
+    .limit(1);
+
+  if (instError) {
+    console.error("❌ Failed to load instance context:", instError);
+    return null;
+  }
+
+  const instance = Array.isArray(instRows) ? instRows[0] : instRows;
+  if (!instance?.name) {
+    console.error("❌ No instance found for ID:", conversation.instance_id);
+    return null;
+  }
+
+  const remoteJid = toRemoteJid(conversation.chat_id)
+    ?? toRemoteJid(conversation.customer_phone_e164)
+    ?? toRemoteJid(conversation.sendable_phone)
+    ?? toRemoteJid(conversation.phone_number);
+
+  const senderPhone = digitsOnly(
+    conversation.customer_phone_e164
+      ?? conversation.sendable_phone
+      ?? conversation.phone_number
+      ?? conversation.chat_id,
+  );
+
+  return {
+    organizationId: conversation.organization_id as string,
+    instanceId: conversation.instance_id as string,
+    instanceName: instance.name as string,
+    remoteJid,
+    senderPhone,
+  };
+}
+
 function extFromMime(mime: string): string {
   const map: Record<string, string> = {
     "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
@@ -166,9 +262,22 @@ async function processMediaBase64(
   base64Data: string,
   mimeType: string,
   conversationId: string,
-  organizationId: string,
+  organizationId?: string | null,
 ): Promise<string | null> {
   try {
+    const fallbackContext = organizationId
+      ? null
+      : await resolveConversationContext(supabase, conversationId);
+    const resolvedOrganizationId = firstNonEmptyString(
+      organizationId,
+      fallbackContext?.organizationId,
+    );
+
+    if (!resolvedOrganizationId) {
+      console.error("❌ Could not resolve organization_id for media upload:", { conversationId });
+      return null;
+    }
+
     let rawBase64 = base64Data;
     if (rawBase64.includes(",") && rawBase64.startsWith("data:")) {
       rawBase64 = rawBase64.split(",")[1];
@@ -180,7 +289,7 @@ async function processMediaBase64(
     const ext = extFromMime(mimeType);
     const timestamp = Date.now();
     const random = crypto.randomUUID().split("-")[0];
-    const storagePath = `orgs/${organizationId}/conversations/${conversationId}/${timestamp}_${random}.${ext}`;
+    const storagePath = `orgs/${resolvedOrganizationId}/conversations/${conversationId}/${timestamp}_${random}.${ext}`;
     
     const cleanMime = mimeType.split(";")[0].trim();
     
@@ -206,7 +315,8 @@ async function downloadAndStoreMedia(
   conversationId: string,
   externalId: string,
   messageType: string,
-  senderPhone: string,
+  senderPhone?: string,
+  direction?: string,
 ): Promise<string | null> {
   try {
     const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL");
@@ -217,84 +327,103 @@ async function downloadAndStoreMedia(
       return null;
     }
 
-    // Find the instance name from the conversation
-    const { data: conv } = await supabase
-      .from("whatsapp_conversations")
-      .select("instance_id, organization_id, whatsapp_contact_phone")
-      .eq("id", conversationId)
-      .limit(1);
-    
-    const conversation = Array.isArray(conv) ? conv[0] : conv;
-    if (!conversation?.instance_id) {
-      console.error("❌ No conversation found for ID:", conversationId);
+    const context = await resolveConversationContext(supabase, conversationId);
+    if (!context) {
       return null;
     }
 
-    const { data: inst } = await supabase
-      .from("whatsapp_instances")
-      .select("name")
-      .eq("id", conversation.instance_id)
-      .limit(1);
-    
-    const instance = Array.isArray(inst) ? inst[0] : inst;
-    if (!instance?.name) {
-      console.error("❌ No instance found for ID:", conversation.instance_id);
+    const remoteJid = toRemoteJid(senderPhone) ?? context.remoteJid;
+    if (!remoteJid) {
+      console.error("❌ Could not resolve remoteJid for media download:", { conversationId, externalId });
       return null;
     }
 
-    // Build remoteJid from phone
-    const phone = senderPhone || conversation.whatsapp_contact_phone || "";
-    const cleanPhone = phone.replace(/\D/g, "");
-    const remoteJid = cleanPhone ? `${cleanPhone}@s.whatsapp.net` : "";
-
-    // Download from Evolution API
     const endpoint = `${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${instance.name}`;
-    console.log("📥 Downloading media from Evolution:", { instance: instance.name, externalId });
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": EVOLUTION_API_KEY },
-      body: JSON.stringify({
-        message: {
-          key: { id: externalId, remoteJid, fromMe: false },
-        },
-        convertToMp4: messageType === "video",
-      }),
-    });
+    const retryDelays = [0, 800, 1800];
 
-    if (!response.ok) {
-      console.error("❌ Evolution getBase64 failed:", response.status, await response.text().catch(() => ""));
-      return null;
-    }
+    for (let attempt = 0; attempt < retryDelays.length; attempt++) {
+      if (retryDelays[attempt] > 0) {
+        await sleep(retryDelays[attempt]);
+      }
 
-    const result = await response.json();
-    
-    // Extract base64 from various formats
-    let base64Data = result?.base64 && result.base64.length > 0 ? result.base64 : null;
-    
-    if (!base64Data && result?.buffer) {
-      if (typeof result.buffer === "string" && result.buffer.length > 0) {
-        base64Data = result.buffer;
-      } else if (result.buffer?.data && Array.isArray(result.buffer.data)) {
-        const uint8 = new Uint8Array(result.buffer.data);
-        let binary = "";
-        for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
-        base64Data = btoa(binary);
-      } else if (Array.isArray(result.buffer)) {
-        const uint8 = new Uint8Array(result.buffer);
-        let binary = "";
-        for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
-        base64Data = btoa(binary);
+      console.log("📥 Downloading media from Evolution:", {
+        attempt: attempt + 1,
+        instance: context.instanceName,
+        externalId,
+        remoteJid,
+        direction,
+      });
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "apikey": EVOLUTION_API_KEY },
+          body: JSON.stringify({
+            message: {
+              key: { id: externalId, remoteJid, fromMe: direction === "outbound" },
+            },
+            convertToMp4: messageType === "video",
+          }),
+        });
+
+        if (!response.ok) {
+          console.error("❌ Evolution getBase64 failed:", response.status, await response.text().catch(() => ""));
+          continue;
+        }
+
+        const result = await response.json().catch(() => null);
+        if (!result) {
+          console.error("❌ Evolution response was not valid JSON");
+          continue;
+        }
+
+        let base64Data = result?.base64 && result.base64.length > 0 ? result.base64 : null;
+
+        if (!base64Data && result?.buffer) {
+          if (typeof result.buffer === "string" && result.buffer.length > 0) {
+            base64Data = result.buffer;
+          } else if (result.buffer?.data && Array.isArray(result.buffer.data)) {
+            const uint8 = new Uint8Array(result.buffer.data);
+            let binary = "";
+            for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+            base64Data = btoa(binary);
+          } else if (Array.isArray(result.buffer)) {
+            const uint8 = new Uint8Array(result.buffer);
+            let binary = "";
+            for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+            base64Data = btoa(binary);
+          }
+        }
+
+        if (!base64Data) {
+          console.error("❌ No base64 data in Evolution response, keys:", Object.keys(result || {}));
+          continue;
+        }
+
+        const mimeType = result?.mimetype || result?.mimeType || guessMimeFromType(messageType);
+        const storedUrl = await processMediaBase64(
+          supabase,
+          base64Data,
+          mimeType,
+          conversationId,
+          context.organizationId,
+        );
+
+        if (storedUrl) {
+          return storedUrl;
+        }
+      } catch (attemptErr) {
+        console.error(`❌ downloadAndStoreMedia attempt ${attempt + 1} failed:`, attemptErr);
       }
     }
 
-    if (!base64Data) {
-      console.error("❌ No base64 data in Evolution response, keys:", Object.keys(result || {}));
-      return null;
-    }
-
-    const mimeType = result?.mimetype || result?.mimeType || guessMimeFromType(messageType);
-    return await processMediaBase64(supabase, base64Data, mimeType, conversationId, conversation.organization_id);
+    console.error("❌ Failed to retrieve media from Evolution after retries:", {
+      conversationId,
+      externalId,
+      messageType,
+    });
+    return null;
   } catch (err) {
     console.error("❌ downloadAndStoreMedia error:", err);
     return null;
@@ -433,49 +562,65 @@ Deno.serve(async (req) => {
           const msgData = data as Record<string, unknown>;
           const mediaTypes = ["image", "audio", "video", "document", "sticker"];
           const isMediaMsg = mediaTypes.includes(String(msgData.message_type || ""));
-          const hasNoUrl = !msgData.media_url;
-          const hasExternalId = typeof msgData.external_id === "string" && (msgData.external_id as string).length > 0;
+          const hasMediaUrl = typeof msgData.media_url === "string" && msgData.media_url.trim().length > 0;
+          const mediaMessageId = getMediaMessageId(msgData);
+          const inlineMediaBase64 = firstNonEmptyString(
+            msgData.media_base64,
+            msgData.base64,
+            msgData.file_base64,
+            msgData.fileBase64,
+          );
+          const inlineMimeType = firstNonEmptyString(
+            msgData.media_mime_type,
+            msgData.media_content_type,
+            msgData.mime_type,
+            msgData.mimeType,
+            msgData.content_type,
+            msgData.contentType,
+          ) || "application/octet-stream";
           
           console.log("vps-bridge INSERT whatsapp_messages:", JSON.stringify({
             message_type: msgData.message_type,
-            hasMediaUrl: !!msgData.media_url,
-            hasExternalId,
-            external_id: msgData.external_id,
+            hasMediaUrl,
+            mediaMessageId,
             conversation_id: msgData.conversation_id,
-            hasMediaBase64: !!msgData.media_base64,
+            hasMediaBase64: !!inlineMediaBase64,
             dataKeys: Object.keys(msgData),
           }));
 
           // If VPS sent media_base64 directly, upload it
-          if (isMediaMsg && hasNoUrl && typeof msgData.media_base64 === "string" && msgData.media_base64.length > 0) {
+          if (isMediaMsg && !hasMediaUrl && inlineMediaBase64 && msgData.conversation_id) {
             console.log("📹 Processing inline media_base64 for message insert");
             const mediaUrl = await processMediaBase64(
               supabase,
-              msgData.media_base64 as string,
-              msgData.media_mime_type as string || msgData.media_content_type as string || "application/octet-stream",
+              inlineMediaBase64,
+              inlineMimeType,
               msgData.conversation_id as string,
-              msgData.organization_id as string || "",
+              firstNonEmptyString(msgData.organization_id),
             );
             if (mediaUrl) {
               msgData.media_url = mediaUrl;
               console.log("✅ media_url set from base64:", mediaUrl.substring(0, 80));
             }
-            // Remove the base64 field before inserting
-            delete msgData.media_base64;
-            delete msgData.media_mime_type;
-            delete msgData.media_content_type;
           }
 
           // If still no media_url, try downloading from Evolution API
-          if (isMediaMsg && !msgData.media_url && hasExternalId && msgData.conversation_id) {
-            console.log("📹 Attempting to download media from Evolution API for message:", msgData.external_id);
+          if (isMediaMsg && !msgData.media_url && mediaMessageId && msgData.conversation_id) {
+            console.log("📹 Attempting to download media from Evolution API for message:", mediaMessageId);
             try {
               const mediaUrl = await downloadAndStoreMedia(
                 supabase,
                 msgData.conversation_id as string,
-                msgData.external_id as string,
+                mediaMessageId,
                 msgData.message_type as string,
-                msgData.sender_phone as string || "",
+                firstNonEmptyString(
+                  msgData.sender_phone,
+                  msgData.senderPhone,
+                  msgData.customer_phone_e164,
+                  msgData.phone_number,
+                  msgData.chat_id,
+                ) || undefined,
+                firstNonEmptyString(msgData.direction) || undefined,
               );
               if (mediaUrl) {
                 msgData.media_url = mediaUrl;
@@ -484,6 +629,27 @@ Deno.serve(async (req) => {
             } catch (mediaErr) {
               console.error("❌ Failed to download media from Evolution:", mediaErr);
             }
+          }
+
+          for (const key of [
+            "media_base64",
+            "media_mime_type",
+            "media_content_type",
+            "base64",
+            "file_base64",
+            "fileBase64",
+            "mime_type",
+            "mimeType",
+            "content_type",
+            "contentType",
+            "external_id",
+            "externalId",
+            "organization_id",
+            "sender_phone",
+            "senderPhone",
+            "chat_id",
+          ]) {
+            delete msgData[key];
           }
         }
 
