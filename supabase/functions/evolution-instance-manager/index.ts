@@ -13,6 +13,7 @@ const RAW_EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
 const EVOLUTION_API_URL = RAW_EVOLUTION_API_URL.startsWith("http") ? RAW_EVOLUTION_API_URL.replace(/\/$/, "") : `https://${RAW_EVOLUTION_API_URL.replace(/\/$/, "")}`;
 const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
 const PUBLIC_APP_URL = Deno.env.get("PUBLIC_APP_URL") ?? "https://atomic.ia.br";
+const EVOLUTION_WEBHOOK_URL = Deno.env.get("EVOLUTION_WEBHOOK_URL") ?? "https://webhook.morphews.com.br/";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -29,10 +30,9 @@ function generateInstanceName(orgId: string, name: string): string {
   return `${cleanName}-${shortOrg}-${random}`;
 }
 
-// Webhook URL base - será configurado no Evolution para apontar para nossa function
+// Webhook URL - aponta para a VPS onde o evolution-webhook roda
 function getWebhookUrl(instanceName: string): string {
-  // Usamos a função evolution-webhook que vai receber eventos de todas as instâncias
-  return `${SUPABASE_URL}/functions/v1/evolution-webhook`;
+  return EVOLUTION_WEBHOOK_URL;
 }
 
 function extractPhoneFromOwnerValue(value: unknown): string | null {
