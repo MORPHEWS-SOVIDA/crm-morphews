@@ -61,8 +61,9 @@ Deno.serve(async (req) => {
           query = query.order(col, { ascending: ascending ?? true });
         }
         if (options?.limit) query = query.limit(options.limit);
-        if (options?.single) query = query.single();
-        if (options?.maybeSingle) query = query.maybeSingle();
+        // Use maybeSingle instead of single to avoid crashes when multiple rows match
+        if (options?.single) query = query.maybeSingle();
+        else if (options?.maybeSingle) query = query.maybeSingle();
 
         const { data: rows, error } = await query;
         if (error) throw error;
