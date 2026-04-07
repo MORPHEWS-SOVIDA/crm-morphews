@@ -56,30 +56,30 @@ function normalizeMatch(
       if (key && itemValue !== undefined) acc[key] = itemValue;
       return acc;
     }, {});
-    if (Object.keys(fromArray).length > 0) return fromArray;
+      if (Object.keys(fromArray).length > 0) return fromArray;
   }
 
-  if (action !== "select" && typeof column === "string" && value !== undefined) {
+  // column/value as filter — works for ALL actions including select
+  if (typeof column === "string" && value !== undefined) {
     return { [column]: value };
   }
 
   if (
-    action !== "select" &&
     typeof body.whereColumn === "string" &&
     body.whereValue !== undefined
   ) {
     return { [body.whereColumn]: body.whereValue };
   }
 
-  if (action !== "select" && body.id !== undefined) {
+  if (body.id !== undefined) {
     return { id: body.id };
   }
 
-  if (action !== "select" && isPlainObject(body.data) && body.data.id !== undefined) {
+  if (isPlainObject(body.data) && body.data.id !== undefined) {
     return { id: body.data.id };
   }
 
-  if (action !== "select" && body.recordId !== undefined) {
+  if (body.recordId !== undefined) {
     return { id: body.recordId };
   }
 
@@ -92,7 +92,47 @@ function applyMatchFilters<T>(query: T, match: Record<string, unknown> | null): 
   if (!match) return nextQuery;
 
   for (const [k, v] of Object.entries(match)) {
-    if (Array.isArray(v)) {
+    // Handle PostgREST-style keys: "eq.column_name", "in.column_name", "is.column_name"
+    const dotIdx = k.indexOf(".");
+    if (dotIdx > 0) {
+      const operator = k.slice(0, dotIdx);
+      const col = k.slice(dotIdx + 1);
+      switch (operator) {
+        case "eq":
+          nextQuery = nextQuery.eq(col, v);
+          break;
+        case "neq":
+          nextQuery = nextQuery.neq(col, v);
+          break;
+        case "gt":
+          nextQuery = nextQuery.gt(col, v);
+          break;
+        case "gte":
+          nextQuery = nextQuery.gte(col, v);
+          break;
+        case "lt":
+          nextQuery = nextQuery.lt(col, v);
+          break;
+        case "lte":
+          nextQuery = nextQuery.lte(col, v);
+          break;
+        case "like":
+          nextQuery = nextQuery.like(col, v);
+          break;
+        case "ilike":
+          nextQuery = nextQuery.ilike(col, v);
+          break;
+        case "is":
+          nextQuery = nextQuery.is(col, v);
+          break;
+        case "in":
+          nextQuery = nextQuery.in(col, Array.isArray(v) ? v : [v]);
+          break;
+        default:
+          // Unknown operator, treat as eq
+          nextQuery = nextQuery.eq(col, v);
+      }
+    } else if (Array.isArray(v)) {
       nextQuery = nextQuery.in(k, v);
     } else if (v === null) {
       nextQuery = nextQuery.is(k, null);
@@ -142,6 +182,22 @@ Deno.serve(async (req) => {
 
     // ── Parse body ─────────────────────────────────────────
     const body = await req.json();
+
+    // Debug: log incoming request to diagnose VPS payload format
+    console.log("vps-bridge incoming:", JSON.stringify({
+      action: body.action,
+      table: body.table,
+      column: body.column,
+      value: body.value,
+      select: body.select,
+      match: body.match,
+      eq: body.eq,
+      filters: body.filters,
+      filter: body.filter,
+      options: body.options,
+      keys: Object.keys(body),
+    }));
+
     const {
       action,
       table,
@@ -156,7 +212,7 @@ Deno.serve(async (req) => {
     } = body;
     const normalizedOptions = isPlainObject(options) ? options : undefined;
     const normalizedMatch = normalizeMatch(action, body, normalizedOptions, column, value);
-    const rpcName = body.rpc ?? body.function ?? body.functionName ?? body.fn ?? body.procedure ?? body.rpcName ?? body.name;
+    const rpcName = body.rpc ?? body.function ?? body.functionName ?? body.fn ?? body.procedure ?? body.rpcName ?? body.name ?? (action === "rpc" || action === "call_rpc" ? table : undefined);
     const rpcArgs = isPlainObject(args)
       ? args
       : isPlainObject(body.params)
@@ -172,7 +228,23 @@ Deno.serve(async (req) => {
     switch (action) {
       // ── SELECT ───────────────────────────────────────────
       case "select": {
-        let query = db.from(table).select(typeof column === "string" ? column : "*");
+        // Use body.select or options.select for columns; never use column (that's for filtering)
+        const selectCols = typeof body.select === "string" ? body.select
+          : typeof normalizedOptions?.select === "string" ? String(normalizedOptions.select)
+          : typeof normalizedOptions?.columns === "string" ? String(normalizedOptions.columns)
+          : "*";
+        
+        console.log("vps-bridge SELECT debug:", JSON.stringify({
+          table,
+          selectCols,
+          normalizedMatch,
+          or: normalizedOptions?.or,
+          order: normalizedOptions?.order,
+          limit: normalizedOptions?.limit,
+          wantSingle: !!(normalizedOptions?.single || normalizedOptions?.maybeSingle),
+        }));
+        
+        let query = db.from(table).select(selectCols);
         query = applyMatchFilters(query, normalizedMatch);
         if (normalizedOptions?.or) query = query.or(String(normalizedOptions.or));
         if (isPlainObject(normalizedOptions?.order)) {
@@ -199,7 +271,8 @@ Deno.serve(async (req) => {
       // ── INSERT ───────────────────────────────────────────
       case "insert": {
         let query = db.from(table).insert(data);
-        if (typeof normalizedOptions?.select === "string") query = query.select(normalizedOptions.select);
+        const insertSelect = typeof body.select === "string" ? body.select : typeof normalizedOptions?.select === "string" ? normalizedOptions.select : null;
+        if (insertSelect) query = query.select(insertSelect);
         if (normalizedOptions?.single) query = query.single();
         const { data: inserted, error } = await query;
         if (error) throw error;
@@ -222,7 +295,8 @@ Deno.serve(async (req) => {
         }
         let query = db.from(table).update(data);
         query = applyMatchFilters(query, normalizedMatch);
-        if (typeof normalizedOptions?.select === "string") query = query.select(normalizedOptions.select);
+        const updateSelect = typeof body.select === "string" ? body.select : typeof normalizedOptions?.select === "string" ? normalizedOptions.select : null;
+        if (updateSelect) query = query.select(updateSelect);
         if (normalizedOptions?.single) query = query.single();
         const { data: updated, error } = await query;
         if (error) throw error;
