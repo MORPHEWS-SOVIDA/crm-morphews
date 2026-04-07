@@ -56,15 +56,15 @@ function normalizeMatch(
       if (key && itemValue !== undefined) acc[key] = itemValue;
       return acc;
     }, {});
-    if (Object.keys(fromArray).length > 0) return fromArray;
+      if (Object.keys(fromArray).length > 0) return fromArray;
   }
 
-  if (action !== "select" && typeof column === "string" && value !== undefined) {
+  // column/value as filter — works for ALL actions including select
+  if (typeof column === "string" && value !== undefined) {
     return { [column]: value };
   }
 
   if (
-    action !== "select" &&
     typeof body.whereColumn === "string" &&
     body.whereValue !== undefined
   ) {
