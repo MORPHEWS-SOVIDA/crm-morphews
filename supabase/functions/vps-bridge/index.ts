@@ -19,7 +19,14 @@ Deno.serve(async (req) => {
 
   try {
     // ── Auth ────────────────────────────────────────────────
-    const secret = req.headers.get("x-bridge-secret");
+    // Accept secret via x-bridge-secret header OR Authorization: Bearer <secret>
+    let secret = req.headers.get("x-bridge-secret");
+    if (!secret) {
+      const authHeader = req.headers.get("authorization") || "";
+      if (authHeader.startsWith("Bearer ")) {
+        secret = authHeader.slice(7);
+      }
+    }
     const expected = Deno.env.get("VPS_BRIDGE_SECRET");
 
     if (!expected || secret !== expected) {
