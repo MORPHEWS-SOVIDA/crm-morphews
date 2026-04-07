@@ -1114,6 +1114,94 @@ serve(async (req) => {
     }
 
     // =====================
+    // SYNC ALL - Re-sincroniza status de todas as instâncias com a Evolution API
+    // =====================
+    if (action === "sync_all") {
+      const { data: instances } = await supabase
+        .from("whatsapp_instances")
+        .select("id, name, evolution_instance_id, is_connected, status, phone_number")
+        .eq("organization_id", organizationId)
+        .eq("provider", "evolution")
+        .is("deleted_at", null);
+
+      const list = (instances || []) as any[];
+      const results: any[] = [];
+
+      // Buscar todos os estados da Evolution API de uma vez
+      let evolutionInstances: any[] = [];
+      try {
+        const res = await fetch(`${EVOLUTION_API_URL}/instance/fetchInstances`, {
+          method: "GET",
+          headers: { apikey: EVOLUTION_API_KEY },
+        });
+        if (res.ok) {
+          evolutionInstances = (await res.json().catch(() => [])) as any[];
+        }
+      } catch (e) {
+        console.warn("sync_all: Could not fetch Evolution instances:", e);
+      }
+
+      for (const inst of list) {
+        if (!inst.evolution_instance_id) continue;
+
+        // Buscar estado individual via connectionState
+        let isConnected = false;
+        let phoneNumber = inst.phone_number;
+
+        try {
+          const statusRes = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${inst.evolution_instance_id}`, {
+            method: "GET",
+            headers: { apikey: EVOLUTION_API_KEY },
+          });
+          const statusData = await statusRes.json().catch(() => ({}));
+          isConnected = statusData?.instance?.state === "open";
+
+          // Extrair telefone do fetchInstances
+          if (isConnected && !phoneNumber) {
+            const found = evolutionInstances.find((it: any) => it?.instance?.instanceName === inst.evolution_instance_id);
+            const phone = extractPhoneFromOwnerValue(found?.instance?.owner ?? found?.instance?.ownerJid);
+            if (phone) phoneNumber = phone;
+          }
+        } catch (e) {
+          console.warn(`sync_all: Error checking ${inst.name}:`, e);
+        }
+
+        const newStatus = isConnected ? "active" : "disconnected";
+        const changed = inst.is_connected !== isConnected || inst.status !== newStatus;
+
+        if (changed || (phoneNumber && phoneNumber !== inst.phone_number)) {
+          await supabase
+            .from("whatsapp_instances")
+            .update({
+              is_connected: isConnected,
+              status: newStatus,
+              phone_number: phoneNumber,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", inst.id);
+        }
+
+        results.push({
+          id: inst.id,
+          name: inst.name,
+          was: { connected: inst.is_connected, status: inst.status },
+          now: { connected: isConnected, status: newStatus },
+          changed,
+        });
+      }
+
+      console.log("sync_all results:", results);
+
+      return new Response(JSON.stringify({
+        success: true,
+        synced: results.length,
+        results,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // =====================
     // LIST INSTANCES
     // =====================
     if (action === "list") {
