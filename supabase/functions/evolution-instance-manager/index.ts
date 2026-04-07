@@ -476,9 +476,10 @@ serve(async (req) => {
           }
         } else {
           // Instância existe mas não retornou QR
-          // Se está em "connecting" por muito tempo, deletar e recriar
-          if (instanceState === "connecting") {
-            console.log("Instance stuck in 'connecting', deleting and recreating...");
+          // Se está em "connecting" ou "unknown", deletar e recriar
+          const shouldForceRecreate = ["connecting", "unknown"].includes(instanceState);
+          if (shouldForceRecreate) {
+            console.log(`Instance stuck in '${instanceState}', deleting and recreating...`);
             try {
               await fetch(`${EVOLUTION_API_URL}/instance/delete/${instance.evolution_instance_id}`, {
                 method: "DELETE",
@@ -489,7 +490,7 @@ serve(async (req) => {
               // Recriar
               const webhookUrl = getWebhookUrl(instance.evolution_instance_id);
               const savedSettings = (instance as any).evolution_settings || {};
-              await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+              const createResp = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
                 body: JSON.stringify({
@@ -513,10 +514,33 @@ serve(async (req) => {
                   },
                 }),
               });
+              const createData = await createResp.json().catch(() => ({}));
+              console.log("Force recreate result:", { status: createResp.status, keys: Object.keys(createData) });
+
+              // Configurar webhook separadamente
+              try {
+                await fetch(`${EVOLUTION_API_URL}/webhook/set/${instance.evolution_instance_id}`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", apikey: EVOLUTION_API_KEY },
+                  body: JSON.stringify({
+                    webhook: {
+                      enabled: true,
+                      url: webhookUrl,
+                      byEvents: false,
+                      base64: true,
+                      headers: { "Content-Type": "application/json" },
+                      events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED", "GROUPS_UPSERT"],
+                    },
+                  }),
+                });
+              } catch (e) {
+                console.warn("Could not set webhook after force recreate:", e);
+              }
+
               await new Promise(resolve => setTimeout(resolve, 2000));
               qrResult = await fetchQR();
             } catch (e) {
-              console.error("Failed to delete+recreate connecting instance:", e);
+              console.error("Failed to force recreate instance:", e);
             }
           } else {
             // Tentar logout para forçar desconexão
