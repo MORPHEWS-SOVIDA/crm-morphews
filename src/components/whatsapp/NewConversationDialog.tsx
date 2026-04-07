@@ -142,9 +142,9 @@ export function NewConversationDialog({
 
         const instancesWithStatus = (data || []).map((inst) => ({
           ...inst,
-          realTimeStatus: getStoredInstanceStatus(inst) === 'connected'
+          realTimeStatus: (inst.is_connected || inst.status === 'active' || inst.status === 'connected')
             ? ('connected' as const)
-            : ('checking' as const),
+            : ('disconnected' as const),
         }));
 
         setInstances(instancesWithStatus);
@@ -152,23 +152,6 @@ export function NewConversationDialog({
         if (data && data.length === 1) {
           setSelectedInstanceId(data[0].id);
         }
-
-        if (!instancesWithStatus.length) {
-          return;
-        }
-
-        setIsCheckingStatus(true);
-        const results = await Promise.all(
-          instancesWithStatus.map(async (inst) => ({
-            id: inst.id,
-            realTimeStatus: await checkInstanceRealStatus(inst),
-          }))
-        );
-
-        setInstances(prev => prev.map(inst => {
-          const result = results.find(r => r.id === inst.id);
-          return result ? { ...inst, realTimeStatus: result.realTimeStatus } : inst;
-        }));
       } catch (error: any) {
         console.error("Error fetching instances:", error);
         toast({
