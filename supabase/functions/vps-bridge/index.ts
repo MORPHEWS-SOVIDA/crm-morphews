@@ -270,6 +270,65 @@ Deno.serve(async (req) => {
 
       // ── INSERT ───────────────────────────────────────────
       case "insert": {
+        // If inserting a media message without media_url, try to download from Evolution API
+        if (table === "whatsapp_messages" && isPlainObject(data)) {
+          const msgData = data as Record<string, unknown>;
+          const mediaTypes = ["image", "audio", "video", "document", "sticker"];
+          const isMediaMsg = mediaTypes.includes(String(msgData.message_type || ""));
+          const hasNoUrl = !msgData.media_url;
+          const hasExternalId = typeof msgData.external_id === "string" && (msgData.external_id as string).length > 0;
+          
+          console.log("vps-bridge INSERT whatsapp_messages:", JSON.stringify({
+            message_type: msgData.message_type,
+            hasMediaUrl: !!msgData.media_url,
+            hasExternalId,
+            external_id: msgData.external_id,
+            conversation_id: msgData.conversation_id,
+            hasMediaBase64: !!msgData.media_base64,
+            dataKeys: Object.keys(msgData),
+          }));
+
+          // If VPS sent media_base64 directly, upload it
+          if (isMediaMsg && hasNoUrl && typeof msgData.media_base64 === "string" && msgData.media_base64.length > 0) {
+            console.log("📹 Processing inline media_base64 for message insert");
+            const mediaUrl = await processMediaBase64(
+              supabase,
+              msgData.media_base64 as string,
+              msgData.media_mime_type as string || msgData.media_content_type as string || "application/octet-stream",
+              msgData.conversation_id as string,
+              msgData.organization_id as string || "",
+            );
+            if (mediaUrl) {
+              msgData.media_url = mediaUrl;
+              console.log("✅ media_url set from base64:", mediaUrl.substring(0, 80));
+            }
+            // Remove the base64 field before inserting
+            delete msgData.media_base64;
+            delete msgData.media_mime_type;
+            delete msgData.media_content_type;
+          }
+
+          // If still no media_url, try downloading from Evolution API
+          if (isMediaMsg && !msgData.media_url && hasExternalId && msgData.conversation_id) {
+            console.log("📹 Attempting to download media from Evolution API for message:", msgData.external_id);
+            try {
+              const mediaUrl = await downloadAndStoreMedia(
+                supabase,
+                msgData.conversation_id as string,
+                msgData.external_id as string,
+                msgData.message_type as string,
+                msgData.sender_phone as string || "",
+              );
+              if (mediaUrl) {
+                msgData.media_url = mediaUrl;
+                console.log("✅ media_url set from Evolution download:", mediaUrl.substring(0, 80));
+              }
+            } catch (mediaErr) {
+              console.error("❌ Failed to download media from Evolution:", mediaErr);
+            }
+          }
+        }
+
         let query = db.from(table).insert(data);
         const insertSelect = typeof body.select === "string" ? body.select : typeof normalizedOptions?.select === "string" ? normalizedOptions.select : null;
         if (insertSelect) query = query.select(insertSelect);
