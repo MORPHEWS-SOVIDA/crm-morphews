@@ -25,7 +25,22 @@ function normalizeMatch(
 ) {
   const rawMatch = body.match ?? options?.match ?? body.filter ?? body.where ?? body.eq;
 
-  if (isPlainObject(rawMatch)) return rawMatch;
+  if (isPlainObject(rawMatch)) {
+    const key = typeof rawMatch.column === "string"
+      ? rawMatch.column
+      : typeof rawMatch.field === "string"
+      ? rawMatch.field
+      : typeof rawMatch.key === "string"
+      ? rawMatch.key
+      : null;
+    const compactValue = rawMatch.value ?? rawMatch.eq;
+
+    if (key && compactValue !== undefined) {
+      return { [key]: compactValue };
+    }
+
+    return Object.keys(rawMatch).length > 0 ? rawMatch : null;
+  }
 
   if (Array.isArray(rawMatch)) {
     const fromArray = rawMatch.reduce<Record<string, unknown>>((acc, item) => {
@@ -46,6 +61,14 @@ function normalizeMatch(
 
   if (action !== "select" && typeof column === "string" && value !== undefined) {
     return { [column]: value };
+  }
+
+  if (
+    action !== "select" &&
+    typeof body.whereColumn === "string" &&
+    body.whereValue !== undefined
+  ) {
+    return { [body.whereColumn]: body.whereValue };
   }
 
   if (action !== "select" && body.id !== undefined) {
