@@ -212,8 +212,12 @@ serve(async (req) => {
                     .eq('multiplier', item.quantity || 1)
                     .single();
                   if (comboPrice) {
-                    item.price_cents = comboPrice.regular_price_cents * (item.quantity || 1);
-                    console.log(`[Checkout] Combo ${c.name} qty=${item.quantity}: unit=${comboPrice.regular_price_cents}, total=${item.price_cents}`);
+                    // regular_price_cents is already the TOTAL price for this kit/multiplier
+                    // e.g. multiplier=5, regular_price_cents=31900 means "5 units for R$319"
+                    // So price_cents = total kit price, quantity = 1 (one kit)
+                    item.price_cents = comboPrice.regular_price_cents;
+                    item.quantity = 1;
+                    console.log(`[Checkout] Combo ${c.name} kit=${item.quantity}: total_kit_price=${comboPrice.regular_price_cents}, price_cents=${item.price_cents}`);
                   }
                 }
               }
