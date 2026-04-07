@@ -142,6 +142,19 @@ Deno.serve(async (req) => {
 
     // ── Parse body ─────────────────────────────────────────
     const body = await req.json();
+
+    // Debug: log incoming request to diagnose VPS payload format
+    console.log("vps-bridge incoming:", JSON.stringify({
+      action: body.action,
+      table: body.table,
+      column: body.column,
+      value: body.value,
+      select: body.select,
+      match: body.match,
+      eq: body.eq,
+      keys: Object.keys(body),
+    }));
+
     const {
       action,
       table,
