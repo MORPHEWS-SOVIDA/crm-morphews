@@ -172,7 +172,12 @@ Deno.serve(async (req) => {
     switch (action) {
       // ── SELECT ───────────────────────────────────────────
       case "select": {
-        let query = db.from(table).select(typeof column === "string" ? column : "*");
+        // Use body.select or options.select for columns; never use column (that's for filtering)
+        const selectCols = typeof body.select === "string" ? body.select
+          : typeof normalizedOptions?.select === "string" ? String(normalizedOptions.select)
+          : typeof normalizedOptions?.columns === "string" ? String(normalizedOptions.columns)
+          : "*";
+        let query = db.from(table).select(selectCols);
         query = applyMatchFilters(query, normalizedMatch);
         if (normalizedOptions?.or) query = query.or(String(normalizedOptions.or));
         if (isPlainObject(normalizedOptions?.order)) {
