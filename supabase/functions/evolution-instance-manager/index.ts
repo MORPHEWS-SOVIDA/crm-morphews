@@ -378,18 +378,23 @@ serve(async (req) => {
 
       // Se não retornou QR, tentar reiniciar e buscar novamente
       if (!qrResult?.base64 && !qrResult?.pairingCode) {
-        console.log("No QR returned, attempting recovery...");
+        console.log("No QR returned, attempting recovery. QR result:", JSON.stringify(qrResult));
         
-        // Verificar se a instância existe na Evolution
+        // Verificar se a instância existe na Evolution e seu estado
         let instanceExists = true;
+        let instanceState = "unknown";
         try {
           const checkResp = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instance.evolution_instance_id}`, {
             method: "GET",
             headers: { apikey: EVOLUTION_API_KEY },
           });
-          console.log("Instance check response:", checkResp.status);
+          console.log("Instance check response status:", checkResp.status);
           if (checkResp.status === 404) {
             instanceExists = false;
+          } else {
+            const checkData = await checkResp.json().catch(() => ({}));
+            instanceState = checkData?.instance?.state || "unknown";
+            console.log("Instance state:", instanceState);
           }
         } catch (e) {
           console.warn("Instance check failed:", e);
