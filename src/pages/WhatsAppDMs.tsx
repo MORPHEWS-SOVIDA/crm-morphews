@@ -194,7 +194,7 @@ export default function WhatsAppDMs() {
     }
   };
 
-    if (!newInstanceName.trim()) {
+    const handleCreateInstance = async () => {
       toast({ title: "Digite um nome para a instância", variant: "destructive" });
       return;
     }
