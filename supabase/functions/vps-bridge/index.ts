@@ -71,15 +71,15 @@ function normalizeMatch(
     return { [body.whereColumn]: body.whereValue };
   }
 
-  if (action !== "select" && body.id !== undefined) {
+  if (body.id !== undefined) {
     return { id: body.id };
   }
 
-  if (action !== "select" && isPlainObject(body.data) && body.data.id !== undefined) {
+  if (isPlainObject(body.data) && body.data.id !== undefined) {
     return { id: body.data.id };
   }
 
-  if (action !== "select" && body.recordId !== undefined) {
+  if (body.recordId !== undefined) {
     return { id: body.recordId };
   }
 
