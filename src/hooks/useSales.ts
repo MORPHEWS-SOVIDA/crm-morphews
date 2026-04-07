@@ -512,68 +512,40 @@ export function useSale(id: string | undefined) {
 
       if (itemsError) throw itemsError;
 
-      // Fetch seller and created_by profiles
-      let seller_profile = null;
-      let created_by_profile = null;
-      let assigned_delivery_user_profile = null;
+      // Batch fetch ALL profiles in a single query instead of 5 sequential ones
+      const profileUserIds = [
+        sale.seller_user_id,
+        sale.created_by,
+        sale.assigned_delivery_user_id,
+        sale.closed_by,
+        sale.finalized_by,
+      ].filter(Boolean) as string[];
 
-      if (sale.seller_user_id) {
-        const { data: profile } = await supabase
+      let profilesMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
+
+      if (profileUserIds.length > 0) {
+        const uniqueIds = [...new Set(profileUserIds)];
+        const { data: profiles } = await supabase
           .from('profiles')
-          .select('first_name, last_name')
-          .eq('user_id', sale.seller_user_id)
-          .maybeSingle();
-        seller_profile = profile;
-      }
+          .select('user_id, first_name, last_name')
+          .in('user_id', uniqueIds);
 
-      if (sale.created_by) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('user_id', sale.created_by)
-          .maybeSingle();
-        created_by_profile = profile;
-      }
-
-      if (sale.assigned_delivery_user_id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('user_id', sale.assigned_delivery_user_id)
-          .maybeSingle();
-        assigned_delivery_user_profile = profile;
-      }
-
-      // Fetch closing profiles (closed_by and finalized_by)
-      let closed_by_profile = null;
-      let finalized_by_profile = null;
-
-      if (sale.closed_by) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('user_id', sale.closed_by)
-          .maybeSingle();
-        closed_by_profile = profile;
-      }
-
-      if (sale.finalized_by) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('user_id', sale.finalized_by)
-          .maybeSingle();
-        finalized_by_profile = profile;
+        if (profiles) {
+          profilesMap = profiles.reduce((acc, p) => {
+            acc[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
+            return acc;
+          }, {} as typeof profilesMap);
+        }
       }
 
       return { 
         ...sale, 
         items: items || [],
-        seller_profile,
-        created_by_profile,
-        assigned_delivery_user_profile,
-        closed_by_profile,
-        finalized_by_profile,
+        seller_profile: sale.seller_user_id ? profilesMap[sale.seller_user_id] || null : null,
+        created_by_profile: sale.created_by ? profilesMap[sale.created_by] || null : null,
+        assigned_delivery_user_profile: sale.assigned_delivery_user_id ? profilesMap[sale.assigned_delivery_user_id] || null : null,
+        closed_by_profile: sale.closed_by ? profilesMap[sale.closed_by] || null : null,
+        finalized_by_profile: sale.finalized_by ? profilesMap[sale.finalized_by] || null : null,
         return_reason: sale.return_reason
       } as Sale;
     },
