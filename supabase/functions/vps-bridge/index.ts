@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
     } = body;
     const normalizedOptions = isPlainObject(options) ? options : undefined;
     const normalizedMatch = normalizeMatch(action, body, normalizedOptions, column, value);
-    const rpcName = body.rpc ?? body.function ?? body.functionName ?? body.fn ?? body.procedure ?? body.rpcName ?? body.name;
+    const rpcName = body.rpc ?? body.function ?? body.functionName ?? body.fn ?? body.procedure ?? body.rpcName ?? body.name ?? (action === "rpc" || action === "call_rpc" ? table : undefined);
     const rpcArgs = isPlainObject(args)
       ? args
       : isPlainObject(body.params)
