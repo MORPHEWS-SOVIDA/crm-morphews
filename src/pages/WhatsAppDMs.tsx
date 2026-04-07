@@ -173,7 +173,27 @@ export default function WhatsAppDMs() {
     }
   };
 
-  const handleCreateInstance = async () => {
+  const handleSyncAll = async () => {
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("evolution-instance-manager", {
+        body: { action: "sync_all" },
+      });
+      if (error) throw error;
+      
+      const changed = data?.results?.filter((r: any) => r.changed)?.length || 0;
+      toast({ 
+        title: "Sincronização concluída", 
+        description: `${data?.synced || 0} instâncias verificadas, ${changed} atualizadas` 
+      });
+      refetch();
+    } catch (err: any) {
+      toast({ title: "Erro ao sincronizar", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
     if (!newInstanceName.trim()) {
       toast({ title: "Digite um nome para a instância", variant: "destructive" });
       return;
