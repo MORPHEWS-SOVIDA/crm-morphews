@@ -8,7 +8,10 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
+const RAW_EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") ?? "";
+const EVOLUTION_API_URL = RAW_EVOLUTION_API_URL.startsWith("http")
+  ? RAW_EVOLUTION_API_URL.replace(/\/$/, "")
+  : `https://${RAW_EVOLUTION_API_URL.replace(/\/$/, "")}`;
 const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
 
 function jsonResponse(body: unknown, status = 200) {
@@ -62,8 +65,9 @@ async function evolutionFindMessages(params: {
   instanceName: string;
   remoteJid: string;
   limit: number;
+  apiKey: string;
 }) {
-  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY) {
+  if (!EVOLUTION_API_URL || !params.apiKey) {
     throw new Error("Evolution API não configurada");
   }
 
@@ -77,7 +81,7 @@ async function evolutionFindMessages(params: {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: EVOLUTION_API_KEY,
+        apikey: params.apiKey,
       },
       body: JSON.stringify({
         where: {
@@ -123,6 +127,41 @@ async function evolutionFindMessages(params: {
   }
 }
 
+function buildRemoteJidCandidates(chatId?: string | null, phoneNumber?: string | null) {
+  const candidates = new Set<string>();
+
+  const pushJid = (value?: string | null) => {
+    if (!value) return;
+    const trimmed = String(value).trim();
+    if (!trimmed) return;
+
+    if (trimmed.includes("@")) {
+      candidates.add(trimmed);
+      return;
+    }
+
+    const digits = trimmed.replace(/\D/g, "");
+    if (digits) {
+      candidates.add(`${digits}@s.whatsapp.net`);
+    }
+  };
+
+  pushJid(chatId);
+
+  const digits = String(phoneNumber || "").replace(/\D/g, "");
+  if (digits) {
+    pushJid(digits);
+
+    if (digits.startsWith("55") && digits.length === 13) {
+      pushJid(`${digits.slice(0, 4)}${digits.slice(5)}`);
+    } else if (digits.startsWith("55") && digits.length === 12) {
+      pushJid(`${digits.slice(0, 4)}9${digits.slice(4)}`);
+    }
+  }
+
+  return Array.from(candidates);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
@@ -149,7 +188,7 @@ serve(async (req) => {
     // Fetch conversation
     const { data: convo, error: convoErr } = await supabaseAdmin
       .from("whatsapp_conversations")
-      .select("id, organization_id, instance_id, chat_id")
+      .select("id, organization_id, instance_id, chat_id, phone_number")
       .eq("id", conversationId)
       .single();
 
@@ -168,7 +207,7 @@ serve(async (req) => {
     // Get instance name for Evolution
     const { data: inst } = await supabaseAdmin
       .from("whatsapp_instances")
-      .select("evolution_instance_id")
+      .select("evolution_instance_id, evolution_api_token")
       .eq("id", convo.instance_id)
       .single();
 
@@ -177,11 +216,54 @@ serve(async (req) => {
       return jsonResponse({ error: "Instância/chat_id não configurados" }, 400);
     }
 
-    const messages = await evolutionFindMessages({
-      instanceName,
-      remoteJid: convo.chat_id,
-      limit,
-    });
+    const apiKey = inst?.evolution_api_token || EVOLUTION_API_KEY;
+    const remoteJidCandidates = buildRemoteJidCandidates(convo.chat_id, convo.phone_number);
+
+    console.log("[whatsapp-sync-messages] Remote JID candidates:", remoteJidCandidates);
+
+    let messages: any[] = [];
+    let usedRemoteJid: string | null = null;
+    const attemptErrors: string[] = [];
+
+    for (const remoteJid of remoteJidCandidates) {
+      try {
+        const result = await evolutionFindMessages({
+          instanceName,
+          remoteJid,
+          limit,
+          apiKey,
+        });
+
+        console.log("[whatsapp-sync-messages] Candidate result:", {
+          remoteJid,
+          count: result.length,
+        });
+
+        if (result.length > 0) {
+          messages = result;
+          usedRemoteJid = remoteJid;
+          break;
+        }
+      } catch (error: any) {
+        const message = error?.message || String(error);
+        attemptErrors.push(`${remoteJid}: ${message}`);
+        console.warn("[whatsapp-sync-messages] Candidate failed:", {
+          remoteJid,
+          error: message,
+        });
+      }
+    }
+
+    if (usedRemoteJid && usedRemoteJid !== convo.chat_id) {
+      await supabaseAdmin
+        .from("whatsapp_conversations")
+        .update({ chat_id: usedRemoteJid })
+        .eq("id", convo.id);
+    }
+
+    if (messages.length === 0 && attemptErrors.length === remoteJidCandidates.length) {
+      throw new Error(`Falha ao buscar histórico: ${attemptErrors.join(" | ")}`);
+    }
 
     const ids = messages
       .map((m: any) => (typeof m?.key?.id === "string" ? m.key.id : null))
