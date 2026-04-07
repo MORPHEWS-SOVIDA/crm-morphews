@@ -12,6 +12,74 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeMatch(
+  action: string | undefined,
+  body: Record<string, unknown>,
+  options: Record<string, unknown> | undefined,
+  column: unknown,
+  value: unknown,
+) {
+  const rawMatch = body.match ?? options?.match ?? body.filter ?? body.where ?? body.eq;
+
+  if (isPlainObject(rawMatch)) return rawMatch;
+
+  if (Array.isArray(rawMatch)) {
+    const fromArray = rawMatch.reduce<Record<string, unknown>>((acc, item) => {
+      if (!isPlainObject(item)) return acc;
+      const key = typeof item.column === "string"
+        ? item.column
+        : typeof item.field === "string"
+        ? item.field
+        : typeof item.key === "string"
+        ? item.key
+        : null;
+      const itemValue = item.value ?? item.eq;
+      if (key && itemValue !== undefined) acc[key] = itemValue;
+      return acc;
+    }, {});
+    if (Object.keys(fromArray).length > 0) return fromArray;
+  }
+
+  if (action !== "select" && typeof column === "string" && value !== undefined) {
+    return { [column]: value };
+  }
+
+  if (action !== "select" && body.id !== undefined) {
+    return { id: body.id };
+  }
+
+  return null;
+}
+
+function applyMatchFilters<T>(query: T, match: Record<string, unknown> | null): T {
+  let nextQuery: any = query;
+
+  if (!match) return nextQuery;
+
+  for (const [k, v] of Object.entries(match)) {
+    if (Array.isArray(v)) {
+      nextQuery = nextQuery.in(k, v);
+    } else if (v === null) {
+      nextQuery = nextQuery.is(k, null);
+    } else {
+      nextQuery = nextQuery.eq(k, v);
+    }
+  }
+
+  return nextQuery;
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -43,26 +111,46 @@ Deno.serve(async (req) => {
 
     // ── Parse body ─────────────────────────────────────────
     const body = await req.json();
-    const { action, table, schema, match, data, column, value, options, bucket, path: storagePath, rpc, args } = body;
+    const {
+      action,
+      table,
+      schema,
+      data,
+      column,
+      value,
+      options,
+      bucket,
+      path: storagePath,
+      args,
+    } = body;
+    const normalizedOptions = isPlainObject(options) ? options : undefined;
+    const normalizedMatch = normalizeMatch(action, body, normalizedOptions, column, value);
+    const rpcName = body.rpc ?? body.function ?? body.functionName ?? body.fn ?? body.procedure;
+    const rpcArgs = isPlainObject(args)
+      ? args
+      : isPlainObject(body.params)
+      ? body.params
+      : isPlainObject(body.payload)
+      ? body.payload
+      : isPlainObject(data)
+      ? data
+      : {};
+    const db = schema && schema !== "public" ? supabase.schema(schema) : supabase;
 
     // ── Route actions ──────────────────────────────────────
     switch (action) {
       // ── SELECT ───────────────────────────────────────────
       case "select": {
-        let query = supabase.from(table).select(column || "*");
-        if (match) {
-          for (const [k, v] of Object.entries(match)) {
-            query = query.eq(k, v);
-          }
-        }
-        if (options?.or) query = query.or(options.or);
-        if (options?.order) {
-          const { col, ascending } = options.order;
+        let query = db.from(table).select(typeof column === "string" ? column : "*");
+        query = applyMatchFilters(query, normalizedMatch);
+        if (normalizedOptions?.or) query = query.or(String(normalizedOptions.or));
+        if (isPlainObject(normalizedOptions?.order)) {
+          const { col, ascending } = normalizedOptions.order;
           query = query.order(col, { ascending: ascending ?? true });
         }
-        if (options?.limit) query = query.limit(options.limit);
+        if (typeof normalizedOptions?.limit === "number") query = query.limit(normalizedOptions.limit);
         
-        const wantSingle = options?.single || options?.maybeSingle;
+        const wantSingle = normalizedOptions?.single || normalizedOptions?.maybeSingle;
         // When caller wants a single row, use limit(1) instead of .single()
         // to avoid PGRST116 errors when multiple rows match
         if (wantSingle) query = query.limit(1);
@@ -79,9 +167,9 @@ Deno.serve(async (req) => {
 
       // ── INSERT ───────────────────────────────────────────
       case "insert": {
-        let query = supabase.from(table).insert(data);
-        if (options?.select) query = query.select(options.select);
-        if (options?.single) query = query.single();
+        let query = db.from(table).insert(data);
+        if (typeof normalizedOptions?.select === "string") query = query.select(normalizedOptions.select);
+        if (normalizedOptions?.single) query = query.single();
         const { data: inserted, error } = await query;
         if (error) throw error;
         return json({ data: inserted });
@@ -89,14 +177,18 @@ Deno.serve(async (req) => {
 
       // ── UPDATE ───────────────────────────────────────────
       case "update": {
-        let query = supabase.from(table).update(data);
-        if (match) {
-          for (const [k, v] of Object.entries(match)) {
-            query = query.eq(k, v);
-          }
+        if (!normalizedMatch) {
+          return json({
+            error: "Update requires match filters",
+            action,
+            table,
+            received_keys: Object.keys(body),
+          }, 400);
         }
-        if (options?.select) query = query.select(options.select);
-        if (options?.single) query = query.single();
+        let query = db.from(table).update(data);
+        query = applyMatchFilters(query, normalizedMatch);
+        if (typeof normalizedOptions?.select === "string") query = query.select(normalizedOptions.select);
+        if (normalizedOptions?.single) query = query.single();
         const { data: updated, error } = await query;
         if (error) throw error;
         return json({ data: updated });
@@ -104,11 +196,11 @@ Deno.serve(async (req) => {
 
       // ── UPSERT ──────────────────────────────────────────
       case "upsert": {
-        let query = supabase.from(table).upsert(data, {
-          onConflict: options?.onConflict,
+        let query = db.from(table).upsert(data, {
+          onConflict: typeof normalizedOptions?.onConflict === "string" ? normalizedOptions.onConflict : undefined,
         });
-        if (options?.select) query = query.select(options.select);
-        if (options?.single) query = query.single();
+        if (typeof normalizedOptions?.select === "string") query = query.select(normalizedOptions.select);
+        if (normalizedOptions?.single) query = query.single();
         const { data: upserted, error } = await query;
         if (error) throw error;
         return json({ data: upserted });
@@ -116,20 +208,32 @@ Deno.serve(async (req) => {
 
       // ── DELETE ──────────────────────────────────────────
       case "delete": {
-        let query = supabase.from(table).delete();
-        if (match) {
-          for (const [k, v] of Object.entries(match)) {
-            query = query.eq(k, v);
-          }
+        if (!normalizedMatch) {
+          return json({
+            error: "Delete requires match filters",
+            action,
+            table,
+            received_keys: Object.keys(body),
+          }, 400);
         }
+        let query = db.from(table).delete();
+        query = applyMatchFilters(query, normalizedMatch);
         const { data: deleted, error } = await query;
         if (error) throw error;
         return json({ data: deleted });
       }
 
       // ── RPC (database functions) ────────────────────────
+      case "call_rpc":
       case "rpc": {
-        const { data: rpcData, error } = await supabase.rpc(rpc, args || {});
+        if (typeof rpcName !== "string" || !rpcName.trim()) {
+          return json({
+            error: "RPC function name is required",
+            action,
+            received_keys: Object.keys(body),
+          }, 400);
+        }
+        const { data: rpcData, error } = await db.rpc(rpcName, rpcArgs);
         if (error) throw error;
         return json({ data: rpcData });
       }
@@ -140,8 +244,8 @@ Deno.serve(async (req) => {
         const { data: uploadData, error } = await supabase.storage
           .from(bucket)
           .upload(storagePath, fileBody, {
-            contentType: options?.contentType || "application/octet-stream",
-            upsert: options?.upsert ?? true,
+            contentType: normalizedOptions?.contentType || "application/octet-stream",
+            upsert: normalizedOptions?.upsert ?? true,
           });
         if (error) throw error;
         return json({ data: uploadData });
@@ -174,15 +278,6 @@ Deno.serve(async (req) => {
     }
   } catch (err) {
     console.error("vps-bridge error:", err);
-    return new Response(
-      JSON.stringify({ error: String(err) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return json({ error: String(err) }, 500);
   }
 });
-
-function json(body: unknown) {
-  return new Response(JSON.stringify(body), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
