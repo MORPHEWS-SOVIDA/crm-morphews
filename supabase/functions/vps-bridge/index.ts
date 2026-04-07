@@ -61,12 +61,19 @@ Deno.serve(async (req) => {
           query = query.order(col, { ascending: ascending ?? true });
         }
         if (options?.limit) query = query.limit(options.limit);
-        // Use maybeSingle instead of single to avoid crashes when multiple rows match
-        if (options?.single) query = query.maybeSingle();
-        else if (options?.maybeSingle) query = query.maybeSingle();
+        
+        const wantSingle = options?.single || options?.maybeSingle;
+        // When caller wants a single row, use limit(1) instead of .single()
+        // to avoid PGRST116 errors when multiple rows match
+        if (wantSingle) query = query.limit(1);
 
         const { data: rows, error } = await query;
         if (error) throw error;
+        
+        if (wantSingle) {
+          const result = Array.isArray(rows) ? (rows[0] ?? null) : rows;
+          return json({ data: result });
+        }
         return json({ data: rows });
       }
 
