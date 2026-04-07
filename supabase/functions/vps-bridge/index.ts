@@ -340,7 +340,7 @@ async function downloadAndStoreMedia(
       return null;
     }
 
-    const endpoint = `${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${context.instanceName}`;
+    const endpoint = `${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${context.evolutionInstanceId}`;
 
     const retryDelays = [0, 800, 1800];
 
@@ -351,7 +351,8 @@ async function downloadAndStoreMedia(
 
       console.log("📥 Downloading media from Evolution:", {
         attempt: attempt + 1,
-        instance: context.instanceName,
+        instance: context.evolutionInstanceId,
+        displayName: context.instanceName,
         externalId,
         remoteJid,
         direction,
