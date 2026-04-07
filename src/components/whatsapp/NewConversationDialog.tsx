@@ -62,39 +62,65 @@ export function NewConversationDialog({
     }
   }, [message]);
 
+  const getStoredInstanceStatus = useCallback(
+    (instance: WhatsAppInstance): 'connected' | 'unknown' => {
+      return instance.is_connected || instance.status === 'active' || instance.status === 'connected'
+        ? 'connected'
+        : 'unknown';
+    },
+    []
+  );
+
   // Verificar status real de uma instância na Evolution API
   const checkInstanceRealStatus = useCallback(
     async (instance: WhatsAppInstance): Promise<'connected' | 'disconnected' | 'unknown'> => {
+      const fallbackStatus = getStoredInstanceStatus(instance);
+
       try {
-        // Usar action "status" - é o nome correto na Edge Function
         const { data, error } = await supabase.functions.invoke("evolution-instance-manager", {
           body: { action: "status", instanceId: instance.id },
         });
 
-        if (error) {
-          console.error("Error checking instance status:", error);
-          return 'unknown';
+        if (error || data?.error) {
+          console.error("Error checking instance status:", error ?? data?.error);
+          return fallbackStatus;
         }
 
-        // Verificar o campo is_connected ou status
-        if (typeof data?.is_connected === 'boolean') {
-          return data.is_connected ? 'connected' : 'disconnected';
-        }
-        
-        // Fallback: verificar status textual
-        if (data?.status === 'connected' || data?.status === 'open') {
+        const normalizedStatus = typeof data?.status === 'string' ? data.status.toLowerCase() : null;
+        const rawState = typeof data?.raw?.instance?.state === 'string' ? data.raw.instance.state.toLowerCase() : null;
+
+        if (
+          data?.is_connected === true ||
+          normalizedStatus === 'active' ||
+          normalizedStatus === 'connected' ||
+          normalizedStatus === 'open' ||
+          rawState === 'open'
+        ) {
           return 'connected';
-        } else if (data?.status === 'disconnected' || data?.status === 'close') {
+        }
+
+        if (
+          normalizedStatus === 'disconnected' ||
+          normalizedStatus === 'close' ||
+          normalizedStatus === 'closed' ||
+          normalizedStatus === 'logged_out' ||
+          normalizedStatus === 'canceled' ||
+          rawState === 'close' ||
+          rawState === 'closed' ||
+          rawState === 'disconnected' ||
+          rawState === 'loggedout' ||
+          rawState === 'logged_out'
+        ) {
           return 'disconnected';
         }
 
-        return 'unknown';
+        return fallbackStatus;
       } catch (e) {
         console.error("Failed to check instance status:", e);
-        return 'unknown';
+        return fallbackStatus;
       }
     },
-    []
+    [getStoredInstanceStatus]
   );
 
   // Buscar instâncias e verificar status real
@@ -114,33 +140,35 @@ export function NewConversationDialog({
 
         if (error) throw error;
 
-        // Marcar todas como "checking" inicialmente
-        const instancesWithStatus = (data || []).map(inst => ({
+        const instancesWithStatus = (data || []).map((inst) => ({
           ...inst,
-          realTimeStatus: 'checking' as const,
+          realTimeStatus: getStoredInstanceStatus(inst) === 'connected'
+            ? ('connected' as const)
+            : ('checking' as const),
         }));
-        
+
         setInstances(instancesWithStatus);
-        
+
         if (data && data.length === 1) {
           setSelectedInstanceId(data[0].id);
         }
 
-        // Verificar status real de cada instância em paralelo (max 5 simultâneos)
-        setIsCheckingStatus(true);
-        const checkPromises = instancesWithStatus.map(async (inst) => {
-          const realStatus = await checkInstanceRealStatus(inst);
-          return { id: inst.id, realTimeStatus: realStatus };
-        });
+        if (!instancesWithStatus.length) {
+          return;
+        }
 
-        const results = await Promise.all(checkPromises);
-        
+        setIsCheckingStatus(true);
+        const results = await Promise.all(
+          instancesWithStatus.map(async (inst) => ({
+            id: inst.id,
+            realTimeStatus: await checkInstanceRealStatus(inst),
+          }))
+        );
+
         setInstances(prev => prev.map(inst => {
           const result = results.find(r => r.id === inst.id);
           return result ? { ...inst, realTimeStatus: result.realTimeStatus } : inst;
         }));
-        
-        setIsCheckingStatus(false);
       } catch (error: any) {
         console.error("Error fetching instances:", error);
         toast({
@@ -150,11 +178,12 @@ export function NewConversationDialog({
         });
       } finally {
         setIsLoading(false);
+        setIsCheckingStatus(false);
       }
     };
 
     fetchInstances();
-  }, [open, profile?.organization_id, checkInstanceRealStatus]);
+  }, [open, profile?.organization_id, checkInstanceRealStatus, getStoredInstanceStatus]);
 
   // Limpar estado ao fechar
   const handleClose = () => {
