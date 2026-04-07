@@ -122,9 +122,9 @@ export function useToggleSaleCheckpoint() {
       if (
         checkpointType === 'seller_delivery_confirmed' &&
         complete &&
-        (!sellerDeliveryConfirmation?.deliveryDate || !sellerDeliveryConfirmation.proofUrls?.length)
+        !sellerDeliveryConfirmation?.deliveryDate
       ) {
-        throw new Error('Data de entrega e comprovante são obrigatórios');
+        throw new Error('Data de entrega é obrigatória');
       }
 
       // Check if checkpoint exists
