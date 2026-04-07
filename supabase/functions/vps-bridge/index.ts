@@ -308,6 +308,8 @@ function guessMimeFromType(type: string): string {
   };
   return map[type] || "application/octet-stream";
 }
+
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
