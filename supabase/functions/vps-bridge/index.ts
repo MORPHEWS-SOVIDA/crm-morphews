@@ -233,6 +233,17 @@ Deno.serve(async (req) => {
           : typeof normalizedOptions?.select === "string" ? String(normalizedOptions.select)
           : typeof normalizedOptions?.columns === "string" ? String(normalizedOptions.columns)
           : "*";
+        
+        console.log("vps-bridge SELECT debug:", JSON.stringify({
+          table,
+          selectCols,
+          normalizedMatch,
+          or: normalizedOptions?.or,
+          order: normalizedOptions?.order,
+          limit: normalizedOptions?.limit,
+          wantSingle: !!(normalizedOptions?.single || normalizedOptions?.maybeSingle),
+        }));
+        
         let query = db.from(table).select(selectCols);
         query = applyMatchFilters(query, normalizedMatch);
         if (normalizedOptions?.or) query = query.or(String(normalizedOptions.or));
