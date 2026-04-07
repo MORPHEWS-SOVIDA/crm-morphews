@@ -211,7 +211,7 @@ async function resolveConversationContext(supabase: any, conversationId: string)
 
   const { data: instRows, error: instError } = await supabase
     .from("whatsapp_instances")
-    .select("name")
+    .select("name, evolution_instance_id")
     .eq("id", conversation.instance_id)
     .limit(1);
 
@@ -221,7 +221,8 @@ async function resolveConversationContext(supabase: any, conversationId: string)
   }
 
   const instance = Array.isArray(instRows) ? instRows[0] : instRows;
-  if (!instance?.name) {
+  const evolutionInstanceId = firstNonEmptyString(instance?.evolution_instance_id, instance?.name);
+  if (!evolutionInstanceId) {
     console.error("❌ No instance found for ID:", conversation.instance_id);
     return null;
   }
@@ -241,7 +242,8 @@ async function resolveConversationContext(supabase: any, conversationId: string)
   return {
     organizationId: conversation.organization_id as string,
     instanceId: conversation.instance_id as string,
-    instanceName: instance.name as string,
+    instanceName: instance?.name as string | undefined,
+    evolutionInstanceId,
     remoteJid,
     senderPhone,
   };
@@ -338,7 +340,7 @@ async function downloadAndStoreMedia(
       return null;
     }
 
-    const endpoint = `${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${context.instanceName}`;
+    const endpoint = `${EVOLUTION_API_URL}/chat/getBase64FromMediaMessage/${context.evolutionInstanceId}`;
 
     const retryDelays = [0, 800, 1800];
 
@@ -349,7 +351,8 @@ async function downloadAndStoreMedia(
 
       console.log("📥 Downloading media from Evolution:", {
         attempt: attempt + 1,
-        instance: context.instanceName,
+        instance: context.evolutionInstanceId,
+        displayName: context.instanceName,
         externalId,
         remoteJid,
         direction,
