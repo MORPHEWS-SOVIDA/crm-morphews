@@ -152,6 +152,9 @@ Deno.serve(async (req) => {
       select: body.select,
       match: body.match,
       eq: body.eq,
+      filters: body.filters,
+      filter: body.filter,
+      options: body.options,
       keys: Object.keys(body),
     }));
 
