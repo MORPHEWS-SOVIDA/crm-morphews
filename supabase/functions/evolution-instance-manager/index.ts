@@ -72,6 +72,10 @@ function normalizeEvolutionState(value: unknown): string | null {
   return normalized || null;
 }
 
+function isConnectedEvolutionState(state: string | null): boolean {
+  return ["open", "connected", "ready"].includes(state ?? "");
+}
+
 function isDisconnectedEvolutionState(state: string | null): boolean {
   return ["close", "closed", "disconnected", "loggedout", "logged_out", "refused", "logout"].includes(state ?? "");
 }
@@ -625,7 +629,7 @@ serve(async (req) => {
       let isConnected = !!instance.is_connected;
       let status = instance.status || "pending";
 
-      if (effectiveState === "open") {
+      if (isConnectedEvolutionState(effectiveState)) {
         isConnected = true;
         status = "active";
       } else if (isDisconnectedEvolutionState(effectiveState)) {
@@ -1044,7 +1048,10 @@ serve(async (req) => {
         if (statusResponse.ok) {
           const statusResult = await statusResponse.json().catch(() => ({}));
           console.log("Manual instance status:", statusResult);
-          isConnected = statusResult?.instance?.state === "open";
+          const manualState = normalizeEvolutionState(
+            statusResult?.instance?.state ?? statusResult?.instance?.status,
+          );
+          isConnected = isConnectedEvolutionState(manualState);
 
           // Tentativa 1: ownerJid (quando vier)
           const fromOwnerJid = extractPhoneFromOwnerValue(statusResult?.instance?.ownerJid);
@@ -1356,7 +1363,7 @@ serve(async (req) => {
         let isConnected = !!inst.is_connected;
         let newStatus = inst.status || "pending";
 
-        if (effectiveState === "open") {
+        if (isConnectedEvolutionState(effectiveState)) {
           isConnected = true;
           newStatus = "active";
         } else if (isDisconnectedEvolutionState(effectiveState)) {
