@@ -88,6 +88,11 @@ export const AVAILABLE_FEATURES = {
   demands: { label: "Demandas", group: "Demandas" },
   demands_settings: { label: "Config. Demandas", group: "Demandas" },
   
+  // Itens granulares
+  product_combos: { label: "Combos de Produtos", group: "Módulos Principais" },
+  whatsapp_cowork: { label: "WhatsApp Cowork", group: "WhatsApp" },
+  two_factor_auth: { label: "Código 2FA", group: "Gerenciamento" },
+  
   // Relatórios
   sales_report: { label: "Relatório de Vendas", group: "Relatórios" },
   expedition_report: { label: "Relatório de Expedição", group: "Relatórios" },

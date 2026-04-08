@@ -179,7 +179,7 @@ export function Sidebar() {
     
     // Products
     { icon: Package, label: 'Produtos', path: '/produtos', visible: canSeeProducts && hasFeature('products') },
-    { icon: Package, label: 'Combos', path: '/produtos/combos', visible: canSeeProducts && hasFeature('products') },
+    { icon: Package, label: 'Combos', path: '/produtos/combos', visible: canSeeProducts && hasFeature('products') && hasFeature('product_combos') },
     
     // Sales Dashboard - requires sales + sales_dashboard features + permission
     { icon: Trophy, label: 'Dashboard Vendas', path: '/dashboard-vendas', visible: canSeeSalesDashboard && hasFeature('sales') && hasFeature('sales_dashboard') },
@@ -219,7 +219,7 @@ export function Sidebar() {
     { icon: MessageSquare, label: 'Chat WhatsApp', path: '/whatsapp/chat', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
     { icon: Zap, label: 'Mensagens Rápidas', path: '/whatsapp/mensagens-rapidas', visible: canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_v1') },
     { icon: Settings, label: 'Gerenciar WhatsApp', path: '/whatsapp', visible: canSeeWhatsApp && canSeeWhatsAppManage && hasFeature('whatsapp_manage') },
-    { icon: Bot, label: 'WhatsApp Cowork', path: '/whatsapp-cowork', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') },
+    { icon: Bot, label: 'WhatsApp Cowork', path: '/whatsapp-cowork', visible: canSeeWhatsApp && hasFeature('whatsapp_v1') && hasFeature('whatsapp_cowork') },
     
     // AI Bots (permission controlled)
     { icon: Bot, label: 'Robôs IA', path: '/robos-ia', visible: canSeeAIBots && hasFeature('ai_bots') },
@@ -238,7 +238,7 @@ export function Sidebar() {
     { icon: Plug2, label: 'Integrações', path: '/integracoes', visible: canSeeIntegrations && hasFeature('integrations') },
     
     // 2FA for managers
-    { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager },
+    { icon: Shield, label: 'Código 2FA', path: '/2fa', visible: isManager && hasFeature('two_factor_auth') },
     
     // Admin only - controlled by plan features
     { icon: UserPlus, label: 'Nova Organização', path: '/cadastro', visible: isAdmin && hasFeature('new_organization') },
