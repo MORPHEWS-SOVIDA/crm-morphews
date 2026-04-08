@@ -157,18 +157,47 @@ export function SaleSelectionCard({
   const handlePaymentConfirm = async (data: PaymentConfirmationData) => {
     setIsSaving(true);
     try {
-      // Update the sale's primary payment method
+      // Look up the category of the primary payment method
+      let resolvedCategory: string | null = null;
+      if (data.payment_method_id) {
+        const { data: methodRow } = await supabase
+          .from('payment_methods')
+          .select('category')
+          .eq('id', data.payment_method_id)
+          .maybeSingle();
+        resolvedCategory = methodRow?.category || null;
+      }
+
+      // Build update payload – always update method; conditionally update total
+      const updatePayload: Record<string, unknown> = {
+        payment_method_id: data.payment_method_id || null,
+        payment_method: data.payment_method_name || 'Não informado',
+        modified_at_closing: true,
+      };
+
+      if (resolvedCategory) {
+        updatePayload.payment_category = resolvedCategory;
+      }
+
+      // If the operator adjusted the total value, persist it
+      if (data.adjusted_total_cents != null && data.adjusted_total_cents !== (sale.total_cents || 0)) {
+        updatePayload.total_cents = data.adjusted_total_cents;
+        // Also update discount to reflect the difference
+        const originalTotal = sale.total_cents || 0;
+        if (data.adjusted_total_cents < originalTotal) {
+          updatePayload.discount_cents = originalTotal - data.adjusted_total_cents;
+        }
+      }
+
       const { error } = await supabase
         .from('sales')
-        .update({
-          payment_method_id: data.payment_method_id || null,
-          payment_method: data.payment_method_name || 'Não informado',
-        })
+        .update(updatePayload)
         .eq('id', sale.id);
 
       if (error) throw error;
 
       // Save split payment lines to sale_payments
+      const effectiveTotal = data.adjusted_total_cents ?? (sale.total_cents || 0);
       if (data.payment_lines && data.payment_lines.length > 0 && tenantId) {
         await saveSalePayments.mutateAsync({
           saleId: sale.id,
@@ -181,16 +210,13 @@ export function SaleSelectionCard({
         });
       }
 
-      toast.success('Forma de pagamento atualizada!');
+      toast.success('Pagamento e valor atualizados!');
       setIsEditPaymentOpen(false);
       
       queryClient.invalidateQueries({ queryKey: ['available-closing-sales'] });
       queryClient.invalidateQueries({ queryKey: ['available-pickup-sales'] });
       queryClient.invalidateQueries({ queryKey: ['expedition-sales'] });
-      
-      if (onPaymentCategoryChange && data.payment_method_id) {
-        // We don't have category here directly, but the query invalidation will refresh it
-      }
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
     } catch (error) {
       console.error('Error updating payment:', error);
       toast.error('Erro ao atualizar forma de pagamento');
