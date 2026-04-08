@@ -797,6 +797,134 @@ Deno.serve(async (req) => {
         return json({ data: urlData });
       }
 
+      // ── BATCH ─────────────────────────────────────────────
+      case "batch": {
+        const operations = body.operations;
+        if (!Array.isArray(operations) || operations.length === 0) {
+          return json({ error: "batch requires a non-empty 'operations' array" }, 400);
+        }
+        if (operations.length > 50) {
+          return json({ error: "batch limited to 50 operations" }, 400);
+        }
+
+        console.log(`vps-bridge BATCH: ${operations.length} operations`);
+
+        const results: Array<{ data: unknown; error: string | null }> = [];
+
+        for (let i = 0; i < operations.length; i++) {
+          const op = operations[i];
+          if (!isPlainObject(op) || typeof op.action !== "string") {
+            results.push({ data: null, error: `operation[${i}]: invalid format` });
+            continue;
+          }
+
+          // Prevent nested batches
+          if (op.action === "batch") {
+            results.push({ data: null, error: `operation[${i}]: nested batch not allowed` });
+            continue;
+          }
+
+          try {
+            // Build a synthetic request body for each operation and recurse through the switch
+            const opBody = { ...op };
+            const opOptions = isPlainObject(op.options) ? op.options : undefined;
+            const opMatch = normalizeMatch(op.action as string, opBody as Record<string, unknown>, opOptions as Record<string, unknown> | undefined, op.column, op.value);
+            const opSelectCols = typeof op.select === "string" ? op.select
+              : typeof opOptions?.select === "string" ? String(opOptions.select)
+              : typeof opOptions?.columns === "string" ? String(opOptions.columns)
+              : "*";
+            const opDb = op.schema && op.schema !== "public" ? supabase.schema(op.schema as string) : supabase;
+
+            switch (op.action) {
+              case "select": {
+                let query = opDb.from(op.table as string).select(opSelectCols);
+                query = applyMatchFilters(query, opMatch);
+                if (opOptions?.or) query = query.or(String(opOptions.or));
+                if (isPlainObject(opOptions?.order)) {
+                  const { col, ascending } = opOptions.order as any;
+                  query = query.order(col, { ascending: ascending ?? true });
+                }
+                if (typeof opOptions?.limit === "number") query = query.limit(opOptions.limit as number);
+                const wantSingle = opOptions?.single || opOptions?.maybeSingle;
+                if (wantSingle) query = query.limit(1);
+                const { data: rows, error } = await query;
+                if (error) throw error;
+                const result = wantSingle ? (Array.isArray(rows) ? (rows[0] ?? null) : rows) : rows;
+                results.push({ data: result, error: null });
+                break;
+              }
+              case "insert": {
+                let query = opDb.from(op.table as string).insert(op.data);
+                const iSelect = typeof op.select === "string" ? op.select : typeof opOptions?.select === "string" ? opOptions.select : null;
+                if (iSelect) query = query.select(iSelect as string);
+                if (opOptions?.single) query = query.single();
+                const { data: inserted, error } = await query;
+                if (error) throw error;
+                results.push({ data: inserted, error: null });
+                break;
+              }
+              case "update": {
+                if (!opMatch) {
+                  results.push({ data: null, error: `operation[${i}]: update requires match filters` });
+                  break;
+                }
+                let query = opDb.from(op.table as string).update(op.data);
+                query = applyMatchFilters(query, opMatch);
+                const uSelect = typeof op.select === "string" ? op.select : typeof opOptions?.select === "string" ? opOptions.select : null;
+                if (uSelect) query = query.select(uSelect as string);
+                if (opOptions?.single) query = query.single();
+                const { data: updated, error } = await query;
+                if (error) throw error;
+                results.push({ data: updated, error: null });
+                break;
+              }
+              case "upsert": {
+                let query = opDb.from(op.table as string).upsert(op.data, {
+                  onConflict: typeof opOptions?.onConflict === "string" ? opOptions.onConflict as string : undefined,
+                });
+                if (typeof opOptions?.select === "string") query = query.select(opOptions.select as string);
+                if (opOptions?.single) query = query.single();
+                const { data: upserted, error } = await query;
+                if (error) throw error;
+                results.push({ data: upserted, error: null });
+                break;
+              }
+              case "delete": {
+                if (!opMatch) {
+                  results.push({ data: null, error: `operation[${i}]: delete requires match filters` });
+                  break;
+                }
+                let query = opDb.from(op.table as string).delete();
+                query = applyMatchFilters(query, opMatch);
+                const { data: deleted, error } = await query;
+                if (error) throw error;
+                results.push({ data: deleted, error: null });
+                break;
+              }
+              case "call_rpc":
+              case "rpc": {
+                const fnName = op.rpc ?? op.function ?? op.functionName ?? op.fn ?? op.name ?? op.table;
+                const fnArgs = isPlainObject(op.args) ? op.args
+                  : isPlainObject(op.params) ? op.params
+                  : isPlainObject(op.data) ? op.data
+                  : {};
+                const { data: rpcData, error } = await opDb.rpc(fnName as string, fnArgs);
+                if (error) throw error;
+                results.push({ data: rpcData, error: null });
+                break;
+              }
+              default:
+                results.push({ data: null, error: `operation[${i}]: unsupported action '${op.action}'` });
+            }
+          } catch (opErr) {
+            console.error(`vps-bridge BATCH operation[${i}] error:`, opErr);
+            results.push({ data: null, error: String(opErr) });
+          }
+        }
+
+        return json({ results });
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: `Unknown action: ${action}` }),
