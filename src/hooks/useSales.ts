@@ -634,6 +634,7 @@ export function useCreateSale() {
           payment_method_id: data.payment_method_id || null,
           payment_installments: data.payment_installments || 1,
           payment_status: data.payment_status || 'not_paid',
+          payment_confirmed_at: data.payment_status === 'paid_now' ? new Date().toISOString() : null,
           payment_proof_url: data.payment_proof_url || null,
           seller_commission_percentage: sellerCommissionPercentage,
           seller_commission_cents: sellerCommissionCents,

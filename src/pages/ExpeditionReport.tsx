@@ -48,6 +48,7 @@ interface SaleWithDetails {
   status: string;
   total_cents: number;
   payment_confirmed_at: string | null;
+  payment_status: string | null;
   scheduled_delivery_date: string | null;
   scheduled_delivery_shift: string | null;
   delivery_type: string | null;
@@ -175,6 +176,7 @@ export default function ExpeditionReport() {
           status,
           total_cents,
           payment_confirmed_at,
+          payment_status,
           scheduled_delivery_date,
           scheduled_delivery_shift,
           delivery_type,
@@ -397,7 +399,7 @@ export default function ExpeditionReport() {
   const pickupSales = sales?.filter(s => s.delivery_type === 'pickup' || !s.delivery_type) || [];
 
   const totalValue = sales?.reduce((sum, s) => sum + s.total_cents, 0) || 0;
-  const paidCount = sales?.filter(s => s.payment_confirmed_at).length || 0;
+  const paidCount = sales?.filter(s => s.payment_confirmed_at || s.payment_status === 'paid_now').length || 0;
   const unpaidCount = (sales?.length || 0) - paidCount;
 
   return (
@@ -750,7 +752,7 @@ export default function ExpeditionReport() {
                               ))}
                             </td>
                             <td className="border border-gray-400 p-1 print:p-2 text-center font-bold text-[10px] print:text-xs">
-                              {sale.payment_confirmed_at ? '✓' : 'SIM'}
+                              {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') ? '✓' : 'SIM'}
                             </td>
                             <td className="border border-gray-400 p-1 print:p-2 text-right text-[10px] print:text-xs">{formatCurrency(sale.total_cents)}</td>
                             <td className="border border-gray-400 p-1 print:p-2 text-center text-[9px] print:text-xs">{getStatusLabel(sale.status)}</td>
@@ -821,7 +823,7 @@ export default function ExpeditionReport() {
                         {sale.carrier_tracking_status || 'Pendente'}
                       </td>
                       <td className="border border-gray-400 p-1 print:p-2 text-center font-bold text-[11px] print:text-xs">
-                        {sale.payment_confirmed_at ? '✓' : 'SIM'}
+                        {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') ? '✓' : 'SIM'}
                       </td>
                       <td className="border border-gray-400 p-1 print:p-2 text-right text-[11px] print:text-xs">{formatCurrency(sale.total_cents)}</td>
                       <td className="border border-gray-400 p-1 print:p-2 text-center text-[10px] print:text-xs">{getStatusLabel(sale.status)}</td>
@@ -871,7 +873,7 @@ export default function ExpeditionReport() {
                         ))}
                       </td>
                       <td className="border border-gray-400 p-1 print:p-2 text-center font-bold text-[11px] print:text-xs">
-                        {sale.payment_confirmed_at ? '✓' : 'SIM'}
+                        {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') ? '✓' : 'SIM'}
                       </td>
                       <td className="border border-gray-400 p-1 print:p-2 text-right text-[11px] print:text-xs">{formatCurrency(sale.total_cents)}</td>
                       <td className="border border-gray-400 p-1 text-center text-[8px]">{getStatusLabel(sale.status)}</td>

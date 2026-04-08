@@ -319,7 +319,7 @@ export default function RomaneioPrint() {
             <span className="font-bold border border-black px-2 py-0.5" style={{ fontSize: '10px' }}>
               {getDeliveryLabel()}
             </span>
-            {sale.payment_confirmed_at && (
+            {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') && (
               <span className="ml-2 bg-green-600 text-white px-2 py-0.5" style={{ fontSize: '9px' }}>
                 ✓ PAGO
               </span>
@@ -374,7 +374,7 @@ export default function RomaneioPrint() {
       {/* Total row */}
       <div className="flex justify-between items-center border border-black border-t-0 px-1 py-0.5 bg-gray-100">
         <span style={{ fontSize: '9px' }}>
-          {!sale.payment_confirmed_at && <strong>PAGO? NÃO</strong>}
+          {!(sale.payment_confirmed_at || sale.payment_status === 'paid_now') && <strong>PAGO? NÃO</strong>}
         </span>
         <div className="text-right">
           {sale.discount_cents > 0 && (
