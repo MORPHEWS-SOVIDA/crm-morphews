@@ -27,7 +27,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "Atomic IA <noreply@atomic.ia.br>",
+            from: "Atomic IA <noreply@updates.atomic.ia.br>",
             to: [email],
             subject: "🎉 Sua conta foi reativada! Bom uso",
             html: `
