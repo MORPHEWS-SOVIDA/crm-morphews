@@ -83,7 +83,7 @@ export function TrialExpiredBlocker({ children }: TrialExpiredBlockerProps) {
               </Link>
             </Button>
             <Button variant="outline" asChild size="lg" className="w-full">
-              <a href="https://wa.me/5511999999999?text=Oi! Meu trial expirou e gostaria de ajuda para assinar.">
+              <a href="https://wa.me/5551999984646?text=Oi! Meu trial expirou e gostaria de ajuda para assinar.">
                 Falar com Suporte
               </a>
             </Button>
