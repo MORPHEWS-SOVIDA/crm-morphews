@@ -134,7 +134,7 @@ serve(async (req) => {
       );
     }
 
-    const webhookUrl = `${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/evolution-webhook`;
+    const webhookUrl = "https://webhook.morphews.com.br/";
 
     const res = await configureEvolutionWebhook({ apiUrl, apiKey, instanceName, webhookUrl });
 
