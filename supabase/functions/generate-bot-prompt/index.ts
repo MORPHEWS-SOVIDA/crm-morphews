@@ -12,6 +12,7 @@ serve(async (req) => {
   }
 
   try {
+    const body = await req.json();
     const {
       name,
       serviceType,
@@ -41,10 +42,15 @@ serve(async (req) => {
       sendProductImages,
       sendProductVideos,
       sendProductLinks,
-    } = await req.json();
+    } = body;
 
+    // Try Anthropic first, fallback to Lovable AI Gateway
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+
+    if (!ANTHROPIC_API_KEY && !LOVABLE_API_KEY) {
+      throw new Error("Nenhuma chave de IA configurada (ANTHROPIC_API_KEY ou LOVABLE_API_KEY)");
+    }
 
     const serviceLabels: Record<string, string> = {
       sales: "Vendas",
@@ -73,6 +79,13 @@ O prompt gerado deve ter entre 2.500 e 4.000 caracteres e incluir obrigatoriamen
 9. ESTILO ANTI-ROBÔ — Exemplos de frases naturais vs frases robóticas
 10. MEMÓRIA DE CONTEXTO — Instrução para nunca repetir perguntas já respondidas
 
+REGRAS ADICIONAIS PARA O PROMPT:
+- Instrua o agente a enviar UMA pergunta por mensagem (nunca múltiplas perguntas de uma vez)
+- Instrua o agente a NUNCA repetir a saudação se o lead já iniciou a conversa
+- Instrua o agente a adaptar o comprimento da resposta ao contexto (respostas curtas para perguntas simples)
+- Se o agente processa áudios, inclua instrução para responder de forma natural ao conteúdo transcrito
+- Se o agente processa imagens, inclua instrução para descrever o que vê e agir conforme contexto
+
 Gere o prompt em português brasileiro. Seja específico, não genérico. Use as informações fornecidas para criar um agente que pareça um humano especialista, não um chatbot.
 
 Retorne APENAS o texto do prompt, sem explicações, sem markdown de código, sem comentários adicionais.`;
@@ -80,72 +93,98 @@ Retorne APENAS o texto do prompt, sem explicações, sem markdown de código, se
     // Build transfer reasons string
     let transferReasonsStr = "";
     if (Array.isArray(transferReasons) && transferReasons.length > 0) {
-      const reasonLabels: Record<string, string> = {
-        explicit_request: "Cliente pediu explicitamente",
-        serious_complaint: "Reclamação grave",
-        after_attempts: "Após 2 tentativas sem resolver",
-        refund: "Pedido de reembolso",
-        never: "Nunca transferir",
-      };
-      transferReasonsStr = transferReasons.map((r: string) => reasonLabels[r] || r).join(", ");
+      transferReasonsStr = transferReasons.join(", ");
     } else if (typeof transferReasons === "string") {
       transferReasonsStr = transferReasons;
     }
+
+    // Build capabilities list
+    const capabilities: string[] = [];
+    if (interpretAudio) capabilities.push("Transcreve e interpreta áudios do cliente");
+    if (interpretImages) capabilities.push("Analisa e interpreta imagens enviadas pelo cliente");
+    if (interpretDocuments) capabilities.push("Lê e interpreta documentos (PDFs, etc.)");
+    if (voiceEnabled) capabilities.push(`Responde com áudio via voz IA${voiceStyle ? ` (estilo: ${voiceStyle})` : ""}`);
+    if (sendProductImages) capabilities.push("Envia imagens dos produtos quando relevante");
+    if (sendProductVideos) capabilities.push("Envia vídeos dos produtos quando relevante");
+    if (sendProductLinks) capabilities.push("Envia links dos produtos quando relevante");
 
     const userMessage = `Crie um system prompt expert-level para este agente:
 
 MISSÃO: ${serviceLabel}
 NOME: ${name || "Não definido"}
+GÊNERO: ${gender || "neutro"}
+TOM DE VOZ: ${tone || "casual"}
+USA EMOJIS: ${useEmojis === true ? "Sim" : useEmojis === false ? "Não" : "Sim"}
+APRESENTA-SE COM NOME: ${presentName === true ? "Sim" : presentName === false ? "Não" : "Sim"}
+COMPRIMENTO DAS RESPOSTAS: ${responseLength === "short" ? "Curtas e diretas" : responseLength === "long" ? "Detalhadas" : "Moderadas, adaptadas ao contexto"}
+
 EMPRESA: ${companyName || "Não informada"}
 SEGMENTO: ${segment || "Não informado"}
 PRODUTOS/SERVIÇOS: ${products || "Não informados"}
 PÚBLICO-ALVO: ${targetAudience || "Não informado"}
 PRINCIPAL OBJEÇÃO: ${mainObjection || "Não informada"}
-TOM DE VOZ: ${tone || "casual"}
-GÊNERO: ${gender || "neutro"}
-USA EMOJIS: ${useEmojis === true ? "Sim" : useEmojis === false ? "Não" : "Sim"}
-APRESENTA-SE COM NOME: ${presentName === true ? "Sim" : presentName === false ? "Não" : "Sim"}
-PROCESSA ÁUDIO: ${interpretAudio ? "Sim" : "Não"}
-PROCESSA IMAGENS: ${interpretImages ? "Sim" : "Não"}
+
 ESTRATÉGIA DE QUALIFICAÇÃO: ${qualificationStrategy || "Não definida"}
-NUNCA FAZER: ${neverDo || "Não definido"}
+O QUE NUNCA FAZER: ${neverDo || "Não definido"}
 TRANSFERIR PARA HUMANO QUANDO: ${transferReasonsStr || "Cliente pedir explicitamente"}
-LIMITE DE MENSAGENS: ${maxMessages || "Sem limite definido"}
+LIMITE DE MENSAGENS ANTES DE TRANSFERIR: ${maxMessages || "30"}
 
-${description ? `Contexto adicional: ${description}` : ""}`;
+CAPACIDADES DE MÍDIA:
+${capabilities.length > 0 ? capabilities.map(c => `- ${c}`).join("\n") : "- Apenas texto"}
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userMessage }],
-      }),
-    });
+ESCOPO DE PRODUTOS: ${productScope === "all" ? "Conhece todos os produtos do catálogo" : productScope === "selected" ? "Conhece apenas produtos selecionados" : "Não definido"}
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Anthropic API error:", response.status, errorText);
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Limite de requisições excedido, tente novamente em instantes." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+${description ? `INSTRUÇÕES ADICIONAIS DO USUÁRIO:\n${description}` : ""}`;
+
+    let generatedPrompt: string;
+
+    if (ANTHROPIC_API_KEY) {
+      // Use Anthropic Claude
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userMessage }],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Anthropic API error:", response.status, errorText);
+        if (response.status === 429) {
+          // Fallback to Lovable AI if available
+          if (LOVABLE_API_KEY) {
+            console.log("Anthropic rate limited, falling back to Lovable AI");
+            generatedPrompt = await callLovableAI(LOVABLE_API_KEY, systemPrompt, userMessage);
+          } else {
+            return new Response(
+              JSON.stringify({ error: "Limite de requisições excedido, tente novamente em instantes." }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        } else {
+          throw new Error(`Erro ao gerar prompt com Claude: ${response.status}`);
+        }
       }
-      throw new Error(`Erro ao gerar prompt com Claude: ${response.status}`);
+
+      if (!generatedPrompt!) {
+        const data = await response.json();
+        generatedPrompt = data.content?.[0]?.text;
+      }
+    } else {
+      // Use Lovable AI Gateway
+      generatedPrompt = await callLovableAI(LOVABLE_API_KEY!, systemPrompt, userMessage);
     }
 
-    const data = await response.json();
-    const generatedPrompt = data.content?.[0]?.text;
-
     if (!generatedPrompt) {
-      throw new Error("Claude não retornou um prompt válido");
+      throw new Error("A IA não retornou um prompt válido");
     }
 
     return new Response(
@@ -160,3 +199,29 @@ ${description ? `Contexto adicional: ${description}` : ""}`;
     );
   }
 });
+
+async function callLovableAI(apiKey: string, systemPrompt: string, userMessage: string): Promise<string> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-pro",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Lovable AI error:", response.status, errorText);
+    throw new Error(`Erro ao gerar prompt: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "";
+}
