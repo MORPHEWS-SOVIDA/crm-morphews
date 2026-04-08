@@ -38,7 +38,6 @@ export default function Login() {
           .maybeSingle();
 
         if (tempReset) {
-          // User needs to change password
           navigate('/force-password-change', { replace: true });
           return;
         }
@@ -49,7 +48,9 @@ export default function Login() {
           const url = plan ? `${redirect}?plan=${plan}` : redirect;
           navigate(url, { replace: true });
         } else {
-          navigate('/', { replace: true });
+          // Check if dashboard_funnel is disabled for this org → redirect to /whatsapp/chat
+          const defaultRoute = await getDefaultRoute(user);
+          navigate(defaultRoute, { replace: true });
         }
       }
     };
