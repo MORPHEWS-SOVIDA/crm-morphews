@@ -124,14 +124,17 @@ export default function Login() {
       });
       
       // Small delay to ensure auth state is updated before redirecting
-      setTimeout(() => {
+      setTimeout(async () => {
         const redirect = searchParams.get('redirect');
         const plan = searchParams.get('plan');
         if (redirect) {
           const url = plan ? `${redirect}?plan=${plan}` : redirect;
           navigate(url, { replace: true });
         } else {
-          navigate('/', { replace: true });
+          // Get the session user for route check
+          const { data: { user: sessionUser } } = await supabase.auth.getUser();
+          const defaultRoute = sessionUser ? await getDefaultRoute(sessionUser) : '/';
+          navigate(defaultRoute, { replace: true });
         }
       }, 100);
     } catch (err) {
