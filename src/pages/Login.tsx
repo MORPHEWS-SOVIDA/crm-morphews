@@ -11,6 +11,34 @@ import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 import { useTheme } from 'next-themes';
 import { loginSchema } from '@/lib/validations';
 import { supabase } from '@/integrations/supabase/client';
+import type { User } from '@supabase/supabase-js';
+
+// Check if dashboard_funnel is disabled for the user's org → redirect elsewhere
+async function getDefaultRoute(user: User): Promise<string> {
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (profile?.organization_id) {
+      const { data: override } = await supabase
+        .from('organization_feature_overrides')
+        .select('is_enabled')
+        .eq('organization_id', profile.organization_id)
+        .eq('feature_key', 'dashboard_funnel')
+        .maybeSingle();
+
+      if (override && override.is_enabled === false) {
+        return '/whatsapp/chat';
+      }
+    }
+  } catch (e) {
+    console.error('Error checking default route:', e);
+  }
+  return '/';
+}
 
 export default function Login() {
   const navigate = useNavigate();
