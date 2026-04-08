@@ -176,6 +176,7 @@ export default function ExpeditionReport() {
           status,
           total_cents,
           payment_confirmed_at,
+          payment_status,
           scheduled_delivery_date,
           scheduled_delivery_shift,
           delivery_type,
