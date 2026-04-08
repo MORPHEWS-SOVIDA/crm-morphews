@@ -81,6 +81,7 @@ export default function RomaneioBatchPrint() {
           scheduled_delivery_shift,
           delivery_type,
           payment_confirmed_at,
+          payment_status,
           seller_user_id,
           assigned_delivery_user_id,
           delivery_region_id,
