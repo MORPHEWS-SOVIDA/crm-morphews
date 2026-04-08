@@ -26,6 +26,13 @@ function normalizeMatch(
   const rawMatch = body.match ?? options?.match ?? body.filter ?? body.filters ?? body.where ?? body.criteria ?? body.query ?? body.eq;
 
   if (isPlainObject(rawMatch)) {
+    // Check if this is an indexed filter format: { eq_0: {column, value}, neq_1: {column, value} }
+    const firstKey = Object.keys(rawMatch)[0] || "";
+    const isIndexedFormat = /^(eq|neq|gt|gte|lt|lte|like|ilike|is|in|not)_\d+$/.test(firstKey);
+    if (isIndexedFormat) {
+      return rawMatch; // Pass through as-is for applyMatchFilters to handle
+    }
+
     const key = typeof rawMatch.column === "string"
       ? rawMatch.column
       : typeof rawMatch.field === "string"
@@ -92,6 +99,53 @@ function applyMatchFilters<T>(query: T, match: Record<string, unknown> | null): 
   if (!match) return nextQuery;
 
   for (const [k, v] of Object.entries(match)) {
+    // Handle indexed filter keys from VPS batch: "eq_0", "neq_1", "in_2", etc.
+    // Format: { eq_0: { column: "col_name", value: "val" } }
+    const indexedMatch = k.match(/^(eq|neq|gt|gte|lt|lte|like|ilike|is|in|not)_(\d+)$/);
+    if (indexedMatch && isPlainObject(v) && typeof (v as any).column === "string") {
+      const operator = indexedMatch[1];
+      const col = (v as any).column;
+      const val = (v as any).value;
+      switch (operator) {
+        case "eq":
+          nextQuery = nextQuery.eq(col, val);
+          break;
+        case "neq":
+          nextQuery = nextQuery.neq(col, val);
+          break;
+        case "gt":
+          nextQuery = nextQuery.gt(col, val);
+          break;
+        case "gte":
+          nextQuery = nextQuery.gte(col, val);
+          break;
+        case "lt":
+          nextQuery = nextQuery.lt(col, val);
+          break;
+        case "lte":
+          nextQuery = nextQuery.lte(col, val);
+          break;
+        case "like":
+          nextQuery = nextQuery.like(col, val);
+          break;
+        case "ilike":
+          nextQuery = nextQuery.ilike(col, val);
+          break;
+        case "is":
+          nextQuery = nextQuery.is(col, val);
+          break;
+        case "in":
+          nextQuery = nextQuery.in(col, Array.isArray(val) ? val : [val]);
+          break;
+        case "not":
+          nextQuery = nextQuery.not(col, "eq", val);
+          break;
+        default:
+          nextQuery = nextQuery.eq(col, val);
+      }
+      continue;
+    }
+
     // Handle PostgREST-style keys: "eq.column_name", "in.column_name", "is.column_name"
     const dotIdx = k.indexOf(".");
     if (dotIdx > 0) {
@@ -129,7 +183,6 @@ function applyMatchFilters<T>(query: T, match: Record<string, unknown> | null): 
           nextQuery = nextQuery.in(col, Array.isArray(v) ? v : [v]);
           break;
         default:
-          // Unknown operator, treat as eq
           nextQuery = nextQuery.eq(col, v);
       }
     } else if (Array.isArray(v)) {
