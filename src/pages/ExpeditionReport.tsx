@@ -48,6 +48,7 @@ interface SaleWithDetails {
   status: string;
   total_cents: number;
   payment_confirmed_at: string | null;
+  payment_status: string | null;
   scheduled_delivery_date: string | null;
   scheduled_delivery_shift: string | null;
   delivery_type: string | null;
@@ -397,7 +398,7 @@ export default function ExpeditionReport() {
   const pickupSales = sales?.filter(s => s.delivery_type === 'pickup' || !s.delivery_type) || [];
 
   const totalValue = sales?.reduce((sum, s) => sum + s.total_cents, 0) || 0;
-  const paidCount = sales?.filter(s => s.payment_confirmed_at).length || 0;
+  const paidCount = sales?.filter(s => s.payment_confirmed_at || s.payment_status === 'paid_now').length || 0;
   const unpaidCount = (sales?.length || 0) - paidCount;
 
   return (
