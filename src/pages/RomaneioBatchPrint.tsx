@@ -457,7 +457,7 @@ export default function RomaneioBatchPrint() {
           TOTAL: {formatCurrency(sale.total_cents)}
         </div>
 
-        {sale.payment_confirmed_at && (
+        {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') && (
           <div className="text-center mt-1 font-bold">✓ PAGO</div>
         )}
 
