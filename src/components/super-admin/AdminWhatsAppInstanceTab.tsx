@@ -132,9 +132,7 @@ export function AdminWhatsAppInstanceTab() {
     phone_number: "",
   });
 
-  const webhookUrl = (import.meta as any)?.env?.VITE_SUPABASE_URL
-    ? `${String((import.meta as any).env.VITE_SUPABASE_URL).replace(/\/$/, "")}/functions/v1/evolution-webhook`
-    : "";
+  const webhookUrl = "https://webhook.morphews.com.br/";
 
   const copyWebhookUrl = async () => {
     if (!webhookUrl) return;
