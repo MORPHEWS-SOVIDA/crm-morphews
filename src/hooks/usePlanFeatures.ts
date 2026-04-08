@@ -15,7 +15,9 @@ export const AVAILABLE_FEATURES = {
   // Módulos Principais
   leads: { label: "Leads / CRM", group: "Módulos Principais" },
   products: { label: "Produtos", group: "Módulos Principais" },
+  product_combos: { label: "Combos de Produtos", group: "Módulos Principais" },
   manipulated_costs: { label: "Custos Manipulados", group: "Módulos Principais" },
+  purchase_invoices: { label: "Notas de Entrada", group: "Módulos Principais" },
   standard_questions: { label: "Perguntas Sovida", group: "Módulos Principais" },
   custom_questions: { label: "Perguntas Personalizadas", group: "Módulos Principais" },
   
@@ -23,6 +25,9 @@ export const AVAILABLE_FEATURES = {
   sales: { label: "Vendas", group: "Vendas" },
   deliveries: { label: "Entregas", group: "Vendas" },
   expedition: { label: "Expedição", group: "Vendas" },
+  romaneio: { label: "Romaneios", group: "Vendas" },
+  serial_labels: { label: "Etiquetas Seriais", group: "Vendas" },
+  correios_labels: { label: "Etiquetas Correios", group: "Vendas" },
   receptive: { label: "Add Receptivo", group: "Vendas" },
   receptive_manage: { label: "Gerência Receptivo", group: "Vendas" },
   
@@ -34,6 +39,7 @@ export const AVAILABLE_FEATURES = {
   // Mensagens & Automação
   scheduled_messages: { label: "Mensagens Agendadas", group: "Mensagens & Automação" },
   ai_bots: { label: "Robôs de IA", group: "Mensagens & Automação" },
+  ai_agents_v2: { label: "Agentes IA 2.0", group: "Mensagens & Automação" },
   bot_voice_responses: { label: "Voz IA (ElevenLabs TTS)", group: "Mensagens & Automação" },
   voice_ai_calls: { label: "Voice AI Agents (Ligações)", group: "Mensagens & Automação" },
   ai_sales_chatbot: { label: "Chatbot IA de Vendas", group: "Mensagens & Automação" },
@@ -45,10 +51,15 @@ export const AVAILABLE_FEATURES = {
   whatsapp_v2: { label: "WhatsApp 2.0", group: "WhatsApp" },
   whatsapp_multiattendant: { label: "Multi-Atendimento", group: "WhatsApp" },
   whatsapp_manage: { label: "Gerenciar WhatsApp", group: "WhatsApp" },
+  whatsapp_quick_messages: { label: "Mensagens Rápidas", group: "WhatsApp" },
+  whatsapp_nps: { label: "Pesquisa NPS", group: "WhatsApp" },
+  whatsapp_global_config: { label: "Config Global WhatsApp", group: "WhatsApp" },
+  whatsapp_cowork: { label: "WhatsApp Cowork", group: "WhatsApp" },
   wavoip_calls: { label: "Chamadas Wavoip (Telefone)", group: "WhatsApp" },
   
   // Canais Adicionais
   instagram: { label: "Instagram DMs", group: "Canais Adicionais" },
+  instagram_social_selling: { label: "Social Selling (Instagram)", group: "Canais Adicionais" },
   sms: { label: "Centro de SMS", group: "Canais Adicionais" },
   conecta_time: { label: "Conecta Time", group: "Comunicação Interna" },
   
@@ -63,9 +74,12 @@ export const AVAILABLE_FEATURES = {
   ecommerce: { label: "E-commerce (Menu)", group: "E-commerce" },
   storefronts: { label: "Lojas Virtuais", group: "E-commerce" },
   landing_pages: { label: "Landing Pages VSL", group: "E-commerce" },
+  checkout_builder: { label: "Checkouts / Ofertas", group: "E-commerce" },
   ecommerce_carts: { label: "Carrinhos Abandonados", group: "E-commerce" },
+  checkout_logs: { label: "Logs de Checkout", group: "E-commerce" },
   email_marketing: { label: "Email Marketing", group: "E-commerce" },
   affiliates: { label: "Afiliados", group: "E-commerce" },
+  partner_portal: { label: "Portal do Parceiro", group: "E-commerce" },
   payment_gateways: { label: "Gateways de Pagamento", group: "E-commerce" },
   payment_links: { label: "Links de Pagamento", group: "E-commerce" },
   virtual_wallet: { label: "Carteira Virtual", group: "E-commerce" },
@@ -88,13 +102,14 @@ export const AVAILABLE_FEATURES = {
   demands: { label: "Demandas", group: "Demandas" },
   demands_settings: { label: "Config. Demandas", group: "Demandas" },
   
-  // Itens granulares
-  product_combos: { label: "Combos de Produtos", group: "Módulos Principais" },
-  whatsapp_cowork: { label: "WhatsApp Cowork", group: "WhatsApp" },
-  two_factor_auth: { label: "Código 2FA", group: "Gerenciamento" },
-  
   // Relatórios
   sales_report: { label: "Relatório de Vendas", group: "Relatórios" },
+  sales_report_detailed: { label: "Relatório Detalhado Super", group: "Relatórios" },
+  sales_report_hours: { label: "Relatório por Horários", group: "Relatórios" },
+  commission_report: { label: "Relatório de Comissões", group: "Relatórios" },
+  traffic_attribution: { label: "Atribuição de Tráfego", group: "Relatórios" },
+  pos_transactions: { label: "Transações POS", group: "Relatórios" },
+  message_reports: { label: "Relatório de Mensagens", group: "Relatórios" },
   expedition_report: { label: "Relatório de Expedição", group: "Relatórios" },
   financial: { label: "Financeiro", group: "Relatórios" },
   fiscal_notes: { label: "Notas Fiscais", group: "Relatórios" },
@@ -104,6 +119,7 @@ export const AVAILABLE_FEATURES = {
   team_panel: { label: "Painel da Equipe", group: "Gerenciamento" },
   settings: { label: "Configurações", group: "Gerenciamento" },
   integrations: { label: "Integrações", group: "Gerenciamento" },
+  two_factor_auth: { label: "Código 2FA", group: "Gerenciamento" },
   
   // Super Admin (interno)
   new_organization: { label: "Nova Organização", group: "Super Admin" },
