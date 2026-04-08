@@ -572,6 +572,81 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_knowledge_v2: {
+        Row: {
+          agent_id: string
+          answer: string
+          created_at: string
+          id: string
+          is_active: boolean
+          organization_id: string | null
+          priority: number
+          question: string
+        }
+        Insert: {
+          agent_id: string
+          answer: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string | null
+          priority?: number
+          question: string
+        }
+        Update: {
+          agent_id?: string
+          answer?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          organization_id?: string | null
+          priority?: number
+          question?: string
+        }
+        Relationships: []
+      }
+      agent_logs_v2: {
+        Row: {
+          agent_id: string | null
+          conversation_id: string | null
+          created_at: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          iterations: number | null
+          organization_id: string | null
+          success: boolean | null
+          tools_used: Json | null
+          total_tokens: number | null
+        }
+        Insert: {
+          agent_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          iterations?: number | null
+          organization_id?: string | null
+          success?: boolean | null
+          tools_used?: Json | null
+          total_tokens?: number | null
+        }
+        Update: {
+          agent_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          iterations?: number | null
+          organization_id?: string | null
+          success?: boolean | null
+          tools_used?: Json | null
+          total_tokens?: number | null
+        }
+        Relationships: []
+      }
       agent_notifications: {
         Row: {
           conversation_id: string | null
