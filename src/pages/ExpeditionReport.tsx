@@ -873,7 +873,7 @@ export default function ExpeditionReport() {
                         ))}
                       </td>
                       <td className="border border-gray-400 p-1 print:p-2 text-center font-bold text-[11px] print:text-xs">
-                        {sale.payment_confirmed_at ? '✓' : 'SIM'}
+                        {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') ? '✓' : 'SIM'}
                       </td>
                       <td className="border border-gray-400 p-1 print:p-2 text-right text-[11px] print:text-xs">{formatCurrency(sale.total_cents)}</td>
                       <td className="border border-gray-400 p-1 text-center text-[8px]">{getStatusLabel(sale.status)}</td>
