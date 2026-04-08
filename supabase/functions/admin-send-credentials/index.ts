@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
           body: JSON.stringify({
-            from: "Atomic Sales <noreply@updates.atomic.ia.br>",
+            from: "Atomic Sales <contato@updates.atomic.ia.br>",
             to: [profile.email],
             subject: `🎉 Bem-vindo ao Atomic Sales - Suas credenciais de acesso`,
             html: emailHtml,
