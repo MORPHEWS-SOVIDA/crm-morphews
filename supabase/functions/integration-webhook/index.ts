@@ -767,11 +767,34 @@ Deno.serve(async (req) => {
     let resolvedFunnelStageId: string | null = null;
 
     if (typedIntegration.default_stage) {
-      const { data: stageRow } = await supabase
-        .from('organization_funnel_stages')
-        .select('id, enum_value, stage_type')
-        .eq('id', typedIntegration.default_stage)
-        .maybeSingle();
+      // Check if default_stage is a UUID (try lookup by id first)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(typedIntegration.default_stage);
+      
+      let stageRow: { id: string; enum_value: string | null; stage_type: string } | null = null;
+
+      if (isUUID) {
+        const { data } = await supabase
+          .from('organization_funnel_stages')
+          .select('id, enum_value, stage_type')
+          .eq('id', typedIntegration.default_stage)
+          .maybeSingle();
+        stageRow = data;
+      }
+
+      // Fallback: default_stage is a legacy enum value (e.g. 'paid', 'waiting_payment')
+      // Try to find the stage by enum_value in this organization
+      if (!stageRow && !isUUID) {
+        const { data } = await supabase
+          .from('organization_funnel_stages')
+          .select('id, enum_value, stage_type')
+          .eq('organization_id', typedIntegration.organization_id)
+          .eq('enum_value', typedIntegration.default_stage)
+          .maybeSingle();
+        stageRow = data;
+        if (stageRow) {
+          console.log(`Resolved legacy enum default_stage "${typedIntegration.default_stage}" -> funnel_stage_id: ${stageRow.id}`);
+        }
+      }
 
       if (stageRow) {
         resolvedFunnelStageId = stageRow.id;
@@ -785,9 +808,9 @@ Deno.serve(async (req) => {
             default: resolvedStageEnum = 'unclassified'; break;
           }
         }
-        console.log(`Resolved default_stage UUID ${typedIntegration.default_stage} -> enum: ${resolvedStageEnum}, funnel_stage_id: ${resolvedFunnelStageId}`);
+        console.log(`Resolved default_stage "${typedIntegration.default_stage}" -> enum: ${resolvedStageEnum}, funnel_stage_id: ${resolvedFunnelStageId}`);
       } else {
-        console.warn(`default_stage UUID ${typedIntegration.default_stage} not found in organization_funnel_stages, using 'cloud' fallback`);
+        console.warn(`default_stage "${typedIntegration.default_stage}" not found in organization_funnel_stages, using 'cloud' fallback`);
       }
     }
     
