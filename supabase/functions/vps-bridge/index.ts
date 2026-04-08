@@ -26,6 +26,13 @@ function normalizeMatch(
   const rawMatch = body.match ?? options?.match ?? body.filter ?? body.filters ?? body.where ?? body.criteria ?? body.query ?? body.eq;
 
   if (isPlainObject(rawMatch)) {
+    // Check if this is an indexed filter format: { eq_0: {column, value}, neq_1: {column, value} }
+    const firstKey = Object.keys(rawMatch)[0] || "";
+    const isIndexedFormat = /^(eq|neq|gt|gte|lt|lte|like|ilike|is|in|not)_\d+$/.test(firstKey);
+    if (isIndexedFormat) {
+      return rawMatch; // Pass through as-is for applyMatchFilters to handle
+    }
+
     const key = typeof rawMatch.column === "string"
       ? rawMatch.column
       : typeof rawMatch.field === "string"
