@@ -296,7 +296,7 @@ serve(async (req) => {
               Authorization: `Bearer ${RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-               from: "Atomic Sales <noreply@atomic.ia.br>",
+               from: "Atomic Sales <noreply@updates.atomic.ia.br>",
               to: [email],
               subject: "🎉 Bem-vindo ao Atomic Sales - Plano Grátis!",
               html: `
@@ -474,7 +474,7 @@ serve(async (req) => {
               Authorization: `Bearer ${RESEND_API_KEY}`,
             },
             body: JSON.stringify({
-              from: "Atomic Sales <noreply@atomic.ia.br>",
+              from: "Atomic Sales <noreply@updates.atomic.ia.br>",
               to: [email],
               subject: `🎁 Seu trial de ${plan.trial_days} dias começou - ${plan.name}!`,
               html: `

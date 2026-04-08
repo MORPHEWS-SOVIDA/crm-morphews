@@ -171,7 +171,7 @@ serve(async (req) => {
             Authorization: `Bearer ${resendApiKey}`,
           },
           body: JSON.stringify({
-            from: "Atomic Sales <noreply@atomic.ia.br>",
+            from: "Atomic Sales <noreply@updates.atomic.ia.br>",
             to: [data.email],
             subject,
             html: htmlContent,
