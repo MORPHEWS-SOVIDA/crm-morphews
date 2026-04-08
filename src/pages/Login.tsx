@@ -11,6 +11,34 @@ import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 import { useTheme } from 'next-themes';
 import { loginSchema } from '@/lib/validations';
 import { supabase } from '@/integrations/supabase/client';
+import type { User } from '@supabase/supabase-js';
+
+// Check if dashboard_funnel is disabled for the user's org → redirect elsewhere
+async function getDefaultRoute(user: User): Promise<string> {
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (profile?.organization_id) {
+      const { data: override } = await supabase
+        .from('organization_feature_overrides')
+        .select('is_enabled')
+        .eq('organization_id', profile.organization_id)
+        .eq('feature_key', 'dashboard_funnel')
+        .maybeSingle();
+
+      if (override && override.is_enabled === false) {
+        return '/whatsapp/chat';
+      }
+    }
+  } catch (e) {
+    console.error('Error checking default route:', e);
+  }
+  return '/';
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -38,7 +66,6 @@ export default function Login() {
           .maybeSingle();
 
         if (tempReset) {
-          // User needs to change password
           navigate('/force-password-change', { replace: true });
           return;
         }
@@ -49,7 +76,9 @@ export default function Login() {
           const url = plan ? `${redirect}?plan=${plan}` : redirect;
           navigate(url, { replace: true });
         } else {
-          navigate('/', { replace: true });
+          // Check if dashboard_funnel is disabled for this org → redirect to /whatsapp/chat
+          const defaultRoute = await getDefaultRoute(user);
+          navigate(defaultRoute, { replace: true });
         }
       }
     };
@@ -95,14 +124,17 @@ export default function Login() {
       });
       
       // Small delay to ensure auth state is updated before redirecting
-      setTimeout(() => {
+      setTimeout(async () => {
         const redirect = searchParams.get('redirect');
         const plan = searchParams.get('plan');
         if (redirect) {
           const url = plan ? `${redirect}?plan=${plan}` : redirect;
           navigate(url, { replace: true });
         } else {
-          navigate('/', { replace: true });
+          // Get the session user for route check
+          const { data: { user: sessionUser } } = await supabase.auth.getUser();
+          const defaultRoute = sessionUser ? await getDefaultRoute(sessionUser) : '/';
+          navigate(defaultRoute, { replace: true });
         }
       }, 100);
     } catch (err) {
