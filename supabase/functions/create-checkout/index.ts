@@ -14,6 +14,54 @@ const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL');
 const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY');
 const EVOLUTION_INSTANCE_NAME = Deno.env.get('EVOLUTION_INSTANCE_NAME');
 
+function normalizeWhatsApp(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+
+  let clean = phone.replace(/\D/g, '');
+  if (!clean) return null;
+  if (!clean.startsWith('55')) clean = `55${clean}`;
+
+  if (clean.length === 12 && clean.startsWith('55')) {
+    clean = clean.slice(0, 4) + '9' + clean.slice(4);
+  }
+
+  return clean;
+}
+
+async function getAdminWhatsAppConfig() {
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const { data, error } = await supabaseAdmin
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'admin_whatsapp_instance')
+      .maybeSingle();
+
+    if (error || !data?.value) return null;
+
+    const config = data.value as {
+      api_url?: string;
+      api_key?: string;
+      instance_name?: string;
+    };
+
+    if (!config.api_url || !config.api_key || !config.instance_name) return null;
+
+    return {
+      api_url: String(config.api_url).replace(/\/$/, ''),
+      api_key: String(config.api_key),
+      instance_name: String(config.instance_name),
+    };
+  } catch (error) {
+    console.error('Error fetching admin WhatsApp config:', error);
+    return null;
+  }
+}
+
 // Generate temporary password
 function generateTempPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -26,13 +74,24 @@ function generateTempPassword(): string {
 
 // Send WhatsApp welcome message via Evolution API
 async function sendWhatsAppWelcome(phone: string, customerName: string, tempPassword: string) {
-  if (!EVOLUTION_API_URL || !EVOLUTION_API_KEY || !EVOLUTION_INSTANCE_NAME) {
+  const normalizedPhone = normalizeWhatsApp(phone);
+  if (!normalizedPhone) {
+    console.log('Invalid WhatsApp number, skipping WhatsApp message');
+    return;
+  }
+
+  const adminConfig = await getAdminWhatsAppConfig();
+  const apiUrl = (adminConfig?.api_url || EVOLUTION_API_URL || '').replace(/\/$/, '');
+  const apiKey = adminConfig?.api_key || EVOLUTION_API_KEY || '';
+  const instanceName = adminConfig?.instance_name || EVOLUTION_INSTANCE_NAME || '';
+
+  if (!apiUrl || !apiKey || !instanceName) {
     console.log('Evolution API not configured, skipping WhatsApp message');
     return;
   }
-  
-  const url = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE_NAME}`;
-  
+
+  const url = `${apiUrl}/message/sendText/${encodeURIComponent(instanceName)}`;
+
   const welcomeMessage = `🎉 *Bem-vindo ao Atomic Sales, ${customerName}!*
 
 Sua conta foi criada com sucesso! 🚀
@@ -70,16 +129,30 @@ Qualquer dúvida, estou por aqui! 💚`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': EVOLUTION_API_KEY
+        apikey: apiKey,
       },
       body: JSON.stringify({
-        number: phone,
-        text: welcomeMessage
-      })
+        number: normalizedPhone,
+        text: welcomeMessage,
+      }),
     });
-    
+
     const result = await response.text();
-    console.log('WhatsApp welcome sent via Evolution:', response.status, result);
+
+    if (!response.ok) {
+      console.error('WhatsApp welcome failed via Evolution:', {
+        status: response.status,
+        instanceName,
+        result,
+      });
+      return;
+    }
+
+    console.log('WhatsApp welcome sent via Evolution:', {
+      status: response.status,
+      instanceName,
+      result,
+    });
   } catch (error) {
     console.error('Error sending WhatsApp welcome:', error);
   }
