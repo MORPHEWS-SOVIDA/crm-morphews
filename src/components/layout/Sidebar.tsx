@@ -229,8 +229,8 @@ export function Sidebar() {
     // Voice AI (permission controlled)
     { icon: Phone, label: 'Voice AI', path: '/voice-ai', visible: canSeeVoiceAI && hasFeature('voice_ai_calls') },
     
-    // Super IA
-    { icon: Brain, label: 'Super IA', path: '/super-ia', visible: canSeeAIBots && hasFeature('ai_bots') },
+    // Super IA - restricted to pilot user only
+    { icon: Brain, label: 'Super IA', path: '/super-ia', visible: canSeeAIBots && hasFeature('ai_bots') && user?.email === 'thiago@sonatura.com.br' },
     
     // Team (permission controlled)
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam && hasFeature('team') },

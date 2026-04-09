@@ -238,8 +238,8 @@ export function MobileNav() {
     if (canSeeVoiceAI && hasFeature('voice_ai_calls')) {
       mgmtItems.push({ icon: Phone, label: 'Voice AI', path: '/voice-ai' });
     }
-    if (canSeeAIBots && hasFeature('ai_bots')) {
-      mgmtItems.push({ icon: Bot, label: 'Super IA', path: '/super-ia' });
+    if (canSeeAIBots && hasFeature('ai_bots') && user?.email === 'thiago@sonatura.com.br') {
+      mgmtItems.push({ icon: Brain, label: 'Super IA', path: '/super-ia' });
     }
     if (canSeeDemands && hasFeature('demands')) {
       mgmtItems.push({ icon: ListTodo, label: 'Demandas', path: '/demandas' });
