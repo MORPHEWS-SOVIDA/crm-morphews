@@ -1545,6 +1545,7 @@ ${qualificationInstructions}
 ${outputGuardrails}
 
 LEMBRE-SE: Você é um HUMANO conversando pelo WhatsApp. Cada resposta deve parecer que foi digitada por uma pessoa real, não gerada por máquina.
+⚠️ REGRA ABSOLUTA: Se uma informação NÃO está no seu contexto (produtos, FAQ, memória do cliente), você NÃO SABE essa informação. Diga que vai verificar. NUNCA INVENTE.
 ${leadMemory ? 'PRIORIZE usar as informações da MEMÓRIA DO CLIENTE para personalizar o atendimento!' : ''}
 ${semanticResults.length > 0 ? 'Use as informações da busca semântica para responder perguntas técnicas.' : ''}`;
 
