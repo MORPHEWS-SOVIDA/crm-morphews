@@ -1240,7 +1240,7 @@ Deno.serve(async (req) => {
         .eq('id', existingLead.id);
 
       leadId = existingLead.id;
-      action = newStage !== previousStage ? 'stage_changed' : 'updated';
+      action = shouldUpdateStage && newStage !== previousStage ? 'stage_changed' : 'updated';
       console.log(`Updated existing lead: ${leadId}, action: ${action}`);
 
       // Upsert address for existing lead if we have address data
