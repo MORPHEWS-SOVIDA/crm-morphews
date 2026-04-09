@@ -7,8 +7,9 @@ const corsHeaders = {
 };
 
 // ============================================================================
-// AI PROVIDER: Gemini Direct (GEMINI_API_KEY) > Lovable Gateway (LOVABLE_API_KEY)
+// AI PROVIDER: Anthropic (Claude) > Gemini Direct > Lovable Gateway
 // ============================================================================
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const _LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 
@@ -24,6 +25,37 @@ const _GEMINI_MAP: Record<string, string> = {
   'openai/gpt-5-mini': 'gemini-2.5-flash',
   'openai/gpt-5-nano': 'gemini-2.0-flash-lite',
 };
+
+// Claude API helper — primary provider for command parsing
+async function callClaude(systemPrompt: string, userMessage: string): Promise<string | null> {
+  if (!ANTHROPIC_API_KEY) return null;
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1024,
+        temperature: 0.2,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      }),
+    });
+    if (!resp.ok) {
+      console.error("Claude API error:", resp.status, await resp.text().catch(() => ""));
+      return null;
+    }
+    const data = await resp.json();
+    return data?.content?.[0]?.text || null;
+  } catch (e) {
+    console.error("Claude call failed:", e);
+    return null;
+  }
+}
 
 function _aiUrl() {
   return GEMINI_API_KEY
