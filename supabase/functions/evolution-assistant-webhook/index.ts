@@ -723,27 +723,33 @@ AÇÕES DISPONÍVEIS:
   {"action":"search_lead","query":"Matheus"}`;
 
   try {
+    // Try Claude first (primary), then Gemini/Lovable fallback
+    let content: string | null = await callClaude(systemPrompt, text);
 
-    const response = await fetch(_aiUrl(), {
-      method: "POST",
-      headers: _aiHeaders(),
-      body: JSON.stringify({
-        model: _aiModel('google/gemini-2.5-flash'),
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: text },
-        ],
-        temperature: 0.2,
-      }),
-    });
+    if (!content) {
+      // Fallback to Gemini / Lovable Gateway
+      const response = await fetch(_aiUrl(), {
+        method: "POST",
+        headers: _aiHeaders(),
+        body: JSON.stringify({
+          model: _aiModel('google/gemini-2.5-flash'),
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: text },
+          ],
+          temperature: 0.2,
+        }),
+      });
 
-    if (!resp.ok) {
-      console.error("AI parse error status:", resp.status);
-      return null;
+      if (!response.ok) {
+        console.error("AI fallback error status:", response.status);
+        return null;
+      }
+      
+      const data = await response.json();
+      content = data?.choices?.[0]?.message?.content;
     }
-    
-    const data = await resp.json();
-    let content = data?.choices?.[0]?.message?.content;
+
     if (!content || typeof content !== "string") return null;
 
     content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
