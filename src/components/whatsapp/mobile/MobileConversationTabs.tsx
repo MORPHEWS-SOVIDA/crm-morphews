@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { Clock, UserCheck, CheckCircle, Zap, Bot, Users } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-type StatusTab = 'all' | 'with_bot' | 'pending' | 'groups' | 'autodistributed' | 'assigned' | 'closed';
+type StatusTab = 'all' | 'with_bot' | 'pending' | 'groups' | 'autodistributed' | 'assigned' | 'closed' | 'followup_suggestions';
 
 interface MobileConversationTabsProps {
   activeTab: StatusTab;
