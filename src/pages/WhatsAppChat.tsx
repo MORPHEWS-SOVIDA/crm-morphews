@@ -103,7 +103,8 @@ type StatusTab =
   | "groups"
   | "autodistributed"
   | "assigned"
-  | "closed";
+  | "closed"
+  | "followup_suggestions";
 type MobileStatusTab = "all" | StatusTab;
 
 interface Conversation {
