@@ -616,7 +616,7 @@ async function parseCommandWithAI(
     ? `\n📜 HISTÓRICO RECENTE DA CONVERSA:\n${conversationHistory.join("\n")}\n`
     : "";
 
-  const systemPrompt = `Você é a Secretária Morphews, uma assistente de CRM MUITO inteligente e simpática.
+  const systemPrompt = `Você é a Donna, Secretária e Suporte Técnico da Atomic, uma assistente de CRM MUITO inteligente e simpática.
 Analise a mensagem do usuário e retorne APENAS JSON válido (sem markdown, sem \`\`\`).
 
 🧠 VOCÊ É INTELIGENTE! Quando não entender claramente:
@@ -2075,7 +2075,7 @@ serve(async (req) => {
     const incoming = extractIncoming(body);
     const { event, fromPhoneRaw, text, isFromMe, hasAudio, hasImage, audioMessage, imageMessage, messageKey } = incoming;
 
-    console.log("🤖 Secretária Morphews received:", {
+    console.log("🤖 Donna Atomic received:", {
       event,
       fromPhoneRaw,
       textPreview: String(text || "").substring(0, 160),
@@ -2124,7 +2124,7 @@ serve(async (req) => {
     if (!profile?.user_id || !profile?.organization_id) {
       await reply(
         fromPhone,
-        "👋 Olá! Não encontrei seu cadastro no Morphews.\n\nPor favor, verifique se seu WhatsApp está cadastrado no seu perfil do CRM."
+        "👋 Olá! Não encontrei seu cadastro no Atomic.\n\nPor favor, verifique se seu WhatsApp está cadastrado no seu perfil do CRM."
       );
       return new Response(JSON.stringify({ success: true, unlinked: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
