@@ -998,6 +998,78 @@ export type Database = {
           },
         ]
       }
+      ai_followup_queue: {
+        Row: {
+          ai_model_used: string | null
+          context_snapshot: Json | null
+          conversation_id: string | null
+          created_at: string
+          error_message: string | null
+          generated_message: string | null
+          id: string
+          lead_id: string
+          organization_id: string
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          tokens_used: number | null
+          trigger_type: string
+          updated_at: string
+          whatsapp_instance_id: string | null
+        }
+        Insert: {
+          ai_model_used?: string | null
+          context_snapshot?: Json | null
+          conversation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          generated_message?: string | null
+          id?: string
+          lead_id: string
+          organization_id: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          tokens_used?: number | null
+          trigger_type?: string
+          updated_at?: string
+          whatsapp_instance_id?: string | null
+        }
+        Update: {
+          ai_model_used?: string | null
+          context_snapshot?: Json | null
+          conversation_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          generated_message?: string | null
+          id?: string
+          lead_id?: string
+          organization_id?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          tokens_used?: number | null
+          trigger_type?: string
+          updated_at?: string
+          whatsapp_instance_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_followup_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_followup_queue_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_lead_suggestions: {
         Row: {
           created_at: string
@@ -10197,6 +10269,7 @@ export type Database = {
       organizations: {
         Row: {
           ai_energy_balance: number | null
+          ai_followup_config: Json | null
           ai_model_document: string | null
           ai_model_image: string | null
           auto_close_assigned_minutes: number | null
@@ -10246,6 +10319,7 @@ export type Database = {
         }
         Insert: {
           ai_energy_balance?: number | null
+          ai_followup_config?: Json | null
           ai_model_document?: string | null
           ai_model_image?: string | null
           auto_close_assigned_minutes?: number | null
@@ -10295,6 +10369,7 @@ export type Database = {
         }
         Update: {
           ai_energy_balance?: number | null
+          ai_followup_config?: Json | null
           ai_model_document?: string | null
           ai_model_image?: string | null
           auto_close_assigned_minutes?: number | null
