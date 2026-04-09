@@ -59,6 +59,8 @@ import { MessageBubble } from "@/components/whatsapp/MessageBubble";
 import type { QuickMessage } from "@/hooks/useQuickMessages";
 import { ConversationItem } from "@/components/whatsapp/ConversationItem";
 import { ConversationStatusTabs } from "@/components/whatsapp/ConversationStatusTabs";
+import { FollowupSuggestionsList } from "@/components/whatsapp/FollowupSuggestionsList";
+import { useFollowupSuggestions } from "@/hooks/useFollowupSuggestions";
 import { ConversationTransferDialog } from "@/components/whatsapp/ConversationTransferDialog";
 import { LeadSearchDialog } from "@/components/whatsapp/LeadSearchDialog";
 import { NewConversationDialog } from "@/components/whatsapp/NewConversationDialog";
@@ -103,7 +105,8 @@ type StatusTab =
   | "groups"
   | "autodistributed"
   | "assigned"
-  | "closed";
+  | "closed"
+  | "followup_suggestions";
 type MobileStatusTab = "all" | StatusTab;
 
 interface Conversation {
@@ -187,6 +190,8 @@ export default function WhatsAppChat() {
   // Removido: useCrossInstanceConversations - cada conversa agora é um item separado
   const isMobile = useIsMobile();
   const { playNotificationSound } = useNotificationSound();
+  const showFollowupTab = user?.email === 'thiago@sonatura.com.br';
+  const followupSuggestions = useFollowupSuggestions(showFollowupTab ? profile?.organization_id : undefined);
 
   // Ref para rastrear conversas que já foram notificadas
   const notifiedConversationsRef = useRef<Map<string, number>>(new Map());
@@ -1227,8 +1232,9 @@ export default function WhatsAppChat() {
       assigned: nonGroupConversations.filter((c) => c.status === "assigned")
         .length,
       closed: nonGroupConversations.filter((c) => c.status === "closed").length,
+      followup_suggestions: followupSuggestions.count,
     };
-  }, [conversations, user?.id]);
+  }, [conversations, user?.id, followupSuggestions.count]);
 
   // Handler para assumir conversa (auto-vincula lead pelo telefone)
   const handleClaimConversation = async (conversationId: string) => {
@@ -2344,9 +2350,22 @@ export default function WhatsAppChat() {
               activeTab={statusFilter}
               onTabChange={setStatusFilter}
               counts={statusCounts}
+              showFollowupTab={showFollowupTab}
             />
 
-            {/* Conversations List */}
+            {/* Followup Suggestions List (when tab active) */}
+            {statusFilter === "followup_suggestions" ? (
+              <div className="flex-1 overflow-hidden">
+                <FollowupSuggestionsList
+                  suggestions={followupSuggestions.suggestions}
+                  isLoading={followupSuggestions.isLoading}
+                  onSend={(id, msg) => followupSuggestions.sendFollowup.mutate({ followupId: id, editedMessage: msg })}
+                  onReject={(id) => followupSuggestions.rejectFollowup.mutate(id)}
+                  isSending={followupSuggestions.sendFollowup.isPending}
+                />
+              </div>
+            ) : (
+            /* Conversations List */
             <ScrollArea className="flex-1">
               {filteredConversations.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
@@ -2407,6 +2426,7 @@ export default function WhatsAppChat() {
                 })
               )}
             </ScrollArea>
+            )}
           </div>
 
           {/* Center Column - Chat */}

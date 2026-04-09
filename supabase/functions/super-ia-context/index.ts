@@ -466,6 +466,240 @@ serve(async (req) => {
       );
     }
 
+    // ====================================================================
+    // ACTION: send_followup
+    // Frontend aprova e envia follow-up da fila via Evolution API
+    // ====================================================================
+    if (action === "send_followup") {
+      const { followupId, editedMessage } = body;
+
+      if (!followupId) {
+        return new Response(
+          JSON.stringify({ error: "followupId required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Buscar follow-up
+      const { data: followup, error: fErr } = await supabase
+        .from("ai_followup_queue")
+        .select("*, whatsapp_instance_id")
+        .eq("id", followupId)
+        .single();
+
+      if (fErr || !followup) {
+        return new Response(
+          JSON.stringify({ error: "Follow-up not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const messageToSend = editedMessage || followup.generated_message;
+      if (!messageToSend) {
+        return new Response(
+          JSON.stringify({ error: "No message to send" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Buscar conversa para pegar phone_number
+      let phone = "";
+      let instanceId = followup.whatsapp_instance_id;
+
+      if (followup.conversation_id) {
+        const { data: conv } = await supabase
+          .from("whatsapp_conversations")
+          .select("phone_number, instance_id")
+          .eq("id", followup.conversation_id)
+          .single();
+        if (conv) {
+          phone = conv.phone_number;
+          if (!instanceId) instanceId = conv.instance_id;
+        }
+      }
+
+      // Se não achou telefone pela conversa, buscar pelo lead
+      if (!phone && followup.lead_id) {
+        const { data: lead } = await supabase
+          .from("leads")
+          .select("whatsapp")
+          .eq("id", followup.lead_id)
+          .single();
+        if (lead?.whatsapp) {
+          phone = lead.whatsapp.replace(/\D/g, "");
+        }
+      }
+
+      if (!phone || !instanceId) {
+        await supabase.from("ai_followup_queue").update({
+          status: "error",
+          error_message: "Phone or instance not found",
+        }).eq("id", followupId);
+        return new Response(
+          JSON.stringify({ error: "Phone or instance not found" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Buscar instância para pegar evolution_instance_id e token
+      const { data: instance } = await supabase
+        .from("whatsapp_instances")
+        .select("evolution_instance_id, evolution_api_token")
+        .eq("id", instanceId)
+        .single();
+
+      if (!instance?.evolution_instance_id) {
+        await supabase.from("ai_followup_queue").update({
+          status: "error",
+          error_message: "Instance not configured",
+        }).eq("id", followupId);
+        return new Response(
+          JSON.stringify({ error: "Instance not configured" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL") || "https://evo.morphews.com.br";
+      const EVOLUTION_API_KEY = instance.evolution_api_token || Deno.env.get("EVOLUTION_API_KEY") || "";
+
+      // Enviar via Evolution API
+      const normalizedPhone = phone.replace(/\D/g, "");
+      const sendUrl = `${EVOLUTION_API_URL}/message/sendText/${instance.evolution_instance_id}`;
+
+      console.log(`📤 Sending follow-up ${followupId} to ${normalizedPhone} via ${instance.evolution_instance_id}`);
+
+      const sendResponse = await fetch(sendUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: EVOLUTION_API_KEY,
+        },
+        body: JSON.stringify({ number: normalizedPhone, text: messageToSend }),
+      });
+
+      if (!sendResponse.ok) {
+        const errText = await sendResponse.text();
+        console.error(`❌ Evolution API error: ${errText}`);
+        await supabase.from("ai_followup_queue").update({
+          status: "error",
+          error_message: `Evolution API: ${sendResponse.status} - ${errText.slice(0, 200)}`,
+        }).eq("id", followupId);
+        return new Response(
+          JSON.stringify({ error: "Failed to send message", details: errText }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Marcar como enviado
+      await supabase.from("ai_followup_queue").update({
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        generated_message: messageToSend, // Salvar a versão final (caso editada)
+      }).eq("id", followupId);
+
+      console.log(`✅ Follow-up ${followupId} sent successfully`);
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Follow-up sent" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ====================================================================
+    // ACTION: reject_followup
+    // Frontend rejeita follow-up da fila
+    // ====================================================================
+    if (action === "reject_followup") {
+      const { followupId } = body;
+      if (!followupId) {
+        return new Response(
+          JSON.stringify({ error: "followupId required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      await supabase.from("ai_followup_queue").update({
+        status: "rejected",
+      }).eq("id", followupId);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ====================================================================
+    // ACTION: get_pending_followups
+    // Frontend busca follow-ups prontos para aprovação
+    // ====================================================================
+    if (action === "get_pending_followups") {
+      const { organizationId } = body;
+      if (!organizationId) {
+        return new Response(
+          JSON.stringify({ error: "organizationId required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: followups, error: fErr } = await supabase
+        .from("ai_followup_queue")
+        .select(`
+          id, lead_id, conversation_id, trigger_type, 
+          generated_message, status, scheduled_for, 
+          created_at, whatsapp_instance_id, ai_model_used
+        `)
+        .eq("organization_id", organizationId)
+        .in("status", ["ready", "pending", "generating"])
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (fErr) {
+        return new Response(
+          JSON.stringify({ error: fErr.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Enriquecer com dados do lead
+      const leadIds = [...new Set((followups || []).map((f: any) => f.lead_id).filter(Boolean))];
+      let leadsMap: Record<string, any> = {};
+
+      if (leadIds.length > 0) {
+        const { data: leads } = await supabase
+          .from("leads")
+          .select("id, name, whatsapp, status")
+          .in("id", leadIds);
+        for (const lead of leads || []) {
+          leadsMap[lead.id] = lead;
+        }
+      }
+
+      // Enriquecer com dados da conversa
+      const convIds = [...new Set((followups || []).map((f: any) => f.conversation_id).filter(Boolean))];
+      let convsMap: Record<string, any> = {};
+
+      if (convIds.length > 0) {
+        const { data: convs } = await supabase
+          .from("whatsapp_conversations")
+          .select("id, contact_name, contact_phone, instance_id")
+          .in("id", convIds);
+        for (const conv of convs || []) {
+          convsMap[conv.id] = conv;
+        }
+      }
+
+      const enriched = (followups || []).map((f: any) => ({
+        ...f,
+        lead: leadsMap[f.lead_id] || null,
+        conversation: convsMap[f.conversation_id] || null,
+      }));
+
+      return new Response(
+        JSON.stringify({ success: true, followups: enriched }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: `Unknown action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

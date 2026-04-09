@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Clock, UserCheck, CheckCircle, Zap, Bot, Users } from "lucide-react";
+import { Clock, UserCheck, CheckCircle, Zap, Bot, Users, Sparkles } from "lucide-react";
 
-type StatusTab = 'with_bot' | 'pending' | 'groups' | 'autodistributed' | 'assigned' | 'closed';
+type StatusTab = 'with_bot' | 'pending' | 'groups' | 'autodistributed' | 'assigned' | 'closed' | 'followup_suggestions';
 
 interface ConversationStatusTabsProps {
   activeTab: StatusTab;
@@ -14,7 +14,9 @@ interface ConversationStatusTabsProps {
     autodistributed: number;
     assigned: number;
     closed: number;
+    followup_suggestions?: number;
   };
+  showFollowupTab?: boolean;
 }
 
 const tabs: { key: StatusTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -29,17 +31,31 @@ const tabs: { key: StatusTab; label: string; icon: React.ComponentType<{ classNa
 export function ConversationStatusTabs({ 
   activeTab, 
   onTabChange,
-  counts 
+  counts,
+  showFollowupTab = false,
 }: ConversationStatusTabsProps) {
-  // Dividir em 2 linhas de 3: Com Robô/Pendente/Grupos e Pra você/Atribuído/Encerrado
-  const firstRow = tabs.slice(0, 3);
-  const secondRow = tabs.slice(3);
+  const allTabs = showFollowupTab 
+    ? [...tabs, { key: 'followup_suggestions' as StatusTab, label: 'Sugestões IA', icon: Sparkles }]
+    : tabs;
+
+  // Dividir em linhas
+  const firstRow = allTabs.slice(0, 3);
+  const secondRow = showFollowupTab ? allTabs.slice(3, 6) : allTabs.slice(3);
+  const thirdRow = showFollowupTab ? allTabs.slice(6) : [];
 
   const renderTab = (tab: typeof tabs[0]) => {
     const Icon = tab.icon;
-    const count = counts[tab.key];
+    const count = tab.key === 'followup_suggestions' 
+      ? (counts.followup_suggestions || 0) 
+      : counts[tab.key as keyof typeof counts] || 0;
     const isActive = activeTab === tab.key;
-    const showBadge = (tab.key === 'with_bot' || tab.key === 'pending' || tab.key === 'groups' || tab.key === 'autodistributed') && count > 0;
+    const showBadge = (
+      tab.key === 'with_bot' || 
+      tab.key === 'pending' || 
+      tab.key === 'groups' || 
+      tab.key === 'autodistributed' || 
+      tab.key === 'followup_suggestions'
+    ) && (count as number) > 0;
 
     return (
       <button
@@ -66,10 +82,12 @@ export function ConversationStatusTabs({
               tab.key === 'autodistributed' && !isActive && "bg-blue-100 text-blue-800",
               tab.key === 'autodistributed' && isActive && "bg-blue-500",
               tab.key === 'pending' && !isActive && "bg-yellow-100 text-yellow-800",
-              tab.key === 'pending' && isActive && "bg-yellow-500"
+              tab.key === 'pending' && isActive && "bg-yellow-500",
+              tab.key === 'followup_suggestions' && !isActive && "bg-orange-100 text-orange-800",
+              tab.key === 'followup_suggestions' && isActive && "bg-orange-500"
             )}
           >
-            {count}
+            {count as number}
           </Badge>
         )}
         {isActive && (
@@ -86,9 +104,15 @@ export function ConversationStatusTabs({
         {firstRow.map(renderTab)}
       </div>
       {/* Segunda linha: Pra você, Atribuído, Encerrado */}
-      <div className="flex">
+      <div className={cn("flex", thirdRow.length > 0 && "border-b border-border/50")}>
         {secondRow.map(renderTab)}
       </div>
+      {/* Terceira linha: Sugestões IA (se visível) */}
+      {thirdRow.length > 0 && (
+        <div className="flex">
+          {thirdRow.map(renderTab)}
+        </div>
+      )}
     </div>
   );
 }
