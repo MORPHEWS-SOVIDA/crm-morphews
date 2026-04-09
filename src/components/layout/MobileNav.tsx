@@ -32,6 +32,7 @@ import {
   BarChart3,
   Link2,
   Phone,
+  Brain,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
