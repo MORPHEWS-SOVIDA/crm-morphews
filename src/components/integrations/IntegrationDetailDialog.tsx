@@ -1007,7 +1007,57 @@ export function IntegrationDetailDialog({
                 </CardContent>
               </Card>
 
+              {/* Deduplication / Anti-spam Settings */}
               <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    Proteção Anti-Duplicação
+                  </CardTitle>
+                  <CardDescription>
+                    Evita processar webhooks repetidos do mesmo cliente em um curto período
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Cooldown (minutos)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="1440"
+                        placeholder="Desativado"
+                        value={dedupCooldownMinutes}
+                        onChange={(e) => setDedupCooldownMinutes(e.target.value)}
+                        className="w-32"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {dedupCooldownMinutes ? `Ignora webhooks repetidos do mesmo lead nos últimos ${dedupCooldownMinutes} min` : 'Desativado — todos os webhooks são processados'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Ex: Cliente tenta comprar 5x com cartão recusado → só o 1º é processado. 
+                      Sugestão: 15-30 min para compras recusadas, 60 min para carrinhos abandonados.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Permitir regressão de etapa</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Se desligado, um webhook não pode mover o lead para uma etapa "anterior" 
+                        (ex: de "Compra Aprovada" para "Compra Recusada")
+                      </p>
+                    </div>
+                    <Switch
+                      checked={stagePriorityOverride}
+                      onCheckedChange={setStagePriorityOverride}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+
                 <CardHeader>
                   <CardTitle className="text-lg">Token de Autenticação</CardTitle>
                   <CardDescription>
