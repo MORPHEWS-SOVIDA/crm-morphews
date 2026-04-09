@@ -1245,6 +1245,16 @@ const App = () => (
                   }
                 />
                 
+                {/* Super IA */}
+                <Route
+                  path="/super-ia"
+                  element={
+                    <ProtectedRoute>
+                      <SuperIA />
+                    </ProtectedRoute>
+                  }
+                />
+                
                 {/* Demands */}
                 <Route
                   path="/demandas"
