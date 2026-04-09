@@ -149,6 +149,7 @@ const Voip3cValidation = lazy(() => import("./pages/Voip3cValidation"));
 const AIBots = lazy(() => import("./pages/AIBots"));
 const AgentsIA = lazy(() => import("./pages/AgentsIA"));
 const VoiceAI = lazy(() => import("./pages/VoiceAI"));
+const SuperIA = lazy(() => import("./pages/SuperIA"));
 const Demands = lazy(() => import("./pages/Demands"));
 const DemandsSettings = lazy(() => import("./pages/DemandsSettings"));
 const SmsCenter = lazy(() => import("./pages/SmsCenter"));
@@ -1240,6 +1241,16 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['voice_ai_view']}>
                       <VoiceAI />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Super IA */}
+                <Route
+                  path="/super-ia"
+                  element={
+                    <ProtectedRoute>
+                      <SuperIA />
                     </ProtectedRoute>
                   }
                 />

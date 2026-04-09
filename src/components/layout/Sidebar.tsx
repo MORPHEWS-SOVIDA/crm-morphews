@@ -36,6 +36,7 @@ import {
   Building2,
   Phone,
   Zap,
+  Brain,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -227,6 +228,9 @@ export function Sidebar() {
     
     // Voice AI (permission controlled)
     { icon: Phone, label: 'Voice AI', path: '/voice-ai', visible: canSeeVoiceAI && hasFeature('voice_ai_calls') },
+    
+    // Super IA
+    { icon: Brain, label: 'Super IA', path: '/super-ia', visible: canSeeAIBots && hasFeature('ai_bots') },
     
     // Team (permission controlled)
     { icon: UsersRound, label: 'Minha Equipe', path: '/equipe', visible: canSeeTeam && hasFeature('team') },
