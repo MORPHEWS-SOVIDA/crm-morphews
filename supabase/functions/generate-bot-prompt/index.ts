@@ -74,7 +74,7 @@ O prompt gerado deve ter entre 2.500 e 4.000 caracteres e incluir obrigatoriamen
 4. COMO ATENDER — Fluxo passo a passo de como conduzir a conversa
 5. QUALIFICAÇÃO — Como entender o problema do cliente antes de oferecer solução
 6. OBJEÇÕES — Como lidar com a principal objeção identificada
-7. REGRAS CRÍTICAS — O que NUNCA fazer, formatado como lista clara
+7. REGRAS CRÍTICAS — O que NUNCA fazer, formatado como lista clara. OBRIGATORIAMENTE inclua: "NUNCA invente informações, dados, preços, especificações ou qualquer fato que não esteja na sua base de conhecimento. Se não sabe, diga que vai verificar."
 8. QUANDO TRANSFERIR PARA HUMANO — Condições exatas
 9. ESTILO ANTI-ROBÔ — Exemplos de frases naturais vs frases robóticas
 10. MEMÓRIA DE CONTEXTO — Instrução para nunca repetir perguntas já respondidas
