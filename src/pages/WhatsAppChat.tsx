@@ -1232,8 +1232,9 @@ export default function WhatsAppChat() {
       assigned: nonGroupConversations.filter((c) => c.status === "assigned")
         .length,
       closed: nonGroupConversations.filter((c) => c.status === "closed").length,
+      followup_suggestions: followupSuggestions.count,
     };
-  }, [conversations, user?.id]);
+  }, [conversations, user?.id, followupSuggestions.count]);
 
   // Handler para assumir conversa (auto-vincula lead pelo telefone)
   const handleClaimConversation = async (conversationId: string) => {
