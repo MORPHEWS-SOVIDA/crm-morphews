@@ -54,37 +54,39 @@ export function useAssignSerialsToProduct() {
       if (!orgId) throw new Error('Organização não encontrada');
       
       const now = new Date().toISOString();
-      const codes: string[] = [];
+      const records: any[] = [];
       
       for (let i = serialStart; i <= serialEnd; i++) {
-        codes.push(`${prefix}${String(i).padStart(5, '0')}`);
+        records.push({
+          organization_id: orgId,
+          serial_code: `${prefix}${String(i).padStart(5, '0')}`,
+          product_id: productId,
+          product_name: productName,
+          status: 'in_stock',
+          stocked_at: now,
+          stocked_by: user?.id,
+        });
       }
 
-      // Update in batches
+      // Upsert in batches — creates if not exists, updates if exists
       const BATCH_SIZE = 200;
-      let updated = 0;
+      let total = 0;
 
-      for (let i = 0; i < codes.length; i += BATCH_SIZE) {
-        const batch = codes.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < records.length; i += BATCH_SIZE) {
+        const batch = records.slice(i, i + BATCH_SIZE);
         
         const { error } = await supabase
           .from('product_serial_labels')
-          .update({
-            product_id: productId,
-            product_name: productName,
-            status: 'in_stock' as any,
-            stocked_at: now,
-            stocked_by: user?.id,
-          })
-          .eq('organization_id', orgId)
-          .in('serial_code', batch)
-          .eq('status', 'available' as any);
+          .upsert(batch, { 
+            onConflict: 'organization_id,serial_code',
+            ignoreDuplicates: false 
+          });
 
         if (error) throw error;
-        updated += batch.length;
+        total += batch.length;
       }
 
-      return { updated, codes };
+      return { updated: total, codes: records.map(r => r.serial_code) };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['serial-labels'] });
