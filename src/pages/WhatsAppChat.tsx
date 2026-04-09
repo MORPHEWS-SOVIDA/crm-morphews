@@ -59,6 +59,8 @@ import { MessageBubble } from "@/components/whatsapp/MessageBubble";
 import type { QuickMessage } from "@/hooks/useQuickMessages";
 import { ConversationItem } from "@/components/whatsapp/ConversationItem";
 import { ConversationStatusTabs } from "@/components/whatsapp/ConversationStatusTabs";
+import { FollowupSuggestionsList } from "@/components/whatsapp/FollowupSuggestionsList";
+import { useFollowupSuggestions } from "@/hooks/useFollowupSuggestions";
 import { ConversationTransferDialog } from "@/components/whatsapp/ConversationTransferDialog";
 import { LeadSearchDialog } from "@/components/whatsapp/LeadSearchDialog";
 import { NewConversationDialog } from "@/components/whatsapp/NewConversationDialog";
