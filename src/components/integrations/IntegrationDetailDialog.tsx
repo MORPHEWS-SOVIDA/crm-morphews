@@ -172,6 +172,14 @@ export function IntegrationDetailDialog({
   const [autoMessageRotationEnabled, setAutoMessageRotationEnabled] = useState(
     (integration as any).auto_message_rotation_enabled || false
   );
+  
+  // Deduplication settings
+  const [dedupCooldownMinutes, setDedupCooldownMinutes] = useState<string>(
+    (integration as any).dedup_cooldown_minutes?.toString() || ''
+  );
+  const [stagePriorityOverride, setStagePriorityOverride] = useState(
+    (integration as any).stage_priority_override || false
+  );
 
   // WhatsApp instances for auto-message
   const { data: whatsappInstances } = useWhatsAppInstances();
@@ -498,6 +506,8 @@ export function IntegrationDetailDialog({
       auto_message_text: autoMessageText || null,
       auto_message_instance_ids: autoMessageInstanceIds,
       auto_message_rotation_enabled: autoMessageRotationEnabled,
+      dedup_cooldown_minutes: dedupCooldownMinutes ? parseInt(dedupCooldownMinutes) : null,
+      stage_priority_override: stagePriorityOverride,
     } as any);
     toast.success('Configurações salvas!');
   };
