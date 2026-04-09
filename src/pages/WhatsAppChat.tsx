@@ -190,6 +190,8 @@ export default function WhatsAppChat() {
   // Removido: useCrossInstanceConversations - cada conversa agora é um item separado
   const isMobile = useIsMobile();
   const { playNotificationSound } = useNotificationSound();
+  const showFollowupTab = user?.email === 'thiago@sonatura.com.br';
+  const followupSuggestions = useFollowupSuggestions(showFollowupTab ? profile?.organization_id : undefined);
 
   // Ref para rastrear conversas que já foram notificadas
   const notifiedConversationsRef = useRef<Map<string, number>>(new Map());
