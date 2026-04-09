@@ -596,6 +596,7 @@ type ParsedCommand =
   | { action: "quick_stage"; stage: string; }
   | { action: "quick_followup"; option: string; }
   | { action: "skip_step"; }
+  | { action: "support_question"; question: string; reply?: string; }
   | { action: "unknown"; reply?: string; };
 
 // ============================================================================
@@ -615,7 +616,7 @@ async function parseCommandWithAI(
     ? `\n📜 HISTÓRICO RECENTE DA CONVERSA:\n${conversationHistory.join("\n")}\n`
     : "";
 
-  const systemPrompt = `Você é a Secretária Morphews, uma assistente de CRM MUITO inteligente e simpática.
+  const systemPrompt = `Você é a Donna, Secretária e Suporte Técnico da Atomic, uma assistente de CRM MUITO inteligente e simpática.
 Analise a mensagem do usuário e retorne APENAS JSON válido (sem markdown, sem \`\`\`).
 
 🧠 VOCÊ É INTELIGENTE! Quando não entender claramente:
@@ -692,8 +693,20 @@ AÇÕES DISPONÍVEIS:
 
 8. AJUDA: {"action":"help"}
 9. ESTATÍSTICAS: {"action":"stats"}
-10. NÃO ENTENDI (seja INTELIGENTE e ÚTIL!): 
-    {"action":"unknown","reply":"🤔 Hmm, não entendi bem... Você quer:\n\n1️⃣ Cadastrar um novo lead?\n2️⃣ Buscar algum lead específico?\n3️⃣ Ver suas estatísticas?\n4️⃣ Atualizar algum lead?\n\nMe conta mais sobre o que você precisa! 😊"}
+
+10. PERGUNTA DE SUPORTE TÉCNICO / DÚVIDA SOBRE O SISTEMA:
+    {"action":"support_question","question":"como criar um agente IA?"}
+    Use esta ação quando o usuário perguntar QUALQUER coisa sobre:
+    - Como usar funcionalidades do sistema (CRM, funil, agentes IA, checkout, WhatsApp, etc.)
+    - Problemas técnicos, erros, bugs, algo não funcionando
+    - Configurações, integrações, planos, cobranças
+    - Como fazer X no sistema, onde encontrar Y
+    - Dúvidas sobre agentes IA, times, robôs, automações
+    - Qualquer pergunta que NÃO seja uma ação direta no CRM
+    EXEMPLOS: "como criar um agente?", "como funciona o funil?", "tá dando erro no checkout", "como integrar WhatsApp?", "como configurar o robô?"
+
+11. NÃO ENTENDI (seja INTELIGENTE e ÚTIL!): 
+    {"action":"unknown","reply":"🤔 Hmm, não entendi bem... Você quer:\n\n1️⃣ Cadastrar um novo lead?\n2️⃣ Buscar algum lead específico?\n3️⃣ Ver suas estatísticas?\n4️⃣ Atualizar algum lead?\n5️⃣ Tirar uma dúvida sobre o sistema?\n\nMe conta mais sobre o que você precisa! 😊"}
     
     IMPORTANTE: Personalize a resposta baseada no contexto e histórico! Nunca dê respostas genéricas.
     Se o usuário mandou algo que PARECE uma ação mas faltam dados, pergunte o que falta de forma simpática.
@@ -1644,9 +1657,9 @@ async function handleStats(organizationId: string): Promise<string> {
 }
 
 function getHelpMessage(): string {
-  return `👋 *Oi! Sou sua Secretária Morphews!*
+  return `👋 *Oi! Sou a Donna, sua Secretária Atomic!*
 
-Meu objetivo é te ajudar a *vender mais*! 💰
+Meu objetivo é te ajudar a *vender mais* e *dominar o sistema*! 💰
 
 📝 *Cadastrar lead:*
 "Cadastrar 51999998888 João"
@@ -1666,7 +1679,114 @@ Meu objetivo é te ajudar a *vender mais*! 💰
 📊 *Estatísticas:*
 "Stats" ou "Estatísticas"
 
+🆘 *Suporte técnico:*
+"Como criar um agente IA?"
+"Como funciona o funil?"
+"Tá dando erro no checkout"
+
 💡 *Dica:* Fala naturalmente! Eu entendo você 😊`;
+}
+
+// ============================================================================
+// SUPPORT QUESTION HANDLER — Uses Claude for intelligent support answers
+// ============================================================================
+async function handleSupportQuestion(question: string): Promise<string> {
+  const supportPrompt = `Você é a Donna, assistente de suporte técnico da plataforma Atomic (atomic.ia.br).
+Você é ESPECIALISTA em todas as funcionalidades do sistema. Responda de forma clara, prática e amigável via WhatsApp.
+
+📋 FUNCIONALIDADES QUE VOCÊ DOMINA:
+
+🤖 **AGENTES IA 2.0:**
+- Criação via Wizard (5 etapas: Missão, Identidade, Contexto, Estratégia, Teste)
+- Configuração manual de agentes
+- Personalidades: Profissional, Amigável, Direto, Formal, Casual, Empático
+- Capacidades: interpretação de áudio, imagens, documentos, voz IA
+- Base de Conhecimento (FAQ com perguntas e respostas prioritárias)
+- Times de agentes (Maestro + Especialistas) com roteamento por keyword/intent
+- Escopo de produtos, envio de mídia, qualificação inicial
+- Modelos de IA disponíveis: Claude, Gemini, GPT
+- Acessar em: Menu lateral → Agentes IA 2.0
+
+👥 **CRM / LEADS:**
+- Funil de vendas com etapas personalizáveis (Kanban)
+- Cadastro de leads com telefone, nome, estrelas, tags
+- Campos extras: CPF, time, origem, Instagram, email, cidade, estado
+- Follow-ups e reuniões agendáveis
+- Classificação por estrelas (1-5)
+- Importação/exportação de leads
+- Acessar em: Menu lateral → Leads / CRM
+
+📱 **WHATSAPP:**
+- Integração via Evolution API
+- Instâncias conectadas com QR Code
+- Modos: Manual, Agente IA, Time de Agentes
+- Mensagens rápidas e templates
+- Envio em massa (campanhas)
+- Acessar em: Menu lateral → WhatsApp
+
+💰 **CHECKOUT / VENDAS:**
+- Checkout Builder para criar páginas de venda
+- Vendas manuais e via checkout
+- Parcelas e formas de pagamento
+- Comissões e afiliados
+- Acessar em: Menu lateral → Checkout / Vendas
+
+📊 **RELATÓRIOS:**
+- Dashboard com métricas de leads, vendas, conversão
+- Estatísticas de agentes IA
+- Relatório de comissões
+- Acessar em: Menu lateral → Dashboard / Relatórios
+
+⚙️ **CONFIGURAÇÕES:**
+- Personalização de planos e funcionalidades
+- Integrações (webhooks, APIs externas)
+- Gestão de equipe e permissões
+- Acessar em: Menu lateral → Configurações
+
+🆘 **RESOLUÇÃO DE PROBLEMAS COMUNS:**
+- "WhatsApp não conecta" → Verificar QR Code, reconectar instância
+- "Agente não responde" → Verificar se está ativo, checar modo da instância
+- "Mensagens não chegam" → Verificar webhook, status da instância
+- "Erro no checkout" → Verificar configuração de pagamento
+- "Lead não aparece" → Verificar filtros do funil, buscar por telefone
+
+REGRAS:
+- Responda SEMPRE em português brasileiro
+- Use emojis moderadamente para WhatsApp
+- Seja direto e prático, com passos numerados quando aplicável
+- Se não souber algo específico, sugira entrar em contato com o suporte humano
+- Nunca invente funcionalidades que não existem
+- Mantenha respostas curtas (máx 5-8 linhas) mas completas
+- Formate para WhatsApp (use *negrito* e _itálico_)`;
+
+  try {
+    let answer = await callClaude(supportPrompt, question);
+    
+    if (!answer) {
+      // Fallback to Gemini/Lovable
+      const resp = await fetch(_aiUrl(), {
+        method: "POST",
+        headers: _aiHeaders(),
+        body: JSON.stringify({
+          model: _aiModel('google/gemini-2.5-flash'),
+          messages: [
+            { role: "system", content: supportPrompt },
+            { role: "user", content: question },
+          ],
+          temperature: 0.3,
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        answer = data?.choices?.[0]?.message?.content;
+      }
+    }
+
+    return answer || "🤔 Não consegui processar sua dúvida agora. Tente novamente ou entre em contato com o suporte humano.";
+  } catch (e) {
+    console.error("Support question error:", e);
+    return "⚠️ Ocorreu um erro ao buscar a resposta. Tente novamente em instantes.";
+  }
 }
 
 // ============================================================================
@@ -1955,7 +2075,7 @@ serve(async (req) => {
     const incoming = extractIncoming(body);
     const { event, fromPhoneRaw, text, isFromMe, hasAudio, hasImage, audioMessage, imageMessage, messageKey } = incoming;
 
-    console.log("🤖 Secretária Morphews received:", {
+    console.log("🤖 Donna Atomic received:", {
       event,
       fromPhoneRaw,
       textPreview: String(text || "").substring(0, 160),
@@ -2004,7 +2124,7 @@ serve(async (req) => {
     if (!profile?.user_id || !profile?.organization_id) {
       await reply(
         fromPhone,
-        "👋 Olá! Não encontrei seu cadastro no Morphews.\n\nPor favor, verifique se seu WhatsApp está cadastrado no seu perfil do CRM."
+        "👋 Olá! Não encontrei seu cadastro no Atomic.\n\nPor favor, verifique se seu WhatsApp está cadastrado no seu perfil do CRM."
       );
       return new Response(JSON.stringify({ success: true, unlinked: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -2409,6 +2529,10 @@ async function handleCommand(
     
     case "help":
       return getHelpMessage();
+
+    case "support_question":
+      console.log("🆘 Support question:", (parsed as any).question);
+      return await handleSupportQuestion((parsed as any).question || text);
     
     case "unknown":
     default:
