@@ -6636,6 +6636,7 @@ export type Database = {
           consecutive_failures: number
           created_at: string
           created_by: string | null
+          dedup_cooldown_minutes: number | null
           default_product_id: string | null
           default_responsible_user_ids: string[] | null
           default_seller_id: string | null
@@ -6656,6 +6657,7 @@ export type Database = {
           sale_status_on_create: string | null
           sale_tag: string | null
           settings: Json | null
+          stage_priority_override: boolean | null
           status: string
           trigger_rules: Json | null
           trigger_rules_logic: string | null
@@ -6672,6 +6674,7 @@ export type Database = {
           consecutive_failures?: number
           created_at?: string
           created_by?: string | null
+          dedup_cooldown_minutes?: number | null
           default_product_id?: string | null
           default_responsible_user_ids?: string[] | null
           default_seller_id?: string | null
@@ -6692,6 +6695,7 @@ export type Database = {
           sale_status_on_create?: string | null
           sale_tag?: string | null
           settings?: Json | null
+          stage_priority_override?: boolean | null
           status?: string
           trigger_rules?: Json | null
           trigger_rules_logic?: string | null
@@ -6708,6 +6712,7 @@ export type Database = {
           consecutive_failures?: number
           created_at?: string
           created_by?: string | null
+          dedup_cooldown_minutes?: number | null
           default_product_id?: string | null
           default_responsible_user_ids?: string[] | null
           default_seller_id?: string | null
@@ -6728,6 +6733,7 @@ export type Database = {
           sale_status_on_create?: string | null
           sale_tag?: string | null
           settings?: Json | null
+          stage_priority_override?: boolean | null
           status?: string
           trigger_rules?: Json | null
           trigger_rules_logic?: string | null
