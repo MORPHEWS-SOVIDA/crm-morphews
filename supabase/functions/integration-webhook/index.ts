@@ -107,6 +107,25 @@ interface TriggerRule {
   integration_ids?: string[];
 }
 
+// Stage priority map: higher number = more advanced/important stage
+const STAGE_PRIORITY: Record<string, number> = {
+  'cloud': 1,
+  'unclassified': 2,
+  'new': 3,
+  'contacted': 4,
+  'qualified': 5,
+  'waiting_payment': 6,
+  'payment_pending': 7,
+  'trial': 8,
+  'paid': 9,
+  'payment_confirmed': 10,
+  'processing': 11,
+  'shipped': 12,
+  'delivered': 13,
+  'completed': 14,
+  'trash': 0,
+};
+
 interface Integration {
   id: string;
   organization_id: string;
@@ -121,14 +140,15 @@ interface Integration {
   event_mode: 'lead' | 'sale' | 'both' | 'sac' | null;
   sale_status_on_create: string | null;
   sale_tag: string | null;
-  // SAC fields
   sac_category: string | null;
   sac_subcategory: string | null;
   sac_priority: string | null;
-  // New fields for seller and trigger rules
   default_seller_id: string | null;
   trigger_rules: TriggerRule[] | null;
   trigger_rules_logic: 'AND' | 'OR' | null;
+  // Deduplication
+  dedup_cooldown_minutes: number | null;
+  stage_priority_override: boolean;
 }
 
 /**
