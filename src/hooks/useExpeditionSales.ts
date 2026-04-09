@@ -170,7 +170,10 @@ export function useExpeditionStats(sales: Sale[]) {
     
     switch (sale.status) {
       case 'draft':
-        stats.draft++;
+        // Exclui Retirada (pickup) da contagem de rascunhos - ficam no botão Retirada
+        if (sale.delivery_type !== 'pickup') {
+          stats.draft++;
+        }
         break;
       case 'pending_expedition':
         stats.printed++;
@@ -191,7 +194,8 @@ export function useExpeditionStats(sales: Sale[]) {
         break;
       case 'payment_confirmed':
         // Only count payment_confirmed that haven't been delivered yet
-        if (!(sale as any).delivered_at) {
+        // Exclui Retirada (pickup) da contagem - ficam no botão Retirada
+        if (!(sale as any).delivered_at && sale.delivery_type !== 'pickup') {
           stats.payment_confirmed++;
         }
         break;
