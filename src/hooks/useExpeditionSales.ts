@@ -170,7 +170,10 @@ export function useExpeditionStats(sales: Sale[]) {
     
     switch (sale.status) {
       case 'draft':
-        stats.draft++;
+        // Exclui Retirada (pickup) da contagem de rascunhos - ficam no botão Retirada
+        if (sale.delivery_type !== 'pickup') {
+          stats.draft++;
+        }
         break;
       case 'pending_expedition':
         stats.printed++;
