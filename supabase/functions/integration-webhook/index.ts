@@ -1077,6 +1077,63 @@ Deno.serve(async (req) => {
       existingLead = existing;
     }
 
+    // ============================================================
+    // COOLDOWN DEDUPLICATION: Skip if same lead + same integration recently
+    // ============================================================
+    if (existingLead && typedIntegration.dedup_cooldown_minutes && typedIntegration.dedup_cooldown_minutes > 0) {
+      const cooldownCutoff = new Date(Date.now() - typedIntegration.dedup_cooldown_minutes * 60 * 1000).toISOString();
+      
+      const { data: recentLog } = await supabase
+        .from('integration_logs')
+        .select('id, created_at')
+        .eq('integration_id', typedIntegration.id)
+        .eq('lead_id', existingLead.id)
+        .eq('status', 'success')
+        .gte('created_at', cooldownCutoff)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (recentLog) {
+        console.log(`[DEDUP] Skipping - lead ${existingLead.id} already processed by "${typedIntegration.name}" at ${recentLog.created_at} (cooldown: ${typedIntegration.dedup_cooldown_minutes}min)`);
+        
+        // Log as deduplicated but don't process
+        await supabase.from('integration_logs').insert({
+          integration_id: typedIntegration.id,
+          organization_id: typedIntegration.organization_id,
+          direction: 'inbound',
+          status: 'deduplicated',
+          event_type: 'cooldown_skip',
+          request_payload: payload,
+          lead_id: existingLead.id,
+          error_message: `Ignorado: lead já processado há ${Math.round((Date.now() - new Date(recentLog.created_at).getTime()) / 60000)}min (cooldown: ${typedIntegration.dedup_cooldown_minutes}min)`,
+          processing_time_ms: Date.now() - startTime,
+        });
+
+        // Still save to webhook history for audit
+        await supabase.from('lead_webhook_history').insert({
+          lead_id: existingLead.id,
+          organization_id: typedIntegration.organization_id,
+          integration_id: typedIntegration.id,
+          integration_name: typedIntegration.name,
+          payload: payload,
+          received_at: new Date().toISOString(),
+          processed_successfully: false,
+          error_message: `Deduplicated (cooldown ${typedIntegration.dedup_cooldown_minutes}min)`,
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            action: 'deduplicated',
+            lead_id: existingLead.id,
+            message: `Webhook ignorado: lead já processado recentemente (cooldown ${typedIntegration.dedup_cooldown_minutes}min)`,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     let leadId: string;
     let action: string;
 
@@ -1092,8 +1149,24 @@ Deno.serve(async (req) => {
         webhook_data: payload,
       };
 
-      // Update stage if different (integration event changes the stage)
-      if (newStage && newStage !== previousStage) {
+      // ========== STAGE PRIORITY PROTECTION ==========
+      // Don't allow stage regression unless stage_priority_override is true
+      const shouldUpdateStage = (() => {
+        if (!newStage || newStage === previousStage) return false;
+        if (typedIntegration.stage_priority_override) return true; // Always update if override enabled
+        
+        const prevPriority = STAGE_PRIORITY[previousStage] ?? 1;
+        const newPriority = STAGE_PRIORITY[newStage] ?? 1;
+        
+        if (newPriority < prevPriority) {
+          console.log(`[STAGE PROTECTION] Blocking regression: ${previousStage}(${prevPriority}) -> ${newStage}(${newPriority})`);
+          return false;
+        }
+        return true;
+      })();
+
+      // Update stage if allowed
+      if (shouldUpdateStage) {
         updateData.stage = newStage;
         if (resolvedFunnelStageId) {
           updateData.funnel_stage_id = resolvedFunnelStageId;
