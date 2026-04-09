@@ -157,27 +157,13 @@ export function SaleSelectionCard({
   const handlePaymentConfirm = async (data: PaymentConfirmationData) => {
     setIsSaving(true);
     try {
-      // Look up the category of the primary payment method
-      let resolvedCategory: string | null = null;
-      if (data.payment_method_id) {
-        const { data: methodRow } = await supabase
-          .from('payment_methods')
-          .select('category')
-          .eq('id', data.payment_method_id)
-          .maybeSingle();
-        resolvedCategory = methodRow?.category || null;
-      }
-
-      // Build update payload – always update method; conditionally update total
+      // Build update payload – payment category is derived from payment_methods and
+      // must not be persisted directly on sales.
       const updatePayload: Record<string, unknown> = {
         payment_method_id: data.payment_method_id || null,
         payment_method: data.payment_method_name || 'Não informado',
         modified_at_closing: true,
       };
-
-      if (resolvedCategory) {
-        updatePayload.payment_category = resolvedCategory;
-      }
 
       // If the operator adjusted the total value, persist it
       if (data.adjusted_total_cents != null && data.adjusted_total_cents !== (sale.total_cents || 0)) {
