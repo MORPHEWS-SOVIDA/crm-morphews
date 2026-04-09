@@ -47,6 +47,9 @@ export interface Integration {
   auto_message_text: string | null;
   auto_message_instance_ids: string[];
   auto_message_rotation_enabled: boolean;
+  // Deduplication fields
+  dedup_cooldown_minutes: number | null;
+  stage_priority_override: boolean;
 }
 
 export interface IntegrationFieldMapping {
