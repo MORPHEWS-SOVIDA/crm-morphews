@@ -1058,6 +1058,7 @@ export function IntegrationDetailDialog({
               </Card>
 
 
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Token de Autenticação</CardTitle>
                   <CardDescription>
