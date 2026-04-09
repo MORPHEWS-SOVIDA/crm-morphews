@@ -2350,9 +2350,22 @@ export default function WhatsAppChat() {
               activeTab={statusFilter}
               onTabChange={setStatusFilter}
               counts={statusCounts}
+              showFollowupTab={showFollowupTab}
             />
 
-            {/* Conversations List */}
+            {/* Followup Suggestions List (when tab active) */}
+            {statusFilter === "followup_suggestions" ? (
+              <div className="flex-1 overflow-hidden">
+                <FollowupSuggestionsList
+                  suggestions={followupSuggestions.suggestions}
+                  isLoading={followupSuggestions.isLoading}
+                  onSend={(id, msg) => followupSuggestions.sendFollowup.mutate({ followupId: id, editedMessage: msg })}
+                  onReject={(id) => followupSuggestions.rejectFollowup.mutate(id)}
+                  isSending={followupSuggestions.sendFollowup.isPending}
+                />
+              </div>
+            ) : (
+            /* Conversations List */
             <ScrollArea className="flex-1">
               {filteredConversations.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
@@ -2413,6 +2426,7 @@ export default function WhatsAppChat() {
                 })
               )}
             </ScrollArea>
+            )}
           </div>
 
           {/* Center Column - Chat */}
