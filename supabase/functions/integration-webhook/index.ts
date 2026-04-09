@@ -107,6 +107,25 @@ interface TriggerRule {
   integration_ids?: string[];
 }
 
+// Stage priority map: higher number = more advanced/important stage
+const STAGE_PRIORITY: Record<string, number> = {
+  'cloud': 1,
+  'unclassified': 2,
+  'new': 3,
+  'contacted': 4,
+  'qualified': 5,
+  'waiting_payment': 6,
+  'payment_pending': 7,
+  'trial': 8,
+  'paid': 9,
+  'payment_confirmed': 10,
+  'processing': 11,
+  'shipped': 12,
+  'delivered': 13,
+  'completed': 14,
+  'trash': 0,
+};
+
 interface Integration {
   id: string;
   organization_id: string;
@@ -121,14 +140,15 @@ interface Integration {
   event_mode: 'lead' | 'sale' | 'both' | 'sac' | null;
   sale_status_on_create: string | null;
   sale_tag: string | null;
-  // SAC fields
   sac_category: string | null;
   sac_subcategory: string | null;
   sac_priority: string | null;
-  // New fields for seller and trigger rules
   default_seller_id: string | null;
   trigger_rules: TriggerRule[] | null;
   trigger_rules_logic: 'AND' | 'OR' | null;
+  // Deduplication
+  dedup_cooldown_minutes: number | null;
+  stage_priority_override: boolean;
 }
 
 /**
@@ -1057,6 +1077,63 @@ Deno.serve(async (req) => {
       existingLead = existing;
     }
 
+    // ============================================================
+    // COOLDOWN DEDUPLICATION: Skip if same lead + same integration recently
+    // ============================================================
+    if (existingLead && typedIntegration.dedup_cooldown_minutes && typedIntegration.dedup_cooldown_minutes > 0) {
+      const cooldownCutoff = new Date(Date.now() - typedIntegration.dedup_cooldown_minutes * 60 * 1000).toISOString();
+      
+      const { data: recentLog } = await supabase
+        .from('integration_logs')
+        .select('id, created_at')
+        .eq('integration_id', typedIntegration.id)
+        .eq('lead_id', existingLead.id)
+        .eq('status', 'success')
+        .gte('created_at', cooldownCutoff)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (recentLog) {
+        console.log(`[DEDUP] Skipping - lead ${existingLead.id} already processed by "${typedIntegration.name}" at ${recentLog.created_at} (cooldown: ${typedIntegration.dedup_cooldown_minutes}min)`);
+        
+        // Log as deduplicated but don't process
+        await supabase.from('integration_logs').insert({
+          integration_id: typedIntegration.id,
+          organization_id: typedIntegration.organization_id,
+          direction: 'inbound',
+          status: 'deduplicated',
+          event_type: 'cooldown_skip',
+          request_payload: payload,
+          lead_id: existingLead.id,
+          error_message: `Ignorado: lead já processado há ${Math.round((Date.now() - new Date(recentLog.created_at).getTime()) / 60000)}min (cooldown: ${typedIntegration.dedup_cooldown_minutes}min)`,
+          processing_time_ms: Date.now() - startTime,
+        });
+
+        // Still save to webhook history for audit
+        await supabase.from('lead_webhook_history').insert({
+          lead_id: existingLead.id,
+          organization_id: typedIntegration.organization_id,
+          integration_id: typedIntegration.id,
+          integration_name: typedIntegration.name,
+          payload: payload,
+          received_at: new Date().toISOString(),
+          processed_successfully: false,
+          error_message: `Deduplicated (cooldown ${typedIntegration.dedup_cooldown_minutes}min)`,
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            action: 'deduplicated',
+            lead_id: existingLead.id,
+            message: `Webhook ignorado: lead já processado recentemente (cooldown ${typedIntegration.dedup_cooldown_minutes}min)`,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     let leadId: string;
     let action: string;
 
@@ -1072,8 +1149,24 @@ Deno.serve(async (req) => {
         webhook_data: payload,
       };
 
-      // Update stage if different (integration event changes the stage)
-      if (newStage && newStage !== previousStage) {
+      // ========== STAGE PRIORITY PROTECTION ==========
+      // Don't allow stage regression unless stage_priority_override is true
+      const shouldUpdateStage = (() => {
+        if (!newStage || newStage === previousStage) return false;
+        if (typedIntegration.stage_priority_override) return true; // Always update if override enabled
+        
+        const prevPriority = STAGE_PRIORITY[previousStage] ?? 1;
+        const newPriority = STAGE_PRIORITY[newStage] ?? 1;
+        
+        if (newPriority < prevPriority) {
+          console.log(`[STAGE PROTECTION] Blocking regression: ${previousStage}(${prevPriority}) -> ${newStage}(${newPriority})`);
+          return false;
+        }
+        return true;
+      })();
+
+      // Update stage if allowed
+      if (shouldUpdateStage) {
         updateData.stage = newStage;
         if (resolvedFunnelStageId) {
           updateData.funnel_stage_id = resolvedFunnelStageId;
@@ -1147,7 +1240,7 @@ Deno.serve(async (req) => {
         .eq('id', existingLead.id);
 
       leadId = existingLead.id;
-      action = newStage !== previousStage ? 'stage_changed' : 'updated';
+      action = shouldUpdateStage && newStage !== previousStage ? 'stage_changed' : 'updated';
       console.log(`Updated existing lead: ${leadId}, action: ${action}`);
 
       // Upsert address for existing lead if we have address data
@@ -1586,14 +1679,34 @@ Deno.serve(async (req) => {
             }
 
             if (scheduledMessages.length > 0) {
-              const { error: insertError } = await supabase
+              // DEDUP: Check for existing pending messages for same lead + template
+              const templateIds = scheduledMessages.map(m => m.template_id);
+              const { data: existingMessages } = await supabase
                 .from('lead_scheduled_messages')
-                .insert(scheduledMessages);
+                .select('template_id')
+                .eq('lead_id', leadId)
+                .eq('status', 'pending')
+                .in('template_id', templateIds);
+              
+              const existingTemplateIds = new Set((existingMessages || []).map((m: any) => m.template_id));
+              const newMessages = scheduledMessages.filter(m => !existingTemplateIds.has(m.template_id));
+              
+              if (existingTemplateIds.size > 0) {
+                console.log(`[integration-webhook] Dedup: skipping ${existingTemplateIds.size} already-pending messages`);
+              }
+              
+              if (newMessages.length > 0) {
+                const { error: insertError } = await supabase
+                  .from('lead_scheduled_messages')
+                  .insert(newMessages);
 
-              if (insertError) {
-                console.error('[integration-webhook] Error scheduling messages:', insertError);
+                if (insertError) {
+                  console.error('[integration-webhook] Error scheduling messages:', insertError);
+                } else {
+                  console.log(`[integration-webhook] Scheduled ${newMessages.length} messages (${existingTemplateIds.size} deduped) for lead ${leadId}`);
+                }
               } else {
-                console.log(`[integration-webhook] Successfully scheduled ${scheduledMessages.length} messages for lead ${leadId}`);
+                console.log(`[integration-webhook] All ${scheduledMessages.length} messages already pending for lead ${leadId}`);
               }
             }
           } else {
