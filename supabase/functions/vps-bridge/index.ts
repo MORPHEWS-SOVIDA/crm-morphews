@@ -541,6 +541,11 @@ Deno.serve(async (req) => {
       keys: Object.keys(body),
     }));
 
+    // Support batch format: { batch: true, operations: [...] } → normalize to action: "batch"
+    if (body.batch === true && !body.action) {
+      body.action = "batch";
+    }
+
     const {
       action,
       table,
