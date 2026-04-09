@@ -1679,14 +1679,34 @@ Deno.serve(async (req) => {
             }
 
             if (scheduledMessages.length > 0) {
-              const { error: insertError } = await supabase
+              // DEDUP: Check for existing pending messages for same lead + template
+              const templateIds = scheduledMessages.map(m => m.template_id);
+              const { data: existingMessages } = await supabase
                 .from('lead_scheduled_messages')
-                .insert(scheduledMessages);
+                .select('template_id')
+                .eq('lead_id', leadId)
+                .eq('status', 'pending')
+                .in('template_id', templateIds);
+              
+              const existingTemplateIds = new Set((existingMessages || []).map((m: any) => m.template_id));
+              const newMessages = scheduledMessages.filter(m => !existingTemplateIds.has(m.template_id));
+              
+              if (existingTemplateIds.size > 0) {
+                console.log(`[integration-webhook] Dedup: skipping ${existingTemplateIds.size} already-pending messages`);
+              }
+              
+              if (newMessages.length > 0) {
+                const { error: insertError } = await supabase
+                  .from('lead_scheduled_messages')
+                  .insert(newMessages);
 
-              if (insertError) {
-                console.error('[integration-webhook] Error scheduling messages:', insertError);
+                if (insertError) {
+                  console.error('[integration-webhook] Error scheduling messages:', insertError);
+                } else {
+                  console.log(`[integration-webhook] Scheduled ${newMessages.length} messages (${existingTemplateIds.size} deduped) for lead ${leadId}`);
+                }
               } else {
-                console.log(`[integration-webhook] Successfully scheduled ${scheduledMessages.length} messages for lead ${leadId}`);
+                console.log(`[integration-webhook] All ${scheduledMessages.length} messages already pending for lead ${leadId}`);
               }
             }
           } else {
