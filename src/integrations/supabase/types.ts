@@ -23456,6 +23456,16 @@ export type Database = {
           nfse_environment: string
         }[]
       }
+      get_inactive_leads_for_followup: {
+        Args: {
+          p_cooldown_hours?: number
+          p_inactive_hours?: number
+          p_max_per_lead?: number
+          p_max_results?: number
+          p_organization_id: string
+        }
+        Returns: Json
+      }
       get_instance_credentials: {
         Args: { p_instance_id: string }
         Returns: {
