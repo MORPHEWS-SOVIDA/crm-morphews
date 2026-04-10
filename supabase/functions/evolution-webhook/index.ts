@@ -1438,8 +1438,9 @@ serve(async (req) => {
           console.log("📸 Updating contact profile picture");
         }
 
-        // Update contact name from pushName if not already set
-        if (pushName && !isGroup) {
+        // Update contact name from pushName ONLY if not already set
+        // This prevents overwriting manually edited names with WhatsApp profile names
+        if (pushName && !isGroup && !conversation.contact_name) {
           updateData.contact_name = pushName;
           updateData.display_name = pushName;
         }
