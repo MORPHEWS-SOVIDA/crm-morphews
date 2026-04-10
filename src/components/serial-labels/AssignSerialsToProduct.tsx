@@ -50,11 +50,37 @@ export function AssignSerialsToProduct() {
   const handleAssign = async () => {
     if (!selectedProductId || !selectedProduct || start <= 0 || end <= 0 || end < start) {
       toast.error('Preencha todos os campos corretamente');
+      if (orgId) {
+        logSerialAction({
+          organization_id: orgId,
+          action: 'assign_product',
+          user_id: user?.id,
+          success: false,
+          error_message: 'Campos inválidos ou incompletos',
+          details: {
+            prefix,
+            range_start: rangeStart,
+            range_end: rangeEnd,
+            product_id: selectedProductId || null,
+            product_name: selectedProduct?.name || null,
+          },
+        });
+      }
       return;
     }
 
     if (quantity > 5000) {
       toast.error('Máximo de 5.000 etiquetas por associação');
+      if (orgId) {
+        logSerialAction({
+          organization_id: orgId,
+          action: 'assign_product',
+          user_id: user?.id,
+          success: false,
+          error_message: `Quantidade excede o limite: ${quantity}`,
+          details: { prefix, range_start: start, range_end: end, count: quantity },
+        });
+      }
       return;
     }
 
