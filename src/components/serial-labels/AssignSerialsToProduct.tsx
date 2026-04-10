@@ -86,8 +86,51 @@ export function AssignSerialsToProduct() {
 
     try {
       const batchLabel = `${prefix}${String(start).padStart(5, '0')} → ${prefix}${String(end).padStart(5, '0')}`;
+
+      // 0. Validate that labels exist in the pool
+      const codesToCheck: string[] = [];
+      // Check first, last, and a few samples
+      const samplesToCheck = [start, end];
+      if (quantity > 2) samplesToCheck.push(Math.floor((start + end) / 2));
+      for (const n of samplesToCheck) {
+        codesToCheck.push(`${prefix}${String(n).padStart(5, '0')}`);
+      }
+
+      const { data: existingLabels, error: checkError } = await supabase
+        .from('product_serial_labels')
+        .select('serial_code')
+        .eq('organization_id', orgId!)
+        .in('serial_code', codesToCheck);
+
+      if (checkError) throw checkError;
+
+      const existingCodes = new Set((existingLabels || []).map((l: any) => l.serial_code));
+      const missingCodes = codesToCheck.filter(c => !existingCodes.has(c));
+
+      if (missingCodes.length > 0) {
+        const errorMsg = `Etiquetas não encontradas no sistema: ${missingCodes.join(', ')}. Verifique o prefixo e a faixa numérica.`;
+        toast.error(errorMsg);
+        if (orgId) {
+          logSerialAction({
+            organization_id: orgId,
+            action: 'assign_product',
+            user_id: user?.id,
+            success: false,
+            error_message: errorMsg,
+            details: {
+              prefix,
+              range_start: start,
+              range_end: end,
+              count: quantity,
+              product_name: selectedProduct.name,
+              missing_codes: missingCodes,
+            },
+          });
+        }
+        return;
+      }
       
-      // 1. Assign serial labels to product
+      // 1. Assign serial labels to product (update existing only)
       await assignMutation.mutateAsync({
         productId: selectedProductId,
         productName: selectedProduct.name,
