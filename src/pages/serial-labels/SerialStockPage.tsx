@@ -69,13 +69,13 @@ export default function SerialStockPage() {
       const groups = new Map<string, StockGroup>();
 
       for (const label of labels as any[]) {
-        const key = `${label.product_id}__${label.stocked_by || 'unknown'}`;
+        const labelPrefix = label.serial_code.replace(/\d+$/, '');
+        const key = `${label.product_id}__${label.stocked_by || 'unknown'}__${labelPrefix}`;
         if (!groups.has(key)) {
-          const prefix = label.serial_code.replace(/\d+$/, '');
           groups.set(key, {
             product_id: label.product_id,
             product_name: productMap.get(label.product_id) || 'Produto desconhecido',
-            prefix,
+            prefix: labelPrefix,
             min_code: label.serial_code,
             max_code: label.serial_code,
             total: 0,
