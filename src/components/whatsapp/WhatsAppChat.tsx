@@ -464,7 +464,9 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       return messagesWithSender as Message[];
     },
     enabled: !!activeConversation?.id,
+    placeholderData: (prev) => prev, // Keep previous messages while loading new conversation
     refetchInterval: 60000, // Poll every 60 seconds (realtime handles instant updates)
+    staleTime: 30000, // Consider data fresh for 30 seconds to avoid refetch on tab switch
   });
 
   // Real-time subscription for new messages - throttled conversation list invalidation
