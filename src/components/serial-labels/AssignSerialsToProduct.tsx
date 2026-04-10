@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 import { useAssignSerialsToProduct } from '@/hooks/useSerialLabels';
 import { useCreateStockMovement } from '@/hooks/useStock';
+import { useAuth } from '@/hooks/useAuth';
+import { logSerialAction } from '@/hooks/useSerialLabelLogs';
 import { Package, Tag, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
