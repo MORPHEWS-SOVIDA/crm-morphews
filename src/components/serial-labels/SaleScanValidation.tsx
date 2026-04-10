@@ -187,7 +187,7 @@ export function SaleScanValidation({
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
       }
     }
-  }, [orgId, assignedSerials, saleItems, mode, saleId, assignMutation, progressByProduct, refetchSerials]);
+  }, [orgId, assignedSerials, serialItems, mode, saleId, assignMutation, progressByProduct, refetchSerials]);
 
   const handleManualSubmit = () => {
     if (manualCode.trim()) {
