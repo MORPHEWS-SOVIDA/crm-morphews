@@ -54,39 +54,41 @@ export function useAssignSerialsToProduct() {
       if (!orgId) throw new Error('Organização não encontrada');
       
       const now = new Date().toISOString();
-      const records: any[] = [];
+      const codes: string[] = [];
       
       for (let i = serialStart; i <= serialEnd; i++) {
-        records.push({
-          organization_id: orgId,
-          serial_code: `${prefix}${String(i).padStart(5, '0')}`,
-          product_id: productId,
-          product_name: productName,
-          status: 'in_stock',
-          stocked_at: now,
-          stocked_by: user?.id,
-        });
+        codes.push(`${prefix}${String(i).padStart(5, '0')}`);
       }
 
-      // Upsert in batches — creates if not exists, updates if exists
+      // Update existing labels only — never create new ones
       const BATCH_SIZE = 200;
       let total = 0;
 
-      for (let i = 0; i < records.length; i += BATCH_SIZE) {
-        const batch = records.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < codes.length; i += BATCH_SIZE) {
+        const batch = codes.slice(i, i + BATCH_SIZE);
         
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('product_serial_labels')
-          .upsert(batch, { 
-            onConflict: 'organization_id,serial_code',
-            ignoreDuplicates: false 
-          });
+          .update({
+            product_id: productId,
+            product_name: productName,
+            status: 'in_stock' as any,
+            stocked_at: now,
+            stocked_by: user?.id,
+          })
+          .eq('organization_id', orgId)
+          .in('serial_code', batch)
+          .select('id');
 
         if (error) throw error;
-        total += batch.length;
+        total += data?.length || 0;
       }
 
-      return { updated: total, codes: records.map(r => r.serial_code) };
+      if (total === 0) {
+        throw new Error(`Nenhuma etiqueta encontrada com prefixo ${prefix} na faixa ${serialStart}-${serialEnd}`);
+      }
+
+      return { updated: total, codes };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['serial-labels'] });
