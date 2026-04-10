@@ -24,7 +24,7 @@ interface LeadSidebarEnrichmentsProps {
 interface SaleItem {
   id: string;
   created_at: string;
-  total_value_cents: number;
+  total_cents: number;
   status: string;
 }
 
@@ -69,7 +69,7 @@ export function LeadSidebarEnrichments({
       const [salesRes, briefingRes] = await Promise.all([
         supabase
           .from('sales')
-          .select('id, created_at, total_value_cents, status')
+          .select('id, created_at, total_cents, status')
           .eq('lead_id', leadId)
           .order('created_at', { ascending: false })
           .limit(5),
@@ -244,7 +244,7 @@ export function LeadSidebarEnrichments({
                 >
                   <div>
                     <span className="font-medium">
-                      R$ {(sale.total_value_cents / 100).toFixed(2)}
+                      R$ {(sale.total_cents / 100).toFixed(2)}
                     </span>
                     <span className="text-muted-foreground ml-1.5">
                       {format(new Date(sale.created_at), "dd/MM/yy")}
