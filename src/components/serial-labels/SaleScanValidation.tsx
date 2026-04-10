@@ -289,39 +289,41 @@ export function SaleScanValidation({
         </CardContent>
       </Card>
 
-      {/* Scanner */}
-      <Card>
-        <CardContent className="pt-4 space-y-3">
-          <QRScanner
-            onScan={handleScan}
-            scanning={scanning}
-          />
-
-          {!scanning ? (
-            <Button className="w-full" onClick={() => setScanning(true)} disabled={isComplete}>
-              <ScanLine className="h-4 w-4 mr-2" /> 
-              {isComplete ? 'Todos os itens escaneados!' : 'Iniciar Scanner'}
-            </Button>
-          ) : (
-            <Button variant="outline" className="w-full" onClick={() => setScanning(false)}>
-              Parar Scanner
-            </Button>
-          )}
-
-          {/* Manual input */}
-          <div className="flex gap-2">
-            <Input
-              placeholder="Digitar código manual..."
-              value={manualCode}
-              onChange={e => setManualCode(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
+      {/* Scanner - only show if there are serial items to scan */}
+      {serialItems.length > 0 && (
+        <Card>
+          <CardContent className="pt-4 space-y-3">
+            <QRScanner
+              onScan={handleScan}
+              scanning={scanning}
             />
-            <Button variant="outline" onClick={handleManualSubmit}>
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+
+            {!scanning ? (
+              <Button className="w-full" onClick={() => setScanning(true)} disabled={isComplete}>
+                <ScanLine className="h-4 w-4 mr-2" /> 
+                {isComplete ? 'Todos os itens conferidos!' : 'Iniciar Scanner'}
+              </Button>
+            ) : (
+              <Button variant="outline" className="w-full" onClick={() => setScanning(false)}>
+                Parar Scanner
+              </Button>
+            )}
+
+            {/* Manual input */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Digitar código manual..."
+                value={manualCode}
+                onChange={e => setManualCode(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
+              />
+              <Button variant="outline" onClick={handleManualSubmit}>
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Scan results log */}
       {scanResults.length > 0 && (
