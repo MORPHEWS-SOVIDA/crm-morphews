@@ -33,6 +33,7 @@ serve(async (req) => {
   }
 
   try {
+    console.log(`🔑 SUPABASE_URL present: ${!!SUPABASE_URL}, SERVICE_ROLE_KEY present: ${!!SUPABASE_SERVICE_ROLE_KEY}, KEY length: ${SUPABASE_SERVICE_ROLE_KEY.length}`);
     const body = await req.json();
     const { action } = body;
 
