@@ -614,19 +614,30 @@ serve(async (req) => {
         );
       }
 
-      // Enriquecer com dados do lead
+      // Enriquecer com dados do lead (incluindo funnel_stage_id para filtro)
       const leadIds = [...new Set((followups || []).map((f: any) => f.lead_id).filter(Boolean))];
       let leadsMap: Record<string, any> = {};
 
       if (leadIds.length > 0) {
         const { data: leads, error: leadsErr } = await supabase
           .from("leads")
-          .select("id, name, whatsapp")
+          .select("id, name, whatsapp, funnel_stage_id")
           .in("id", leadIds);
         if (leadsErr) console.error("❌ Error fetching leads:", JSON.stringify(leadsErr));
         for (const lead of leads || []) {
           leadsMap[lead.id] = lead;
         }
+      }
+
+      // Buscar config para excluded_stage_ids
+      let excludedStageIds: string[] = [];
+      const { data: orgData } = await supabase
+        .from("organizations")
+        .select("ai_followup_config")
+        .eq("id", organizationId)
+        .single();
+      if (orgData?.ai_followup_config) {
+        excludedStageIds = (orgData.ai_followup_config as any)?.excluded_stage_ids || [];
       }
 
       // Enriquecer com dados da conversa
@@ -643,11 +654,22 @@ serve(async (req) => {
         }
       }
 
-      const enriched = (followups || []).map((f: any) => ({
-        ...f,
-        lead: leadsMap[f.lead_id] || null,
-        conversation: convsMap[f.conversation_id] || null,
-      }));
+      const enriched = (followups || [])
+        .filter((f: any) => {
+          // Filter out leads in excluded funnel stages
+          if (excludedStageIds.length > 0) {
+            const lead = leadsMap[f.lead_id];
+            if (lead?.funnel_stage_id && excludedStageIds.includes(lead.funnel_stage_id)) {
+              return false;
+            }
+          }
+          return true;
+        })
+        .map((f: any) => ({
+          ...f,
+          lead: leadsMap[f.lead_id] || null,
+          conversation: convsMap[f.conversation_id] || null,
+        }));
 
       return new Response(
         JSON.stringify({ success: true, followups: enriched }),

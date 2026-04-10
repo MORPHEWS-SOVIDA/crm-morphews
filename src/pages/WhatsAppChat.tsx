@@ -2359,11 +2359,33 @@ export default function WhatsAppChat() {
                 <FollowupSuggestionsList
                   suggestions={followupSuggestions.suggestions}
                   isLoading={followupSuggestions.isLoading}
-                  onSend={(id, msg) => followupSuggestions.sendFollowup.mutate({ followupId: id, editedMessage: msg })}
+                  onSend={(id, msg) => {
+                    const suggestion = followupSuggestions.suggestions.find(s => s.id === id);
+                    followupSuggestions.sendFollowup.mutate(
+                      { followupId: id, editedMessage: msg },
+                      {
+                        onSuccess: () => {
+                          // After sending, navigate to the conversation so user can see it
+                          if (suggestion) {
+                            const phone = suggestion.lead?.whatsapp || suggestion.conversation?.contact_phone || '';
+                            const normalizedPhone = phone.replace(/\D/g, '');
+                            const match = conversations.find(c => {
+                              const cPhone = (c.phone_number || '').replace(/\D/g, '');
+                              return cPhone === normalizedPhone || cPhone.endsWith(normalizedPhone.slice(-11)) || normalizedPhone.endsWith(cPhone.slice(-11));
+                            });
+                            if (match) {
+                              setSelectedConversation(match);
+                              setStatusFilter('autodistributed' as any);
+                            }
+                          }
+                        }
+                      }
+                    );
+                  }}
                   onReject={(id) => followupSuggestions.rejectFollowup.mutate(id)}
                   isSending={followupSuggestions.sendFollowup.isPending}
                   onSelectConversation={(leadId, phone) => {
-                    // Find conversation by phone number
+                    // Find conversation by phone - keep on suggestions tab, just show conversation in main panel
                     const normalizedPhone = phone.replace(/\D/g, '');
                     const match = conversations.find(c => {
                       const cPhone = (c.phone_number || '').replace(/\D/g, '');
@@ -2371,7 +2393,7 @@ export default function WhatsAppChat() {
                     });
                     if (match) {
                       setSelectedConversation(match);
-                      setStatusFilter('all' as any);
+                      // Stay on suggestions tab so user can review and then send/reject
                     } else {
                       toast.info(`Conversa não encontrada para ${phone}. O lead pode não ter uma conversa ativa.`);
                     }

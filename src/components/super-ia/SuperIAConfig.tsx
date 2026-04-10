@@ -4,7 +4,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useFollowupConfig, useUpdateFollowupConfig } from "@/hooks/useSuperIA";
+import { useFunnelStages } from "@/hooks/useFunnelStages";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Save, Loader2 } from "lucide-react";
 
@@ -15,6 +18,8 @@ interface Props {
 export function SuperIAConfig({ organizationId }: Props) {
   const { data: config, isLoading } = useFollowupConfig(organizationId);
   const updateConfig = useUpdateFollowupConfig();
+  const { profile } = useAuth();
+  const { data: stages } = useFunnelStages();
   const [localConfig, setLocalConfig] = useState<any>(null);
 
   useEffect(() => {
@@ -42,6 +47,18 @@ export function SuperIAConfig({ organizationId }: Props) {
       ...prev,
       triggers: { ...prev.triggers, [key]: value },
     }));
+  };
+
+  const excludedStages: string[] = localConfig.excluded_stage_ids || [];
+  
+  const toggleStageExclusion = (stageId: string) => {
+    setLocalConfig((prev: any) => {
+      const current: string[] = prev.excluded_stage_ids || [];
+      const updated = current.includes(stageId)
+        ? current.filter((id: string) => id !== stageId)
+        : [...current, stageId];
+      return { ...prev, excluded_stage_ids: updated };
+    });
   };
 
   return (
@@ -190,6 +207,36 @@ export function SuperIAConfig({ organizationId }: Props) {
               />
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      {/* Etapas excluídas */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Etapas Excluídas do Follow-up</CardTitle>
+          <CardDescription>
+            Leads nestas etapas do funil NÃO receberão follow-up automático
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {stages && stages.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
+              {stages.map((stage: any) => (
+                <label
+                  key={stage.id}
+                  className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+                >
+                  <Checkbox
+                    checked={excludedStages.includes(stage.id)}
+                    onCheckedChange={() => toggleStageExclusion(stage.id)}
+                  />
+                  <span className="text-sm">{stage.name}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nenhuma etapa do funil configurada</p>
+          )}
         </CardContent>
       </Card>
 
