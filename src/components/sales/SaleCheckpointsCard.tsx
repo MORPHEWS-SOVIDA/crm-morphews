@@ -452,18 +452,17 @@ export function SaleCheckpointsCard({
           size="sm"
           className="mt-2 w-full"
           onClick={() => {
-            // TODO: Quando etiquetas estiverem prontas, ativar scanner:
-            // if (saleItems && saleItems.length > 0) {
-            //   setShowScannerDialog(true);
-            // } else {
-            //   setShowExpeditionDialog(true);
-            // }
-            setShowExpeditionDialog(true);
+            // Se tem itens, exige scan de etiquetas seriais
+            if (saleItems && saleItems.length > 0) {
+              setShowScannerDialog(true);
+            } else {
+              setShowExpeditionDialog(true);
+            }
           }}
           disabled={toggleMutation.isPending}
         >
           <CheckCircle2 className="w-4 h-4 mr-2" />
-          Validar Expedição
+          {saleItems && saleItems.length > 0 ? 'Escanear e Validar' : 'Validar Expedição'}
         </Button>
       );
     }
