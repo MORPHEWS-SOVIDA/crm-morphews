@@ -73,7 +73,7 @@ const initialData: WizardData = {
   mission: "",
   name: "",
   gender: "Neutro",
-  tone: "Casual",
+  tone: "Formal",
   useEmojis: true,
   presentName: true,
   companyName: "",
@@ -85,7 +85,7 @@ const initialData: WizardData = {
   neverDo: "",
   transferReasons: [],
   generatedPrompt: "",
-  maxMessages: 30,
+  maxMessages: 10,
   audioEnabled: true,
   imageEnabled: false,
   fileEnabled: false,
@@ -302,6 +302,11 @@ export function AgentWizard({ open, onOpenChange, organizationId }: AgentWizardP
                 <Textarea placeholder="Ex: Nunca inventar preços, nunca prometer entrega em prazo específico" value={data.neverDo} onChange={e => setData(prev => ({ ...prev, neverDo: e.target.value }))} rows={3} />
               </div>
               <div className="space-y-2">
+                <Label>Máximo de mensagens antes de transferir</Label>
+                <Input type="number" min={1} max={100} value={data.maxMessages} onChange={e => setData(prev => ({ ...prev, maxMessages: Number(e.target.value) }))} />
+                <p className="text-xs text-muted-foreground">Após esse limite, o agente transfere para atendente humano.</p>
+              </div>
+              <div className="space-y-2">
                 <Label>Quando transferir para humano?</Label>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {TRANSFER_OPTIONS.map(opt => (
@@ -360,16 +365,12 @@ export function AgentWizard({ open, onOpenChange, organizationId }: AgentWizardP
 
                 <Separator />
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Limite de Mensagens</Label>
-                    <Input type="number" min={1} max={100} value={data.maxMessages} onChange={e => setData(prev => ({ ...prev, maxMessages: Number(e.target.value) }))} />
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3 col-span-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
                     <div className="flex items-center gap-2"><Mic className="h-4 w-4 text-primary" /><Label className="text-sm">Áudio</Label></div>
                     <Switch checked={data.audioEnabled} onCheckedChange={v => setData(prev => ({ ...prev, audioEnabled: v }))} />
                   </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3 col-span-1">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
                     <div className="flex items-center gap-2"><Image className="h-4 w-4 text-primary" /><Label className="text-sm">Imagem</Label></div>
                     <Switch checked={data.imageEnabled} onCheckedChange={v => setData(prev => ({ ...prev, imageEnabled: v }))} />
                   </div>
