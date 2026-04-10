@@ -19,6 +19,7 @@ interface SaleItem {
   product_id: string;
   product_name: string;
   quantity: number;
+  requisition_number?: string | null;
 }
 
 interface ScanResult {
