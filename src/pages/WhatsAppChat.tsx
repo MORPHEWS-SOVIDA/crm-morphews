@@ -3124,6 +3124,7 @@ export default function WhatsAppChat() {
                       {/* Abre em nova aba */}
                       <Button
                         variant="outline"
+                        size="sm"
                         className="w-full"
                         onClick={() =>
                           window.open(`/leads/${lead.id}`, "_blank")
@@ -3132,6 +3133,21 @@ export default function WhatsAppChat() {
                         <ExternalLink className="h-4 w-4 mr-2" />
                         Ver Lead Completo
                       </Button>
+
+                      <Separator />
+
+                      {/* Enrichments: observações, compras, briefing, inatividade */}
+                      <LeadSidebarEnrichments
+                        leadId={lead.id}
+                        observations={lead.observations || null}
+                        updatedAt={lead.updated_at || null}
+                        lastMessageAt={selectedConversation?.last_message_at || null}
+                        onObservationsUpdated={(obs) =>
+                          setLead((prev) =>
+                            prev ? { ...prev, observations: obs } : null
+                          )
+                        }
+                      />
                     </div>
                   ) : (
                     <div className="text-center py-8">
