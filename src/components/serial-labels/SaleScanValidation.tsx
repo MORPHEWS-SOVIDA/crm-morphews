@@ -137,8 +137,8 @@ export function SaleScanValidation({
           return;
         }
 
-        // Check if product matches any sale item
-        const matchingItem = saleItems.find(item => item.product_id === label.product_id);
+        // Check if product matches any serial sale item (not manipulados)
+        const matchingItem = serialItems.find(item => item.product_id === label.product_id);
         if (!matchingItem) {
           const productName = (label.lead_products as any)?.name || label.product_name || 'Desconhecido';
           setScanResults(prev => [{
