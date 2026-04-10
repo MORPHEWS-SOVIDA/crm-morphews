@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 import { useAssignSerialsToProduct } from '@/hooks/useSerialLabels';
 import { useCreateStockMovement } from '@/hooks/useStock';
+import { useAuth } from '@/hooks/useAuth';
+import { logSerialAction } from '@/hooks/useSerialLabelLogs';
 import { Package, Tag, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -20,6 +22,7 @@ export function AssignSerialsToProduct() {
   const [rangeEnd, setRangeEnd] = useState('');
   const [lastResult, setLastResult] = useState<{ count: number; product: string } | null>(null);
 
+  const { user } = useAuth();
   const assignMutation = useAssignSerialsToProduct();
   const stockMutation = useCreateStockMovement();
 
@@ -56,6 +59,8 @@ export function AssignSerialsToProduct() {
     }
 
     try {
+      const batchLabel = `${prefix}${String(start).padStart(5, '0')} → ${prefix}${String(end).padStart(5, '0')}`;
+      
       // 1. Assign serial labels to product
       await assignMutation.mutateAsync({
         productId: selectedProductId,
@@ -73,11 +78,46 @@ export function AssignSerialsToProduct() {
         notes: `Entrada via serialização: ${prefix}${String(start).padStart(5, '0')} a ${prefix}${String(end).padStart(5, '0')}`,
       });
 
+      // 3. Log success
+      if (orgId) {
+        logSerialAction({
+          organization_id: orgId,
+          action: 'assign_product',
+          user_id: user?.id,
+          success: true,
+          details: {
+            product_id: selectedProductId,
+            product_name: selectedProduct.name,
+            prefix,
+            range_start: start,
+            range_end: end,
+            count: quantity,
+            batch_label: batchLabel,
+          },
+        });
+      }
+
       setLastResult({ count: quantity, product: selectedProduct.name });
       setRangeStart('');
       setRangeEnd('');
-    } catch (err) {
-      // Error already handled by mutations
+    } catch (err: any) {
+      // Log error
+      if (orgId) {
+        logSerialAction({
+          organization_id: orgId,
+          action: 'assign_product',
+          user_id: user?.id,
+          success: false,
+          error_message: err?.message || 'Erro ao associar etiquetas',
+          details: {
+            product_id: selectedProductId,
+            prefix,
+            range_start: start,
+            range_end: end,
+            count: quantity,
+          },
+        });
+      }
     }
   };
 
