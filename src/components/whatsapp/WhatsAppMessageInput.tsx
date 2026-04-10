@@ -8,6 +8,7 @@ interface WhatsAppMessageInputProps {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
+  onImagePaste?: (file: File) => void;
   disabled?: boolean;
   placeholder?: string;
   isMobile?: boolean;
