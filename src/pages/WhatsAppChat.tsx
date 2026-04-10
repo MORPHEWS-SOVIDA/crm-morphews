@@ -44,6 +44,8 @@ import {
   Mail,
   Copy,
   Trash2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useFunnelStages } from "@/hooks/useFunnelStages";
 import { useUsers } from "@/hooks/useUsers";
