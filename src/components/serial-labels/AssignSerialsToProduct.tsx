@@ -23,6 +23,7 @@ export function AssignSerialsToProduct() {
   const [lastResult, setLastResult] = useState<{ count: number; product: string } | null>(null);
 
   const { user } = useAuth();
+  const assignMutation = useAssignSerialsToProduct();
   const stockMutation = useCreateStockMovement();
 
   const { data: products = [] } = useQuery({
