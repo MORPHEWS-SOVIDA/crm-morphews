@@ -224,7 +224,7 @@ serve(async (req) => {
         );
       }
 
-      // Buscar config da org
+      // Buscar config da org via RPC (bypassa RLS)
       const { data: org } = await supabase
         .from("organizations")
         .select("ai_followup_config")
@@ -243,81 +243,36 @@ serve(async (req) => {
       const maxPerLead = config.max_followups_per_lead || 3;
       const cooldownHours = config.cooldown_hours || 24;
 
-      // Buscar conversas com última mensagem inbound (cliente) sem resposta
-      // ou última mensagem outbound (agente) sem resposta do cliente
-      const cutoffTime = new Date(
-        Date.now() - hours * 60 * 60 * 1000
-      ).toISOString();
-      const cooldownTime = new Date(
-        Date.now() - cooldownHours * 60 * 60 * 1000
-      ).toISOString();
-
-      // Conversas ativas com mensagem recente do lead
-      console.log(`🔍 Querying conversations: org=${organizationId}, cutoff=${cutoffTime}, cooldown=${cooldownTime}, hours=${hours}`);
+      // Usar RPC com SECURITY DEFINER para bypasassar RLS
+      console.log(`🔍 Calling get_inactive_leads_for_followup: org=${organizationId}, hours=${hours}, cooldown=${cooldownHours}, maxPerLead=${maxPerLead}`);
       
-      const { data: conversations, error: convError } = await supabase
-        .from("whatsapp_conversations")
-        .select(`
-          id, lead_id, contact_name, contact_phone, instance_id,
-          last_message_at, status
-        `)
-        .eq("organization_id", organizationId)
-        .in("status", ["open", "with_bot"])
-        .lt("last_message_at", cutoffTime)
-        .order("last_message_at", { ascending: true })
-        .limit(maxResults * 2);
-      
-      if (convError) {
-        console.error(`❌ Conversations query error:`, JSON.stringify(convError));
-      }
-      console.log(`📊 Found ${conversations?.length || 0} candidate conversations`);
+      const { data: eligibleLeads, error: rpcError } = await supabase.rpc(
+        "get_inactive_leads_for_followup",
+        {
+          p_organization_id: organizationId,
+          p_inactive_hours: hours,
+          p_cooldown_hours: cooldownHours,
+          p_max_per_lead: maxPerLead,
+          p_max_results: maxResults,
+        }
+      );
 
-      if (!conversations || conversations.length === 0) {
+      if (rpcError) {
+        console.error(`❌ RPC error:`, JSON.stringify(rpcError));
         return new Response(
-          JSON.stringify({ success: true, leads: [] }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: rpcError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Filtrar leads que já receberam follow-up recente
-      const leadIds = conversations
-        .map((c: any) => c.lead_id)
-        .filter(Boolean);
+      const leads = eligibleLeads || [];
+      console.log(`🔍 Found ${leads.length} eligible inactive leads for org ${organizationId}`);
 
-      const { data: recentFollowups } = await supabase
-        .from("ai_followup_queue")
-        .select("lead_id, created_at")
-        .in("lead_id", leadIds)
-        .in("status", ["sent", "sending", "ready", "pending"])
-        .gte("created_at", cooldownTime);
-
-      const recentFollowupLeads = new Set(
-        (recentFollowups || []).map((f: any) => f.lead_id)
+      return new Response(
+        JSON.stringify({ success: true, leads, config }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-
-      // Contar follow-ups totais por lead
-      const { data: followupCounts } = await supabase
-        .from("ai_followup_queue")
-        .select("lead_id")
-        .in("lead_id", leadIds)
-        .eq("status", "sent");
-
-      const countMap: Record<string, number> = {};
-      for (const f of followupCounts || []) {
-        countMap[f.lead_id] = (countMap[f.lead_id] || 0) + 1;
-      }
-
-      // Filtrar e retornar leads elegíveis
-      const eligibleLeads = conversations
-        .filter((c: any) => {
-          if (!c.lead_id) return false;
-          if (recentFollowupLeads.has(c.lead_id)) return false;
-          if ((countMap[c.lead_id] || 0) >= maxPerLead) return false;
-          return true;
-        })
-        .slice(0, maxResults);
-
-      console.log(
+    }
         `🔍 Found ${eligibleLeads.length} inactive leads (of ${conversations.length} candidates) for org ${organizationId}`
       );
 
