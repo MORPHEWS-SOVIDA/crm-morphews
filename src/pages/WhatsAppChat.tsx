@@ -62,6 +62,7 @@ import type { QuickMessage } from "@/hooks/useQuickMessages";
 import { ConversationItem } from "@/components/whatsapp/ConversationItem";
 import { ConversationStatusTabs } from "@/components/whatsapp/ConversationStatusTabs";
 import { FollowupSuggestionsList } from "@/components/whatsapp/FollowupSuggestionsList";
+import { LeadSidebarEnrichments } from "@/components/whatsapp/LeadSidebarEnrichments";
 import { useFollowupSuggestions } from "@/hooks/useFollowupSuggestions";
 import { ConversationTransferDialog } from "@/components/whatsapp/ConversationTransferDialog";
 import { LeadSearchDialog } from "@/components/whatsapp/LeadSearchDialog";
@@ -159,6 +160,8 @@ interface Lead {
   funnel_stage_id?: string | null;
   source?: string | null;
   needs_name_update?: boolean;
+  observations?: string | null;
+  updated_at?: string | null;
 }
 
 interface Instance {
@@ -2786,40 +2789,43 @@ export default function WhatsAppChat() {
                   }
 
                   return (
-                    <div className="p-3 border-t border-border bg-card">
-                      <div className="flex items-center gap-2">
-                        <EmojiPicker onEmojiSelect={handleEmojiSelect} />
-                        <ImageUpload
-                          onImageSelect={handleImageSelect}
-                          isUploading={false}
-                          selectedImage={null}
-                          onClear={clearSelectedImage}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => documentInputRef.current?.click()}
-                          className="inline-flex items-center justify-center rounded-md h-9 w-9 border border-border bg-background hover:bg-accent"
-                          title="Enviar documento"
-                        >
-                          <FileText className="h-4 w-4" />
-                        </button>
-                        <input
-                          ref={documentInputRef}
-                          type="file"
-                          className="hidden"
-                          accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
-                          onChange={handleDocumentSelect}
-                        />
-                        <AudioRecorder
-                          onAudioReady={handleAudioReady}
-                          isRecording={isRecordingAudio}
-                          setIsRecording={setIsRecordingAudio}
-                        />
-                        <QuickMessagesPicker
-                          onSelectText={handleQuickMessageText}
-                          onSelectMedia={handleQuickMessageMedia}
-                          disabled={isSending || isRecordingAudio}
-                        />
+                    <div className="p-2 border-t border-border bg-card">
+                      <div className="flex items-end gap-1.5">
+                        {/* Toolbar vertical */}
+                        <div className="flex flex-col gap-0.5 flex-shrink-0">
+                          <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+                          <ImageUpload
+                            onImageSelect={handleImageSelect}
+                            isUploading={false}
+                            selectedImage={null}
+                            onClear={clearSelectedImage}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => documentInputRef.current?.click()}
+                            className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent"
+                            title="Enviar documento"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </button>
+                          <input
+                            ref={documentInputRef}
+                            type="file"
+                            className="hidden"
+                            accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv"
+                            onChange={handleDocumentSelect}
+                          />
+                          <AudioRecorder
+                            onAudioReady={handleAudioReady}
+                            isRecording={isRecordingAudio}
+                            setIsRecording={setIsRecordingAudio}
+                          />
+                          <QuickMessagesPicker
+                            onSelectText={handleQuickMessageText}
+                            onSelectMedia={handleQuickMessageMedia}
+                            disabled={isSending || isRecordingAudio}
+                          />
+                        </div>
                         <Textarea
                           ref={inputRef}
                           placeholder="Digite sua mensagem..."
@@ -2827,7 +2833,7 @@ export default function WhatsAppChat() {
                           onChange={(e) => setNewMessage(e.target.value)}
                           onKeyDown={handleComposerKeyDown}
                           disabled={isSending || isRecordingAudio}
-                          className="flex-1 min-h-[96px] max-h-[220px] resize-none bg-background leading-relaxed"
+                          className="flex-1 min-h-[88px] max-h-[200px] resize-none rounded-2xl text-sm leading-relaxed"
                         />
                         <Button
                           onClick={sendMessage}
@@ -2840,9 +2846,18 @@ export default function WhatsAppChat() {
                               !pendingDocument)
                           }
                           size="icon"
-                          className="bg-green-600 hover:bg-green-700 h-9 w-9"
+                          className={cn(
+                            "rounded-full h-10 w-10 flex-shrink-0 transition-colors",
+                            newMessage.trim() || selectedImage || pendingAudio || pendingDocument
+                              ? "bg-green-600 hover:bg-green-700"
+                              : "bg-muted text-muted-foreground",
+                          )}
                         >
-                          <Send className="h-4 w-4" />
+                          {isSending ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -3121,6 +3136,7 @@ export default function WhatsAppChat() {
                       {/* Abre em nova aba */}
                       <Button
                         variant="outline"
+                        size="sm"
                         className="w-full"
                         onClick={() =>
                           window.open(`/leads/${lead.id}`, "_blank")
@@ -3129,6 +3145,21 @@ export default function WhatsAppChat() {
                         <ExternalLink className="h-4 w-4 mr-2" />
                         Ver Lead Completo
                       </Button>
+
+                      <Separator />
+
+                      {/* Enrichments: observações, compras, briefing, inatividade */}
+                      <LeadSidebarEnrichments
+                        leadId={lead.id}
+                        observations={lead.observations || null}
+                        updatedAt={lead.updated_at || null}
+                        lastMessageAt={selectedConversation?.last_message_at || null}
+                        onObservationsUpdated={(obs) =>
+                          setLead((prev) =>
+                            prev ? { ...prev, observations: obs } : null
+                          )
+                        }
+                      />
                     </div>
                   ) : (
                     <div className="text-center py-8">
