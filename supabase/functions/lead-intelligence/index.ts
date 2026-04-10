@@ -134,7 +134,7 @@ serve(async (req) => {
     // Get ALL candidate leads including closed/won stages
     let leadsQuery = supabase
       .from('leads')
-      .select('id, name, whatsapp, created_at, updated_at, funnel_stage_id, stage, stars, notes')
+      .select('id, name, whatsapp, created_at, updated_at, funnel_stage_id, stage, stars, observations')
       .eq('organization_id', organizationId)
       .not('whatsapp', 'is', null)
       .order('updated_at', { ascending: false })
