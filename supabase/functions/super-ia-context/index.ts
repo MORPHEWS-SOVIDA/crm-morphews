@@ -252,7 +252,9 @@ serve(async (req) => {
       ).toISOString();
 
       // Conversas ativas com mensagem recente do lead
-      const { data: conversations } = await supabase
+      console.log(`🔍 Querying conversations: org=${organizationId}, cutoff=${cutoffTime}, cooldown=${cooldownTime}, hours=${hours}`);
+      
+      const { data: conversations, error: convError } = await supabase
         .from("whatsapp_conversations")
         .select(`
           id, lead_id, contact_name, contact_phone, instance_id,
@@ -263,6 +265,11 @@ serve(async (req) => {
         .lt("last_message_at", cutoffTime)
         .order("last_message_at", { ascending: true })
         .limit(maxResults * 2);
+      
+      if (convError) {
+        console.error(`❌ Conversations query error:`, JSON.stringify(convError));
+      }
+      console.log(`📊 Found ${conversations?.length || 0} candidate conversations`);
 
       if (!conversations || conversations.length === 0) {
         return new Response(
