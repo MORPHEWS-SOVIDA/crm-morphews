@@ -79,7 +79,9 @@ O prompt gerado deve ter entre 2.500 e 4.000 caracteres e incluir obrigatoriamen
 9. ESTILO ANTI-ROBÔ — Exemplos de frases naturais vs frases robóticas
 10. MEMÓRIA DE CONTEXTO — Instrução para nunca repetir perguntas já respondidas
 
-REGRAS ADICIONAIS PARA O PROMPT:
+REGRAS CRÍTICAS QUE VOCÊ DEVE RESPEITAR NO PROMPT GERADO:
+- O TOM DE VOZ informado pelo usuário é OBRIGATÓRIO. Se ele informou "formal", o prompt DEVE instruir o agente a usar linguagem formal. Se "casual", use casual. NÃO altere o tom escolhido pelo usuário.
+- O LIMITE DE MENSAGENS informado é OBRIGATÓRIO. Use EXATAMENTE o número informado, não arredonde nem altere.
 - Instrua o agente a enviar UMA pergunta por mensagem (nunca múltiplas perguntas de uma vez)
 - Instrua o agente a NUNCA repetir a saudação se o lead já iniciou a conversa
 - Instrua o agente a adaptar o comprimento da resposta ao contexto (respostas curtas para perguntas simples)
@@ -113,7 +115,7 @@ Retorne APENAS o texto do prompt, sem explicações, sem markdown de código, se
 MISSÃO: ${serviceLabel}
 NOME: ${name || "Não definido"}
 GÊNERO: ${gender || "neutro"}
-TOM DE VOZ: ${tone || "casual"}
+TOM DE VOZ: ${tone || "formal"} (RESPEITE ESTE TOM EXATAMENTE — NÃO ALTERE)
 USA EMOJIS: ${useEmojis === true ? "Sim" : useEmojis === false ? "Não" : "Sim"}
 APRESENTA-SE COM NOME: ${presentName === true ? "Sim" : presentName === false ? "Não" : "Sim"}
 COMPRIMENTO DAS RESPOSTAS: ${responseLength === "short" ? "Curtas e diretas" : responseLength === "long" ? "Detalhadas" : "Moderadas, adaptadas ao contexto"}
@@ -127,7 +129,7 @@ PRINCIPAL OBJEÇÃO: ${mainObjection || "Não informada"}
 ESTRATÉGIA DE QUALIFICAÇÃO: ${qualificationStrategy || "Não definida"}
 O QUE NUNCA FAZER: ${neverDo || "Não definido"}
 TRANSFERIR PARA HUMANO QUANDO: ${transferReasonsStr || "Cliente pedir explicitamente"}
-LIMITE DE MENSAGENS ANTES DE TRANSFERIR: ${maxMessages || "30"}
+LIMITE DE MENSAGENS ANTES DE TRANSFERIR: ${maxMessages || 10} (USE EXATAMENTE ESTE NÚMERO)
 
 CAPACIDADES DE MÍDIA:
 ${capabilities.length > 0 ? capabilities.map(c => `- ${c}`).join("\n") : "- Apenas texto"}

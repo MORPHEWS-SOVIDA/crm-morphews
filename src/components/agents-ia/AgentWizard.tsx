@@ -73,7 +73,7 @@ const initialData: WizardData = {
   mission: "",
   name: "",
   gender: "Neutro",
-  tone: "Casual",
+  tone: "Formal",
   useEmojis: true,
   presentName: true,
   companyName: "",
@@ -85,7 +85,7 @@ const initialData: WizardData = {
   neverDo: "",
   transferReasons: [],
   generatedPrompt: "",
-  maxMessages: 30,
+  maxMessages: 10,
   audioEnabled: true,
   imageEnabled: false,
   fileEnabled: false,
@@ -300,6 +300,11 @@ export function AgentWizard({ open, onOpenChange, organizationId }: AgentWizardP
               <div className="space-y-2">
                 <Label>O que este agente NUNCA deve fazer?</Label>
                 <Textarea placeholder="Ex: Nunca inventar preços, nunca prometer entrega em prazo específico" value={data.neverDo} onChange={e => setData(prev => ({ ...prev, neverDo: e.target.value }))} rows={3} />
+              </div>
+              <div className="space-y-2">
+                <Label>Máximo de mensagens antes de transferir</Label>
+                <Input type="number" min={1} max={100} value={data.maxMessages} onChange={e => setData(prev => ({ ...prev, maxMessages: Number(e.target.value) }))} />
+                <p className="text-xs text-muted-foreground">Após esse limite, o agente transfere para atendente humano.</p>
               </div>
               <div className="space-y-2">
                 <Label>Quando transferir para humano?</Label>
