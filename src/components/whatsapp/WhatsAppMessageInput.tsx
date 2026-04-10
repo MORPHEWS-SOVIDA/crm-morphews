@@ -27,6 +27,7 @@ export function WhatsAppMessageInput({
   value,
   onChange,
   onSend,
+  onImagePaste,
   disabled = false,
   placeholder,
   isMobile = false,
