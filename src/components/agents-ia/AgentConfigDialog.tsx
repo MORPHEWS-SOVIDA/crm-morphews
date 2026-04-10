@@ -74,9 +74,8 @@ export function AgentConfigDialog({ agent, open, onOpenChange }: AgentConfigDial
         </DialogHeader>
 
         <Tabs defaultValue="config" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="config" className="gap-1"><Settings className="h-3.5 w-3.5" />Geral</TabsTrigger>
-            <TabsTrigger value="instances" className="gap-1"><Wifi className="h-3.5 w-3.5" />Instâncias</TabsTrigger>
             <TabsTrigger value="knowledge" className="gap-1"><Brain className="h-3.5 w-3.5" />Conhecimento</TabsTrigger>
             <TabsTrigger value="logs" className="gap-1"><ScrollText className="h-3.5 w-3.5" />Logs</TabsTrigger>
           </TabsList>
@@ -188,9 +187,8 @@ export function AgentConfigDialog({ agent, open, onOpenChange }: AgentConfigDial
             </DialogFooter>
           </TabsContent>
 
-          <TabsContent value="instances">
-            <InstancesTab agentId={agent?.id} organizationId={profile?.organization_id} />
-          </TabsContent>
+
+
 
           <TabsContent value="knowledge">
             <KnowledgeTab agentId={agent?.id} />
