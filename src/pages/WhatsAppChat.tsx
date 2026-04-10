@@ -2362,6 +2362,20 @@ export default function WhatsAppChat() {
                   onSend={(id, msg) => followupSuggestions.sendFollowup.mutate({ followupId: id, editedMessage: msg })}
                   onReject={(id) => followupSuggestions.rejectFollowup.mutate(id)}
                   isSending={followupSuggestions.sendFollowup.isPending}
+                  onSelectConversation={(leadId, phone) => {
+                    // Find conversation by phone number
+                    const normalizedPhone = phone.replace(/\D/g, '');
+                    const match = conversations.find(c => {
+                      const cPhone = (c.phone_number || '').replace(/\D/g, '');
+                      return cPhone === normalizedPhone || cPhone.endsWith(normalizedPhone.slice(-11)) || normalizedPhone.endsWith(cPhone.slice(-11));
+                    });
+                    if (match) {
+                      setSelectedConversation(match);
+                      setStatusFilter('all' as any);
+                    } else {
+                      toast.info(`Conversa não encontrada para ${phone}. O lead pode não ter uma conversa ativa.`);
+                    }
+                  }}
                 />
               </div>
             ) : (
