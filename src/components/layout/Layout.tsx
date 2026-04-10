@@ -58,8 +58,8 @@ export function Layout({ children }: LayoutProps) {
         {/* Team Chat Floating Button + Notifications - only if feature enabled */}
         {hasConectaTime && <TeamChatFloatingButton />}
         {hasConectaTime && <TeamChatNotificationProvider />}
-        {/* Only show floating Donna on mobile - desktop Donna is in sidebar */}
-        {canSeeHelper && <div className="lg:hidden"><DonnaHelperButton /></div>}
+
+
       </div>
     </TrialExpiredBlocker>
   );
