@@ -619,10 +619,11 @@ serve(async (req) => {
       let leadsMap: Record<string, any> = {};
 
       if (leadIds.length > 0) {
-        const { data: leads } = await supabase
+        const { data: leads, error: leadsErr } = await supabase
           .from("leads")
-          .select("id, name, whatsapp, status")
+          .select("id, name, whatsapp")
           .in("id", leadIds);
+        if (leadsErr) console.error("❌ Error fetching leads:", JSON.stringify(leadsErr));
         for (const lead of leads || []) {
           leadsMap[lead.id] = lead;
         }
