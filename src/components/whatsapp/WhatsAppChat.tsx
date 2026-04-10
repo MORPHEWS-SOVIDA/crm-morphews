@@ -1954,8 +1954,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                     </div>
                   ) : (
                     <>
-                      {/* Media buttons - Compact on mobile */}
-                      <div className="flex items-center shrink-0">
+                      {/* Media buttons - Grid layout */}
+                      <div className="grid grid-cols-3 gap-0.5 shrink-0">
                         <EmojiPicker onEmojiSelect={handleEmojiSelect} />
                         <Button
                           variant="ghost"
