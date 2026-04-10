@@ -85,6 +85,7 @@ const PurchaseInvoices = lazy(() => import("./pages/PurchaseInvoices"));
 // Expedition & Deliveries
 const Expedition = lazy(() => import("./pages/Expedition"));
 const ExpeditionReport = lazy(() => import("./pages/ExpeditionReport"));
+const ExpeditionValidatePage = lazy(() => import("./pages/ExpeditionValidatePage"));
 const CorreiosLabels = lazy(() => import("./pages/CorreiosLabels"));
 const MyDeliveries = lazy(() => import("./pages/MyDeliveries"));
 const SerialLabelsIndexPage = lazy(() => import("./pages/serial-labels/SerialLabelsIndexPage"));
@@ -1006,6 +1007,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
                       <SerialAssociatePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/validar/:saleId"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <ExpeditionValidatePage />
                     </ProtectedRoute>
                   }
                 />

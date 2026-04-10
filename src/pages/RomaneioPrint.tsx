@@ -200,8 +200,8 @@ export default function RomaneioPrint() {
     );
   }
 
-  // Use production URL for QR code so it works when scanned
-  const saleQrData = `https://atomic.ia.br/vendas/${sale.id}`;
+  // QR code points to expedition validation page for mobile scanning workflow
+  const saleQrData = `https://crm-morphews.lovable.app/expedicao/validar/${sale.id}`;
   
   // Use shipping_address if available, then fallback address from lead_addresses, then legacy lead address
   const shippingAddress = (sale as any).shipping_address;
