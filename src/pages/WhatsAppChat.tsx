@@ -159,6 +159,8 @@ interface Lead {
   funnel_stage_id?: string | null;
   source?: string | null;
   needs_name_update?: boolean;
+  observations?: string | null;
+  updated_at?: string | null;
 }
 
 interface Instance {
