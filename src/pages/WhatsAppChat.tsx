@@ -62,6 +62,7 @@ import type { QuickMessage } from "@/hooks/useQuickMessages";
 import { ConversationItem } from "@/components/whatsapp/ConversationItem";
 import { ConversationStatusTabs } from "@/components/whatsapp/ConversationStatusTabs";
 import { FollowupSuggestionsList } from "@/components/whatsapp/FollowupSuggestionsList";
+import { LeadSidebarEnrichments } from "@/components/whatsapp/LeadSidebarEnrichments";
 import { useFollowupSuggestions } from "@/hooks/useFollowupSuggestions";
 import { ConversationTransferDialog } from "@/components/whatsapp/ConversationTransferDialog";
 import { LeadSearchDialog } from "@/components/whatsapp/LeadSearchDialog";
