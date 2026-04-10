@@ -19,7 +19,7 @@ export function SuperIAConfig({ organizationId }: Props) {
   const { data: config, isLoading } = useFollowupConfig(organizationId);
   const updateConfig = useUpdateFollowupConfig();
   const { profile } = useAuth();
-  const { data: stages } = useFunnelStages(profile?.organization_id);
+  const { data: stages } = useFunnelStages();
   const [localConfig, setLocalConfig] = useState<any>(null);
 
   useEffect(() => {
