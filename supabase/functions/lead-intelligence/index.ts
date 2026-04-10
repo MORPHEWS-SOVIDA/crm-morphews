@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -6,24 +6,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ============================================================================
-// AI PROVIDER: Gemini Direct (GEMINI_API_KEY) > Lovable Gateway (LOVABLE_API_KEY)
-// ============================================================================
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const _LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
-
-const _GEMINI_MAP: Record<string, string> = {
-  'google/gemini-3-flash-preview': 'gemini-2.0-flash',
-  'google/gemini-3.1-flash-preview': 'gemini-2.0-flash',
-  'google/gemini-2.5-flash': 'gemini-2.5-flash',
-  'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-lite',
-  'google/gemini-2.5-pro': 'gemini-2.5-pro',
-  'google/gemini-3-pro-image-preview': 'gemini-2.0-flash',
-  'google/gemini-3.1-pro-preview': 'gemini-2.5-pro',
-  'openai/gpt-5': 'gemini-2.5-pro',
-  'openai/gpt-5-mini': 'gemini-2.5-flash',
-  'openai/gpt-5-nano': 'gemini-2.0-flash-lite',
-};
 
 function _aiUrl() {
   return GEMINI_API_KEY
@@ -34,16 +18,9 @@ function _aiHeaders() {
   const key = GEMINI_API_KEY || _LOVABLE_KEY;
   return { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
 }
-function _aiModel(m: string) {
-  return GEMINI_API_KEY ? (_GEMINI_MAP[m] || 'gemini-2.0-flash') : m;
+function _aiModel() {
+  return GEMINI_API_KEY ? 'gemini-2.5-flash' : 'google/gemini-2.5-flash';
 }
-function _embedUrl() {
-  return GEMINI_API_KEY
-    ? 'https://generativelanguage.googleapis.com/v1beta/openai/embeddings'
-    : 'https://ai.gateway.lovable.dev/v1/embeddings';
-}
-
-
 
 interface LeadContext {
   lead_id: string;
@@ -51,25 +28,15 @@ interface LeadContext {
   lead_whatsapp: string;
   created_at: string;
   stage_name: string | null;
-  last_contact_at: string | null;
+  days_inactive: number;
+  has_purchases: boolean;
+  total_spent: number;
+  last_purchase_date: string | null;
   whatsapp_summary: string;
-  transcription_summary: string;
-  standard_answers: string;
-  product_answers: string;
-  post_sale_info: string;
   sales_history: string;
   followup_history: string;
-}
-
-interface Suggestion {
-  lead_id: string;
-  lead_name: string;
-  lead_whatsapp: string;
-  reason: string;
-  suggested_action: string;
-  suggested_script: string;
-  recommended_products?: string[];
-  priority: 'high' | 'medium' | 'low';
+  preferences_summary: string;
+  conversation_summaries: string;
 }
 
 interface IntelligenceRequest {
@@ -92,35 +59,27 @@ serve(async (req) => {
 
     if (!userId || !organizationId) {
       return new Response(
-        JSON.stringify({ error: "userId and organizationId are required" }),
+        JSON.stringify({ error: "userId and organizationId required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-
-    if (!lovableApiKey) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get seller's name from profiles table
+    // Get seller name
     const { data: sellerProfile } = await supabase
       .from('profiles')
       .select('first_name, last_name')
       .eq('user_id', userId)
       .maybeSingle();
-    
     const sellerName = sellerProfile 
       ? `${sellerProfile.first_name || ''} ${sellerProfile.last_name || ''}`.trim() || 'Consultor'
       : 'Consultor';
+    console.log(`📝 Seller: ${sellerName}`);
 
-    console.log(`📝 Seller name for suggestions: ${sellerName}`);
-
-    // 1. Consume energy first
+    // Consume energy
     const { data: energyResult, error: energyError } = await supabase.rpc('consume_energy', {
       p_organization_id: organizationId,
       p_bot_id: null,
@@ -132,7 +91,7 @@ serve(async (req) => {
     });
 
     if (energyError) {
-      console.error('Energy consumption error:', energyError);
+      console.error('Energy error:', energyError);
       return new Response(
         JSON.stringify({ error: "Erro ao verificar energia" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -142,18 +101,12 @@ serve(async (req) => {
     const energyOk = typeof energyResult === 'boolean' ? energyResult : (energyResult?.success ?? true);
     if (!energyOk) {
       return new Response(
-        JSON.stringify({ 
-          error: "Energia insuficiente. Entre em contato com o administrador.",
-          available_energy: energyResult?.available_energy,
-          required_energy: ENERGY_COST
-        }),
+        JSON.stringify({ error: "Energia insuficiente.", available_energy: energyResult?.available_energy, required_energy: ENERGY_COST }),
         { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`⚡ Energy consumed: ${ENERGY_COST} for ${type} suggestion`);
-
-    // 2. Get IDs of pending suggestions already shown to this user
+    // Get existing pending suggestions to exclude
     const { data: existingSuggestions } = await supabase
       .from('ai_lead_suggestions')
       .select('lead_id')
@@ -165,211 +118,246 @@ serve(async (req) => {
     const existingLeadIds = (existingSuggestions || []).map((s: any) => s.lead_id);
     const allExcludeIds = [...new Set([...excludeLeadIds, ...existingLeadIds])];
 
-    // 3. Get candidate leads
-    let leadsQuery = supabase
-      .from('leads')
-      .select(`
-        id,
-        name,
-        whatsapp,
-        created_at,
-        stage
-      `)
-      .eq('organization_id', organizationId)
-      .order('created_at', { ascending: false })
-      .limit(20);
-    
-    // Get funnel stages separately
+    // Get funnel stages map (by id AND enum_value)
     const { data: funnelStages } = await supabase
       .from('organization_funnel_stages')
-      .select('enum_value, name')
+      .select('id, enum_value, name, stage_type, position')
       .eq('organization_id', organizationId);
     
-    const stageNameMap = new Map<string, string>();
+    const stageMapById = new Map<string, any>();
+    const stageMapByEnum = new Map<string, string>();
     (funnelStages || []).forEach((s: any) => {
-      if (s.enum_value) stageNameMap.set(s.enum_value, s.name);
+      stageMapById.set(s.id, s);
+      if (s.enum_value) stageMapByEnum.set(s.enum_value, s.name);
     });
 
-    // Filter by responsible for followup
+    // Get ALL candidate leads including closed/won stages
+    let leadsQuery = supabase
+      .from('leads')
+      .select('id, name, whatsapp, created_at, updated_at, funnel_stage_id, stage, stars, observations')
+      .eq('organization_id', organizationId)
+      .not('whatsapp', 'is', null)
+      .order('updated_at', { ascending: false })
+      .limit(40);
+
+    if (allExcludeIds.length > 0) {
+      leadsQuery = leadsQuery.not('id', 'in', `(${allExcludeIds.join(',')})`);
+    }
+
+    // For followup, filter by responsible
     if (type === 'followup') {
       const { data: responsibleLeads } = await supabase
         .from('lead_responsibles')
         .select('lead_id')
         .eq('user_id', userId);
       
-      const responsibleLeadIds = (responsibleLeads || []).map(r => r.lead_id);
-      
-      if (responsibleLeadIds.length > 0) {
-        leadsQuery = leadsQuery.in('id', responsibleLeadIds);
+      const myLeadIds = (responsibleLeads || []).map((r: any) => r.lead_id);
+      if (myLeadIds.length > 0) {
+        leadsQuery = leadsQuery.in('id', myLeadIds);
       }
     }
 
-    // Exclude already shown leads
-    if (allExcludeIds.length > 0) {
-      leadsQuery = leadsQuery.not('id', 'in', `(${allExcludeIds.join(',')})`);
-    }
-
     const { data: leads, error: leadsError } = await leadsQuery;
-    
-    if (leadsError) {
-      console.error('Error fetching leads:', leadsError);
-      throw leadsError;
-    }
+    if (leadsError) throw leadsError;
 
     if (!leads || leads.length === 0) {
       return new Response(
-        JSON.stringify({ suggestions: [], message: "Nenhum lead encontrado para análise" }),
+        JSON.stringify({ suggestions: [], message: "Nenhum lead encontrado" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 4. Aggregate context for top leads
-    const leadsToAnalyze = leads.slice(0, limit * 2);
-    const leadContexts: LeadContext[] = [];
+    console.log(`📊 Found ${leads.length} candidate leads`);
 
-    for (const lead of leadsToAnalyze) {
-      const leadWithStageName = {
-        ...lead,
-        funnel_stage: { name: stageNameMap.get(lead.stage) || lead.stage }
-      };
-      const context = await aggregateLeadContext(supabase, leadWithStageName, organizationId);
-      leadContexts.push(context);
-    }
+    // Score leads by opportunity
+    const scoredLeads = leads.map((lead: any) => {
+      // Resolve stage name from funnel_stage_id or stage enum
+      const stageById = stageMapById.get(lead.funnel_stage_id);
+      const stageByEnum = stageMapByEnum.get(lead.stage);
+      const stageName = stageById?.name || stageByEnum || lead.stage || 'Desconhecido';
+      
+      const daysSinceUpdate = Math.floor((Date.now() - new Date(lead.updated_at).getTime()) / (1000 * 60 * 60 * 24));
+      
+      let score = 0;
+      if (daysSinceUpdate >= 2 && daysSinceUpdate < 7) score += 50; // slipping
+      if (daysSinceUpdate >= 7 && daysSinceUpdate < 14) score += 40;
+      if (daysSinceUpdate < 2) score += 20; // fresh
+      if (daysSinceUpdate >= 14 && daysSinceUpdate < 60) score += 35; // reactivation
+      if (daysSinceUpdate >= 60) score += 25;
+      if (lead.stars >= 3) score += 15;
+      
+      return { ...lead, stage_name: stageName, days_inactive: daysSinceUpdate, score };
+    });
 
-    // 5. Generate suggestions with AI - include seller name instruction
+    scoredLeads.sort((a: any, b: any) => b.score - a.score);
+    const topLeads = scoredLeads.slice(0, Math.min(limit * 3, 9));
+
+    // Aggregate context in parallel
+    const leadContexts = await Promise.all(
+      topLeads.map((lead: any) => aggregateLeadContext(supabase, lead, organizationId))
+    );
+
+    console.log(`🧠 Context for ${leadContexts.length} leads`);
+
+    // Generate suggestions with AI
     const systemPrompt = type === 'followup' 
-      ? `Você é um assistente de vendas especializado em análise de leads. Analise o contexto dos leads e sugira os ${limit} melhores para follow-up AGORA.
+      ? `Você é um assistente de vendas brasileiro especialista em reengajamento. Sugira os ${limit} melhores leads para contato AGORA.
 
-Para cada lead, forneça:
-- Motivo pelo qual deve ser contatado agora
-- Ação sugerida (ligar, WhatsApp, etc.)
-- Script de abordagem personalizado baseado no contexto
+REGRAS:
+- Leads COM compra anterior: sugira reativação, novo ciclo, upsell
+- Leads SEM compra mas com interesse: sugira retomada
+- Leads inativos: sugira reengajamento com gatilho emocional
+- Leads em "pós-venda" ou "compra finalizada": ÓTIMOS para recompra!
+- Use "${sellerName}" no script
+- Script CURTO (2-3 frases), HUMANO, estilo WhatsApp
+- NUNCA robótico. Soa como amigo que lembrou do cliente.
 
-IMPORTANTE: No script, use o nome do vendedor "${sellerName}" para personalizar a mensagem. Por exemplo: "Olá, aqui é ${sellerName}..."
+Retorne APENAS JSON válido sem markdown e sem \`\`\`:`
+      : `Você é especialista em recomendação de produtos de saúde/bem-estar. Sugira produtos ideais para cada lead.
 
-Priorize leads que:
-1. Têm histórico de interesse demonstrado
-2. Fizeram perguntas sobre produtos
-3. Tiveram objeções que podem ser contornadas
-4. Estão há tempo sem contato mas mostraram interesse
+REGRAS:
+- Baseie-se no histórico de compras e conversas
+- Para quem já comprou: sugira complementares ou reposição
+- Use "${sellerName}" no script
+- Script CURTO e HUMANO
 
-Retorne APENAS um JSON válido sem markdown:`
-      : `Você é um especialista em recomendação de produtos. Analise o perfil e histórico de cada lead para recomendar produtos ideais.
-
-Para cada lead, sugira até 3 produtos com base em:
-- Respostas às perguntas de qualificação
-- Histórico de conversas
-- Produtos anteriormente comprados ou discutidos
-- Perfil de necessidades identificado
-
-IMPORTANTE: No script de abordagem, use o nome do vendedor "${sellerName}" para personalizar a mensagem.
-
-Retorne APENAS um JSON válido sem markdown:`;
+Retorne APENAS JSON válido sem markdown e sem \`\`\`:`;
 
     const userPrompt = `Analise estes ${leadContexts.length} leads e retorne exatamente ${limit} sugestões:
 
 ${JSON.stringify(leadContexts, null, 2)}
 
-Retorne um JSON com a estrutura:
+JSON esperado:
 {
   "suggestions": [
     {
-      "lead_id": "uuid",
+      "lead_id": "uuid-do-lead",
       "lead_name": "nome",
       "lead_whatsapp": "telefone",
-      "reason": "Motivo da recomendação em 1-2 frases",
-      "suggested_action": "ligar" | "whatsapp" | "agendar",
-      "suggested_script": "Script personalizado de abordagem usando o nome do vendedor ${sellerName} (2-3 frases)",
-      "recommended_products": ["Produto 1", "Produto 2"],
-      "priority": "high" | "medium" | "low"
+      "reason": "Motivo em 1-2 frases",
+      "suggested_action": "whatsapp",
+      "suggested_script": "Mensagem curta usando ${sellerName}",
+      "recommended_products": ["Produto 1"],
+      "priority": "high"
     }
   ]
 }`;
 
-    const response = await fetch(_aiUrl(), {
+    // Try primary AI, fallback to Lovable Gateway
+    let aiResponse = await fetch(_aiUrl(), {
       method: "POST",
       headers: _aiHeaders(),
       body: JSON.stringify({
-        model: _aiModel('google/gemini-2.5-flash'),
+        model: _aiModel(),
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
+          { role: "user", content: userPrompt },
         ],
+        temperature: 0.7,
+        max_tokens: 2000,
       }),
     });
 
+    // Fallback to Lovable Gateway if Gemini fails
+    if (!aiResponse.ok && GEMINI_API_KEY && _LOVABLE_KEY) {
+      console.warn(`⚠️ Primary AI failed (${aiResponse.status}), trying Lovable Gateway fallback`);
+      aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: "POST",
+        headers: { 'Authorization': `Bearer ${_LOVABLE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
+      });
+    }
+
     if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("AI API error:", aiResponse.status, errorText);
-      
+      const errText = await aiResponse.text();
+      console.error('AI error:', aiResponse.status, errText);
       if (aiResponse.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Limite de requisições excedido. Tente novamente em alguns minutos." }),
+          JSON.stringify({ error: "Limite de requisições. Tente em alguns minutos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error("AI generation failed");
+      throw new Error(`AI failed: ${aiResponse.status}`);
     }
 
-    const aiResult = await aiResponse.json();
-    const content = aiResult.choices?.[0]?.message?.content || "";
+    const aiData = await aiResponse.json();
+    const rawContent = aiData.choices?.[0]?.message?.content || "";
+    console.log(`🤖 AI raw response (first 500 chars): ${rawContent.substring(0, 500)}`);
     
-    let suggestions: Suggestion[] = [];
+    let parsed: any;
     try {
-      const jsonStr = content.replace(/```json?\n?|\n?```/g, "").trim();
-      const parsed = JSON.parse(jsonStr);
-      suggestions = parsed.suggestions || [];
-    } catch (parseError) {
-      console.error("Error parsing AI response:", parseError, content);
-      // Fallback: return basic suggestions with seller name
-      suggestions = leadContexts.slice(0, limit).map(ctx => ({
-        lead_id: ctx.lead_id,
-        lead_name: ctx.lead_name,
-        lead_whatsapp: ctx.lead_whatsapp,
-        reason: "Lead com potencial identificado",
-        suggested_action: "whatsapp" as const,
-        suggested_script: `Olá ${ctx.lead_name.split(' ')[0]}! Tudo bem? Aqui é ${sellerName}. Estou entrando em contato para saber como posso ajudá-lo(a).`,
-        priority: "medium" as const,
-      }));
+      const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error('❌ No JSON found in AI response');
+      }
+      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { suggestions: [] };
+      console.log(`📋 Parsed ${(parsed.suggestions || []).length} suggestions from AI`);
+    } catch {
+      console.error('Parse error:', rawContent.substring(0, 500));
+      // Fallback suggestions
+      parsed = {
+        suggestions: topLeads.slice(0, limit).map((l: any) => ({
+          lead_id: l.id,
+          lead_name: l.name,
+          lead_whatsapp: l.whatsapp,
+          reason: `Lead inativo há ${l.days_inactive} dias - oportunidade de reengajamento`,
+          suggested_action: 'whatsapp',
+          suggested_script: `Oi ${l.name.split(' ')[0]}! Aqui é ${sellerName}. Tudo bem? Lembrei de você e queria saber se posso te ajudar com algo 😊`,
+          priority: l.days_inactive > 7 ? 'high' : 'medium',
+        })),
+      };
     }
 
-    const finalSuggestions = suggestions.slice(0, limit);
+    const suggestions = (parsed.suggestions || []).slice(0, limit);
 
-    // 6. Persist suggestions to database
-    if (finalSuggestions.length > 0) {
-      const suggestionsToInsert = finalSuggestions.map(s => ({
-        organization_id: organizationId,
-        user_id: userId,
+    // Validate lead_ids
+    const validLeadIds = new Set(topLeads.map((l: any) => l.id));
+    const validSuggestions = suggestions.filter((s: any) => {
+      if (!validLeadIds.has(s.lead_id)) {
+        console.warn(`⚠️ Invalid lead_id from AI: ${s.lead_id}`);
+        return false;
+      }
+      return s.lead_name && s.reason && s.suggested_script;
+    });
+
+    console.log(`✅ ${validSuggestions.length} valid suggestions`);
+
+    // Persist
+    if (validSuggestions.length > 0) {
+      const rows = validSuggestions.map((s: any) => ({
         lead_id: s.lead_id,
         lead_name: s.lead_name,
-        lead_whatsapp: s.lead_whatsapp || null,
-        suggestion_type: type,
+        lead_whatsapp: s.lead_whatsapp || '',
         reason: s.reason,
-        suggested_action: s.suggested_action,
+        suggested_action: s.suggested_action || 'whatsapp',
         suggested_script: s.suggested_script,
-        recommended_products: s.recommended_products || null,
-        priority: s.priority,
+        recommended_products: s.recommended_products || [],
+        priority: s.priority || 'medium',
+        suggestion_type: type,
+        organization_id: organizationId,
+        user_id: userId,
         status: 'pending',
-        energy_consumed: Math.ceil(ENERGY_COST / finalSuggestions.length),
+        energy_consumed: Math.ceil(ENERGY_COST / validSuggestions.length),
       }));
 
       const { error: insertError } = await supabase
         .from('ai_lead_suggestions')
-        .insert(suggestionsToInsert);
+        .insert(rows);
 
-      if (insertError) {
-        console.error('Error saving suggestions:', insertError);
-        // Don't fail the request, just log the error
-      } else {
-        console.log(`💾 Saved ${finalSuggestions.length} suggestions to database`);
-      }
+      if (insertError) console.error('Insert error:', insertError);
+      else console.log(`💾 Saved ${rows.length} suggestions`);
     }
 
     return new Response(
-      JSON.stringify({ 
-        suggestions: finalSuggestions,
-        energyConsumed: ENERGY_COST,
-      }),
+      JSON.stringify({ suggestions: validSuggestions, energyConsumed: ENERGY_COST }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
@@ -385,168 +373,106 @@ Retorne um JSON com a estrutura:
 async function aggregateLeadContext(
   supabase: any,
   lead: any,
-  organizationId: string
+  _organizationId: string
 ): Promise<LeadContext> {
   const leadId = lead.id;
 
-  // Get WhatsApp messages (last 10)
-  const { data: conversations } = await supabase
-    .from('whatsapp_conversations')
-    .select('id')
-    .eq('lead_id', leadId)
-    .limit(5);
+  const [convRes, salesRes, followupsRes, prefsRes, summariesRes] = await Promise.all([
+    supabase
+      .from('whatsapp_conversations')
+      .select('id, status, updated_at')
+      .eq('lead_id', leadId)
+      .order('updated_at', { ascending: false })
+      .limit(3),
+    supabase
+      .from('sales')
+      .select('total_cents, status, created_at, payment_method')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: false })
+      .limit(5),
+    supabase
+      .from('lead_followups')
+      .select('scheduled_at, result, notes, completed_at')
+      .eq('lead_id', leadId)
+      .order('scheduled_at', { ascending: false })
+      .limit(3),
+    supabase
+      .from('lead_ai_preferences')
+      .select('preference_type, preference_key, preference_value, confidence_score')
+      .eq('lead_id', leadId)
+      .order('confidence_score', { ascending: false })
+      .limit(10),
+    supabase
+      .from('lead_conversation_summaries')
+      .select('summary_text, key_topics, sentiment, next_steps')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: false })
+      .limit(3),
+  ]);
 
-  let whatsappSummary = "Sem histórico de WhatsApp";
-  if (conversations && conversations.length > 0) {
-    const convIds = (conversations as any[]).map((c: any) => c.id);
+  // WhatsApp messages
+  let whatsappSummary = "Sem histórico WhatsApp";
+  const convs = convRes.data || [];
+  if (convs.length > 0) {
     const { data: messages } = await supabase
       .from('whatsapp_messages')
       .select('content, direction, created_at')
-      .in('conversation_id', convIds)
+      .in('conversation_id', convs.map((c: any) => c.id))
       .order('created_at', { ascending: false })
-      .limit(15);
+      .limit(10);
 
     if (messages && messages.length > 0) {
-      const summary = (messages as any[]).reverse().map((m: any) => 
-        `${m.direction === 'outgoing' ? 'Vendedor' : 'Cliente'}: ${m.content?.substring(0, 100) || '(mídia)'}`
-      ).join('\n');
-      whatsappSummary = summary.substring(0, 800);
+      whatsappSummary = messages.reverse().map((m: any) =>
+        `${m.direction === 'outgoing' ? 'Vendedor' : 'Cliente'}: ${(m.content || '(mídia)').substring(0, 80)}`
+      ).join('\n').substring(0, 600);
     }
   }
 
-  // Get transcriptions from receptive
-  const { data: attendances } = await supabase
-    .from('receptive_attendances')
-    .select('transcription, call_quality_score, product_id')
-    .eq('lead_id', leadId)
-    .not('transcription', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(2);
+  // Sales
+  const sales = salesRes.data || [];
+  const completedSales = sales.filter((s: any) => ['completed', 'delivered', 'closed', 'finalized'].includes(s.status));
+  const totalSpent = completedSales.reduce((sum: number, s: any) => sum + (s.total_cents || 0), 0);
+  const salesHistory = sales.length > 0
+    ? `${completedSales.length} compra(s). Total: R$ ${(totalSpent / 100).toFixed(2)}. Última: ${sales[0].created_at?.split('T')[0] || 'N/A'}`
+    : "Sem compras";
 
-  let transcriptionSummary = "Sem transcrições de ligações";
-  if (attendances && attendances.length > 0) {
-    transcriptionSummary = (attendances as any[]).map((a: any) => {
-      const score = a.call_quality_score as any;
-      return `Transcrição: ${a.transcription?.substring(0, 300) || ''}... ${score?.summary ? `Resumo: ${score.summary}` : ''}`;
-    }).join('\n').substring(0, 600);
-  }
+  // Followups
+  const followups = followupsRes.data || [];
+  const followupHistory = followups.length > 0
+    ? followups.map((f: any) =>
+        `${f.scheduled_at?.split('T')[0]}: ${f.result || (f.completed_at ? 'OK' : 'Pendente')} ${f.notes ? '- ' + f.notes.substring(0, 50) : ''}`
+      ).join(' | ').substring(0, 300)
+    : "Sem follow-ups";
 
-  // Get standard question answers
-  const { data: standardAnswers } = await supabase
-    .from('lead_standard_question_answers')
-    .select(`
-      selected_option_ids,
-      numeric_value,
-      imc_result,
-      imc_category,
-      question:standard_questions(question_text)
-    `)
-    .eq('lead_id', leadId)
-    .limit(10);
+  // Preferences
+  const prefs = prefsRes.data || [];
+  const prefsSummary = prefs.length > 0
+    ? prefs.map((p: any) => `${p.preference_key}: ${p.preference_value}`).join(', ').substring(0, 300)
+    : "Sem preferências";
 
-  let standardAnswersSummary = "Sem respostas às perguntas padrão";
-  if (standardAnswers && standardAnswers.length > 0) {
-    const answers = (standardAnswers as any[]).map((a: any) => {
-      const q = a.question?.question_text || 'Pergunta';
-      let answer = '';
-      if (a.imc_result) answer = `IMC: ${a.imc_result} (${a.imc_category})`;
-      else if (a.numeric_value) answer = a.numeric_value.toString();
-      else if (a.selected_option_ids?.length) answer = 'Opções selecionadas';
-      return `${q}: ${answer}`;
-    });
-    standardAnswersSummary = answers.join('; ').substring(0, 400);
-  }
-
-  // Get product-specific answers
-  const { data: productAnswers } = await supabase
-    .from('lead_product_answers')
-    .select(`
-      answer_1,
-      answer_2,
-      answer_3,
-      product:lead_products(name, key_question_1, key_question_2, key_question_3)
-    `)
-    .eq('lead_id', leadId)
-    .limit(5);
-
-  let productAnswersSummary = "Sem respostas de produtos";
-  if (productAnswers && productAnswers.length > 0) {
-    const answers = (productAnswers as any[]).map((pa: any) => {
-      const p = pa.product;
-      const parts: string[] = [];
-      if (pa.answer_1 && p?.key_question_1) parts.push(`${p.key_question_1}: ${pa.answer_1}`);
-      if (pa.answer_2 && p?.key_question_2) parts.push(`${p.key_question_2}: ${pa.answer_2}`);
-      if (pa.answer_3 && p?.key_question_3) parts.push(`${p.key_question_3}: ${pa.answer_3}`);
-      return `Produto ${p?.name}: ${parts.join(', ')}`;
-    });
-    productAnswersSummary = answers.join('; ').substring(0, 400);
-  }
-
-  // Get post-sale surveys
-  const { data: surveys } = await supabase
-    .from('post_sale_surveys')
-    .select('received_order, knows_how_to_use, seller_rating, delivery_rating, notes')
-    .eq('lead_id', leadId)
-    .eq('status', 'completed')
-    .limit(3);
-
-  let postSaleInfo = "Sem histórico de pós-venda";
-  if (surveys && surveys.length > 0) {
-    const info = (surveys as any[]).map((s: any) => {
-      const parts: string[] = [];
-      if (s.received_order !== null) parts.push(`Recebeu: ${s.received_order ? 'Sim' : 'Não'}`);
-      if (s.seller_rating) parts.push(`Avaliação vendedor: ${s.seller_rating}/5`);
-      if (s.delivery_rating) parts.push(`Avaliação entrega: ${s.delivery_rating}/5`);
-      if (s.notes) parts.push(`Obs: ${s.notes.substring(0, 100)}`);
-      return parts.join(', ');
-    });
-    postSaleInfo = info.join(' | ').substring(0, 300);
-  }
-
-  // Get sales history
-  const { data: sales } = await supabase
-    .from('sales')
-    .select('total_cents, status, created_at')
-    .eq('lead_id', leadId)
-    .order('created_at', { ascending: false })
-    .limit(5);
-
-  let salesHistory = "Sem histórico de vendas";
-  if (sales && sales.length > 0) {
-    const salesArr = sales as any[];
-    salesHistory = `${salesArr.length} venda(s). Total: R$ ${salesArr.reduce((acc: number, s: any) => acc + (s.total_cents || 0), 0) / 100}. Última: ${salesArr[0].created_at.split('T')[0]}`;
-  }
-
-  // Get followup history
-  const { data: followups } = await supabase
-    .from('lead_followups')
-    .select('scheduled_at, result, notes')
-    .eq('lead_id', leadId)
-    .not('completed_at', 'is', null)
-    .order('completed_at', { ascending: false })
-    .limit(3);
-
-  let followupHistory = "Sem follow-ups anteriores";
-  if (followups && followups.length > 0) {
-    const history = (followups as any[]).map((f: any) => 
-      `${f.scheduled_at.split('T')[0]}: ${f.result || 'Sem resultado'} - ${f.notes?.substring(0, 50) || ''}`
-    );
-    followupHistory = history.join(' | ').substring(0, 300);
-  }
+  // Summaries
+  const summaries = summariesRes.data || [];
+  const convSummaries = summaries.length > 0
+    ? summaries.map((s: any) => {
+        const topics = Array.isArray(s.key_topics) ? s.key_topics.join(', ') : '';
+        return `${s.summary_text?.substring(0, 150) || ''} [${s.sentiment || ''}] ${topics}`;
+      }).join(' | ').substring(0, 500)
+    : "Sem resumos";
 
   return {
     lead_id: leadId,
-    lead_name: lead.name,
-    lead_whatsapp: lead.whatsapp,
+    lead_name: lead.name || 'Sem nome',
+    lead_whatsapp: lead.whatsapp || '',
     created_at: lead.created_at,
-    stage_name: lead.funnel_stage?.name || null,
-    last_contact_at: null,
+    stage_name: lead.stage_name,
+    days_inactive: lead.days_inactive || 0,
+    has_purchases: completedSales.length > 0,
+    total_spent: totalSpent / 100,
+    last_purchase_date: completedSales.length > 0 ? completedSales[0].created_at?.split('T')[0] : null,
     whatsapp_summary: whatsappSummary,
-    transcription_summary: transcriptionSummary,
-    standard_answers: standardAnswersSummary,
-    product_answers: productAnswersSummary,
-    post_sale_info: postSaleInfo,
     sales_history: salesHistory,
     followup_history: followupHistory,
+    preferences_summary: prefsSummary,
+    conversation_summaries: convSummaries,
   };
 }
