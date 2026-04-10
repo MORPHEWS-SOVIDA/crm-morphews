@@ -2002,46 +2002,43 @@ export default function WhatsAppChat() {
               return (
                 <div className="p-2 border-t bg-card safe-area-bottom">
                   <div className="flex items-end gap-1.5">
-                    {/* Emoji picker */}
-                    <EmojiPicker
-                      onEmojiSelect={(emoji) =>
-                        setNewMessage((prev) => prev + emoji)
-                      }
-                    />
-
-                    {/* Anexos: imagem, documento, áudio */}
-                    <ImageUpload
-                      onImageSelect={(base64, mime) => {
-                        setSelectedImage(base64);
-                        setSelectedImageMime(mime);
-                      }}
-                      isUploading={isSending}
-                      selectedImage={null}
-                      onClear={() => {}}
-                    />
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 flex-shrink-0"
-                      onClick={() => documentInputRef.current?.click()}
-                    >
-                      <FileText className="h-4 w-4" />
-                    </Button>
-
-                    <AudioRecorder
-                      onAudioReady={(base64, mimeType) =>
-                        setPendingAudio({ base64, mimeType })
-                      }
-                      isRecording={isRecordingAudio}
-                      setIsRecording={setIsRecordingAudio}
-                    />
-
-                    <QuickMessagesPicker
-                      onSelectText={handleQuickMessageText}
-                      onSelectMedia={handleQuickMessageMedia}
-                      disabled={isSending || isRecordingAudio}
-                    />
+                    {/* Toolbar vertical - botões empilhados */}
+                    <div className="flex flex-col gap-0.5 flex-shrink-0">
+                      <EmojiPicker
+                        onEmojiSelect={(emoji) =>
+                          setNewMessage((prev) => prev + emoji)
+                        }
+                      />
+                      <ImageUpload
+                        onImageSelect={(base64, mime) => {
+                          setSelectedImage(base64);
+                          setSelectedImageMime(mime);
+                        }}
+                        isUploading={isSending}
+                        selectedImage={null}
+                        onClear={() => {}}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={() => documentInputRef.current?.click()}
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      <AudioRecorder
+                        onAudioReady={(base64, mimeType) =>
+                          setPendingAudio({ base64, mimeType })
+                        }
+                        isRecording={isRecordingAudio}
+                        setIsRecording={setIsRecordingAudio}
+                      />
+                      <QuickMessagesPicker
+                        onSelectText={handleQuickMessageText}
+                        onSelectMedia={handleQuickMessageMedia}
+                        disabled={isSending || isRecordingAudio}
+                      />
+                    </div>
 
                     {/* Input */}
                     <Textarea
