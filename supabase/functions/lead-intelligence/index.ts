@@ -290,11 +290,16 @@ JSON esperado:
 
     const aiData = await aiResponse.json();
     const rawContent = aiData.choices?.[0]?.message?.content || "";
+    console.log(`🤖 AI raw response (first 500 chars): ${rawContent.substring(0, 500)}`);
     
     let parsed: any;
     try {
       const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error('❌ No JSON found in AI response');
+      }
       parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { suggestions: [] };
+      console.log(`📋 Parsed ${(parsed.suggestions || []).length} suggestions from AI`);
     } catch {
       console.error('Parse error:', rawContent.substring(0, 500));
       // Fallback suggestions
