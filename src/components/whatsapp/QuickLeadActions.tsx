@@ -221,8 +221,8 @@ export function QuickLeadActions({
               {sortedStages.map((stage) => (
                 <button
                   key={stage.id}
-                  onClick={() => stage.enum_value && changeStage.mutate(stage.enum_value)}
-                  disabled={changeStage.isPending || stage.enum_value === leadStage}
+                  onClick={() => changeStage.mutate({ id: stage.id, enum_value: stage.enum_value || null })}
+                  disabled={changeStage.isPending || stage.id === funnelStageId || stage.enum_value === leadStage}
                   className={cn(
                     "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-muted transition-colors text-left",
                     stage.enum_value === leadStage && "bg-muted font-medium"
