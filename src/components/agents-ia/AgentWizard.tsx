@@ -365,16 +365,12 @@ export function AgentWizard({ open, onOpenChange, organizationId }: AgentWizardP
 
                 <Separator />
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Limite de Mensagens</Label>
-                    <Input type="number" min={1} max={100} value={data.maxMessages} onChange={e => setData(prev => ({ ...prev, maxMessages: Number(e.target.value) }))} />
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3 col-span-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
                     <div className="flex items-center gap-2"><Mic className="h-4 w-4 text-primary" /><Label className="text-sm">Áudio</Label></div>
                     <Switch checked={data.audioEnabled} onCheckedChange={v => setData(prev => ({ ...prev, audioEnabled: v }))} />
                   </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3 col-span-1">
+                  <div className="flex items-center justify-between rounded-lg border p-3">
                     <div className="flex items-center gap-2"><Image className="h-4 w-4 text-primary" /><Label className="text-sm">Imagem</Label></div>
                     <Switch checked={data.imageEnabled} onCheckedChange={v => setData(prev => ({ ...prev, imageEnabled: v }))} />
                   </div>
