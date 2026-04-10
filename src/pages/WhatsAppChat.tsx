@@ -725,15 +725,28 @@ export default function WhatsAppChat() {
   }, [selectedConversation?.id, selectedConversation?.lead_id]);
 
   // Auto scroll to bottom - only when conversation changes or user is at bottom
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    // Triple strategy: rAF + rAF + fallback timeout
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior });
+      });
+    });
+    // Fallback for slow renders
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+    }, 300);
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+    }, 600);
+  }, []);
+
   useEffect(() => {
     // Se a conversa mudou, resetar o flag de scrolling e rolar para baixo
     if (selectedConversation?.id !== lastConversationIdRef.current) {
       lastConversationIdRef.current = selectedConversation?.id ?? null;
       isUserScrollingRef.current = false;
-      // Usar timeout para garantir que as mensagens foram renderizadas
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
-      }, 100);
+      scrollToBottom("auto");
       return;
     }
 
@@ -743,8 +756,8 @@ export default function WhatsAppChat() {
     }
 
     // Rolar para baixo apenas se estiver próximo do final
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, selectedConversation?.id]);
+    scrollToBottom("smooth");
+  }, [messages, selectedConversation?.id, scrollToBottom]);
 
   // Handler para detectar quando o usuário está scrollando
   const handleMessagesScroll = useCallback(
