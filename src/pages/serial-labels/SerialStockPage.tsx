@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentTenantId } from '@/hooks/useTenant';
-import { ArrowLeft, Package, Tag } from 'lucide-react';
+import { ArrowLeft, Package, Tag, User, Calendar } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface StockGroup {
   product_id: string;
@@ -17,6 +18,9 @@ interface StockGroup {
   in_stock: number;
   assigned: number;
   shipped: number;
+  stocked_by: string | null;
+  stocked_by_name: string | null;
+  stocked_at: string | null;
 }
 
 export default function SerialStockPage() {
@@ -27,14 +31,14 @@ export default function SerialStockPage() {
     queryFn: async () => {
       if (!orgId) return [];
 
-      // Get all labels with product
+      // Get all labels with product (include stocked_by and stocked_at)
       const { data: labels, error } = await supabase
         .from('product_serial_labels')
-        .select('serial_code, status, product_id')
+        .select('serial_code, status, product_id, stocked_by, stocked_at')
         .eq('organization_id', orgId)
         .not('product_id', 'is', null)
         .order('serial_code')
-        .limit(1000);
+        .limit(5000);
 
       if (error) throw error;
       if (!labels || labels.length === 0) return [];
@@ -48,16 +52,29 @@ export default function SerialStockPage() {
 
       const productMap = new Map((products || []).map((p: any) => [p.id, p.name]));
 
-      // Group by product
+      // Get user names for stocked_by
+      const userIds = [...new Set(labels.map((l: any) => l.stocked_by).filter(Boolean))];
+      let userMap = new Map<string, string>();
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', userIds);
+        if (profiles) {
+          userMap = new Map(profiles.map((p: any) => [p.user_id, `${p.first_name} ${p.last_name}`.trim()]));
+        }
+      }
+
+      // Group by product + stocked_by (to show separate entries per user)
       const groups = new Map<string, StockGroup>();
 
       for (const label of labels as any[]) {
-        const key = label.product_id;
+        const key = `${label.product_id}__${label.stocked_by || 'unknown'}`;
         if (!groups.has(key)) {
           const prefix = label.serial_code.replace(/\d+$/, '');
           groups.set(key, {
-            product_id: key,
-            product_name: productMap.get(key) || 'Produto desconhecido',
+            product_id: label.product_id,
+            product_name: productMap.get(label.product_id) || 'Produto desconhecido',
             prefix,
             min_code: label.serial_code,
             max_code: label.serial_code,
@@ -65,18 +82,28 @@ export default function SerialStockPage() {
             in_stock: 0,
             assigned: 0,
             shipped: 0,
+            stocked_by: label.stocked_by,
+            stocked_by_name: label.stocked_by ? userMap.get(label.stocked_by) || 'Usuário' : null,
+            stocked_at: label.stocked_at,
           });
         }
         const g = groups.get(key)!;
         g.total++;
         if (label.serial_code < g.min_code) g.min_code = label.serial_code;
         if (label.serial_code > g.max_code) g.max_code = label.serial_code;
+        if (label.stocked_at && (!g.stocked_at || label.stocked_at > g.stocked_at)) {
+          g.stocked_at = label.stocked_at;
+        }
         if (label.status === 'in_stock') g.in_stock++;
         else if (label.status === 'assigned') g.assigned++;
         else if (label.status === 'shipped') g.shipped++;
       }
 
-      return Array.from(groups.values()).sort((a, b) => a.product_name.localeCompare(b.product_name));
+      return Array.from(groups.values()).sort((a, b) => {
+        const nameCompare = a.product_name.localeCompare(b.product_name);
+        if (nameCompare !== 0) return nameCompare;
+        return (b.stocked_at || '').localeCompare(a.stocked_at || '');
+      });
     },
     enabled: !!orgId,
   });
@@ -124,8 +151,8 @@ export default function SerialStockPage() {
 
       {stockData && stockData.length > 0 && (
         <div className="space-y-3">
-          {stockData.map((g) => (
-            <Card key={g.product_id}>
+          {stockData.map((g, idx) => (
+            <Card key={`${g.product_id}-${g.stocked_by}-${idx}`}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Tag className="h-4 w-4 text-primary" />
@@ -152,6 +179,21 @@ export default function SerialStockPage() {
                     <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
                       Enviadas: {g.shipped}
                     </Badge>
+                  )}
+                </div>
+                {/* User and date info */}
+                <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1 border-t">
+                  {g.stocked_by_name && (
+                    <span className="flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      {g.stocked_by_name}
+                    </span>
+                  )}
+                  {g.stocked_at && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {format(new Date(g.stocked_at), 'dd/MM/yyyy HH:mm')}
+                    </span>
                   )}
                 </div>
               </CardContent>
