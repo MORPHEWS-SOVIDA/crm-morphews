@@ -273,14 +273,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-        `🔍 Found ${eligibleLeads.length} inactive leads (of ${conversations.length} candidates) for org ${organizationId}`
-      );
-
-      return new Response(
-        JSON.stringify({ success: true, leads: eligibleLeads, config }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     // ====================================================================
     // ACTION: save_followup
