@@ -23531,6 +23531,23 @@ export type Database = {
           id: string
         }[]
       }
+      get_serial_stock_overview: {
+        Args: { p_organization_id: string }
+        Returns: {
+          assigned: number
+          in_stock: number
+          max_code: string
+          min_code: string
+          prefix: string
+          product_id: string
+          product_name: string
+          shipped: number
+          stocked_at: string
+          stocked_by: string
+          stocked_by_name: string
+          total: number
+        }[]
+      }
       get_tenant_channels: {
         Args: { _tenant_id: string }
         Returns: {
