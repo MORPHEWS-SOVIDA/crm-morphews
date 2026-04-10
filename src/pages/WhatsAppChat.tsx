@@ -44,6 +44,8 @@ import {
   Mail,
   Copy,
   Trash2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useFunnelStages } from "@/hooks/useFunnelStages";
 import { useUsers } from "@/hooks/useUsers";
@@ -256,6 +258,7 @@ export default function WhatsAppChat() {
   const [showNewConversationDialog, setShowNewConversationDialog] =
     useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(true);
 
   // Filter state
   const [conversationTypeFilter, setConversationTypeFilter] = useState<
@@ -1999,46 +2002,43 @@ export default function WhatsAppChat() {
               return (
                 <div className="p-2 border-t bg-card safe-area-bottom">
                   <div className="flex items-end gap-1.5">
-                    {/* Emoji picker */}
-                    <EmojiPicker
-                      onEmojiSelect={(emoji) =>
-                        setNewMessage((prev) => prev + emoji)
-                      }
-                    />
-
-                    {/* Anexos: imagem, documento, áudio */}
-                    <ImageUpload
-                      onImageSelect={(base64, mime) => {
-                        setSelectedImage(base64);
-                        setSelectedImageMime(mime);
-                      }}
-                      isUploading={isSending}
-                      selectedImage={null}
-                      onClear={() => {}}
-                    />
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 flex-shrink-0"
-                      onClick={() => documentInputRef.current?.click()}
-                    >
-                      <FileText className="h-4 w-4" />
-                    </Button>
-
-                    <AudioRecorder
-                      onAudioReady={(base64, mimeType) =>
-                        setPendingAudio({ base64, mimeType })
-                      }
-                      isRecording={isRecordingAudio}
-                      setIsRecording={setIsRecordingAudio}
-                    />
-
-                    <QuickMessagesPicker
-                      onSelectText={handleQuickMessageText}
-                      onSelectMedia={handleQuickMessageMedia}
-                      disabled={isSending || isRecordingAudio}
-                    />
+                    {/* Toolbar vertical - botões empilhados */}
+                    <div className="flex flex-col gap-0.5 flex-shrink-0">
+                      <EmojiPicker
+                        onEmojiSelect={(emoji) =>
+                          setNewMessage((prev) => prev + emoji)
+                        }
+                      />
+                      <ImageUpload
+                        onImageSelect={(base64, mime) => {
+                          setSelectedImage(base64);
+                          setSelectedImageMime(mime);
+                        }}
+                        isUploading={isSending}
+                        selectedImage={null}
+                        onClear={() => {}}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={() => documentInputRef.current?.click()}
+                      >
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      <AudioRecorder
+                        onAudioReady={(base64, mimeType) =>
+                          setPendingAudio({ base64, mimeType })
+                        }
+                        isRecording={isRecordingAudio}
+                        setIsRecording={setIsRecordingAudio}
+                      />
+                      <QuickMessagesPicker
+                        onSelectText={handleQuickMessageText}
+                        onSelectMedia={handleQuickMessageMedia}
+                        disabled={isSending || isRecordingAudio}
+                      />
+                    </div>
 
                     {/* Input */}
                     <Textarea
@@ -2194,142 +2194,155 @@ export default function WhatsAppChat() {
                 </div>
               </div>
 
-              {/* Instance selector */}
-              {instances.length > 1 && (
-                <Select
-                  value={selectedInstance || "all"}
-                  onValueChange={(val) => {
-                    setSelectedInstance(val);
-                    setSelectedConversation(null);
-                  }}
-                >
-                  <SelectTrigger className="w-full mb-2 text-sm">
-                    <SelectValue placeholder="Selecione a instância" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as instâncias</SelectItem>
-                    {instances.map((inst) => {
-                      // Prioridade: "Nome que time vai ver no chat" - Número da Instância
-                      const displayName =
-                        inst.display_name_for_team || inst.name;
-                      const number =
-                        inst.manual_instance_number || inst.phone_number;
-                      const label =
-                        displayName && number
-                          ? `${displayName} - ${number}`
-                          : displayName || number || inst.name;
-                      const isConnected = inst.is_connected;
+              {/* Collapsible Filters Toggle */}
+              <button
+                onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+                className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1 mb-1"
+              >
+                <span className="flex items-center gap-1">
+                  <Filter className="h-3 w-3" />
+                  Filtros
+                </span>
+                {filtersCollapsed ? (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                )}
+              </button>
 
-                      return (
-                        <SelectItem key={inst.id} value={inst.id}>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={cn(
-                                "w-2 h-2 rounded-full",
-                                isConnected
-                                  ? "bg-funnel-positive"
-                                  : "bg-destructive",
-                              )}
-                            />
-                            <span>{label}</span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              )}
+              {!filtersCollapsed && (
+                <div className="space-y-1.5 mb-2 animate-in slide-in-from-top-2 duration-200">
+                  {/* Instance selector */}
+                  {instances.length > 1 && (
+                    <Select
+                      value={selectedInstance || "all"}
+                      onValueChange={(val) => {
+                        setSelectedInstance(val);
+                        setSelectedConversation(null);
+                      }}
+                    >
+                      <SelectTrigger className="w-full text-xs h-7">
+                        <SelectValue placeholder="Selecione a instância" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as instâncias</SelectItem>
+                        {instances.map((inst) => {
+                          const displayName =
+                            inst.display_name_for_team || inst.name;
+                          const number =
+                            inst.manual_instance_number || inst.phone_number;
+                          const label =
+                            displayName && number
+                              ? `${displayName} - ${number}`
+                              : displayName || number || inst.name;
+                          const isConnected = inst.is_connected;
 
-              {/* Filtro por canal (WhatsApp/Instagram) */}
-              <div className="mb-2">
-                <Select
-                  value={channelFilter}
-                  onValueChange={(v) => setChannelFilter(v as any)}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <Filter className="h-3 w-3 mr-1.5" />
-                    <SelectValue placeholder="Filtrar por canal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os canais</SelectItem>
-                    <SelectItem value="whatsapp">
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-3 w-3" />
-                        WhatsApp
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="instagram">
-                      <div className="flex items-center gap-2">
-                        <Instagram className="h-3 w-3" />
-                        Instagram
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                          return (
+                            <SelectItem key={inst.id} value={inst.id}>
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={cn(
+                                    "w-2 h-2 rounded-full",
+                                    isConnected
+                                      ? "bg-funnel-positive"
+                                      : "bg-destructive",
+                                  )}
+                                />
+                                <span>{label}</span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  )}
 
-              {/* Filtro de tipo de conversa */}
-              <div className="mb-2">
-                <Select
-                  value={conversationTypeFilter}
-                  onValueChange={(v) => setConversationTypeFilter(v as any)}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <Filter className="h-3 w-3 mr-1.5" />
-                    <SelectValue placeholder="Filtrar conversas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as conversas</SelectItem>
-                    <SelectItem value="individual">
-                      <div className="flex items-center gap-2">
-                        <User className="h-3 w-3" />
-                        Conversas individuais
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="group">
-                      <div className="flex items-center gap-2">
-                        <Users className="h-3 w-3" />
-                        Grupos
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Filtro por Usuário Atribuído (apenas para admins) */}
-              {isAdmin && (
-                <div className="mb-2">
+                  {/* Filtro por canal */}
                   <Select
-                    value={assignedUserFilter || "all"}
-                    onValueChange={(v) =>
-                      setAssignedUserFilter(v === "all" ? null : v)
-                    }
+                    value={channelFilter}
+                    onValueChange={(v) => setChannelFilter(v as any)}
                   >
-                    <SelectTrigger className="h-8 text-xs">
-                      <User className="h-3 w-3 mr-1.5" />
-                      <SelectValue placeholder="Filtrar por atendente" />
+                    <SelectTrigger className="h-7 text-xs">
+                      <Filter className="h-3 w-3 mr-1" />
+                      <SelectValue placeholder="Filtrar por canal" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos os atendentes</SelectItem>
-                      {allUsers.map((u) => (
-                        <SelectItem key={u.user_id} value={u.user_id}>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-4 w-4">
-                              <AvatarImage src={u.avatar_url || undefined} />
-                              <AvatarFallback className="text-[8px]">
-                                {(u.first_name?.[0] || "") +
-                                  (u.last_name?.[0] || "")}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span>
-                              {`${u.first_name || ""} ${u.last_name || ""}`.trim() ||
-                                "Sem nome"}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="all">Todos os canais</SelectItem>
+                      <SelectItem value="whatsapp">
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-3 w-3" />
+                          WhatsApp
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="instagram">
+                        <div className="flex items-center gap-2">
+                          <Instagram className="h-3 w-3" />
+                          Instagram
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+
+                  {/* Filtro de tipo */}
+                  <Select
+                    value={conversationTypeFilter}
+                    onValueChange={(v) => setConversationTypeFilter(v as any)}
+                  >
+                    <SelectTrigger className="h-7 text-xs">
+                      <Filter className="h-3 w-3 mr-1" />
+                      <SelectValue placeholder="Filtrar conversas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as conversas</SelectItem>
+                      <SelectItem value="individual">
+                        <div className="flex items-center gap-2">
+                          <User className="h-3 w-3" />
+                          Conversas individuais
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="group">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-3 w-3" />
+                          Grupos
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Filtro por atendente */}
+                  {isAdmin && (
+                    <Select
+                      value={assignedUserFilter || "all"}
+                      onValueChange={(v) =>
+                        setAssignedUserFilter(v === "all" ? null : v)
+                      }
+                    >
+                      <SelectTrigger className="h-7 text-xs">
+                        <User className="h-3 w-3 mr-1" />
+                        <SelectValue placeholder="Filtrar por atendente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os atendentes</SelectItem>
+                        {allUsers.map((u) => (
+                          <SelectItem key={u.user_id} value={u.user_id}>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-4 w-4">
+                                <AvatarImage src={u.avatar_url || undefined} />
+                                <AvatarFallback className="text-[8px]">
+                                  {(u.first_name?.[0] || "") +
+                                    (u.last_name?.[0] || "")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>
+                                {`${u.first_name || ""} ${u.last_name || ""}`.trim() ||
+                                  "Sem nome"}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               )}
 
@@ -2340,7 +2353,7 @@ export default function WhatsAppChat() {
                   placeholder="Buscar conversa..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 bg-background"
+                  className="pl-9 bg-background h-8 text-sm"
                 />
               </div>
             </div>
