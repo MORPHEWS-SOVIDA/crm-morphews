@@ -464,7 +464,9 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
       return messagesWithSender as Message[];
     },
     enabled: !!activeConversation?.id,
+    placeholderData: (prev) => prev, // Keep previous messages while loading new conversation
     refetchInterval: 60000, // Poll every 60 seconds (realtime handles instant updates)
+    staleTime: 30000, // Consider data fresh for 30 seconds to avoid refetch on tab switch
   });
 
   // Real-time subscription for new messages - throttled conversation list invalidation
@@ -523,17 +525,27 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     };
   }, [profile?.organization_id, activeConversation?.id, queryClient, isMobile]);
 
-  // Scroll to bottom when messages change - throttled for mobile
+  // Scroll to bottom when messages change or conversation switches
+  const lastScrolledConvId = useRef<string | null>(null);
   const lastScrolledMsgCount = useRef(0);
   useEffect(() => {
-    if (messages && messages.length !== lastScrolledMsgCount.current) {
+    if (!messages) return;
+    const convChanged = activeConversation?.id !== lastScrolledConvId.current;
+    const msgCountChanged = messages.length !== lastScrolledMsgCount.current;
+    
+    if (convChanged || msgCountChanged) {
+      lastScrolledConvId.current = activeConversation?.id || null;
       lastScrolledMsgCount.current = messages.length;
-      // Use requestAnimationFrame to avoid layout thrashing on mobile
+      // Use instant scroll on conversation change, smooth on new messages
+      const behavior = convChanged ? "auto" : "smooth";
+      // Double rAF to ensure DOM is fully rendered
       requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: messages.length <= 1 ? "auto" : "smooth" });
+        requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior });
+        });
       });
     }
-  }, [messages]);
+  }, [messages, activeConversation?.id]);
 
   // Auto-grow textarea (min/max variam no mobile)
   const adjustTextareaHeight = useCallback(() => {
@@ -2038,6 +2050,14 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                             textareaRef={textareaRef}
                             value={messageText}
                             onChange={setMessageText}
+                            onImagePaste={(file) => {
+                              if (file.size > 10 * 1024 * 1024) {
+                                toast({ title: "Arquivo muito grande", description: "Máximo 10MB", variant: "destructive" });
+                                return;
+                              }
+                              const preview = URL.createObjectURL(file);
+                              setSelectedImage({ file, preview });
+                            }}
                             onSend={() => {
                               if (selectedImage) {
                                 handleSendImage();

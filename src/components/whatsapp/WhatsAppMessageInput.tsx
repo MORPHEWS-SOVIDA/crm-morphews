@@ -8,6 +8,7 @@ interface WhatsAppMessageInputProps {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
+  onImagePaste?: (file: File) => void;
   disabled?: boolean;
   placeholder?: string;
   isMobile?: boolean;
@@ -26,6 +27,7 @@ export function WhatsAppMessageInput({
   value,
   onChange,
   onSend,
+  onImagePaste,
   disabled = false,
   placeholder,
   isMobile = false,
@@ -122,6 +124,16 @@ export function WhatsAppMessageInput({
   };
 
   const handlePaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    // Check for pasted images first
+    if (onImagePaste && e.clipboardData.files.length > 0) {
+      const file = e.clipboardData.files[0];
+      if (file.type.startsWith('image/')) {
+        e.preventDefault();
+        onImagePaste(file);
+        return;
+      }
+    }
+
     // Try text/plain first, fall back to extracting from text/html
     let pastedText = e.clipboardData.getData('text/plain');
     

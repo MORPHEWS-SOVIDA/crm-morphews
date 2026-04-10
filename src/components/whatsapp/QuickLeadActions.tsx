@@ -6,7 +6,7 @@ import {
   Loader2,
   Send
 } from "lucide-react";
-import type { FunnelStage } from "@/types/lead";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -117,14 +117,22 @@ export function QuickLeadActions({
     },
   });
 
-  // Alterar etapa do lead
+  // Alterar etapa do lead - atualiza tanto stage (enum) quanto funnel_stage_id (UUID)
   const changeStage = useMutation({
-    mutationFn: async (newStage: FunnelStage) => {
+    mutationFn: async (stage: { id: string; enum_value: string | null }) => {
       if (!leadId) throw new Error("Sem lead");
+
+      const updateData: Record<string, any> = {
+        funnel_stage_id: stage.id,
+      };
+      // Atualizar o enum legado também se existir
+      if (stage.enum_value) {
+        updateData.stage = stage.enum_value;
+      }
 
       const { error } = await supabase
         .from("leads")
-        .update({ stage: newStage })
+        .update(updateData)
         .eq("id", leadId);
 
       if (error) throw error;
@@ -213,8 +221,8 @@ export function QuickLeadActions({
               {sortedStages.map((stage) => (
                 <button
                   key={stage.id}
-                  onClick={() => stage.enum_value && changeStage.mutate(stage.enum_value)}
-                  disabled={changeStage.isPending || stage.enum_value === leadStage}
+                  onClick={() => changeStage.mutate({ id: stage.id, enum_value: stage.enum_value || null })}
+                  disabled={changeStage.isPending || stage.id === funnelStageId || stage.enum_value === leadStage}
                   className={cn(
                     "w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-muted transition-colors text-left",
                     stage.enum_value === leadStage && "bg-muted font-medium"
