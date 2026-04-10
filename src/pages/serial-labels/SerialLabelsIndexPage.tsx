@@ -1,8 +1,15 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { QrCode, Tag, ClipboardList, RotateCcw, ScanLine, Search, Upload, FileText } from 'lucide-react';
+import { QrCode, Tag, ClipboardList, RotateCcw, ScanLine, Search, Upload, FileText, Package } from 'lucide-react';
 
 const sections = [
+  {
+    title: 'Ver Estoque',
+    description: 'Veja todas as etiquetas registradas e vinculadas a produtos',
+    icon: Package,
+    href: '/expedicao/etiquetas-seriais/estoque',
+    color: 'text-emerald-600',
+  },
   {
     title: 'Associar ao Produto',
     description: 'Vincule etiquetas a um produto e registre entrada no estoque',
