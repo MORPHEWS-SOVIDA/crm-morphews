@@ -6,7 +6,7 @@ import {
   Loader2,
   Send
 } from "lucide-react";
-import type { FunnelStage } from "@/types/lead"; // eslint-disable-line @typescript-eslint/no-unused-vars
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
