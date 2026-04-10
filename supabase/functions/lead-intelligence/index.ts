@@ -243,7 +243,8 @@ JSON esperado:
   ]
 }`;
 
-    const aiResponse = await fetch(_aiUrl(), {
+    // Try primary AI, fallback to Lovable Gateway
+    let aiResponse = await fetch(_aiUrl(), {
       method: "POST",
       headers: _aiHeaders(),
       body: JSON.stringify({
@@ -256,6 +257,24 @@ JSON esperado:
         max_tokens: 2000,
       }),
     });
+
+    // Fallback to Lovable Gateway if Gemini fails
+    if (!aiResponse.ok && GEMINI_API_KEY && _LOVABLE_KEY) {
+      console.warn(`⚠️ Primary AI failed (${aiResponse.status}), trying Lovable Gateway fallback`);
+      aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: "POST",
+        headers: { 'Authorization': `Bearer ${_LOVABLE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
+      });
+    }
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
