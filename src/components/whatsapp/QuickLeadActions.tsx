@@ -117,14 +117,22 @@ export function QuickLeadActions({
     },
   });
 
-  // Alterar etapa do lead
+  // Alterar etapa do lead - atualiza tanto stage (enum) quanto funnel_stage_id (UUID)
   const changeStage = useMutation({
-    mutationFn: async (newStage: FunnelStage) => {
+    mutationFn: async (stage: { id: string; enum_value: string | null }) => {
       if (!leadId) throw new Error("Sem lead");
+
+      const updateData: Record<string, any> = {
+        funnel_stage_id: stage.id,
+      };
+      // Atualizar o enum legado também se existir
+      if (stage.enum_value) {
+        updateData.stage = stage.enum_value;
+      }
 
       const { error } = await supabase
         .from("leads")
-        .update({ stage: newStage })
+        .update(updateData)
         .eq("id", leadId);
 
       if (error) throw error;

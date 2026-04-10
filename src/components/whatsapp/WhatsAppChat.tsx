@@ -523,17 +523,27 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
     };
   }, [profile?.organization_id, activeConversation?.id, queryClient, isMobile]);
 
-  // Scroll to bottom when messages change - throttled for mobile
+  // Scroll to bottom when messages change or conversation switches
+  const lastScrolledConvId = useRef<string | null>(null);
   const lastScrolledMsgCount = useRef(0);
   useEffect(() => {
-    if (messages && messages.length !== lastScrolledMsgCount.current) {
+    if (!messages) return;
+    const convChanged = activeConversation?.id !== lastScrolledConvId.current;
+    const msgCountChanged = messages.length !== lastScrolledMsgCount.current;
+    
+    if (convChanged || msgCountChanged) {
+      lastScrolledConvId.current = activeConversation?.id || null;
       lastScrolledMsgCount.current = messages.length;
-      // Use requestAnimationFrame to avoid layout thrashing on mobile
+      // Use instant scroll on conversation change, smooth on new messages
+      const behavior = convChanged ? "auto" : "smooth";
+      // Double rAF to ensure DOM is fully rendered
       requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: messages.length <= 1 ? "auto" : "smooth" });
+        requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior });
+        });
       });
     }
-  }, [messages]);
+  }, [messages, activeConversation?.id]);
 
   // Auto-grow textarea (min/max variam no mobile)
   const adjustTextareaHeight = useCallback(() => {
