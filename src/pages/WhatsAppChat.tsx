@@ -2019,7 +2019,7 @@ export default function WhatsAppChat() {
                 <div className="p-2 border-t bg-card safe-area-bottom">
                   <div className="flex items-end gap-1.5">
                     {/* Toolbar vertical - botões empilhados */}
-                    <div className="flex flex-col gap-0.5 flex-shrink-0">
+                    <div className="grid grid-cols-2 gap-0.5 flex-shrink-0">
                       <EmojiPicker
                         onEmojiSelect={(emoji) =>
                           setNewMessage((prev) => prev + emoji)
@@ -2805,7 +2805,7 @@ export default function WhatsAppChat() {
                     <div className="p-2 border-t border-border bg-card">
                       <div className="flex items-end gap-1.5">
                         {/* Toolbar vertical */}
-                        <div className="flex flex-col gap-0.5 flex-shrink-0">
+                        <div className="grid grid-cols-2 gap-0.5 flex-shrink-0">
                           <EmojiPicker onEmojiSelect={handleEmojiSelect} />
                           <ImageUpload
                             onImageSelect={handleImageSelect}
