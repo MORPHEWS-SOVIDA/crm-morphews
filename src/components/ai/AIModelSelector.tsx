@@ -18,25 +18,35 @@ export interface AIModel {
 
 export const AI_MODELS: AIModel[] = [
   {
-    key: 'google/gemini-3-flash-preview',
-    name: 'Inteligente',
-    shortName: 'Inteligente',
-    provider: 'google',
-    description: 'Melhor qualidade de resposta, ideal para vendas e atendimento complexo',
-    speedRating: 3,
-    costRating: 2,
+    key: 'anthropic/claude-3.5-sonnet',
+    name: 'Claude Sonnet',
+    shortName: 'Claude Sonnet',
+    provider: 'openai' as any,
+    description: 'Raciocínio avançado, melhor compreensão e respostas mais naturais. Ideal para vendas complexas',
+    speedRating: 2,
+    costRating: 3,
     recommended: true,
     bestFor: 'Recomendado'
+  },
+  {
+    key: 'google/gemini-3-flash-preview',
+    name: 'Gemini Flash',
+    shortName: 'Gemini Flash',
+    provider: 'google',
+    description: 'Respostas rápidas com boa qualidade. Equilíbrio entre custo e performance',
+    speedRating: 3,
+    costRating: 2,
+    bestFor: 'Velocidade'
   },
   {
     key: 'openai/gpt-5-nano',
     name: 'Econômico',
     shortName: 'Econômico',
-    provider: 'google',
-    description: 'Respostas mais rápidas e menor consumo de energia. Bom para FAQs simples',
+    provider: 'google' as any,
+    description: 'Menor consumo de energia. Bom para FAQs simples e respostas curtas',
     speedRating: 3,
     costRating: 1,
-    bestFor: 'Economia de energia'
+    bestFor: 'Economia'
   },
 ];
 
