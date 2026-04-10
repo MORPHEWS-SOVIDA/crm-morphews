@@ -1954,8 +1954,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                     </div>
                   ) : (
                     <>
-                      {/* Media buttons - Grid layout */}
-                      <div className="grid grid-cols-3 gap-0.5 shrink-0">
+                      {/* Media buttons - fixed 2-column grid */}
+                      <div className="grid w-[84px] grid-cols-2 auto-rows-[40px] gap-0.5 shrink-0 content-start">
                         <EmojiPicker onEmojiSelect={handleEmojiSelect} />
                         <Button
                           variant="ghost"
@@ -1996,7 +1996,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           {isSendingVideo ? (
                             <Loader2 className="h-5 w-5 animate-spin" />
                           ) : (
-                            <Video className="h-5 w-5 text-muted-foreground" />
+                            <Film className="h-5 w-5 text-muted-foreground" />
                           )}
                         </Button>
                         <Button
