@@ -2375,7 +2375,7 @@ export default function WhatsAppChat() {
                             });
                             if (match) {
                               setSelectedConversation(match);
-                              setStatusFilter('autodistributed' as any);
+                              setStatusFilter('assigned');
                             }
                           }
                         }
