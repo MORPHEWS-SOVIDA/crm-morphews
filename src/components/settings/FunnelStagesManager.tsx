@@ -189,7 +189,10 @@ function StageEditForm({
   }, [usedEnumValues, currentEnumValue]);
 
   const handleSubmit = () => {
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      toast({ title: 'Nome obrigatório', description: 'Digite um nome para a etapa.', variant: 'destructive' });
+      return;
+    }
     
     const data: Partial<FunnelStageCustom> = {
       name: name.trim(),
