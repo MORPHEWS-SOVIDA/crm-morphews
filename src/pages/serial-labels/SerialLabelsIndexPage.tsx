@@ -46,13 +46,6 @@ const sections = [
     color: 'text-muted-foreground',
   },
   {
-    title: 'Registrar Lote',
-    description: 'Cadastre um lote de etiquetas novas no sistema',
-    icon: Upload,
-    href: '/expedicao/etiquetas-seriais/registrar-lote',
-    color: 'text-primary',
-  },
-  {
     title: 'Logs / Auditoria',
     description: 'Histórico de scans, registros, erros e rastreabilidade completa',
     icon: FileText,
