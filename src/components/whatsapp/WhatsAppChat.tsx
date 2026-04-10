@@ -2048,6 +2048,14 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                             textareaRef={textareaRef}
                             value={messageText}
                             onChange={setMessageText}
+                            onImagePaste={(file) => {
+                              if (file.size > 10 * 1024 * 1024) {
+                                toast({ title: "Arquivo muito grande", description: "Máximo 10MB", variant: "destructive" });
+                                return;
+                              }
+                              const preview = URL.createObjectURL(file);
+                              setSelectedImage({ file, preview });
+                            }}
                             onSend={() => {
                               if (selectedImage) {
                                 handleSendImage();
