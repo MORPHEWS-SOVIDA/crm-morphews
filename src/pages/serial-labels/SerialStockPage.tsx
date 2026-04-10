@@ -1,14 +1,15 @@
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentTenantId } from '@/hooks/useTenant';
-import { ArrowLeft, Package, Tag, User, Calendar } from 'lucide-react';
-import { format } from 'date-fns';
+import { ArrowLeft, Package } from 'lucide-react';
+import { StockFilters } from '@/components/serial-labels/StockFilters';
+import { StockCard } from '@/components/serial-labels/StockCard';
 
-interface StockGroup {
+export interface StockGroup {
   product_id: string;
   product_name: string;
   prefix: string;
@@ -25,13 +26,15 @@ interface StockGroup {
 
 export default function SerialStockPage() {
   const { data: orgId } = useCurrentTenantId();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [userFilter, setUserFilter] = useState('all');
 
   const { data: stockData, isLoading } = useQuery({
     queryKey: ['serial-stock-overview', orgId],
     queryFn: async () => {
       if (!orgId) return [];
 
-      // Get all labels with product (include stocked_by and stocked_at)
       const { data: labels, error } = await supabase
         .from('product_serial_labels')
         .select('serial_code, status, product_id, stocked_by, stocked_at')
@@ -43,7 +46,6 @@ export default function SerialStockPage() {
       if (error) throw error;
       if (!labels || labels.length === 0) return [];
 
-      // Get product names
       const productIds = [...new Set(labels.map((l: any) => l.product_id))];
       const { data: products } = await supabase
         .from('lead_products')
@@ -52,7 +54,6 @@ export default function SerialStockPage() {
 
       const productMap = new Map((products || []).map((p: any) => [p.id, p.name]));
 
-      // Get user names for stocked_by
       const userIds = [...new Set(labels.map((l: any) => l.stocked_by).filter(Boolean))];
       let userMap = new Map<string, string>();
       if (userIds.length > 0) {
@@ -65,7 +66,6 @@ export default function SerialStockPage() {
         }
       }
 
-      // Group by product + stocked_by (to show separate entries per user)
       const groups = new Map<string, StockGroup>();
 
       for (const label of labels as any[]) {
@@ -108,7 +108,6 @@ export default function SerialStockPage() {
     enabled: !!orgId,
   });
 
-  // Also fetch total labels without product
   const { data: unlinkedCount } = useQuery({
     queryKey: ['serial-unlinked-count', orgId],
     queryFn: async () => {
@@ -124,6 +123,34 @@ export default function SerialStockPage() {
     enabled: !!orgId,
   });
 
+  // Derive unique users for filter
+  const uniqueUsers = useMemo(() => {
+    if (!stockData) return [];
+    const map = new Map<string, string>();
+    stockData.forEach((g) => {
+      if (g.stocked_by && g.stocked_by_name) {
+        map.set(g.stocked_by, g.stocked_by_name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [stockData]);
+
+  // Filter data
+  const filtered = useMemo(() => {
+    if (!stockData) return [];
+    const q = search.toLowerCase();
+    return stockData.filter((g) => {
+      if (q && !g.product_name.toLowerCase().includes(q) && !g.prefix.toLowerCase().includes(q) && !g.min_code.toLowerCase().includes(q)) {
+        return false;
+      }
+      if (userFilter !== 'all' && g.stocked_by !== userFilter) return false;
+      if (statusFilter === 'has_in_stock' && g.in_stock === 0) return false;
+      if (statusFilter === 'has_assigned' && g.assigned === 0) return false;
+      if (statusFilter === 'has_shipped' && g.shipped === 0) return false;
+      return true;
+    });
+  }, [stockData, search, statusFilter, userFilter]);
+
   return (
     <div className="container max-w-4xl mx-auto p-4 space-y-4">
       <div className="flex items-center gap-3">
@@ -133,6 +160,18 @@ export default function SerialStockPage() {
         <Package className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-bold">Estoque de Etiquetas</h1>
       </div>
+
+      {!isLoading && stockData && stockData.length > 0 && (
+        <StockFilters
+          search={search}
+          onSearchChange={setSearch}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          userFilter={userFilter}
+          onUserFilterChange={setUserFilter}
+          users={uniqueUsers}
+        />
+      )}
 
       {isLoading && (
         <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
@@ -149,57 +188,16 @@ export default function SerialStockPage() {
         </Card>
       )}
 
-      {stockData && stockData.length > 0 && (
+      {filtered && filtered.length > 0 && (
         <div className="space-y-3">
-          {stockData.map((g, idx) => (
-            <Card key={`${g.product_id}-${g.stocked_by}-${idx}`}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-primary" />
-                  {g.product_name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-mono text-muted-foreground">
-                  <span>{g.min_code}</span>
-                  <span>→</span>
-                  <span>{g.max_code}</span>
-                  <Badge variant="outline" className="ml-auto">{g.total} etiquetas</Badge>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                    Em estoque: {g.in_stock}
-                  </Badge>
-                  {g.assigned > 0 && (
-                    <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
-                      Separadas: {g.assigned}
-                    </Badge>
-                  )}
-                  {g.shipped > 0 && (
-                    <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                      Enviadas: {g.shipped}
-                    </Badge>
-                  )}
-                </div>
-                {/* User and date info */}
-                <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1 border-t">
-                  {g.stocked_by_name && (
-                    <span className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      {g.stocked_by_name}
-                    </span>
-                  )}
-                  {g.stocked_at && (
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {format(new Date(g.stocked_at), 'dd/MM/yyyy HH:mm')}
-                    </span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          {filtered.map((g, idx) => (
+            <StockCard key={`${g.product_id}-${g.stocked_by}-${g.prefix}-${idx}`} group={g} />
           ))}
         </div>
+      )}
+
+      {!isLoading && stockData && stockData.length > 0 && filtered.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-8">Nenhum resultado para os filtros selecionados.</p>
       )}
 
       {(unlinkedCount ?? 0) > 0 && (
