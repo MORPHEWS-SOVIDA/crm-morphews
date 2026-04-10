@@ -17,7 +17,6 @@ export interface FollowupSuggestion {
     id: string;
     name: string;
     whatsapp: string | null;
-    status: string | null;
   } | null;
   conversation: {
     id: string;
