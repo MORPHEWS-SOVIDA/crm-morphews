@@ -655,6 +655,104 @@ serve(async (req) => {
       );
     }
 
+    // ====================================================================
+    // ACTION: generate_followup_message
+    // VPS chama após gerar mensagem com Claude para atualizar item pendente
+    // Recebe: followupId, generatedMessage, conversationId?, whatsappInstanceId?, aiModelUsed?, tokensUsed?
+    // Muda status: pending → ready
+    // ====================================================================
+    if (action === "generate_followup_message") {
+      const { followupId, generatedMessage, conversationId, whatsappInstanceId, aiModelUsed, tokensUsed } = body;
+
+      if (!followupId || !generatedMessage) {
+        return new Response(
+          JSON.stringify({ error: "followupId and generatedMessage required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Buscar o item atual para validar
+      const { data: existing, error: fetchErr } = await supabase
+        .from("ai_followup_queue")
+        .select("id, status, lead_id, organization_id")
+        .eq("id", followupId)
+        .single();
+
+      if (fetchErr || !existing) {
+        return new Response(
+          JSON.stringify({ error: "Follow-up not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (existing.status !== "pending" && existing.status !== "generating") {
+        return new Response(
+          JSON.stringify({ error: `Cannot generate for status '${existing.status}', expected 'pending' or 'generating'` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Se não veio conversationId, tentar encontrar automaticamente pelo lead
+      let finalConversationId = conversationId || null;
+      let finalInstanceId = whatsappInstanceId || null;
+
+      if (!finalConversationId && existing.lead_id) {
+        const { data: lead } = await supabase
+          .from("leads")
+          .select("whatsapp")
+          .eq("id", existing.lead_id)
+          .single();
+
+        if (lead?.whatsapp) {
+          const phone = lead.whatsapp.replace(/\D/g, "");
+          // Buscar conversa mais recente desse telefone na org
+          const { data: conv } = await supabase
+            .from("whatsapp_conversations")
+            .select("id, instance_id")
+            .eq("organization_id", existing.organization_id)
+            .eq("phone_number", phone)
+            .order("last_message_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (conv) {
+            finalConversationId = conv.id;
+            if (!finalInstanceId) finalInstanceId = conv.instance_id;
+          }
+        }
+      }
+
+      // Atualizar o item com mensagem gerada e status ready
+      const updateData: any = {
+        generated_message: generatedMessage,
+        status: "ready",
+        ai_model_used: aiModelUsed || null,
+        tokens_used: tokensUsed || null,
+      };
+      if (finalConversationId) updateData.conversation_id = finalConversationId;
+      if (finalInstanceId) updateData.whatsapp_instance_id = finalInstanceId;
+
+      const { error: updateErr } = await supabase
+        .from("ai_followup_queue")
+        .update(updateData)
+        .eq("id", followupId);
+
+      if (updateErr) {
+        console.error("❌ Error updating followup:", updateErr);
+        return new Response(
+          JSON.stringify({ error: updateErr.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`✅ Follow-up ${followupId} generated and ready. conv=${finalConversationId}, instance=${finalInstanceId}`);
+
+      return new Response(
+        JSON.stringify({ success: true, conversationId: finalConversationId, instanceId: finalInstanceId }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: `Unknown action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
