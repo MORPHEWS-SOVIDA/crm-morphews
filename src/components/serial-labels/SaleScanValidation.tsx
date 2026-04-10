@@ -19,6 +19,7 @@ interface SaleItem {
   product_id: string;
   product_name: string;
   quantity: number;
+  requisition_number?: string | null;
 }
 
 interface ScanResult {
@@ -47,16 +48,23 @@ export function SaleScanValidation({
   const [scanning, setScanning] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
+  const [confirmedManipulados, setConfirmedManipulados] = useState<Set<string>>(new Set());
 
   const assignMutation = useAssignSerialsToSale();
   const shipMutation = useShipSerials();
   const { data: assignedSerials = [], refetch: refetchSerials } = useSaleSerials(saleId);
 
-  // Calculate progress per product
+  // Separate manipulado items from serial items
+  const manipuladoItems = useMemo(() => 
+    saleItems.filter(item => !!item.requisition_number), [saleItems]);
+  const serialItems = useMemo(() => 
+    saleItems.filter(item => !item.requisition_number), [saleItems]);
+
+  // Calculate progress per product (only serial items)
   const progressByProduct = useMemo(() => {
     const map: Record<string, { needed: number; scanned: number; productName: string }> = {};
     
-    saleItems.forEach(item => {
+    serialItems.forEach(item => {
       map[item.product_id] = {
         needed: item.quantity,
         scanned: 0,
@@ -71,12 +79,17 @@ export function SaleScanValidation({
     });
 
     return map;
-  }, [saleItems, assignedSerials]);
+  }, [serialItems, assignedSerials]);
 
-  const totalNeeded = saleItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalScanned = assignedSerials.length;
-  const progressPercent = totalNeeded > 0 ? Math.min(100, (totalScanned / totalNeeded) * 100) : 0;
-  const isComplete = totalScanned >= totalNeeded;
+  const totalSerialNeeded = serialItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalSerialScanned = assignedSerials.length;
+  const totalManipulados = manipuladoItems.length;
+  const totalManipuladosConfirmed = confirmedManipulados.size;
+  
+  const totalNeeded = totalSerialNeeded + totalManipulados;
+  const totalDone = totalSerialScanned + totalManipuladosConfirmed;
+  const progressPercent = totalNeeded > 0 ? Math.min(100, (totalDone / totalNeeded) * 100) : 0;
+  const isComplete = totalDone >= totalNeeded;
 
   const handleScan = useCallback(async (code: string) => {
     if (!orgId) return;
@@ -124,8 +137,8 @@ export function SaleScanValidation({
           return;
         }
 
-        // Check if product matches any sale item
-        const matchingItem = saleItems.find(item => item.product_id === label.product_id);
+        // Check if product matches any serial sale item (not manipulados)
+        const matchingItem = serialItems.find(item => item.product_id === label.product_id);
         if (!matchingItem) {
           const productName = (label.lead_products as any)?.name || label.product_name || 'Desconhecido';
           setScanResults(prev => [{
@@ -174,7 +187,7 @@ export function SaleScanValidation({
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
       }
     }
-  }, [orgId, assignedSerials, saleItems, mode, saleId, assignMutation, progressByProduct, refetchSerials]);
+  }, [orgId, assignedSerials, serialItems, mode, saleId, assignMutation, progressByProduct, refetchSerials]);
 
   const handleManualSubmit = () => {
     if (manualCode.trim()) {
@@ -219,61 +232,98 @@ export function SaleScanValidation({
           {/* Progress */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Progresso: {totalScanned}/{totalNeeded} itens</span>
+              <span>Progresso: {totalDone}/{totalNeeded} itens</span>
               <span className="font-semibold">{Math.round(progressPercent)}%</span>
             </div>
             <Progress value={progressPercent} className="h-3" />
           </div>
 
-          {/* Per-product progress */}
-          <div className="space-y-1">
-            {Object.entries(progressByProduct).map(([productId, prog]) => (
-              <div key={productId} className="flex items-center justify-between text-sm">
-                <span className={prog.scanned >= prog.needed ? 'text-green-600 line-through' : ''}>
-                  {prog.productName}
-                </span>
-                <Badge variant={prog.scanned >= prog.needed ? 'default' : 'outline'}>
-                  {prog.scanned}/{prog.needed}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Scanner */}
-      <Card>
-        <CardContent className="pt-4 space-y-3">
-          <QRScanner
-            onScan={handleScan}
-            scanning={scanning}
-          />
-
-          {!scanning ? (
-            <Button className="w-full" onClick={() => setScanning(true)} disabled={isComplete}>
-              <ScanLine className="h-4 w-4 mr-2" /> 
-              {isComplete ? 'Todos os itens escaneados!' : 'Iniciar Scanner'}
-            </Button>
-          ) : (
-            <Button variant="outline" className="w-full" onClick={() => setScanning(false)}>
-              Parar Scanner
-            </Button>
+          {/* Manipulados section */}
+          {manipuladoItems.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-amber-700">Manipulados (confirmação manual):</p>
+              {manipuladoItems.map(item => (
+                <div key={item.id} className="flex items-center gap-2 text-sm p-2 rounded border border-amber-200 bg-amber-50/50">
+                  <input
+                    type="checkbox"
+                    checked={confirmedManipulados.has(item.id)}
+                    onChange={(e) => {
+                      const next = new Set(confirmedManipulados);
+                      if (e.target.checked) next.add(item.id);
+                      else next.delete(item.id);
+                      setConfirmedManipulados(next);
+                    }}
+                    className="h-4 w-4 rounded border-amber-400"
+                  />
+                  <span className={confirmedManipulados.has(item.id) ? 'line-through text-muted-foreground' : ''}>
+                    {item.product_name} — {item.quantity}x
+                  </span>
+                  {item.requisition_number && (
+                    <Badge variant="outline" className="ml-auto text-xs font-mono border-amber-300">
+                      Req: {item.requisition_number}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
 
-          {/* Manual input */}
-          <div className="flex gap-2">
-            <Input
-              placeholder="Digitar código manual..."
-              value={manualCode}
-              onChange={e => setManualCode(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
-            />
-            <Button variant="outline" onClick={handleManualSubmit}>
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
+          {/* Per-product progress (serial items only) */}
+          {serialItems.length > 0 && (
+            <div className="space-y-1">
+              {manipuladoItems.length > 0 && (
+                <p className="text-xs font-medium text-muted-foreground">Produtos com etiqueta serial:</p>
+              )}
+              {Object.entries(progressByProduct).map(([productId, prog]) => (
+                <div key={productId} className="flex items-center justify-between text-sm">
+                  <span className={prog.scanned >= prog.needed ? 'text-green-600 line-through' : ''}>
+                    {prog.productName}
+                  </span>
+                  <Badge variant={prog.scanned >= prog.needed ? 'default' : 'outline'}>
+                    {prog.scanned}/{prog.needed}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Scanner - only show if there are serial items to scan */}
+      {serialItems.length > 0 && (
+        <Card>
+          <CardContent className="pt-4 space-y-3">
+            <QRScanner
+              onScan={handleScan}
+              scanning={scanning}
+            />
+
+            {!scanning ? (
+              <Button className="w-full" onClick={() => setScanning(true)} disabled={isComplete}>
+                <ScanLine className="h-4 w-4 mr-2" /> 
+                {isComplete ? 'Todos os itens conferidos!' : 'Iniciar Scanner'}
+              </Button>
+            ) : (
+              <Button variant="outline" className="w-full" onClick={() => setScanning(false)}>
+                Parar Scanner
+              </Button>
+            )}
+
+            {/* Manual input */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Digitar código manual..."
+                value={manualCode}
+                onChange={e => setManualCode(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === 'Enter' && handleManualSubmit()}
+              />
+              <Button variant="outline" onClick={handleManualSubmit}>
+                <Search className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Scan results log */}
       {scanResults.length > 0 && (

@@ -42,6 +42,7 @@ export default function ExpeditionValidatePage() {
     product_id: item.product_id,
     product_name: item.product_name,
     quantity: item.quantity,
+    requisition_number: item.requisition_number || null,
   }));
 
   const totalUnits = saleItems.reduce((sum, item) => sum + item.quantity, 0);
