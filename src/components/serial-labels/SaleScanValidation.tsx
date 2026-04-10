@@ -232,25 +232,60 @@ export function SaleScanValidation({
           {/* Progress */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Progresso: {totalScanned}/{totalNeeded} itens</span>
+              <span>Progresso: {totalDone}/{totalNeeded} itens</span>
               <span className="font-semibold">{Math.round(progressPercent)}%</span>
             </div>
             <Progress value={progressPercent} className="h-3" />
           </div>
 
-          {/* Per-product progress */}
-          <div className="space-y-1">
-            {Object.entries(progressByProduct).map(([productId, prog]) => (
-              <div key={productId} className="flex items-center justify-between text-sm">
-                <span className={prog.scanned >= prog.needed ? 'text-green-600 line-through' : ''}>
-                  {prog.productName}
-                </span>
-                <Badge variant={prog.scanned >= prog.needed ? 'default' : 'outline'}>
-                  {prog.scanned}/{prog.needed}
-                </Badge>
-              </div>
-            ))}
-          </div>
+          {/* Manipulados section */}
+          {manipuladoItems.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-amber-700">Manipulados (confirmação manual):</p>
+              {manipuladoItems.map(item => (
+                <div key={item.id} className="flex items-center gap-2 text-sm p-2 rounded border border-amber-200 bg-amber-50/50">
+                  <input
+                    type="checkbox"
+                    checked={confirmedManipulados.has(item.id)}
+                    onChange={(e) => {
+                      const next = new Set(confirmedManipulados);
+                      if (e.target.checked) next.add(item.id);
+                      else next.delete(item.id);
+                      setConfirmedManipulados(next);
+                    }}
+                    className="h-4 w-4 rounded border-amber-400"
+                  />
+                  <span className={confirmedManipulados.has(item.id) ? 'line-through text-muted-foreground' : ''}>
+                    {item.product_name} — {item.quantity}x
+                  </span>
+                  {item.requisition_number && (
+                    <Badge variant="outline" className="ml-auto text-xs font-mono border-amber-300">
+                      Req: {item.requisition_number}
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Per-product progress (serial items only) */}
+          {serialItems.length > 0 && (
+            <div className="space-y-1">
+              {manipuladoItems.length > 0 && (
+                <p className="text-xs font-medium text-muted-foreground">Produtos com etiqueta serial:</p>
+              )}
+              {Object.entries(progressByProduct).map(([productId, prog]) => (
+                <div key={productId} className="flex items-center justify-between text-sm">
+                  <span className={prog.scanned >= prog.needed ? 'text-green-600 line-through' : ''}>
+                    {prog.productName}
+                  </span>
+                  <Badge variant={prog.scanned >= prog.needed ? 'default' : 'outline'}>
+                    {prog.scanned}/{prog.needed}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
