@@ -1955,7 +1955,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                   ) : (
                     <>
                       {/* Media buttons - fixed 2-column grid */}
-                      <div className="grid w-[84px] grid-cols-2 auto-rows-[40px] gap-0.5 shrink-0 content-start">
+                      <div className="flex flex-col shrink-0">
+                        <div className="flex items-center gap-0.5">
                         <EmojiPicker onEmojiSelect={handleEmojiSelect} />
                         <Button
                           variant="ghost"
@@ -1971,6 +1972,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                             <ImageIcon className="h-5 w-5 text-muted-foreground" />
                           )}
                         </Button>
+                        </div>
+                        <div className="flex items-center gap-0.5">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1999,6 +2002,8 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                             <Film className="h-5 w-5 text-muted-foreground" />
                           )}
                         </Button>
+                        </div>
+                        <div className="flex items-center gap-0.5">
                         <Button
                           size="icon"
                           variant="ghost"
@@ -2014,6 +2019,7 @@ export function WhatsAppChat({ instanceId, onBack }: WhatsAppChatProps) {
                           onSelectMedia={handleQuickMessageMedia}
                           disabled={isActiveInstanceOffline}
                         />
+                        </div>
                       </div>
 
                       {/* Video Preview */}
