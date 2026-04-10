@@ -48,16 +48,23 @@ export function SaleScanValidation({
   const [scanning, setScanning] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
+  const [confirmedManipulados, setConfirmedManipulados] = useState<Set<string>>(new Set());
 
   const assignMutation = useAssignSerialsToSale();
   const shipMutation = useShipSerials();
   const { data: assignedSerials = [], refetch: refetchSerials } = useSaleSerials(saleId);
 
-  // Calculate progress per product
+  // Separate manipulado items from serial items
+  const manipuladoItems = useMemo(() => 
+    saleItems.filter(item => !!item.requisition_number), [saleItems]);
+  const serialItems = useMemo(() => 
+    saleItems.filter(item => !item.requisition_number), [saleItems]);
+
+  // Calculate progress per product (only serial items)
   const progressByProduct = useMemo(() => {
     const map: Record<string, { needed: number; scanned: number; productName: string }> = {};
     
-    saleItems.forEach(item => {
+    serialItems.forEach(item => {
       map[item.product_id] = {
         needed: item.quantity,
         scanned: 0,
@@ -72,12 +79,17 @@ export function SaleScanValidation({
     });
 
     return map;
-  }, [saleItems, assignedSerials]);
+  }, [serialItems, assignedSerials]);
 
-  const totalNeeded = saleItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalScanned = assignedSerials.length;
-  const progressPercent = totalNeeded > 0 ? Math.min(100, (totalScanned / totalNeeded) * 100) : 0;
-  const isComplete = totalScanned >= totalNeeded;
+  const totalSerialNeeded = serialItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalSerialScanned = assignedSerials.length;
+  const totalManipulados = manipuladoItems.length;
+  const totalManipuladosConfirmed = confirmedManipulados.size;
+  
+  const totalNeeded = totalSerialNeeded + totalManipulados;
+  const totalDone = totalSerialScanned + totalManipuladosConfirmed;
+  const progressPercent = totalNeeded > 0 ? Math.min(100, (totalDone / totalNeeded) * 100) : 0;
+  const isComplete = totalDone >= totalNeeded;
 
   const handleScan = useCallback(async (code: string) => {
     if (!orgId) return;
