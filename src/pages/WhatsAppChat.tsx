@@ -258,6 +258,7 @@ export default function WhatsAppChat() {
   const [showNewConversationDialog, setShowNewConversationDialog] =
     useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(true);
 
   // Filter state
   const [conversationTypeFilter, setConversationTypeFilter] = useState<
