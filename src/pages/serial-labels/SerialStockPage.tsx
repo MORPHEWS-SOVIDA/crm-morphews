@@ -35,75 +35,25 @@ export default function SerialStockPage() {
     queryFn: async () => {
       if (!orgId) return [];
 
-      const { data: labels, error } = await supabase
-        .from('product_serial_labels')
-        .select('serial_code, status, product_id, stocked_by, stocked_at')
-        .eq('organization_id', orgId)
-        .not('product_id', 'is', null)
-        .order('serial_code')
-        .limit(5000);
+      const { data, error } = await supabase
+        .rpc('get_serial_stock_overview', { p_organization_id: orgId });
 
       if (error) throw error;
-      if (!labels || labels.length === 0) return [];
 
-      const productIds = [...new Set(labels.map((l: any) => l.product_id))];
-      const { data: products } = await supabase
-        .from('lead_products')
-        .select('id, name')
-        .in('id', productIds);
-
-      const productMap = new Map((products || []).map((p: any) => [p.id, p.name]));
-
-      const userIds = [...new Set(labels.map((l: any) => l.stocked_by).filter(Boolean))];
-      let userMap = new Map<string, string>();
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, first_name, last_name')
-          .in('user_id', userIds);
-        if (profiles) {
-          userMap = new Map(profiles.map((p: any) => [p.user_id, `${p.first_name} ${p.last_name}`.trim()]));
-        }
-      }
-
-      const groups = new Map<string, StockGroup>();
-
-      for (const label of labels as any[]) {
-        const labelPrefix = label.serial_code.replace(/\d+$/, '');
-        const key = `${label.product_id}__${label.stocked_by || 'unknown'}__${labelPrefix}`;
-        if (!groups.has(key)) {
-          groups.set(key, {
-            product_id: label.product_id,
-            product_name: productMap.get(label.product_id) || 'Produto desconhecido',
-            prefix: labelPrefix,
-            min_code: label.serial_code,
-            max_code: label.serial_code,
-            total: 0,
-            in_stock: 0,
-            assigned: 0,
-            shipped: 0,
-            stocked_by: label.stocked_by,
-            stocked_by_name: label.stocked_by ? userMap.get(label.stocked_by) || 'Usuário' : null,
-            stocked_at: label.stocked_at,
-          });
-        }
-        const g = groups.get(key)!;
-        g.total++;
-        if (label.serial_code < g.min_code) g.min_code = label.serial_code;
-        if (label.serial_code > g.max_code) g.max_code = label.serial_code;
-        if (label.stocked_at && (!g.stocked_at || label.stocked_at > g.stocked_at)) {
-          g.stocked_at = label.stocked_at;
-        }
-        if (label.status === 'in_stock') g.in_stock++;
-        else if (label.status === 'assigned') g.assigned++;
-        else if (label.status === 'shipped') g.shipped++;
-      }
-
-      return Array.from(groups.values()).sort((a, b) => {
-        const nameCompare = a.product_name.localeCompare(b.product_name);
-        if (nameCompare !== 0) return nameCompare;
-        return (b.stocked_at || '').localeCompare(a.stocked_at || '');
-      });
+      return (data || []).map((row: any) => ({
+        product_id: row.product_id,
+        product_name: row.product_name,
+        prefix: row.prefix,
+        min_code: row.min_code,
+        max_code: row.max_code,
+        total: Number(row.total),
+        in_stock: Number(row.in_stock),
+        assigned: Number(row.assigned),
+        shipped: Number(row.shipped),
+        stocked_by: row.stocked_by,
+        stocked_by_name: row.stocked_by_name?.trim() || null,
+        stocked_at: row.stocked_at,
+      })) as StockGroup[];
     },
     enabled: !!orgId,
   });
