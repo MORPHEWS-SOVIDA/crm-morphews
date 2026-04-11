@@ -1670,6 +1670,7 @@ export default function SaleDetail() {
                 product_id: item.product_id,
                 product_name: item.product_name,
                 quantity: item.quantity,
+                requisition_number: item.requisition_number,
               }))}
               romaneioNumber={sale.romaneio_number}
             />
