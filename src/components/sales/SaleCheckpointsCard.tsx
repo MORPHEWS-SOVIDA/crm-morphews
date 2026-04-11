@@ -463,7 +463,7 @@ export function SaleCheckpointsCard({
           disabled={toggleMutation.isPending}
         >
           <CheckCircle2 className="w-4 h-4 mr-2" />
-          {saleItems && saleItems.length > 0 ? 'Escanear e Validar' : 'Validar Expedição'}
+          {(saleItems?.filter(i => !i.requisition_number) || []).length > 0 ? 'Escanear e Validar' : 'Validar Expedição'}
         </Button>
       );
     }
