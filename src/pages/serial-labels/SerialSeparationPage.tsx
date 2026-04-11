@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input';
 import { SaleScanValidation } from '@/components/serial-labels/SaleScanValidation';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentTenantId } from '@/hooks/useTenant';
+import { useToggleSaleCheckpoint } from '@/hooks/useSaleCheckpoints';
 import { toast } from 'sonner';
 import { ArrowLeft, ClipboardList } from 'lucide-react';
 
 export default function SerialSeparationPage() {
   const { data: orgId } = useCurrentTenantId();
+  const toggleCheckpoint = useToggleSaleCheckpoint();
   const [saleIdInput, setSaleIdInput] = useState('');
   const [saleData, setSaleData] = useState<any>(null);
   const [saleItems, setSaleItems] = useState<any[]>([]);
@@ -99,8 +101,20 @@ export default function SerialSeparationPage() {
             saleNumber={saleData.romaneio_number}
             saleItems={saleItems}
             mode="separation"
-            onComplete={() => {
-              toast.success('Separação finalizada!');
+            onComplete={async () => {
+              // Auto-mark pending_expedition checkpoint
+              try {
+                await toggleCheckpoint.mutateAsync({
+                  saleId: saleData.id,
+                  checkpointType: 'pending_expedition',
+                  complete: true,
+                  notes: 'Validado via scan de etiquetas seriais (separação mobile)',
+                });
+                toast.success('✅ Separação finalizada e pedido marcado como SEPARADO!');
+              } catch {
+                toast.success('Separação finalizada!');
+                toast.error('Erro ao marcar como separado automaticamente');
+              }
               setSaleData(null);
               setSaleItems([]);
             }}
