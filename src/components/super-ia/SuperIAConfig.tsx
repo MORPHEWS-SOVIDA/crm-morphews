@@ -240,6 +240,27 @@ export function SuperIAConfig({ organizationId }: Props) {
         </CardContent>
       </Card>
 
+      {/* Prompt de Follow-up */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Prompt de Follow-up (Script da IA)</CardTitle>
+          <CardDescription>
+            Instruções que a IA usa para gerar mensagens de follow-up. Quanto mais detalhado, melhor a qualidade das mensagens.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <textarea
+            className="w-full min-h-[400px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            placeholder="Cole aqui o script/prompt que a IA deve seguir ao gerar follow-ups..."
+            value={localConfig.followup_prompt || ""}
+            onChange={(e) => updateField("followup_prompt", e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            Este prompt será injetado no contexto da IA ao gerar follow-ups automáticos.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Save */}
       <Button onClick={handleSave} disabled={updateConfig.isPending} className="w-full gap-2">
         {updateConfig.isPending ? (
