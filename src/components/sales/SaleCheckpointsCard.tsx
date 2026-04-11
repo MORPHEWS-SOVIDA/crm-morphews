@@ -167,7 +167,7 @@ interface SaleCheckpointsCardProps {
   closedByName?: string | null;
   finalizedAt?: string | null;
   finalizedByName?: string | null;
-  saleItems?: Array<{ id: string; product_id: string; product_name: string; quantity: number }>;
+  saleItems?: Array<{ id: string; product_id: string; product_name: string; quantity: number; requisition_number?: string | null }>;
   romaneioNumber?: string | number;
 }
 
@@ -452,8 +452,9 @@ export function SaleCheckpointsCard({
           size="sm"
           className="mt-2 w-full"
           onClick={() => {
-            // Se tem itens, exige scan de etiquetas seriais
-            if (saleItems && saleItems.length > 0) {
+            // Se tem itens COM etiqueta serial (não-manipulados), exige scan
+            const serialItems = saleItems?.filter(i => !i.requisition_number) || [];
+            if (serialItems.length > 0) {
               setShowScannerDialog(true);
             } else {
               setShowExpeditionDialog(true);
