@@ -208,7 +208,9 @@ serve(async (req) => {
         products: productsRes.data || [],
         scheduled_messages: scheduledRes.data || [],
         followup_config: orgRes.data?.ai_followup_config || null,
+        followup_prompt: (orgRes.data?.ai_followup_config as any)?.followup_prompt || null,
         bot_prompt: botRes.data?.system_prompt || null,
+        bot_personality: botRes.data?.personality_description || null,
         bot_personality: botRes.data?.personality_description || null,
       };
 
