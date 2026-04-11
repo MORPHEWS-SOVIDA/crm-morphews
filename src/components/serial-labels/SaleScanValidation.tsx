@@ -198,12 +198,15 @@ export function SaleScanValidation({
 
   const handleFinishExpedition = async () => {
     if (!isComplete) {
-      toast.error('Escaneie todos os itens antes de finalizar');
+      toast.error('Confirme todos os itens antes de finalizar');
       return;
     }
 
+    // Only ship serials if there are any
     const codes = assignedSerials.map(s => s.serial_code);
-    await shipMutation.mutateAsync({ serialCodes: codes });
+    if (codes.length > 0) {
+      await shipMutation.mutateAsync({ serialCodes: codes });
+    }
     onComplete?.();
   };
 
