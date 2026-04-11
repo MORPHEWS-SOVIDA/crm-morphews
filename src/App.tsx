@@ -1443,7 +1443,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/carrinhos"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']} allowPartners>
                       <EcommerceCarrinhos />
                     </ProtectedRoute>
                   }
@@ -1451,7 +1451,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/checkout-logs"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_manage']}>
                       <CheckoutEventsPage />
                     </ProtectedRoute>
                   }
@@ -1459,7 +1459,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/emails"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_manage']}>
                       <EcommerceEmails />
                     </ProtectedRoute>
                   }
@@ -1467,7 +1467,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/parceiros"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_manage']}>
                       <EcommerceParceiros />
                     </ProtectedRoute>
                   }
@@ -1475,7 +1475,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/afiliados"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_manage']}>
                       <EcommerceAfiliados />
                     </ProtectedRoute>
                   }
@@ -1484,7 +1484,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/afiliado-vendas"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']} allowPartners>
                       <AffiliateSalesPage />
                     </ProtectedRoute>
                   }
@@ -1492,7 +1492,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/afiliado-links"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']} allowPartners>
                       <AffiliateLinksPage />
                     </ProtectedRoute>
                   }
@@ -1501,7 +1501,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/carteira"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']} allowPartners>
                       <EcommerceCarteira />
                     </ProtectedRoute>
                   }
@@ -1509,7 +1509,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/landpage-editor/:id"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_manage']}>
                       <LandingPageEditor />
                     </ProtectedRoute>
                   }
