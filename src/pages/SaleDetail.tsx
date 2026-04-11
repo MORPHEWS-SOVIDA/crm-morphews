@@ -1644,6 +1644,9 @@ export default function SaleDetail() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Serial Labels linked to this sale */}
+            <SaleSerialLabelsInfo saleId={sale.id} />
           </div>
 
           {/* Right Column - Actions & Status */}
