@@ -1352,7 +1352,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/lojas"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']}>
                       <EcommerceLojas />
                     </ProtectedRoute>
                   }
@@ -1360,7 +1360,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/landings"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']}>
                       <EcommerceLandings />
                     </ProtectedRoute>
                   }
@@ -1368,7 +1368,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/landing-builder"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_manage']}>
                       <LandingChatBuilder />
                     </ProtectedRoute>
                   }
@@ -1376,7 +1376,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/landing-builder/:id"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_manage']}>
                       <LandingChatBuilder />
                     </ProtectedRoute>
                   }
@@ -1384,7 +1384,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/quiz"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']}>
                       <EcommerceQuiz />
                     </ProtectedRoute>
                   }
@@ -1392,7 +1392,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/quiz/edit/:id"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_manage']}>
                       <QuizEditor />
                     </ProtectedRoute>
                   }
@@ -1400,7 +1400,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/checkouts"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']}>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']}>
                       <CheckoutsPage />
                     </ProtectedRoute>
                   }
@@ -1409,7 +1409,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/coprodutor-vendas"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']} allowPartners>
                       <EcommerceCoproducerSales />
                     </ProtectedRoute>
                   }
@@ -1418,7 +1418,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/vendas"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']} allowPartners>
                       <EcommerceVendas />
                     </ProtectedRoute>
                   }
@@ -1426,7 +1426,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/vendas/:orderId"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']} allowPartners>
                       <EcommerceOrderDetail />
                     </ProtectedRoute>
                   }
@@ -1434,7 +1434,7 @@ const App = () => (
                 <Route
                   path="/ecommerce/coprodutor-vendas/:orderId"
                   element={
-                    <ProtectedRoute requiredPermissions={['settings_view']} allowPartners>
+                    <ProtectedRoute requiredPermissions={['ecommerce_view']} allowPartners>
                       <EcommerceCoproducerOrderDetail />
                     </ProtectedRoute>
                   }
