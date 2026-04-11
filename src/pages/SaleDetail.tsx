@@ -83,6 +83,7 @@ import { MotoboyTrackingCard } from '@/components/sales/MotoboyTrackingCard';
 import { RomaneioPrintButtons } from '@/components/sales/RomaneioPrintButtons';
 import { SaleInvoiceCard } from '@/components/sales/SaleInvoiceCard';
 import { SaleClosingInfoCard } from '@/components/sales/SaleClosingInfoCard';
+import { SaleSerialLabelsInfo } from '@/components/serial-labels/SaleSerialLabelsInfo';
 
 // Hook to fetch delivery return reasons
 function useDeliveryReturnReasons() {
