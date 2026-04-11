@@ -61,6 +61,7 @@ serve(async (req) => {
         productsRes,
         scheduledRes,
         orgRes,
+        botRes,
       ] = await Promise.all([
         // Lead + etapa do funil
         supabase
@@ -140,6 +141,15 @@ serve(async (req) => {
           .select("id, name, ai_followup_config")
           .eq("id", organizationId)
           .single(),
+
+        // Bot ativo da organização (para injetar system_prompt no contexto)
+        supabase
+          .from("ai_bots")
+          .select("id, name, system_prompt, personality_description, service_type")
+          .eq("organization_id", organizationId)
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       // Calcular métricas derivadas
@@ -198,6 +208,8 @@ serve(async (req) => {
         products: productsRes.data || [],
         scheduled_messages: scheduledRes.data || [],
         followup_config: orgRes.data?.ai_followup_config || null,
+        bot_prompt: botRes.data?.system_prompt || null,
+        bot_personality: botRes.data?.personality_description || null,
       };
 
       console.log(
@@ -544,14 +556,27 @@ serve(async (req) => {
         );
       }
 
-      // Marcar como enviado
-      await supabase.from("ai_followup_queue").update({
-        status: "sent",
-        sent_at: new Date().toISOString(),
-        generated_message: messageToSend, // Salvar a versão final (caso editada)
-      }).eq("id", followupId);
+      // Marcar como enviado + mover conversa para "assigned"
+      const updatePromises: Promise<any>[] = [
+        supabase.from("ai_followup_queue").update({
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          generated_message: messageToSend,
+        }).eq("id", followupId),
+      ];
 
-      console.log(`✅ Follow-up ${followupId} sent successfully`);
+      // Atualizar status da conversa para "assigned" após envio
+      if (followup.conversation_id) {
+        updatePromises.push(
+          supabase.from("whatsapp_conversations").update({
+            status: "assigned",
+          }).eq("id", followup.conversation_id)
+        );
+      }
+
+      await Promise.all(updatePromises);
+
+      console.log(`✅ Follow-up ${followupId} sent successfully. Conversation ${followup.conversation_id || 'N/A'} → assigned`);
 
       return new Response(
         JSON.stringify({ success: true, message: "Follow-up sent" }),
