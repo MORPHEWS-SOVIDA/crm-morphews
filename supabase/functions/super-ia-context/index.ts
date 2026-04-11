@@ -208,6 +208,8 @@ serve(async (req) => {
         products: productsRes.data || [],
         scheduled_messages: scheduledRes.data || [],
         followup_config: orgRes.data?.ai_followup_config || null,
+        bot_prompt: botRes.data?.system_prompt || null,
+        bot_personality: botRes.data?.personality_description || null,
       };
 
       console.log(
