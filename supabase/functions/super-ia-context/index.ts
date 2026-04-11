@@ -556,14 +556,27 @@ serve(async (req) => {
         );
       }
 
-      // Marcar como enviado
-      await supabase.from("ai_followup_queue").update({
-        status: "sent",
-        sent_at: new Date().toISOString(),
-        generated_message: messageToSend, // Salvar a versão final (caso editada)
-      }).eq("id", followupId);
+      // Marcar como enviado + mover conversa para "assigned"
+      const updatePromises: Promise<any>[] = [
+        supabase.from("ai_followup_queue").update({
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          generated_message: messageToSend,
+        }).eq("id", followupId),
+      ];
 
-      console.log(`✅ Follow-up ${followupId} sent successfully`);
+      // Atualizar status da conversa para "assigned" após envio
+      if (followup.conversation_id) {
+        updatePromises.push(
+          supabase.from("whatsapp_conversations").update({
+            status: "assigned",
+          }).eq("id", followup.conversation_id)
+        );
+      }
+
+      await Promise.all(updatePromises);
+
+      console.log(`✅ Follow-up ${followupId} sent successfully. Conversation ${followup.conversation_id || 'N/A'} → assigned`);
 
       return new Response(
         JSON.stringify({ success: true, message: "Follow-up sent" }),
