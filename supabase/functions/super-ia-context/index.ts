@@ -61,6 +61,7 @@ serve(async (req) => {
         productsRes,
         scheduledRes,
         orgRes,
+        botRes,
       ] = await Promise.all([
         // Lead + etapa do funil
         supabase
@@ -140,6 +141,15 @@ serve(async (req) => {
           .select("id, name, ai_followup_config")
           .eq("id", organizationId)
           .single(),
+
+        // Bot ativo da organização (para injetar system_prompt no contexto)
+        supabase
+          .from("ai_bots")
+          .select("id, name, system_prompt, personality_description, service_type")
+          .eq("organization_id", organizationId)
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       // Calcular métricas derivadas
