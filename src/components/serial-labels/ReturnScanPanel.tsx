@@ -9,8 +9,9 @@ import { useReturnSerial } from '@/hooks/useSerialLabels';
 import { useCreateStockMovement } from '@/hooks/useStock';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentTenantId } from '@/hooks/useTenant';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { RotateCcw, ScanLine, Search, CheckCircle2, Package } from 'lucide-react';
+import { RotateCcw, ScanLine, Search, CheckCircle2, Package, AlertTriangle } from 'lucide-react';
 
 interface ReturnedItem {
   code: string;
@@ -19,12 +20,45 @@ interface ReturnedItem {
   saleId: string | null;
 }
 
+async function resetSaleToDraft(saleId: string) {
+  // 1. Clear all checkpoints
+  await supabase
+    .from('sale_checkpoints')
+    .update({
+      completed_at: null,
+      completed_by: null,
+    })
+    .eq('sale_id', saleId);
+
+  // 2. Clear expedition markers
+  await supabase
+    .from('sales')
+    .update({
+      status: 'draft',
+      expedition_validated_at: null,
+      expedition_validated_by: null,
+      separated_at: null,
+      separated_by: null,
+      printed_at: null,
+      printed_by: null,
+      dispatched_at: null,
+      dispatched_by: null,
+      delivered_at: null,
+      assigned_delivery_user_id: null,
+      carrier_tracking_status: null,
+      motoboy_tracking_status: null,
+    } as any)
+    .eq('id', saleId);
+}
+
 export function ReturnScanPanel() {
   const { data: orgId } = useCurrentTenantId();
+  const queryClient = useQueryClient();
   const [scanning, setScanning] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [reason, setReason] = useState('');
   const [returnedItems, setReturnedItems] = useState<ReturnedItem[]>([]);
+  const [resetSaleIds, setResetSaleIds] = useState<Set<string>>(new Set());
 
   const returnMutation = useReturnSerial();
   const stockMutation = useCreateStockMovement();
@@ -60,6 +94,8 @@ export function ReturnScanPanel() {
         return;
       }
 
+      const capturedSaleId = label.sale_id;
+
       // Return the serial
       await returnMutation.mutateAsync({ serialCode: code, reason });
 
@@ -79,8 +115,23 @@ export function ReturnScanPanel() {
         code: code.toUpperCase(),
         productName,
         productId: label.product_id || '',
-        saleId: label.sale_id,
+        saleId: capturedSaleId,
       }, ...prev]);
+
+      // Auto-reset the sale to draft if it hasn't been reset yet
+      if (capturedSaleId && !resetSaleIds.has(capturedSaleId)) {
+        try {
+          await resetSaleToDraft(capturedSaleId);
+          setResetSaleIds(prev => new Set(prev).add(capturedSaleId));
+          queryClient.invalidateQueries({ queryKey: ['sale'] });
+          queryClient.invalidateQueries({ queryKey: ['sale-checkpoints'] });
+          queryClient.invalidateQueries({ queryKey: ['sales'] });
+          toast.info(`📋 Pedido da venda foi resetado para Rascunho — pronto para re-expedição`);
+        } catch (resetErr) {
+          console.error('Error resetting sale:', resetErr);
+          toast.warning('Produto devolvido, mas não foi possível resetar o pedido automaticamente');
+        }
+      }
 
       toast.success(`✅ ${code} devolvido — ${productName}`);
 
@@ -88,7 +139,7 @@ export function ReturnScanPanel() {
       toast.error(err.message);
       if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
     }
-  }, [orgId, returnedItems, returnMutation, stockMutation, reason]);
+  }, [orgId, returnedItems, returnMutation, stockMutation, reason, resetSaleIds, queryClient]);
 
   const handleManualSubmit = () => {
     if (manualCode.trim()) {
@@ -96,6 +147,9 @@ export function ReturnScanPanel() {
       setManualCode('');
     }
   };
+
+  // Group returned items by sale
+  const affectedSales = [...resetSaleIds];
 
   return (
     <div className="space-y-4">
@@ -106,7 +160,8 @@ export function ReturnScanPanel() {
             Devolução ao Estoque
           </CardTitle>
           <CardDescription>
-            Escaneie os produtos devolvidos para retornar ao estoque automaticamente
+            Escaneie os produtos devolvidos para retornar ao estoque automaticamente.
+            O pedido será resetado para Rascunho e precisará ser re-expedido com novos QR codes.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -145,6 +200,25 @@ export function ReturnScanPanel() {
         </CardContent>
       </Card>
 
+      {/* Info about affected sales */}
+      {affectedSales.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20">
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-2 text-sm">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-amber-800 dark:text-amber-300">
+                  {affectedSales.length} pedido(s) resetado(s) para Rascunho
+                </p>
+                <p className="text-amber-600 dark:text-amber-400 text-xs mt-1">
+                  Os vendedores podem remarcar nova data e a expedição precisará escanear novos QR codes.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Returned items */}
       {returnedItems.length > 0 && (
         <Card>
@@ -163,7 +237,7 @@ export function ReturnScanPanel() {
                   <span className="text-muted-foreground">— {item.productName}</span>
                   {item.saleId && (
                     <Badge variant="outline" className="ml-auto text-xs">
-                      Venda vinculada
+                      Pedido resetado
                     </Badge>
                   )}
                 </div>
