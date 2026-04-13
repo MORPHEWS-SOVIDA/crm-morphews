@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,9 @@ import {
   ScanLine, CheckCircle2, XCircle, AlertTriangle, Package, 
   Truck, Search, RotateCcw
 } from 'lucide-react';
+
+// Categories that skip QR serial scanning (manual confirmation only)
+const NO_SCAN_CATEGORIES = ['manipulado', 'servico'];
 
 interface SaleItem {
   id: string;
@@ -49,16 +52,41 @@ export function SaleScanValidation({
   const [manualCode, setManualCode] = useState('');
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [confirmedManipulados, setConfirmedManipulados] = useState<Set<string>>(new Set());
+  const [productCategories, setProductCategories] = useState<Record<string, string>>({});
 
   const assignMutation = useAssignSerialsToSale();
   const shipMutation = useShipSerials();
   const { data: assignedSerials = [], refetch: refetchSerials } = useSaleSerials(saleId);
 
-  // Separate manipulado items from serial items
+  // Fetch product categories to determine which items need scanning
+  useEffect(() => {
+    if (!orgId || saleItems.length === 0) return;
+    const productIds = [...new Set(saleItems.map(i => i.product_id))];
+    supabase
+      .from('lead_products')
+      .select('id, category')
+      .in('id', productIds)
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, string> = {};
+          data.forEach(p => { map[p.id] = p.category; });
+          setProductCategories(map);
+        }
+      });
+  }, [orgId, saleItems]);
+
+  // An item skips QR scanning if it has requisition_number OR its category is manipulado/servico
+  const isManualItem = useCallback((item: SaleItem) => {
+    if (item.requisition_number) return true;
+    const cat = productCategories[item.product_id];
+    return cat ? NO_SCAN_CATEGORIES.includes(cat) : false;
+  }, [productCategories]);
+
+  // Separate manual-confirmation items from serial items
   const manipuladoItems = useMemo(() => 
-    saleItems.filter(item => !!item.requisition_number), [saleItems]);
+    saleItems.filter(item => isManualItem(item)), [saleItems, isManualItem]);
   const serialItems = useMemo(() => 
-    saleItems.filter(item => !item.requisition_number), [saleItems]);
+    saleItems.filter(item => !isManualItem(item)), [saleItems, isManualItem]);
 
   // Calculate progress per product (only serial items)
   const progressByProduct = useMemo(() => {
