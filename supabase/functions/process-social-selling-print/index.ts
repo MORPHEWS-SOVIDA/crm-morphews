@@ -235,48 +235,73 @@ async function callAIWithRetry(
   return { ok: false, status: 503, error: 'All AI providers unavailable after retries' };
 }
 
+// Safe base64 encoder that avoids stack overflow with large files
+function uint8ToBase64(bytes: Uint8Array): string {
+  const CHUNK = 4096;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const slice = bytes.subarray(i, Math.min(i + CHUNK, bytes.length));
+    for (let j = 0; j < slice.length; j++) {
+      binary += String.fromCharCode(slice[j]);
+    }
+  }
+  return btoa(binary);
+}
+
 async function extractFromScreenshot(
   filePath: string,
   supabase: ReturnType<typeof createClient>,
   LOVABLE_API_KEY: string
 ): Promise<ExtractionResult> {
-  console.log(`[EXTRACT] Processing file: ${filePath}`);
+  console.log(`[EXTRACT] ===== START file: ${filePath} =====`);
   
   try {
+    // Step 1: Get signed URL
+    console.log(`[EXTRACT] Step 1: Creating signed URL...`);
     const { data: signedData, error: signedError } = await supabase.storage
       .from("social-selling-prints")
       .createSignedUrl(filePath, 3600);
 
     if (signedError || !signedData?.signedUrl) {
-      console.error(`[EXTRACT] SignedUrl error for ${filePath}:`, signedError?.message || "No URL returned");
-      return { entries: [] };
+      console.error(`[EXTRACT] FAILED Step 1 - SignedUrl error for ${filePath}:`, JSON.stringify(signedError) || "No URL returned");
+      return { entries: [], error: `Storage error: ${signedError?.message || 'no URL'}` };
     }
 
-    const signedUrl = signedData.signedUrl;
+    console.log(`[EXTRACT] Step 1 OK: signed URL obtained`);
 
-    const imgResponse = await fetch(signedUrl);
+    // Step 2: Download image
+    console.log(`[EXTRACT] Step 2: Downloading image...`);
+    const imgResponse = await fetch(signedData.signedUrl);
     if (!imgResponse.ok) {
-      console.error(`[EXTRACT] Image download FAILED for ${filePath}: ${imgResponse.status}`);
-      return { entries: [] };
+      console.error(`[EXTRACT] FAILED Step 2 - Image download error: ${imgResponse.status} ${imgResponse.statusText}`);
+      return { entries: [], error: `Download failed: ${imgResponse.status}` };
     }
 
     const imgBuffer = await imgResponse.arrayBuffer();
     const imgBytes = new Uint8Array(imgBuffer);
     const imgSize = imgBytes.length;
-    console.log(`[EXTRACT] Image downloaded: ${imgSize} bytes`);
+    console.log(`[EXTRACT] Step 2 OK: ${imgSize} bytes downloaded`);
 
     if (imgSize < 500) {
-      console.error(`[EXTRACT] Image too small (${imgSize} bytes). Skipping.`);
-      return { entries: [] };
+      console.error(`[EXTRACT] FAILED - Image too small (${imgSize} bytes)`);
+      return { entries: [], error: `Image too small: ${imgSize} bytes` };
     }
 
-    let binary = "";
-    const chunkSize = 8192;
-    for (let i = 0; i < imgBytes.length; i += chunkSize) {
-      const chunk = imgBytes.subarray(i, i + chunkSize);
-      binary += String.fromCharCode(...chunk);
+    // Step 3: Encode to base64 (safe method)
+    console.log(`[EXTRACT] Step 3: Encoding to base64...`);
+    let base64: string;
+    try {
+      base64 = uint8ToBase64(imgBytes);
+    } catch (encErr) {
+      console.error(`[EXTRACT] FAILED Step 3 - Base64 encoding error:`, encErr);
+      return { entries: [], error: `Base64 encoding failed` };
     }
-    const base64 = btoa(binary);
+    console.log(`[EXTRACT] Step 3 OK: base64 length = ${base64.length}`);
+
+    // If base64 is too large (>10MB), the AI call might fail
+    if (base64.length > 15_000_000) {
+      console.warn(`[EXTRACT] WARNING: base64 is very large (${(base64.length / 1_000_000).toFixed(1)}MB) — may fail`);
+    }
 
     let mimeType = imgResponse.headers.get("content-type") || "";
     if (!mimeType || mimeType === "application/octet-stream") {
@@ -287,7 +312,8 @@ async function extractFromScreenshot(
       else mimeType = "image/jpeg";
     }
 
-    console.log(`[EXTRACT] Calling AI for ${filePath} (mime: ${mimeType}, base64 length: ${base64.length})...`);
+    // Step 4: Call AI
+    console.log(`[EXTRACT] Step 4: Calling AI (mime: ${mimeType}, base64: ${(base64.length / 1000).toFixed(0)}KB)...`);
 
     const aiResult = await callAIWithRetry({
       model: 'google/gemini-2.5-flash',
@@ -319,25 +345,30 @@ Return a JSON array of objects. The array length MUST match the total number of 
     });
 
     if (!aiResult.ok) {
-      console.error(`[EXTRACT] AI failed for ${filePath}: status ${aiResult.status}`);
+      console.error(`[EXTRACT] FAILED Step 4 - AI error: status ${aiResult.status}, error: ${aiResult.error?.substring(0, 500)}`);
       if (aiResult.status === 402) {
         return { entries: [], error: "Créditos de IA esgotados. Recarregue no painel de Usage.", errorCode: 402 };
       }
       if (aiResult.status === 429) {
         return { entries: [], error: "Limite de requisições excedido. Tente novamente em alguns minutos.", errorCode: 429 };
       }
-      return { entries: [], error: `Erro na API de IA: ${aiResult.status}` };
+      return { entries: [], error: `AI error: ${aiResult.status} - ${aiResult.error?.substring(0, 200)}` };
     }
 
     const content = aiResult.data?.choices?.[0]?.message?.content || "[]";
-    console.log(`[EXTRACT] AI response for ${filePath}: ${content.substring(0, 800)}`);
+    console.log(`[EXTRACT] Step 4 OK - AI response (first 1000 chars): ${content.substring(0, 1000)}`);
 
+    // Step 5: Parse entries
     const entries = parseEntries(content);
-    console.log(`[EXTRACT] File ${filePath} => ${entries.length} entries (${entries.filter(e => e.type === "handle").length} handles, ${entries.filter(e => e.type === "display_name").length} display names)`);
+    console.log(`[EXTRACT] Step 5 OK: ${entries.length} entries (${entries.filter(e => e.type === "handle").length} handles, ${entries.filter(e => e.type === "display_name").length} display names)`);
+    console.log(`[EXTRACT] ===== END file: ${filePath} => ${entries.length} entries =====`);
     return { entries };
   } catch (err) {
-    console.error(`[EXTRACT] Exception for ${filePath}:`, err);
-    return { entries: [] };
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack : '';
+    console.error(`[EXTRACT] UNCAUGHT EXCEPTION for ${filePath}: ${errMsg}`);
+    console.error(`[EXTRACT] Stack: ${errStack}`);
+    return { entries: [], error: `Exception: ${errMsg}` };
   }
 }
 
