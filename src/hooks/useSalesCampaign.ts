@@ -15,23 +15,11 @@ export interface CampaignSeller {
 }
 
 function getCurrentFortnight(): { from: Date; to: Date } {
-  const now = new Date();
-  const day = now.getDate();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-
-  if (day <= 15) {
-    return {
-      from: new Date(year, month, 1),
-      to: new Date(year, month, 15, 23, 59, 59, 999),
-    };
-  } else {
-    const lastDay = new Date(year, month + 1, 0).getDate();
-    return {
-      from: new Date(year, month, 16),
-      to: new Date(year, month, lastDay, 23, 59, 59, 999),
-    };
-  }
+  // Período fixo da campanha atual: 14/04/2026 a 30/04/2026
+  return {
+    from: new Date(2026, 3, 14), // 14 de abril de 2026
+    to: new Date(2026, 3, 30, 23, 59, 59, 999), // 30 de abril de 2026
+  };
 }
 
 export function getFortnightRange() {
