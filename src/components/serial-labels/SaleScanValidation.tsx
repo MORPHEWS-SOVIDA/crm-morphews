@@ -272,7 +272,7 @@ export function SaleScanValidation({
           {/* Manipulados section */}
           {manipuladoItems.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs font-medium text-amber-700">Manipulados (confirmação manual):</p>
+              <p className="text-xs font-medium text-amber-700">Manipulados / Serviços (confirmação manual):</p>
               {manipuladoItems.map(item => (
                 <div key={item.id} className="flex items-center gap-2 text-sm p-2 rounded border border-amber-200 bg-amber-50/50">
                   <input
