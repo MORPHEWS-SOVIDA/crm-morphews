@@ -400,7 +400,8 @@ serve(async (req) => {
     const { import_id } = await req.json();
     if (!import_id) throw new Error("import_id required");
 
-    console.log(`[MAIN] Processing import: ${import_id}`);
+    console.log(`[MAIN] ========== Processing import: ${import_id} ==========`);
+    console.log(`[MAIN] User: ${user.id}, Org: ${profile.organization_id}`);
 
     const { data: importRecord, error: importErr } = await supabase
       .from("social_selling_imports")
@@ -410,9 +411,11 @@ serve(async (req) => {
       .single();
 
     if (importErr || !importRecord) {
-      console.error("[MAIN] Import not found:", importErr?.message);
-      throw new Error("Import not found");
+      console.error("[MAIN] Import not found:", JSON.stringify(importErr));
+      throw new Error(`Import not found: ${importErr?.message || 'null record'}`);
     }
+
+    console.log(`[MAIN] Import record found. seller_id: ${importRecord.seller_id}, profile_id: ${importRecord.profile_id}`);
 
     await supabase
       .from("social_selling_imports")
@@ -420,7 +423,7 @@ serve(async (req) => {
       .eq("id", import_id);
 
     const screenshotUrls: string[] = importRecord.screenshot_urls || [];
-    console.log(`[MAIN] Found ${screenshotUrls.length} screenshots`);
+    console.log(`[MAIN] Found ${screenshotUrls.length} screenshots: ${JSON.stringify(screenshotUrls)}`);
 
     // Process screenshots sequentially
     const allEntries: ExtractedEntry[] = [];
