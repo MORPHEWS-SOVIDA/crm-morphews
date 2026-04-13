@@ -14,16 +14,16 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const _LOVABLE_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 
 const _GEMINI_MAP: Record<string, string> = {
-  'google/gemini-3-flash-preview': 'gemini-2.0-flash',
-  'google/gemini-3.1-flash-preview': 'gemini-2.0-flash',
+  'google/gemini-3-flash-preview': 'gemini-2.5-flash',
+  'google/gemini-3.1-flash-preview': 'gemini-2.5-flash',
   'google/gemini-2.5-flash': 'gemini-2.5-flash',
-  'google/gemini-2.5-flash-lite': 'gemini-2.0-flash-lite',
+  'google/gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
   'google/gemini-2.5-pro': 'gemini-2.5-pro',
-  'google/gemini-3-pro-image-preview': 'gemini-2.0-flash',
+  'google/gemini-3-pro-image-preview': 'gemini-2.5-flash',
   'google/gemini-3.1-pro-preview': 'gemini-2.5-pro',
   'openai/gpt-5': 'gemini-2.5-pro',
   'openai/gpt-5-mini': 'gemini-2.5-flash',
-  'openai/gpt-5-nano': 'gemini-2.0-flash-lite',
+  'openai/gpt-5-nano': 'gemini-2.5-flash-lite',
 };
 
 function _aiUrl() {
@@ -36,7 +36,7 @@ function _aiHeaders() {
   return { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
 }
 function _aiModel(m: string) {
-  return GEMINI_API_KEY ? (_GEMINI_MAP[m] || 'gemini-2.0-flash') : m;
+  return GEMINI_API_KEY ? (_GEMINI_MAP[m] || 'gemini-2.5-flash') : m;
 }
 function _embedUrl() {
   return GEMINI_API_KEY
@@ -188,7 +188,7 @@ async function callAIWithRetry(
     const primaryModel = _aiModel(originalModel);
     attempts.push({ url: geminiUrl, headers: geminiHeaders, model: primaryModel, label: 'Gemini Direct' });
     // Add fallback model if different
-    const fallbackModel = primaryModel === 'gemini-2.0-flash' ? 'gemini-2.5-flash' : 'gemini-2.0-flash';
+    const fallbackModel = primaryModel === 'gemini-2.5-flash' ? 'gemini-2.5-flash-lite' : 'gemini-2.5-flash';
     attempts.push({ url: geminiUrl, headers: geminiHeaders, model: fallbackModel, label: `Gemini Fallback (${fallbackModel})` });
   }
   if (_LOVABLE_KEY) {
@@ -222,8 +222,8 @@ async function callAIWithRetry(
           continue;
         }
 
-        // 503/429/402 on last attempt or first hit — try next strategy
-        if (response.status === 503 || response.status === 429 || response.status === 402) {
+        // 503/429/402/404 on last attempt or first hit — try next strategy
+        if (response.status === 503 || response.status === 429 || response.status === 402 || response.status === 404) {
           console.warn(`[AI] ${strategy.label} returned ${response.status}, trying next strategy...`);
           break;
         }
