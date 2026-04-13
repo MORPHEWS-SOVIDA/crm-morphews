@@ -427,6 +427,7 @@ serve(async (req) => {
 
     // Process screenshots sequentially
     const allEntries: ExtractedEntry[] = [];
+    const extractionErrors: string[] = [];
 
     for (let i = 0; i < screenshotUrls.length; i++) {
       const url = screenshotUrls[i];
@@ -441,7 +442,7 @@ serve(async (req) => {
       if (result.error && (result.errorCode === 402 || result.errorCode === 429)) {
         await supabase
           .from("social_selling_imports")
-          .update({ status: "error" })
+          .update({ status: "error", error_message: result.error })
           .eq("id", import_id);
 
         return new Response(
@@ -450,9 +451,35 @@ serve(async (req) => {
         );
       }
 
+      if (result.error) {
+        extractionErrors.push(`Screenshot ${i + 1}: ${result.error}`);
+      }
+
       allEntries.push(...result.entries);
       
-      console.log(`[MAIN] Screenshot ${i + 1} extracted ${result.entries.length} entries. Running total: ${allEntries.length}`);
+      console.log(`[MAIN] Screenshot ${i + 1}: ${result.entries.length} entries extracted${result.error ? ' (with error: ' + result.error + ')' : ''}. Running total: ${allEntries.length}`);
+    }
+
+    if (extractionErrors.length > 0) {
+      console.warn(`[MAIN] Extraction errors: ${JSON.stringify(extractionErrors)}`);
+    }
+
+    // If ALL screenshots failed to extract anything, mark as error
+    if (allEntries.length === 0 && screenshotUrls.length > 0) {
+      const errMsg = extractionErrors.length > 0 
+        ? `Nenhum lead extraído. Erros: ${extractionErrors.join('; ')}`
+        : 'Nenhum lead extraído dos prints. Verifique se as imagens são screenshots de DMs do Instagram.';
+      console.error(`[MAIN] ALL extractions returned 0 entries! Errors: ${JSON.stringify(extractionErrors)}`);
+      
+      await supabase
+        .from("social_selling_imports")
+        .update({ status: "error", error_message: errMsg })
+        .eq("id", import_id);
+
+      return new Response(
+        JSON.stringify({ error: errMsg, extraction_errors: extractionErrors }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Deduplicate
