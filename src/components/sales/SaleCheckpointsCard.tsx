@@ -476,9 +476,7 @@ export function SaleCheckpointsCard({
           size="sm"
           className="mt-2 w-full"
           onClick={() => {
-            // Se tem itens COM etiqueta serial (não-manipulados), exige scan
-            const serialItems = saleItems?.filter(i => !i.requisition_number) || [];
-            if (serialItems.length > 0) {
+            if (serialItemsForButton.length > 0) {
               setShowScannerDialog(true);
             } else {
               setShowExpeditionDialog(true);
@@ -487,7 +485,7 @@ export function SaleCheckpointsCard({
           disabled={toggleMutation.isPending}
         >
           <CheckCircle2 className="w-4 h-4 mr-2" />
-          {(saleItems?.filter(i => !i.requisition_number) || []).length > 0 ? 'Escanear e Validar' : 'Validar Expedição'}
+          {serialItemsForButton.length > 0 ? 'Escanear e Validar' : 'Validar Expedição'}
         </Button>
       );
     }
