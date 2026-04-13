@@ -47,7 +47,7 @@ serve(async (req) => {
 
     if (actError) throw new Error(actError.message);
 
-    const leadIds = [...new Set((activities || []).map((a: any) => a.lead_id))];
+    const leadIds = [...new Set((activities || []).map((a: any) => a.lead_id).filter(Boolean))];
 
     if (leadIds.length === 0) {
       return new Response(
