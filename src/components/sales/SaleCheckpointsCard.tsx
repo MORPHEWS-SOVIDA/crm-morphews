@@ -205,6 +205,30 @@ export function SaleCheckpointsCard({
   const [showScannerDialog, setShowScannerDialog] = useState(false);
   const [selectedDeliveryUser, setSelectedDeliveryUser] = useState<string>('');
   const [showProofDialog, setShowProofDialog] = useState(false);
+
+  // Fetch product categories to determine which items need QR scanning
+  const productIds = [...new Set((saleItems || []).map(i => i.product_id))];
+  const { data: productCategoriesData } = useQuery({
+    queryKey: ['product-categories-checkpoint', ...productIds],
+    queryFn: async () => {
+      if (productIds.length === 0) return {};
+      const { data } = await supabase
+        .from('lead_products')
+        .select('id, category')
+        .in('id', productIds);
+      const map: Record<string, string> = {};
+      (data || []).forEach(p => { map[p.id] = p.category; });
+      return map;
+    },
+    enabled: productIds.length > 0,
+  });
+
+  const NO_SCAN_CATEGORIES = ['manipulado', 'servico'];
+  const serialItemsForButton = (saleItems || []).filter(i => {
+    if (i.requisition_number) return false;
+    const cat = productCategoriesData?.[i.product_id];
+    return !cat || !NO_SCAN_CATEGORIES.includes(cat);
+  });
   // Get the selected region
   const selectedRegion = deliveryRegionId 
     ? (regions as DeliveryRegion[]).find(r => r.id === deliveryRegionId) 
