@@ -169,6 +169,72 @@ interface ExtractionResult {
   errorCode?: number;
 }
 
+async function callAIWithRetry(
+  body: Record<string, unknown>,
+  maxRetries = 3
+): Promise<{ ok: boolean; status: number; data?: any; error?: string }> {
+  // Strategy: try Gemini direct first, then fallback to Lovable Gateway, with retries
+  const strategies = GEMINI_API_KEY
+    ? [
+        { url: _aiUrl(), headers: _aiHeaders(), modelFn: (m: string) => _aiModel(m), label: 'Gemini Direct' },
+        { url: 'https://ai.gateway.lovable.dev/v1/chat/completions', headers: { 'Authorization': `Bearer ${_LOVABLE_KEY}`, 'Content-Type': 'application/json' }, modelFn: (m: string) => m, label: 'Lovable Gateway' },
+      ]
+    : [
+        { url: _aiUrl(), headers: _aiHeaders(), modelFn: (m: string) => _aiModel(m), label: 'Lovable Gateway' },
+      ];
+
+  const originalModel = (body.model as string) || 'google/gemini-2.5-flash';
+
+  for (const strategy of strategies) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const requestBody = { ...body, model: strategy.modelFn(originalModel) };
+        console.log(`[AI] ${strategy.label} attempt ${attempt}/${maxRetries} (model: ${requestBody.model})`);
+
+        const response = await fetch(strategy.url, {
+          method: 'POST',
+          headers: strategy.headers,
+          body: JSON.stringify(requestBody),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return { ok: true, status: 200, data };
+        }
+
+        const errText = await response.text();
+
+        // 503 = overloaded, 429 = rate limit — retry
+        if ((response.status === 503 || response.status === 429) && attempt < maxRetries) {
+          const wait = Math.min(2000 * attempt, 8000);
+          console.warn(`[AI] ${strategy.label} returned ${response.status}, retrying in ${wait}ms...`);
+          await new Promise(r => setTimeout(r, wait));
+          continue;
+        }
+
+        // 503/429 on last attempt — try next strategy
+        if (response.status === 503 || response.status === 429) {
+          console.warn(`[AI] ${strategy.label} exhausted retries with ${response.status}, trying fallback...`);
+          break;
+        }
+
+        // Other errors (402, 400, etc.) — return immediately
+        console.error(`[AI] ${strategy.label} error ${response.status}: ${errText.substring(0, 300)}`);
+        return { ok: false, status: response.status, error: errText };
+      } catch (err) {
+        console.error(`[AI] ${strategy.label} exception on attempt ${attempt}:`, err);
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 2000 * attempt));
+          continue;
+        }
+        break;
+      }
+    }
+  }
+
+  return { ok: false, status: 503, error: 'All AI providers unavailable after retries' };
+}
+
 async function extractFromScreenshot(
   filePath: string,
   supabase: ReturnType<typeof createClient>,
@@ -221,27 +287,22 @@ async function extractFromScreenshot(
       else mimeType = "image/jpeg";
     }
 
-    console.log(`[EXTRACT] Calling Lovable AI (Gemini 2.5 Flash) for ${filePath} (mime: ${mimeType}, base64 length: ${base64.length})...`);
+    console.log(`[EXTRACT] Calling AI for ${filePath} (mime: ${mimeType}, base64 length: ${base64.length})...`);
 
-    // Use Lovable AI gateway with Gemini 2.5 Flash (supports vision, fast, accurate)
-
-    const response = await fetch(_aiUrl(), {
-      method: "POST",
-      headers: _aiHeaders(),
-      body: JSON.stringify({
-        model: _aiModel('google/gemini-2.5-flash'),
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${base64}` },
-              },
-              {
-                type: "text",
-                text: `Analyze this Instagram DM list screenshot carefully. Extract EVERY conversation row visible — from the very top to the very bottom, including partially visible ones.
+    const aiResult = await callAIWithRetry({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: `data:${mimeType};base64,${base64}` },
+            },
+            {
+              type: "text",
+              text: `Analyze this Instagram DM list screenshot carefully. Extract EVERY conversation row visible — from the very top to the very bottom, including partially visible ones.
 
 For each row, return:
 - type "handle" if you see a username (no spaces, only letters/numbers/dots/underscores)  
@@ -250,28 +311,25 @@ For each row, return:
 IMPORTANT: The second line of each row (like "Enviado há 5 min" or "Enviado agora há pouco") is a timestamp, NOT a name. Ignore it.
 
 Return a JSON array of objects. The array length MUST match the total number of conversation rows visible. Do NOT skip any row. Do NOT invent information — only return what you can literally read.`
-              }
-            ],
-          },
-        ],
-        max_tokens: 4096,
-      }),
+            }
+          ],
+        },
+      ],
+      max_tokens: 4096,
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`[EXTRACT] AI API error ${response.status} for ${filePath}: ${errText.substring(0, 500)}`);
-      if (response.status === 402) {
+    if (!aiResult.ok) {
+      console.error(`[EXTRACT] AI failed for ${filePath}: status ${aiResult.status}`);
+      if (aiResult.status === 402) {
         return { entries: [], error: "Créditos de IA esgotados. Recarregue no painel de Usage.", errorCode: 402 };
       }
-      if (response.status === 429) {
+      if (aiResult.status === 429) {
         return { entries: [], error: "Limite de requisições excedido. Tente novamente em alguns minutos.", errorCode: 429 };
       }
-      return { entries: [], error: `Erro na API de IA: ${response.status}` };
+      return { entries: [], error: `Erro na API de IA: ${aiResult.status}` };
     }
 
-    const aiData = await response.json();
-    const content = aiData.choices?.[0]?.message?.content || "[]";
+    const content = aiResult.data?.choices?.[0]?.message?.content || "[]";
     console.log(`[EXTRACT] AI response for ${filePath}: ${content.substring(0, 800)}`);
 
     const entries = parseEntries(content);
