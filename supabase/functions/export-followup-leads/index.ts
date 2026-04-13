@@ -25,8 +25,14 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const profileId = url.searchParams.get("profile_id") || "5673022d-9e55-4c77-93ed-b5eab07edbaf";
+    let profileId = "5673022d-9e55-4c77-93ed-b5eab07edbaf";
+    if (req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      if (body.profile_id) profileId = body.profile_id;
+    } else {
+      const url = new URL(req.url);
+      if (url.searchParams.get("profile_id")) profileId = url.searchParams.get("profile_id")!;
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
