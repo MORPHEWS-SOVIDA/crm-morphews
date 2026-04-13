@@ -173,22 +173,32 @@ async function callAIWithRetry(
   body: Record<string, unknown>,
   maxRetries = 3
 ): Promise<{ ok: boolean; status: number; data?: any; error?: string }> {
-  // Strategy: try Gemini direct first, then fallback to Lovable Gateway, with retries
-  const strategies = GEMINI_API_KEY
-    ? [
-        { url: _aiUrl(), headers: _aiHeaders(), modelFn: (m: string) => _aiModel(m), label: 'Gemini Direct' },
-        { url: 'https://ai.gateway.lovable.dev/v1/chat/completions', headers: { 'Authorization': `Bearer ${_LOVABLE_KEY}`, 'Content-Type': 'application/json' }, modelFn: (m: string) => m, label: 'Lovable Gateway' },
-      ]
-    : [
-        { url: _aiUrl(), headers: _aiHeaders(), modelFn: (m: string) => _aiModel(m), label: 'Lovable Gateway' },
-      ];
+  // Strategy: try Gemini direct (primary + fallback model), then Lovable Gateway, with retries
+  const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+  const geminiHeaders = { 'Authorization': `Bearer ${GEMINI_API_KEY}`, 'Content-Type': 'application/json' };
+  const lovableUrl = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+  const lovableHeaders = { 'Authorization': `Bearer ${_LOVABLE_KEY}`, 'Content-Type': 'application/json' };
 
   const originalModel = (body.model as string) || 'google/gemini-2.5-flash';
 
-  for (const strategy of strategies) {
+  // Build ordered list of attempts: Gemini primary model, Gemini fallback model, Lovable Gateway
+  const attempts: { url: string; headers: Record<string,string>; model: string; label: string }[] = [];
+  
+  if (GEMINI_API_KEY) {
+    const primaryModel = _aiModel(originalModel);
+    attempts.push({ url: geminiUrl, headers: geminiHeaders, model: primaryModel, label: 'Gemini Direct' });
+    // Add fallback model if different
+    const fallbackModel = primaryModel === 'gemini-2.0-flash' ? 'gemini-2.5-flash' : 'gemini-2.0-flash';
+    attempts.push({ url: geminiUrl, headers: geminiHeaders, model: fallbackModel, label: `Gemini Fallback (${fallbackModel})` });
+  }
+  if (_LOVABLE_KEY) {
+    attempts.push({ url: lovableUrl, headers: lovableHeaders, model: originalModel, label: 'Lovable Gateway' });
+  }
+
+  for (const strategy of attempts) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const requestBody = { ...body, model: strategy.modelFn(originalModel) };
+        const requestBody = { ...body, model: strategy.model };
         console.log(`[AI] ${strategy.label} attempt ${attempt}/${maxRetries} (model: ${requestBody.model})`);
 
         const response = await fetch(strategy.url, {
@@ -204,7 +214,7 @@ async function callAIWithRetry(
 
         const errText = await response.text();
 
-        // 503 = overloaded, 429 = rate limit — retry
+        // 503 = overloaded, 429 = rate limit — retry then fallback
         if ((response.status === 503 || response.status === 429) && attempt < maxRetries) {
           const wait = Math.min(2000 * attempt, 8000);
           console.warn(`[AI] ${strategy.label} returned ${response.status}, retrying in ${wait}ms...`);
@@ -212,13 +222,13 @@ async function callAIWithRetry(
           continue;
         }
 
-        // 503/429 on last attempt — try next strategy
-        if (response.status === 503 || response.status === 429) {
-          console.warn(`[AI] ${strategy.label} exhausted retries with ${response.status}, trying fallback...`);
+        // 503/429/402 on last attempt or first hit — try next strategy
+        if (response.status === 503 || response.status === 429 || response.status === 402) {
+          console.warn(`[AI] ${strategy.label} returned ${response.status}, trying next strategy...`);
           break;
         }
 
-        // Other errors (402, 400, etc.) — return immediately
+        // Other errors (400, etc.) — return immediately
         console.error(`[AI] ${strategy.label} error ${response.status}: ${errText.substring(0, 300)}`);
         return { ok: false, status: response.status, error: errText };
       } catch (err) {
