@@ -39,7 +39,7 @@ export function getFortnightRange() {
 }
 
 export function useSalesCampaign() {
-  const tenantId = useCurrentTenantId();
+  const { data: tenantId } = useCurrentTenantId();
   const fortnight = getCurrentFortnight();
 
   return useQuery({
