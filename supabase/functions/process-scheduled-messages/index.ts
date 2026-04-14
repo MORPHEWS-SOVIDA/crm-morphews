@@ -94,10 +94,11 @@ async function sendWithFallback(
     }
   }
   
-  // If no instances configured, get all connected instances for the org
-  if (instancestoTry.length === 0) {
-    const connectedInstances = await getConnectedInstancesForOrg(msg.organization_id);
-    for (const inst of connectedInstances) {
+  // ALWAYS add all connected org instances as final fallback
+  // This ensures we try every available instance before giving up
+  const connectedInstances = await getConnectedInstancesForOrg(msg.organization_id);
+  for (const inst of connectedInstances) {
+    if (!instancestoTry.includes(inst.id)) {
       instancestoTry.push(inst.id);
     }
   }
