@@ -48,8 +48,14 @@ export default function SerialSeparationPage() {
 
       if (itemsErr) throw itemsErr;
 
+      if (!items || items.length === 0) {
+        toast.error('Esse pedido precisa ter produtos vinculados. Entre e edite o romaneio, acrescentando produtos, e volte aqui para escaneá-los.');
+        setLoading(false);
+        return;
+      }
+
       setSaleData(sale);
-      setSaleItems(items || []);
+      setSaleItems(items);
       toast.success(`Venda #${sale.romaneio_number} carregada`);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao carregar venda');
