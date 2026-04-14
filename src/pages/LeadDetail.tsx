@@ -189,6 +189,23 @@ export default function LeadDetail() {
           source_type: 'stage_change',
           source_id: result.followupReasonId,
         });
+
+        // Schedule the actual automated messages from templates
+        if (lead.whatsapp) {
+          const { scheduled, error: schedError } = await scheduleMessagesForReason({
+            leadId: id,
+            leadName: lead.name || '',
+            leadWhatsapp: lead.whatsapp,
+            reasonId: result.followupReasonId,
+            customScheduledAt: result.followupDate,
+          });
+          if (scheduled > 0) {
+            console.log(`[LeadDetail] Scheduled ${scheduled} automated messages for lead ${id}`);
+          }
+          if (schedError) {
+            console.error('[LeadDetail] Error scheduling messages:', schedError);
+          }
+        }
       }
       
       setStageChangeDialog({ open: false, newStage: null, newStageId: null });
