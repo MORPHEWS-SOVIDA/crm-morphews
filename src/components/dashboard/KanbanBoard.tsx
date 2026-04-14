@@ -263,6 +263,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
   const updateLead = useUpdateLead();
   const addStageHistory = useAddStageHistory();
   const createFollowup = useCreateFollowup();
+  const { scheduleMessagesForReason } = useScheduleMessages();
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
   
   // State for stage change dialog

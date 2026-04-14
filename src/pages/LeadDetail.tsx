@@ -89,6 +89,7 @@ export default function LeadDetail() {
   const deleteLead = useDeleteLead();
   const addStageHistory = useAddStageHistory();
   const createFollowup = useCreateFollowup();
+  const { scheduleMessagesForReason } = useScheduleMessages();
   
   // Permission checks
   const canEditLead = permissions?.leads_edit;
