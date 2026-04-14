@@ -23,6 +23,20 @@ function normalizeWhatsApp(phone: string): string {
   return clean;
 }
 
+// Validate if a Brazilian phone number looks valid
+function isValidBrazilianPhone(normalized: string): boolean {
+  // Must be 55 + 2-digit DDD + 8-9 digit number = 12 or 13 digits
+  if (normalized.length < 12 || normalized.length > 13) return false;
+  if (!normalized.startsWith("55")) return false;
+  const ddd = parseInt(normalized.slice(2, 4));
+  // Valid DDDs are 11-99 (but some are unused, we just check range)
+  if (ddd < 11 || ddd > 99) return false;
+  // Check for obviously fake numbers (all same digit)
+  const localNumber = normalized.slice(4);
+  if (/^(\d)\1+$/.test(localNumber)) return false;
+  return true;
+}
+
 interface ScheduledMessage {
   id: string;
   organization_id: string;
