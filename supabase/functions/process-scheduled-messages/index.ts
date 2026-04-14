@@ -23,6 +23,20 @@ function normalizeWhatsApp(phone: string): string {
   return clean;
 }
 
+// Validate if a Brazilian phone number looks valid
+function isValidBrazilianPhone(normalized: string): boolean {
+  // Must be 55 + 2-digit DDD + 8-9 digit number = 12 or 13 digits
+  if (normalized.length < 12 || normalized.length > 13) return false;
+  if (!normalized.startsWith("55")) return false;
+  const ddd = parseInt(normalized.slice(2, 4));
+  // Valid DDDs are 11-99 (but some are unused, we just check range)
+  if (ddd < 11 || ddd > 99) return false;
+  // Check for obviously fake numbers (all same digit)
+  const localNumber = normalized.slice(4);
+  if (/^(\d)\1+$/.test(localNumber)) return false;
+  return true;
+}
+
 interface ScheduledMessage {
   id: string;
   organization_id: string;
@@ -94,10 +108,11 @@ async function sendWithFallback(
     }
   }
   
-  // If no instances configured, get all connected instances for the org
-  if (instancestoTry.length === 0) {
-    const connectedInstances = await getConnectedInstancesForOrg(msg.organization_id);
-    for (const inst of connectedInstances) {
+  // ALWAYS add all connected org instances as final fallback
+  // This ensures we try every available instance before giving up
+  const connectedInstances = await getConnectedInstancesForOrg(msg.organization_id);
+  for (const inst of connectedInstances) {
+    if (!instancestoTry.includes(inst.id)) {
       instancestoTry.push(inst.id);
     }
   }
@@ -472,13 +487,13 @@ serve(async (req) => {
         }
 
         const normalizedPhone = normalizeWhatsApp(lead.whatsapp);
-        if (!normalizedPhone) {
-          console.error(`Invalid phone for lead ${msg.lead_id}: ${lead.whatsapp}`);
+        if (!normalizedPhone || !isValidBrazilianPhone(normalizedPhone)) {
+          console.error(`Invalid phone for lead ${msg.lead_id}: ${lead.whatsapp} -> ${normalizedPhone}`);
           await supabase
             .from("lead_scheduled_messages")
             .update({ 
               status: "failed_other", 
-              failure_reason: "Telefone inválido",
+              failure_reason: `Telefone inválido: ${lead.whatsapp || 'vazio'}`,
               updated_at: new Date().toISOString()
             })
             .eq("id", msg.id);
