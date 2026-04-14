@@ -487,13 +487,13 @@ serve(async (req) => {
         }
 
         const normalizedPhone = normalizeWhatsApp(lead.whatsapp);
-        if (!normalizedPhone) {
-          console.error(`Invalid phone for lead ${msg.lead_id}: ${lead.whatsapp}`);
+        if (!normalizedPhone || !isValidBrazilianPhone(normalizedPhone)) {
+          console.error(`Invalid phone for lead ${msg.lead_id}: ${lead.whatsapp} -> ${normalizedPhone}`);
           await supabase
             .from("lead_scheduled_messages")
             .update({ 
               status: "failed_other", 
-              failure_reason: "Telefone inválido",
+              failure_reason: `Telefone inválido: ${lead.whatsapp || 'vazio'}`,
               updated_at: new Date().toISOString()
             })
             .eq("id", msg.id);
