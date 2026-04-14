@@ -21,6 +21,7 @@ import { groupLeadsByFunnelStageId, findLeadStage } from '@/lib/funnelStageAssig
 import { useUpdateLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useCreateFollowup } from '@/hooks/useLeadFollowups';
+import { useScheduleMessages } from '@/hooks/useScheduleMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { StarRating } from '@/components/StarRating';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
@@ -262,6 +263,7 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
   const updateLead = useUpdateLead();
   const addStageHistory = useAddStageHistory();
   const createFollowup = useCreateFollowup();
+  const { scheduleMessagesForReason } = useScheduleMessages();
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
   
   // State for stage change dialog
@@ -427,6 +429,24 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
           source_type: 'stage_change',
           source_id: result.followupReasonId,
         });
+
+        // Schedule the actual automated messages from templates
+        const leadData = pendingChange.lead;
+        if (leadData?.whatsapp) {
+          const { scheduled, error: schedError } = await scheduleMessagesForReason({
+            leadId: pendingChange.leadId,
+            leadName: leadData.name || '',
+            leadWhatsapp: leadData.whatsapp,
+            reasonId: result.followupReasonId,
+            customScheduledAt: result.followupDate,
+          });
+          if (scheduled > 0) {
+            console.log(`[Kanban] Scheduled ${scheduled} automated messages for lead ${pendingChange.leadId}`);
+          }
+          if (schedError) {
+            console.error('[Kanban] Error scheduling messages:', schedError);
+          }
+        }
       }
 
       // Sync social selling metrics when moving to "Respondeu Prospecção Ativa"

@@ -53,6 +53,7 @@ import { ResponsibleBadge } from '@/components/ResponsibleBadge';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useCreateFollowup } from '@/hooks/useLeadFollowups';
+import { useScheduleMessages } from '@/hooks/useScheduleMessages';
 import { useUsers } from '@/hooks/useUsers';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { useAuth } from '@/hooks/useAuth';
@@ -88,6 +89,7 @@ export default function LeadDetail() {
   const deleteLead = useDeleteLead();
   const addStageHistory = useAddStageHistory();
   const createFollowup = useCreateFollowup();
+  const { scheduleMessagesForReason } = useScheduleMessages();
   
   // Permission checks
   const canEditLead = permissions?.leads_edit;
@@ -187,6 +189,23 @@ export default function LeadDetail() {
           source_type: 'stage_change',
           source_id: result.followupReasonId,
         });
+
+        // Schedule the actual automated messages from templates
+        if (lead.whatsapp) {
+          const { scheduled, error: schedError } = await scheduleMessagesForReason({
+            leadId: id,
+            leadName: lead.name || '',
+            leadWhatsapp: lead.whatsapp,
+            reasonId: result.followupReasonId,
+            customScheduledAt: result.followupDate,
+          });
+          if (scheduled > 0) {
+            console.log(`[LeadDetail] Scheduled ${scheduled} automated messages for lead ${id}`);
+          }
+          if (schedError) {
+            console.error('[LeadDetail] Error scheduling messages:', schedError);
+          }
+        }
       }
       
       setStageChangeDialog({ open: false, newStage: null, newStageId: null });
