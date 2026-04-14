@@ -53,6 +53,7 @@ import { ResponsibleBadge } from '@/components/ResponsibleBadge';
 import { useLead, useUpdateLead, useDeleteLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useCreateFollowup } from '@/hooks/useLeadFollowups';
+import { useScheduleMessages } from '@/hooks/useScheduleMessages';
 import { useUsers } from '@/hooks/useUsers';
 import { useLeadSources, useLeadProducts } from '@/hooks/useConfigOptions';
 import { useAuth } from '@/hooks/useAuth';

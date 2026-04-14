@@ -21,6 +21,7 @@ import { groupLeadsByFunnelStageId, findLeadStage } from '@/lib/funnelStageAssig
 import { useUpdateLead } from '@/hooks/useLeads';
 import { useAddStageHistory } from '@/hooks/useLeadStageHistory';
 import { useCreateFollowup } from '@/hooks/useLeadFollowups';
+import { useScheduleMessages } from '@/hooks/useScheduleMessages';
 import { useAuth } from '@/hooks/useAuth';
 import { StarRating } from '@/components/StarRating';
 import { WhatsAppButton } from '@/components/WhatsAppButton';
