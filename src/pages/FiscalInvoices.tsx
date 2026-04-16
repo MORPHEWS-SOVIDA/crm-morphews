@@ -217,14 +217,14 @@ export default function FiscalInvoices() {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `nfe-${inv.number || id}.xml`;
+          a.download = `nfe-${inv.invoice_number || id}.xml`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
         } catch (err) {
           console.error('Erro ao baixar XML:', err);
-          toast({ title: `Erro ao baixar XML da nota ${inv.number}`, variant: 'destructive' });
+          toast({ title: `Erro ao baixar XML da nota ${inv.invoice_number}`, variant: 'destructive' });
         }
       }
     }
