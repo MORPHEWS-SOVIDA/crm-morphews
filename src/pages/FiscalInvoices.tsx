@@ -208,10 +208,26 @@ export default function FiscalInvoices() {
       toast({ title: 'Selecione notas autorizadas para exportar', variant: 'destructive' });
       return;
     }
-    authorizedIds.forEach(id => {
+    for (const id of authorizedIds) {
       const inv = invoices.find(i => i.id === id);
-      if (inv?.xml_url) window.open(inv.xml_url, '_blank');
-    });
+      if (inv?.xml_url) {
+        try {
+          const response = await fetch(inv.xml_url);
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `nfe-${inv.number || id}.xml`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error('Erro ao baixar XML:', err);
+          toast({ title: `Erro ao baixar XML da nota ${inv.number}`, variant: 'destructive' });
+        }
+      }
+    }
   };
 
   return (
