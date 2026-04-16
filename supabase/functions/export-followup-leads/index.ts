@@ -19,6 +19,15 @@ const FOLLOWUP_STAGE_IDS = [
   "16dfba97-568d-4ec6-90b8-5d466402268c", // Follow-Up (Clairton)
 ];
 
+// Tamanho seguro para .in() — evita estourar URL no PostgREST
+const CHUNK_SIZE = 200;
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -38,16 +47,31 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Buscar leads do perfil que estão em etapas de follow-up
-    const { data: activities, error: actError } = await supabase
-      .from("social_selling_activities")
-      .select("lead_id")
-      .eq("profile_id", profileId)
-      .eq("organization_id", ORG_ID);
+    // Buscar TODOS os lead_ids do perfil em paginação (evita limite de 1000 do PostgREST)
+    const leadIdSet = new Set<string>();
+    const PAGE_SIZE = 1000;
+    let page = 0;
+    while (true) {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from("social_selling_activities")
+        .select("lead_id")
+        .eq("profile_id", profileId)
+        .eq("organization_id", ORG_ID)
+        .range(from, to);
 
-    if (actError) throw new Error(actError.message);
+      if (error) throw new Error(`activities: ${error.message}`);
+      if (!data || data.length === 0) break;
+      for (const row of data) {
+        if (row.lead_id) leadIdSet.add(row.lead_id);
+      }
+      if (data.length < PAGE_SIZE) break;
+      page++;
+    }
 
-    const leadIds = [...new Set((activities || []).map((a: any) => a.lead_id).filter(Boolean))];
+    const leadIds = Array.from(leadIdSet);
+    console.log(`profile=${profileId} total lead_ids=${leadIds.length}`);
 
     if (leadIds.length === 0) {
       return new Response(
@@ -56,15 +80,21 @@ serve(async (req) => {
       );
     }
 
-    // Buscar leads que estão nas etapas de follow-up
-    const { data: leads, error: leadError } = await supabase
-      .from("leads")
-      .select("id, name, instagram, funnel_stage_id, observations")
-      .eq("organization_id", ORG_ID)
-      .in("id", leadIds)
-      .in("funnel_stage_id", FOLLOWUP_STAGE_IDS);
+    // Buscar leads em chunks para evitar URL muito longa no .in()
+    const allLeads: any[] = [];
+    for (const ids of chunk(leadIds, CHUNK_SIZE)) {
+      const { data, error } = await supabase
+        .from("leads")
+        .select("id, name, instagram, funnel_stage_id, observations")
+        .eq("organization_id", ORG_ID)
+        .in("id", ids)
+        .in("funnel_stage_id", FOLLOWUP_STAGE_IDS);
 
-    if (leadError) throw new Error(leadError.message);
+      if (error) throw new Error(`leads chunk: ${error.message}`);
+      if (data) allLeads.push(...data);
+    }
+
+    console.log(`leads in followup stages=${allLeads.length}`);
 
     // Buscar nomes das etapas
     const { data: stages } = await supabase
@@ -74,8 +104,8 @@ serve(async (req) => {
 
     const stageMap = Object.fromEntries((stages || []).map((s: any) => [s.id, s.name]));
 
-    const result = (leads || [])
-      .filter((l: any) => l.instagram) // só leads com instagram
+    const result = allLeads
+      .filter((l: any) => l.instagram)
       .map((l: any) => ({
         id: l.id,
         name: l.name,
