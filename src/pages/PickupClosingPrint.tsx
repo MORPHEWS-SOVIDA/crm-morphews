@@ -11,8 +11,10 @@ import { getCategoryConfig, PAYMENT_CATEGORIES, type PaymentCategory } from '@/l
 
 // Map closing_type to display title
 const closingTypeLabels: Record<string, { title: string; emoji: string }> = {
+  pickup: { title: 'FECHAMENTO DE CAIXA BALCÃO', emoji: '🏪' },
   balcao: { title: 'FECHAMENTO DE CAIXA BALCÃO', emoji: '🏪' },
   motoboy: { title: 'FECHAMENTO MOTOBOY', emoji: '🏍️' },
+  carrier: { title: 'FECHAMENTO TRANSPORTADORA', emoji: '🚚' },
   transportadora: { title: 'FECHAMENTO TRANSPORTADORA', emoji: '🚚' },
 };
 
