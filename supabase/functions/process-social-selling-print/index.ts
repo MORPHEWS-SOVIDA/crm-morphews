@@ -407,7 +407,7 @@ serve(async (req) => {
       .single();
     if (!profile?.organization_id) throw new Error("No org");
 
-    const { import_id } = await req.json();
+    const { import_id, background } = await req.json();
     if (!import_id) throw new Error("import_id required");
 
     console.log(`[MAIN] ========== Processing import: ${import_id} ==========`);
@@ -431,6 +431,27 @@ serve(async (req) => {
       .from("social_selling_imports")
       .update({ status: "processing" })
       .eq("id", import_id);
+
+    // Background processing path: respond immediately, frontend polls status
+    if (background !== false) {
+      const userId = user.id;
+      const orgId = profile.organization_id;
+      // @ts-ignore - EdgeRuntime is available in Supabase edge runtime
+      EdgeRuntime.waitUntil(
+        processImportBackground(supabase, importRecord, import_id, orgId, userId, LOVABLE_API_KEY)
+          .catch(async (err) => {
+            console.error("[BG] Fatal error:", err);
+            await supabase
+              .from("social_selling_imports")
+              .update({ status: "error", error_message: err?.message || String(err) })
+              .eq("id", import_id);
+          })
+      );
+      return new Response(
+        JSON.stringify({ success: true, status: "processing", import_id }),
+        { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const screenshotUrls: string[] = importRecord.screenshot_urls || [];
     console.log(`[MAIN] Found ${screenshotUrls.length} screenshots: ${JSON.stringify(screenshotUrls)}`);
