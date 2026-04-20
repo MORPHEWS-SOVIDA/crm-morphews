@@ -17,6 +17,60 @@ import {
   Camera, Upload, Instagram, ArrowLeft, Loader2, CheckCircle2, X, ImageIcon
 } from 'lucide-react';
 
+type ImportStats = {
+  leads_created: number;
+  leads_existing: number;
+  leads_skipped: number;
+  total_extracted: number;
+};
+
+type ImportResult = ImportStats & {
+  usernames: string[];
+};
+
+const EMPTY_IMPORT_STATS: ImportStats = {
+  leads_created: 0,
+  leads_existing: 0,
+  leads_skipped: 0,
+  total_extracted: 0,
+};
+
+function toSafeUsernames(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+}
+
+function parseImportStats(record: {
+  error_message?: string | null;
+  extracted_usernames?: unknown;
+  leads_created_count?: number | null;
+} | null): ImportStats {
+  const usernames = toSafeUsernames(record?.extracted_usernames);
+  const fallback: ImportStats = {
+    ...EMPTY_IMPORT_STATS,
+    leads_created: typeof record?.leads_created_count === 'number' ? record.leads_created_count : 0,
+    total_extracted: usernames.length,
+  };
+
+  if (!record?.error_message) return fallback;
+
+  try {
+    const parsed = JSON.parse(record.error_message);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fallback;
+
+    const stats = parsed as Record<string, unknown>;
+    return {
+      leads_created: typeof stats.leads_created === 'number' ? stats.leads_created : fallback.leads_created,
+      leads_existing: typeof stats.leads_existing === 'number' ? stats.leads_existing : 0,
+      leads_skipped: typeof stats.leads_skipped === 'number' ? stats.leads_skipped : 0,
+      total_extracted: typeof stats.total_extracted === 'number' ? stats.total_extracted : fallback.total_extracted,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 export default function SocialSellingImport() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
@@ -32,7 +86,7 @@ export default function SocialSellingImport() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [result, setResult] = useState<{ usernames: string[]; leads_created: number; leads_existing: number; leads_skipped: number; total_extracted: number } | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
 
   // Fetch sellers
   const { data: sellers } = useQuery({
@@ -191,7 +245,7 @@ export default function SocialSellingImport() {
         attempts++;
         const { data: poll } = await (supabase as any)
           .from('social_selling_imports')
-          .select('status, error_message, extracted_usernames, leads_created_count')
+          .select('status, error_message, extracted_usernames, leads_created_count, processed_at')
           .eq('id', importId)
           .maybeSingle();
 
@@ -214,16 +268,10 @@ export default function SocialSellingImport() {
         return;
       }
 
-      // Try to parse stats stashed in error_message; fallback to basic counts
-      let stats = { leads_created: finalRecord.leads_created_count || 0, leads_existing: 0, leads_skipped: 0, total_extracted: (finalRecord.extracted_usernames || []).length };
-      try {
-        if (finalRecord.error_message) {
-          const parsed = JSON.parse(finalRecord.error_message);
-          if (parsed && typeof parsed === 'object' && 'leads_created' in parsed) stats = parsed;
-        }
-      } catch { /* ignore */ }
+      const usernames = toSafeUsernames(finalRecord.extracted_usernames);
+      const stats = parseImportStats(finalRecord);
 
-      setResult({ usernames: finalRecord.extracted_usernames || [], ...stats });
+      setResult({ usernames, ...stats });
       toast.success(`${stats.leads_created} novos leads, ${stats.leads_existing || 0} já existentes, ${stats.leads_skipped || 0} duplicados — ${stats.total_extracted} extraídos`);
       queryClient.invalidateQueries({ queryKey: ['social-selling-activities'] });
       queryClient.invalidateQueries({ queryKey: ['social-selling-imports'] });
