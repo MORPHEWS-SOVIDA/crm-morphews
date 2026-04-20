@@ -408,9 +408,9 @@ export default function SocialSellingImport() {
                   <p className="text-xs text-muted-foreground">Duplicados</p>
                 </div>
               </div>
-              {result.usernames.length > 0 && (
+              {(result.usernames?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {result.usernames.map(u => (
+                  {(result.usernames ?? []).map(u => (
                     <Badge key={u} variant="secondary" className="text-xs">@{u}</Badge>
                   ))}
                 </div>
