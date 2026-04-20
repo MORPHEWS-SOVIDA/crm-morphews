@@ -149,23 +149,29 @@ export default function SocialSelling() {
     enabled: !!orgId,
   });
 
-  // Helper: count unique lead_ids for a given activity type
+  // Helper: count unique lead_ids for a given activity type (used for conversion metrics)
   const uniqueCount = (acts: any[], type: string) =>
     new Set(acts.filter(a => a.activity_type === type).map(a => a.lead_id)).size;
 
-  // Compute metrics — únicos por lead_id
-  const totalMessages = uniqueCount(activities || [], 'message_sent');
+  // Helper: count total occurrences (used for sent messages — cada envio conta, incluindo follow-ups)
+  const totalCount = (acts: any[], type: string) =>
+    acts.filter(a => a.activity_type === type).length;
+
+  // Compute metrics
+  // Mensagens enviadas: total de envios (cada follow-up conta)
+  // Demais: únicos por lead (conversão)
+  const totalMessages = totalCount(activities || [], 'message_sent');
   const totalReplies = uniqueCount(activities || [], 'reply_received');
   const totalWhatsapp = uniqueCount(activities || [], 'whatsapp_shared');
   const totalCallScheduled = uniqueCount(activities || [], 'call_scheduled');
   const totalCallDone = uniqueCount(activities || [], 'call_done');
 
-  // Per seller metrics — únicos por lead_id
+  // Per seller metrics
   const sellerMetrics = (sellers || []).map(seller => {
     const sa = (activities || []).filter(a => a.seller_id === seller.id);
     return {
       ...seller,
-      messages: uniqueCount(sa, 'message_sent'),
+      messages: totalCount(sa, 'message_sent'),
       replies: uniqueCount(sa, 'reply_received'),
       whatsapp: uniqueCount(sa, 'whatsapp_shared'),
       callScheduled: uniqueCount(sa, 'call_scheduled'),
@@ -173,10 +179,10 @@ export default function SocialSelling() {
     };
   });
 
-  // Per profile metrics — únicos por lead_id
+  // Per profile metrics
   const profileMetrics = (igProfiles || []).map(p => {
     const pa = (activities || []).filter(a => a.profile_id === p.id);
-    const msgs = uniqueCount(pa, 'message_sent');
+    const msgs = totalCount(pa, 'message_sent');
     const replies = uniqueCount(pa, 'reply_received');
     return {
       ...p,
