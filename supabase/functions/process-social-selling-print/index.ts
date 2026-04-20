@@ -844,11 +844,6 @@ serve(async (req) => {
       .update({ status: "processing" })
       .eq("id", import_id);
 
-    return new Response(
-      JSON.stringify({ success: true, status: "processing", import_id, background: background !== false }),
-      { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-
     // @ts-ignore - EdgeRuntime is available in Supabase edge runtime
     EdgeRuntime.waitUntil(
       processImportBackground(
@@ -867,6 +862,11 @@ serve(async (req) => {
           .update({ status: "failed", error_message: err?.message || String(err) })
           .eq("id", import_id);
       })
+    );
+
+    return new Response(
+      JSON.stringify({ success: true, status: "processing", import_id, background: background !== false }),
+      { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("[MAIN] Error:", err);
