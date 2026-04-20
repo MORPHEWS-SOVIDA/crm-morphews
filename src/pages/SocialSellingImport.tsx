@@ -148,9 +148,9 @@ export default function SocialSellingImport() {
       setIsUploading(false);
       setIsProcessing(true);
 
-      // Call edge function to process with AI
+      // Call edge function — it returns 202 immediately and processes in background
       console.log('[Import] Calling edge function with import_id:', importRecord.id);
-      
+
       const { data: { session } } = await supabase.auth.getSession();
       const edgeResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-social-selling-print`,
@@ -165,24 +165,66 @@ export default function SocialSellingImport() {
         }
       );
 
-      const processResult = await edgeResponse.json();
-      console.log('[Import] Response:', JSON.stringify({ status: edgeResponse.status, processResult }));
+      const ackResult = await edgeResponse.json();
+      console.log('[Import] Ack:', JSON.stringify({ status: edgeResponse.status, ackResult }));
 
-      if (!edgeResponse.ok || processResult?.error) {
-        const errorMsg = processResult?.error || 'Erro ao processar prints';
+      if (!edgeResponse.ok && edgeResponse.status !== 202) {
         if (edgeResponse.status === 402) {
           toast.error('Créditos de IA insuficientes. Recarregue seus créditos no painel de Usage.');
         } else if (edgeResponse.status === 429) {
           toast.error('Limite de requisições atingido. Tente novamente em alguns minutos.');
         } else {
-          toast.error(errorMsg);
+          toast.error(ackResult?.error || 'Erro ao iniciar processamento');
         }
         setIsProcessing(false);
         return;
       }
 
-      setResult(processResult);
-      toast.success(`${processResult.leads_created} novos leads, ${processResult.leads_existing || 0} já existentes, ${processResult.leads_skipped || 0} duplicados — ${processResult.total_extracted} extraídos`);
+      // Poll the import status (every 3s, up to 5 minutes)
+      const importId = importRecord.id;
+      const maxAttempts = 100;
+      let attempts = 0;
+      let finalRecord: any = null;
+
+      while (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, 3000));
+        attempts++;
+        const { data: poll } = await (supabase as any)
+          .from('social_selling_imports')
+          .select('status, error_message, extracted_usernames, leads_created_count')
+          .eq('id', importId)
+          .maybeSingle();
+
+        if (!poll) continue;
+        if (poll.status === 'completed' || poll.status === 'failed') {
+          finalRecord = poll;
+          break;
+        }
+      }
+
+      if (!finalRecord) {
+        toast.error('Processamento demorou mais que o esperado. Verifique a página de métricas em alguns instantes.');
+        setIsProcessing(false);
+        return;
+      }
+
+      if (finalRecord.status === 'failed') {
+        toast.error(finalRecord.error_message || 'Erro ao processar prints');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Try to parse stats stashed in error_message; fallback to basic counts
+      let stats = { leads_created: finalRecord.leads_created_count || 0, leads_existing: 0, leads_skipped: 0, total_extracted: (finalRecord.extracted_usernames || []).length };
+      try {
+        if (finalRecord.error_message) {
+          const parsed = JSON.parse(finalRecord.error_message);
+          if (parsed && typeof parsed === 'object' && 'leads_created' in parsed) stats = parsed;
+        }
+      } catch { /* ignore */ }
+
+      setResult({ usernames: finalRecord.extracted_usernames || [], ...stats });
+      toast.success(`${stats.leads_created} novos leads, ${stats.leads_existing || 0} já existentes, ${stats.leads_skipped || 0} duplicados — ${stats.total_extracted} extraídos`);
       queryClient.invalidateQueries({ queryKey: ['social-selling-activities'] });
       queryClient.invalidateQueries({ queryKey: ['social-selling-imports'] });
     } catch (err) {
