@@ -139,7 +139,8 @@ export default function SocialSellingImport() {
         .single();
 
       if (insertErr || !importRecord) {
-        toast.error('Erro ao criar registro de importação');
+        console.error('[Import] Insert error:', insertErr);
+        toast.error(`Erro ao criar registro: ${insertErr?.message || insertErr?.code || 'desconhecido'}`);
         setIsUploading(false);
         return;
       }
