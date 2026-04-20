@@ -408,7 +408,7 @@ async function processImportBackground(
 
     if (result.error && (result.errorCode === 402 || result.errorCode === 429)) {
       await supabase.from("social_selling_imports")
-        .update({ status: "error", error_message: result.error })
+        .update({ status: "failed", error_message: result.error })
         .eq("id", import_id);
       return;
     }
@@ -422,7 +422,7 @@ async function processImportBackground(
       ? `Nenhum lead extraído. Erros: ${extractionErrors.join('; ')}`
       : 'Nenhum lead extraído dos prints. Verifique se as imagens são screenshots de DMs do Instagram.';
     await supabase.from("social_selling_imports")
-      .update({ status: "error", error_message: errMsg })
+      .update({ status: "failed", error_message: errMsg })
       .eq("id", import_id);
     return;
   }
@@ -610,7 +610,7 @@ serve(async (req) => {
             console.error("[BG] Fatal error:", err);
             await supabase
               .from("social_selling_imports")
-              .update({ status: "error", error_message: err?.message || String(err) })
+              .update({ status: "failed", error_message: err?.message || String(err) })
               .eq("id", import_id);
           })
       );
@@ -640,7 +640,7 @@ serve(async (req) => {
       if (result.error && (result.errorCode === 402 || result.errorCode === 429)) {
         await supabase
           .from("social_selling_imports")
-          .update({ status: "error", error_message: result.error })
+          .update({ status: "failed", error_message: result.error })
           .eq("id", import_id);
 
         return new Response(
@@ -671,7 +671,7 @@ serve(async (req) => {
       
       await supabase
         .from("social_selling_imports")
-        .update({ status: "error", error_message: errMsg })
+        .update({ status: "failed", error_message: errMsg })
         .eq("id", import_id);
 
       return new Response(
