@@ -785,37 +785,56 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No auth header");
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) throw new Error("Unauthorized");
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("organization_id")
-      .eq("user_id", user.id)
-      .single();
-    if (!profile?.organization_id) throw new Error("No org");
+    const functionUrl = `${supabaseUrl}/functions/v1/process-social-selling-print`;
+    const internalSecret = supabaseKey;
 
     const { import_id, background } = await req.json();
     if (!import_id) throw new Error("import_id required");
 
+    const internalHeader = req.headers.get("x-internal-secret");
+    const isInternalRequest = internalHeader === internalSecret;
+
+    let userId: string | null = null;
+    let organizationId: string | null = null;
+
+    const authHeader = req.headers.get("Authorization");
+    if (!isInternalRequest) {
+      if (!authHeader) throw new Error("No auth header");
+
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) throw new Error("Unauthorized");
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .single();
+      if (!profile?.organization_id) throw new Error("No org");
+
+      userId = user.id;
+      organizationId = profile.organization_id;
+    }
+
     console.log(`[MAIN] ========== Processing import: ${import_id} ==========`);
-    console.log(`[MAIN] User: ${user.id}, Org: ${profile.organization_id}`);
+    console.log(`[MAIN] Mode: ${isInternalRequest ? 'internal' : 'user'}${organizationId ? `, Org: ${organizationId}` : ''}`);
 
     const { data: importRecord, error: importErr } = await supabase
       .from("social_selling_imports")
       .select("*, social_sellers(name), social_selling_profiles(instagram_username)")
       .eq("id", import_id)
-      .eq("organization_id", profile.organization_id)
       .single();
 
     if (importErr || !importRecord) {
       console.error("[MAIN] Import not found:", JSON.stringify(importErr));
       throw new Error(`Import not found: ${importErr?.message || 'null record'}`);
+    }
+
+    if (!organizationId) organizationId = importRecord.organization_id;
+    if (!userId) userId = importRecord.created_by;
+
+    if (!isInternalRequest && importRecord.organization_id !== organizationId) {
+      throw new Error("Import not found for this organization");
     }
 
     console.log(`[MAIN] Import record found. seller_id: ${importRecord.seller_id}, profile_id: ${importRecord.profile_id}`);
@@ -825,300 +844,29 @@ serve(async (req) => {
       .update({ status: "processing" })
       .eq("id", import_id);
 
-    // Background processing path: respond immediately, frontend polls status
-    if (background !== false) {
-      const userId = user.id;
-      const orgId = profile.organization_id;
-      // @ts-ignore - EdgeRuntime is available in Supabase edge runtime
-      EdgeRuntime.waitUntil(
-        processImportBackground(supabase, importRecord, import_id, orgId, userId, LOVABLE_API_KEY)
-          .catch(async (err) => {
-            console.error("[BG] Fatal error:", err);
-            await supabase
-              .from("social_selling_imports")
-              .update({ status: "failed", error_message: err?.message || String(err) })
-              .eq("id", import_id);
-          })
-      );
-      return new Response(
-        JSON.stringify({ success: true, status: "processing", import_id }),
-        { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    return new Response(
+      JSON.stringify({ success: true, status: "processing", import_id, background: background !== false }),
+      { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
 
-    const screenshotUrls: string[] = importRecord.screenshot_urls || [];
-    console.log(`[MAIN] Found ${screenshotUrls.length} screenshots: ${JSON.stringify(screenshotUrls)}`);
-
-    // Process screenshots sequentially
-    const allEntries: ExtractedEntry[] = [];
-    const extractionErrors: string[] = [];
-
-    for (let i = 0; i < screenshotUrls.length; i++) {
-      const url = screenshotUrls[i];
-      const filePath = url.includes("social-selling-prints/")
-        ? url.replace(/^.*social-selling-prints\//, "")
-        : url;
-      
-      console.log(`[MAIN] Processing screenshot ${i + 1}/${screenshotUrls.length}: ${filePath}`);
-      
-      const result = await extractFromScreenshot(filePath, supabase, LOVABLE_API_KEY);
-      
-      if (result.error && (result.errorCode === 402 || result.errorCode === 429)) {
+    // @ts-ignore - EdgeRuntime is available in Supabase edge runtime
+    EdgeRuntime.waitUntil(
+      processImportBackground(
+        supabase,
+        importRecord,
+        import_id,
+        organizationId!,
+        userId,
+        functionUrl,
+        internalSecret,
+        LOVABLE_API_KEY,
+      ).catch(async (err) => {
+        console.error("[BG] Fatal error:", err);
         await supabase
           .from("social_selling_imports")
-          .update({ status: "failed", error_message: result.error })
+          .update({ status: "failed", error_message: err?.message || String(err) })
           .eq("id", import_id);
-
-        return new Response(
-          JSON.stringify({ error: result.error }),
-          { status: result.errorCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      if (result.error) {
-        extractionErrors.push(`Screenshot ${i + 1}: ${result.error}`);
-      }
-
-      allEntries.push(...result.entries);
-      
-      console.log(`[MAIN] Screenshot ${i + 1}: ${result.entries.length} entries extracted${result.error ? ' (with error: ' + result.error + ')' : ''}. Running total: ${allEntries.length}`);
-    }
-
-    if (extractionErrors.length > 0) {
-      console.warn(`[MAIN] Extraction errors: ${JSON.stringify(extractionErrors)}`);
-    }
-
-    // If ALL screenshots failed to extract anything, mark as error
-    if (allEntries.length === 0 && screenshotUrls.length > 0) {
-      const errMsg = extractionErrors.length > 0 
-        ? `Nenhum lead extraído. Erros: ${extractionErrors.join('; ')}`
-        : 'Nenhum lead extraído dos prints. Verifique se as imagens são screenshots de DMs do Instagram.';
-      console.error(`[MAIN] ALL extractions returned 0 entries! Errors: ${JSON.stringify(extractionErrors)}`);
-      
-      await supabase
-        .from("social_selling_imports")
-        .update({ status: "failed", error_message: errMsg })
-        .eq("id", import_id);
-
-      return new Response(
-        JSON.stringify({ error: errMsg, extraction_errors: extractionErrors }),
-        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Deduplicate
-    const seenHandles = new Set<string>();
-    const seenDisplayNames = new Set<string>();
-    const uniqueEntries: ExtractedEntry[] = [];
-
-    for (const entry of allEntries) {
-      if (entry.type === "handle") {
-        if (!seenHandles.has(entry.value)) {
-          seenHandles.add(entry.value);
-          uniqueEntries.push(entry);
-        }
-      } else {
-        const key = entry.value.toLowerCase().trim();
-        if (!seenDisplayNames.has(key)) {
-          seenDisplayNames.add(key);
-          uniqueEntries.push(entry);
-        }
-      }
-    }
-
-    console.log(`[MAIN] Total unique entries: ${uniqueEntries.length} (${uniqueEntries.filter(e => e.type === "handle").length} handles, ${uniqueEntries.filter(e => e.type === "display_name").length} display names)`);
-
-    // Find target funnel stage
-    const { data: allStages } = await supabase
-      .from("organization_funnel_stages")
-      .select("id, name, enum_value, position")
-      .eq("organization_id", profile.organization_id)
-      .order("position", { ascending: true });
-
-    const targetStage = (allStages || []).find((s: any) => 
-      s.name.toLowerCase().includes("prospecção ativa instagram") ||
-      s.name.toLowerCase().includes("prospeccao ativa instagram")
-    ) || (allStages || [])[0];
-
-    const stageEnum = targetStage?.enum_value || "no_contact";
-    const targetFunnelStageId = targetStage?.id || null;
-    console.log(`[MAIN] Target stage: "${targetStage?.name}" (id: ${targetFunnelStageId}, enum: ${stageEnum})`);
-    
-    let leadsCreated = 0;
-    let leadsSkipped = 0; // activity already existed (true duplicate)
-    let leadsExisting = 0; // lead existed but new activity created
-    const allExtractedNames: string[] = [];
-
-    for (const entry of uniqueEntries) {
-      if (entry.type === "handle") {
-        const username = entry.value;
-        allExtractedNames.push(`@${username}`);
-
-        // Check if activity already exists
-        const { data: existingActivity } = await supabase
-          .from("social_selling_activities")
-          .select("id")
-          .eq("organization_id", profile.organization_id)
-          .eq("seller_id", importRecord.seller_id)
-          .eq("profile_id", importRecord.profile_id)
-          .eq("instagram_username", username)
-          .eq("activity_type", "message_sent")
-          .limit(1)
-          .maybeSingle();
-
-        if (existingActivity) {
-          leadsSkipped++;
-          continue;
-        }
-
-        // Check if lead already exists by instagram handle
-        const { data: existingLead } = await supabase
-          .from("leads")
-          .select("id")
-          .eq("organization_id", profile.organization_id)
-          .or(`instagram.ilike.${username},instagram.ilike.@${username}`)
-          .limit(1)
-          .maybeSingle();
-
-        let leadId: string;
-
-        if (existingLead) {
-          leadId = existingLead.id;
-          leadsExisting++;
-        } else {
-          const { data: newLead, error: leadErr } = await supabase
-            .from("leads")
-            .insert({
-              organization_id: profile.organization_id,
-              name: `@${username}`,
-              instagram: username,
-              stage: stageEnum,
-              funnel_stage_id: targetFunnelStageId,
-              source: "social_selling",
-              assigned_to: user.id,
-            })
-            .select("id")
-            .single();
-
-          if (leadErr) {
-            console.error("[MAIN] Error creating lead:", leadErr);
-            continue;
-          }
-          leadId = newLead.id;
-          leadsCreated++;
-        }
-
-        await supabase
-          .from("social_selling_activities")
-          .insert({
-            organization_id: profile.organization_id,
-            lead_id: leadId,
-            seller_id: importRecord.seller_id,
-            profile_id: importRecord.profile_id,
-            import_id: import_id,
-            activity_type: "message_sent",
-            instagram_username: username,
-          });
-
-      } else {
-        // Display name — no handle available
-        const displayName = entry.value;
-        allExtractedNames.push(displayName);
-
-        // Use a normalized key for dedup in activities
-        const normalizedKey = displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-        // Check if activity already exists for this display name
-        const { data: existingActivity } = await supabase
-          .from("social_selling_activities")
-          .select("id")
-          .eq("organization_id", profile.organization_id)
-          .eq("seller_id", importRecord.seller_id)
-          .eq("profile_id", importRecord.profile_id)
-          .eq("instagram_username", normalizedKey)
-          .eq("activity_type", "message_sent")
-          .limit(1)
-          .maybeSingle();
-
-        if (existingActivity) {
-          leadsSkipped++;
-          continue;
-        }
-
-        // Check if lead already exists by name
-        const { data: existingLeadByName } = await supabase
-          .from("leads")
-          .select("id")
-          .eq("organization_id", profile.organization_id)
-          .eq("source", "social_selling")
-          .ilike("name", displayName)
-          .limit(1)
-          .maybeSingle();
-
-        let leadId: string;
-
-        if (existingLeadByName) {
-          leadId = existingLeadByName.id;
-          leadsExisting++;
-        } else {
-          const { data: newLead, error: leadErr } = await supabase
-            .from("leads")
-            .insert({
-              organization_id: profile.organization_id,
-              name: displayName,
-              instagram: null, // Don't invent a handle
-              stage: stageEnum,
-              funnel_stage_id: targetFunnelStageId,
-              source: "social_selling",
-              assigned_to: user.id,
-            })
-            .select("id")
-            .single();
-
-          if (leadErr) {
-            console.error("[MAIN] Error creating lead (display_name):", leadErr);
-            continue;
-          }
-          leadId = newLead.id;
-          leadsCreated++;
-        }
-
-        await supabase
-          .from("social_selling_activities")
-          .insert({
-            organization_id: profile.organization_id,
-            lead_id: leadId,
-            seller_id: importRecord.seller_id,
-            profile_id: importRecord.profile_id,
-            import_id: import_id,
-            activity_type: "message_sent",
-            instagram_username: normalizedKey,
-          });
-      }
-    }
-
-    await supabase
-      .from("social_selling_imports")
-      .update({
-        status: "completed",
-        extracted_usernames: allExtractedNames,
-        leads_created_count: leadsCreated,
-        processed_at: new Date().toISOString(),
       })
-      .eq("id", import_id);
-
-    console.log(`[MAIN] Done: ${leadsCreated} created, ${leadsExisting} existing, ${leadsSkipped} skipped, ${uniqueEntries.length} total entries`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        usernames: allExtractedNames,
-        leads_created: leadsCreated,
-        leads_existing: leadsExisting,
-        leads_skipped: leadsSkipped,
-        total_extracted: uniqueEntries.length,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("[MAIN] Error:", err);
