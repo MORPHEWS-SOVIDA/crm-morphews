@@ -382,6 +382,173 @@ Return a JSON array of objects. The array length MUST match the total number of 
   }
 }
 
+// Background processor — does all the heavy lifting after responding to the client
+async function processImportBackground(
+  supabase: ReturnType<typeof createClient>,
+  importRecord: any,
+  import_id: string,
+  orgId: string,
+  userId: string,
+  LOVABLE_API_KEY: string,
+) {
+  const screenshotUrls: string[] = importRecord.screenshot_urls || [];
+  console.log(`[BG] Found ${screenshotUrls.length} screenshots`);
+
+  const allEntries: ExtractedEntry[] = [];
+  const extractionErrors: string[] = [];
+
+  for (let i = 0; i < screenshotUrls.length; i++) {
+    const url = screenshotUrls[i];
+    const filePath = url.includes("social-selling-prints/")
+      ? url.replace(/^.*social-selling-prints\//, "")
+      : url;
+
+    console.log(`[BG] Processing screenshot ${i + 1}/${screenshotUrls.length}: ${filePath}`);
+    const result = await extractFromScreenshot(filePath, supabase, LOVABLE_API_KEY);
+
+    if (result.error && (result.errorCode === 402 || result.errorCode === 429)) {
+      await supabase.from("social_selling_imports")
+        .update({ status: "error", error_message: result.error })
+        .eq("id", import_id);
+      return;
+    }
+
+    if (result.error) extractionErrors.push(`Screenshot ${i + 1}: ${result.error}`);
+    allEntries.push(...result.entries);
+  }
+
+  if (allEntries.length === 0 && screenshotUrls.length > 0) {
+    const errMsg = extractionErrors.length > 0
+      ? `Nenhum lead extraído. Erros: ${extractionErrors.join('; ')}`
+      : 'Nenhum lead extraído dos prints. Verifique se as imagens são screenshots de DMs do Instagram.';
+    await supabase.from("social_selling_imports")
+      .update({ status: "error", error_message: errMsg })
+      .eq("id", import_id);
+    return;
+  }
+
+  const seenHandles = new Set<string>();
+  const seenDisplayNames = new Set<string>();
+  const uniqueEntries: ExtractedEntry[] = [];
+  for (const entry of allEntries) {
+    if (entry.type === "handle") {
+      if (!seenHandles.has(entry.value)) { seenHandles.add(entry.value); uniqueEntries.push(entry); }
+    } else {
+      const key = entry.value.toLowerCase().trim();
+      if (!seenDisplayNames.has(key)) { seenDisplayNames.add(key); uniqueEntries.push(entry); }
+    }
+  }
+
+  const { data: allStages } = await supabase
+    .from("organization_funnel_stages")
+    .select("id, name, enum_value, position")
+    .eq("organization_id", orgId)
+    .order("position", { ascending: true });
+
+  const targetStage = (allStages || []).find((s: any) =>
+    s.name.toLowerCase().includes("prospecção ativa instagram") ||
+    s.name.toLowerCase().includes("prospeccao ativa instagram")
+  ) || (allStages || [])[0];
+
+  const stageEnum = targetStage?.enum_value || "no_contact";
+  const targetFunnelStageId = targetStage?.id || null;
+
+  let leadsCreated = 0, leadsSkipped = 0, leadsExisting = 0;
+  const allExtractedNames: string[] = [];
+
+  for (const entry of uniqueEntries) {
+    if (entry.type === "handle") {
+      const username = entry.value;
+      allExtractedNames.push(`@${username}`);
+
+      const { data: existingActivity } = await supabase
+        .from("social_selling_activities")
+        .select("id")
+        .eq("organization_id", orgId)
+        .eq("seller_id", importRecord.seller_id)
+        .eq("profile_id", importRecord.profile_id)
+        .eq("instagram_username", username)
+        .eq("activity_type", "message_sent")
+        .limit(1).maybeSingle();
+      if (existingActivity) { leadsSkipped++; continue; }
+
+      const { data: existingLead } = await supabase
+        .from("leads").select("id")
+        .eq("organization_id", orgId)
+        .or(`instagram.ilike.${username},instagram.ilike.@${username}`)
+        .limit(1).maybeSingle();
+
+      let leadId: string;
+      if (existingLead) { leadId = existingLead.id; leadsExisting++; }
+      else {
+        const { data: newLead, error: leadErr } = await supabase.from("leads").insert({
+          organization_id: orgId, name: `@${username}`, instagram: username,
+          stage: stageEnum, funnel_stage_id: targetFunnelStageId,
+          source: "social_selling", assigned_to: userId,
+        }).select("id").single();
+        if (leadErr) { console.error("[BG] lead err:", leadErr); continue; }
+        leadId = newLead.id; leadsCreated++;
+      }
+
+      await supabase.from("social_selling_activities").insert({
+        organization_id: orgId, lead_id: leadId,
+        seller_id: importRecord.seller_id, profile_id: importRecord.profile_id,
+        import_id, activity_type: "message_sent", instagram_username: username,
+      });
+    } else {
+      const displayName = entry.value;
+      allExtractedNames.push(displayName);
+      const normalizedKey = displayName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      const { data: existingActivity } = await supabase
+        .from("social_selling_activities").select("id")
+        .eq("organization_id", orgId)
+        .eq("seller_id", importRecord.seller_id)
+        .eq("profile_id", importRecord.profile_id)
+        .eq("instagram_username", normalizedKey)
+        .eq("activity_type", "message_sent")
+        .limit(1).maybeSingle();
+      if (existingActivity) { leadsSkipped++; continue; }
+
+      const { data: existingLeadByName } = await supabase
+        .from("leads").select("id")
+        .eq("organization_id", orgId).eq("source", "social_selling")
+        .ilike("name", displayName).limit(1).maybeSingle();
+
+      let leadId: string;
+      if (existingLeadByName) { leadId = existingLeadByName.id; leadsExisting++; }
+      else {
+        const { data: newLead, error: leadErr } = await supabase.from("leads").insert({
+          organization_id: orgId, name: displayName, instagram: null,
+          stage: stageEnum, funnel_stage_id: targetFunnelStageId,
+          source: "social_selling", assigned_to: userId,
+        }).select("id").single();
+        if (leadErr) { console.error("[BG] lead err (display):", leadErr); continue; }
+        leadId = newLead.id; leadsCreated++;
+      }
+
+      await supabase.from("social_selling_activities").insert({
+        organization_id: orgId, lead_id: leadId,
+        seller_id: importRecord.seller_id, profile_id: importRecord.profile_id,
+        import_id, activity_type: "message_sent", instagram_username: normalizedKey,
+      });
+    }
+  }
+
+  await supabase.from("social_selling_imports").update({
+    status: "completed",
+    extracted_usernames: allExtractedNames,
+    leads_created_count: leadsCreated,
+    processed_at: new Date().toISOString(),
+    error_message: JSON.stringify({
+      leads_created: leadsCreated, leads_existing: leadsExisting,
+      leads_skipped: leadsSkipped, total_extracted: uniqueEntries.length,
+    }),
+  }).eq("id", import_id);
+
+  console.log(`[BG] Done: ${leadsCreated} created, ${leadsExisting} existing, ${leadsSkipped} skipped`);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
