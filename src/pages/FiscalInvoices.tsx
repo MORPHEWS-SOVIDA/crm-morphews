@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -212,8 +213,11 @@ export default function FiscalInvoices() {
       const inv = invoices.find(i => i.id === id);
       if (inv?.xml_url) {
         try {
-          const response = await fetch(inv.xml_url);
-          const blob = await response.blob();
+          const { data, error } = await supabase.functions.invoke('focus-nfe-download-xml', {
+            body: { url: inv.xml_url },
+          });
+          if (error) throw error;
+          const blob = data instanceof Blob ? data : new Blob([data as any], { type: 'application/xml' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
