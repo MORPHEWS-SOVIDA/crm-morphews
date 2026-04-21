@@ -299,11 +299,31 @@ function InvoiceDetailDialog({
                 </Button>
               )}
               {invoice.xml_url && (
-                <Button variant="outline" asChild>
-                  <a href={invoice.xml_url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Baixar XML
-                  </a>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const { supabase } = await import('@/integrations/supabase/client');
+                      const { data, error } = await supabase.functions.invoke('focus-nfe-download-xml', {
+                        body: { url: invoice.xml_url },
+                      });
+                      if (error) throw error;
+                      const blob = data instanceof Blob ? data : new Blob([data as any], { type: 'application/xml' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `nfe-${invoice.invoice_number || invoice.id}.xml`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    } catch (err) {
+                      console.error('Erro ao baixar XML:', err);
+                    }
+                  }}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Baixar XML
                 </Button>
               )}
             </div>
