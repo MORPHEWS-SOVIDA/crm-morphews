@@ -1744,10 +1744,11 @@ serve(async (req) => {
           console.log(
             `📹 Media saved result: ${savedMediaUrl ? "SUCCESS" : "FAILED"}`,
           );
-        } // Se tem mídia criptografada (mmg.whatsapp.net), buscar via Evolution API
-        else if (msgData.hasEncryptedMedia && key?.id) {
+        } // Sem base64 inline: tentar Evolution API se temos messageKey (cobre casos
+        // onde o payload não traz url/directPath mas a mídia ainda está disponível)
+        else if (msgData.type !== "text" && key?.id && !msgData.mediaUrl) {
           console.log(
-            `📥 Fetching encrypted media via Evolution API (${msgData.type})...`,
+            `📥 Fetching media via Evolution API (${msgData.type}) [hasEncryptedFlag=${msgData.hasEncryptedMedia}]...`,
           );
 
           const mediaResult = await downloadMediaFromEvolution(
