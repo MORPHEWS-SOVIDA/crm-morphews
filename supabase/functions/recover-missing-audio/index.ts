@@ -11,8 +11,24 @@ const EVOLUTION_API_URL = Deno.env.get("EVOLUTION_API_URL")!;
 const EVOLUTION_API_KEY = Deno.env.get("EVOLUTION_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const MEDIA_TOKEN_SECRET = Deno.env.get("WHATSAPP_MEDIA_TOKEN_SECRET")!;
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+async function hmacSign(data: string, secret: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(data));
+  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function makeProxyUrl(path: string, mime: string): Promise<string> {
+  const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 365;
+  const token = await hmacSign(`${path}:${exp}:${mime}`, MEDIA_TOKEN_SECRET);
+  return `${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/whatsapp-media-proxy?path=${encodeURIComponent(path)}&exp=${exp}&token=${token}&ct=${encodeURIComponent(mime)}`;
+}
 
 function extFromMime(m: string): string {
   if (m.includes("ogg")) return "ogg";
