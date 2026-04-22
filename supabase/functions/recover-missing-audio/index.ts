@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
         });
         if (upErr) { fail++; results.push({ id: m.id, error: `upload ${upErr.message}` }); continue; }
 
-        const proxyUrl = `${SUPABASE_URL}/functions/v1/media-proxy?path=${encodeURIComponent(path)}&mime=${encodeURIComponent(mime)}`;
+        const proxyUrl = await makeProxyUrl(path, mime);
 
         await supabase.from("whatsapp_messages").update({ media_url: proxyUrl }).eq("id", m.id);
         ok++;
