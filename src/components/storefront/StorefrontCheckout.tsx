@@ -615,6 +615,10 @@ export function StorefrontCheckout() {
           complement: formData.complement,
         } : undefined,
         payment_method: paymentMethod,
+        // CRITICAL: send installments at root so backend forwards to gateway.
+        // Without this, the gateway charges the full amount upfront (à vista) even when
+        // total_with_interest_cents is sent, because installments defaults to 1 in the backend.
+        installments: paymentMethod === 'credit_card' ? (selectedInstallments || 1) : 1,
         card_token: isOneClickCheckout ? selectedCardId : undefined,
         card_data: paymentMethod === 'credit_card' && !isOneClickCheckout ? cardData : undefined,
         save_card: !isOneClickCheckout && saveCard,
