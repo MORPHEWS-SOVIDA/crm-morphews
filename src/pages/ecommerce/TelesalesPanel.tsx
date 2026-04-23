@@ -219,6 +219,8 @@ export default function TelesalesPanel() {
                 phone: leadData.whatsapp,
               },
               payment_method: 'credit_card',
+              // CRITICAL: reprocess always defaults to 1x (admin action).
+              installments: 1,
               items: [],
             }),
           }
