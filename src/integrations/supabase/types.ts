@@ -23849,10 +23849,9 @@ export type Database = {
         }
         Returns: undefined
       }
-      user_belongs_to_org: {
-        Args: { _org_id: string; _user_id: string }
-        Returns: boolean
-      }
+      user_belongs_to_org:
+        | { Args: { _org_id: string }; Returns: boolean }
+        | { Args: { _org_id: string; _user_id: string }; Returns: boolean }
       user_can_insert_to_org: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
