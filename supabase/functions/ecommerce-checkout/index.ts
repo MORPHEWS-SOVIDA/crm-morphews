@@ -1058,12 +1058,26 @@ serve(async (req) => {
     const fallbackEngine = new FallbackEngine(supabaseUrl, supabaseServiceKey);
     await fallbackEngine.initialize(payment_method);
 
+    // CHECKOUT DEBUG: log exactly what's being sent to the gateway so we can
+    // diagnose installment/amount mismatches (e.g. cobrança à vista de valor parcelado).
+    const installmentsForGateway = Number(body.installments) > 0 ? Number(body.installments) : 1;
+    console.log('[CHECKOUT DEBUG]', {
+      sale_id: sale.id,
+      payment_method,
+      baseTotalCents,
+      totalWithInterestFromBody: body.total_with_interest_cents ?? null,
+      shippingCents,
+      amountEnviadoGateway: totalCents,
+      installmentsRecebidoBody: body.installments ?? null,
+      installmentsEnviadoGateway: installmentsForGateway,
+    });
+
     const paymentResult = await fallbackEngine.processWithFallback({
       sale_id: sale.id,
       organization_id: organizationId,
       amount_cents: totalCents,
       payment_method: payment_method as PaymentMethod,
-      installments: body.installments || 1,
+      installments: installmentsForGateway,
       customer: {
         name: customer.name,
         email: customer.email,
