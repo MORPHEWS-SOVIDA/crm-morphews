@@ -213,6 +213,9 @@ export function LandingCheckoutModal({
               document: formData.cpf.replace(/\D/g, '') || undefined,
             },
             payment_method: paymentMethod,
+            // CRITICAL: always send installments at root so backend forwards to gateway.
+            // This modal does not offer installment selection — always 1x.
+            installments: 1,
             // Attribution data
             utm: utmData,
           }),

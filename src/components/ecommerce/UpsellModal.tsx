@@ -92,6 +92,8 @@ export function UpsellModal({
             }],
             payment_method: 'credit_card',
             card_token: savedCard.id,
+            // CRITICAL: 1-click upsell is always 1x (no installment selection in UI).
+            installments: 1,
             is_upsell: true,
           }),
         }

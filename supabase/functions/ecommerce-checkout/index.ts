@@ -1061,7 +1061,39 @@ serve(async (req) => {
 
     // CHECKOUT DEBUG: log exactly what's being sent to the gateway so we can
     // diagnose installment/amount mismatches (e.g. cobrança à vista de valor parcelado).
-    const installmentsForGateway = Number(body.installments) > 0 ? Number(body.installments) : 1;
+    let installmentsForGateway = Number(body.installments) > 0 ? Number(body.installments) : 1;
+
+    // 🚨 GUARDRAIL ANTI-BUG (Ramon Schunk case):
+    // If frontend sent `total_with_interest_cents` (signal that interest was applied)
+    // but installments came as 1, that is a clear inconsistency — the customer would
+    // be charged the inflated total upfront. Refuse to proceed.
+    if (
+      payment_method === 'credit_card' &&
+      totalWithInterest &&
+      totalWithInterest > baseTotalCents &&
+      installmentsForGateway <= 1
+    ) {
+      console.error('[CHECKOUT GUARDRAIL] BLOCKED: total_with_interest sent but installments=1', {
+        sale_id: sale.id,
+        baseTotalCents,
+        totalWithInterest,
+        installmentsRecebidoBody: body.installments ?? null,
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Inconsistência detectada: valor com juros enviado sem informar parcelas. Recarregue a página e tente novamente.',
+          error_code: 'INSTALLMENTS_MISMATCH',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Defensive: for non-credit-card methods, force installments=1
+    if (payment_method !== 'credit_card') {
+      installmentsForGateway = 1;
+    }
+
     console.log('[CHECKOUT DEBUG]', {
       sale_id: sale.id,
       payment_method,
