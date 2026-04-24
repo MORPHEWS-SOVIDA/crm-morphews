@@ -300,3 +300,126 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
+/* ============================================================
+   BES (Boosted Energy Science) — Dark Tech checkout theme
+   Escopado em: .storefront-checkout-themed[data-store="bes"]
+   Apenas re-skin visual. Não altera lógica.
+   ============================================================ */
+.storefront-checkout-themed[data-store="bes"] {
+  /* Paleta convertida para HSL (compatível com tokens hsl(var(--x))) */
+  --background: 240 6% 4%;            /* #0A0A0B */
+  --foreground: 240 9% 96%;           /* #F5F5F7 */
+
+  --card: 240 5% 9%;                  /* #141416 */
+  --card-foreground: 240 9% 96%;
+
+  --popover: 240 5% 9%;
+  --popover-foreground: 240 9% 96%;
+
+  --primary: 221 83% 53%;             /* #2563EB */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 240 5% 12%;
+  --secondary-foreground: 240 9% 96%;
+
+  --muted: 240 5% 14%;
+  --muted-foreground: 220 9% 64%;     /* #9CA3AF */
+
+  --accent: 221 83% 53%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 240 6% 16%;               /* #26262A */
+  --input: 240 6% 16%;
+  --ring: 221 83% 53%;
+
+  --radius: 0.75rem;                  /* 12px cards */
+
+  font-family: "Inter Tight", "Inter", system-ui, -apple-system, sans-serif;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  min-height: 100vh;
+}
+
+/* Headings: peso 700, tracking -0.02em */
+.storefront-checkout-themed[data-store="bes"] h1,
+.storefront-checkout-themed[data-store="bes"] h2,
+.storefront-checkout-themed[data-store="bes"] h3,
+.storefront-checkout-themed[data-store="bes"] h4 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: hsl(var(--foreground));
+}
+
+/* Body */
+.storefront-checkout-themed[data-store="bes"],
+.storefront-checkout-themed[data-store="bes"] p,
+.storefront-checkout-themed[data-store="bes"] label,
+.storefront-checkout-themed[data-store="bes"] span {
+  font-weight: 400;
+}
+
+/* Inputs/Selects/Textareas: radius 8px, fundo card, ring azul */
+.storefront-checkout-themed[data-store="bes"] input,
+.storefront-checkout-themed[data-store="bes"] textarea,
+.storefront-checkout-themed[data-store="bes"] select,
+.storefront-checkout-themed[data-store="bes"] [role="combobox"] {
+  border-radius: 8px;
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+.storefront-checkout-themed[data-store="bes"] input::placeholder,
+.storefront-checkout-themed[data-store="bes"] textarea::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+.storefront-checkout-themed[data-store="bes"] input:focus-visible,
+.storefront-checkout-themed[data-store="bes"] textarea:focus-visible,
+.storefront-checkout-themed[data-store="bes"] select:focus-visible,
+.storefront-checkout-themed[data-store="bes"] [role="combobox"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--primary));
+  border-color: hsl(var(--primary));
+}
+
+/* Botões primários (Button default já usa --primary) */
+.storefront-checkout-themed[data-store="bes"] button[class*="bg-primary"] {
+  font-weight: 600;
+}
+.storefront-checkout-themed[data-store="bes"] button[class*="bg-primary"]:hover {
+  background-color: hsl(217 91% 47%); /* #1D4ED8 */
+}
+
+/* Cards: borda + radius */
+.storefront-checkout-themed[data-store="bes"] [class*="rounded-lg"][class*="border"][class*="bg-card"] {
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+}
+
+/* Selo de sucesso (override pontual) */
+.storefront-checkout-themed[data-store="bes"] .text-green-600,
+.storefront-checkout-themed[data-store="bes"] .text-green-500 {
+  color: hsl(160 84% 39%) !important; /* #10B981 */
+}
+.storefront-checkout-themed[data-store="bes"] .bg-green-600,
+.storefront-checkout-themed[data-store="bes"] .bg-green-500 {
+  background-color: hsl(160 84% 39%) !important;
+}
+
+/* Divisores */
+.storefront-checkout-themed[data-store="bes"] hr,
+.storefront-checkout-themed[data-store="bes"] [class*="border-t"],
+.storefront-checkout-themed[data-store="bes"] [class*="border-b"] {
+  border-color: hsl(var(--border));
+}
+
+/* Links */
+.storefront-checkout-themed[data-store="bes"] a {
+  color: hsl(var(--foreground));
+}
+.storefront-checkout-themed[data-store="bes"] a:hover {
+  color: hsl(var(--primary));
+}
