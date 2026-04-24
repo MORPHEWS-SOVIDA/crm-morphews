@@ -748,7 +748,7 @@ export function StorefrontCheckout() {
 
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div data-store={storefront.slug} className="storefront-checkout-themed container mx-auto px-4 py-8">
       {/* Back link */}
       <Link 
         to={`/loja/${storefront.slug}/carrinho`}
