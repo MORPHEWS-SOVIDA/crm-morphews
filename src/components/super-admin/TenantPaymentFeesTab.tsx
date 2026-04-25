@@ -47,18 +47,21 @@ interface TenantPaymentFees {
   updated_at: string;
 }
 
+// Default CET (Stone/Point D+15 + safety margin against antifraud/anticipation)
+// R$ 1.000 in 12x = R$ 101,91 / parcel (22.29% total)
 const DEFAULT_INSTALLMENT_FEES: Record<string, number> = {
-  "2": 3.49,
-  "3": 4.29,
-  "4": 4.99,
-  "5": 5.49,
-  "6": 5.99,
-  "7": 6.49,
-  "8": 6.99,
-  "9": 7.49,
-  "10": 7.99,
-  "11": 8.49,
-  "12": 8.99,
+  "1": 3.93,
+  "2": 6.38,
+  "3": 7.98,
+  "4": 9.58,
+  "5": 11.18,
+  "6": 12.78,
+  "7": 14.38,
+  "8": 15.98,
+  "9": 17.58,
+  "10": 19.17,
+  "11": 20.77,
+  "12": 22.29,
 };
 
 export function TenantPaymentFeesTab() {

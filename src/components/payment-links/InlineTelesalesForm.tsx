@@ -72,10 +72,10 @@ export function InlineTelesalesForm({
         .single();
       
       if (!data) {
-        // Valores padrão caso não exista configuração
+        // Valores padrão caso não exista configuração (CET Stone/Point + margem segurança)
         return {
           max_installments: 12,
-          installment_fees: { "2": 3.49, "3": 4.29, "4": 4.99, "5": 5.49, "6": 5.99, "7": 6.49, "8": 6.99, "9": 7.49, "10": 7.99, "11": 8.49, "12": 8.99 },
+          installment_fees: { "1": 3.93, "2": 6.38, "3": 7.98, "4": 9.58, "5": 11.18, "6": 12.78, "7": 14.38, "8": 15.98, "9": 17.58, "10": 19.17, "11": 20.77, "12": 22.29 },
           installment_fee_passed_to_buyer: true,
         };
       }
