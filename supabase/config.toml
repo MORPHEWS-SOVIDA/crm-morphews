@@ -186,3 +186,6 @@ verify_jwt = false
 [functions.ecommerce-notifications]
 verify_jwt = false
 
+
+[functions.checkout-quote]
+verify_jwt = false
