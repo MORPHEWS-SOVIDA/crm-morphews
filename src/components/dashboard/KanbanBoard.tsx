@@ -200,9 +200,10 @@ interface KanbanColumnProps {
   leads: Lead[];
   allStages: FunnelStageCustom[];
   onQuickMove: (leadId: string, lead: Lead, targetStage: FunnelStageCustom) => void;
+  showMissingPhoneAlert?: boolean;
 }
 
-function KanbanColumn({ stage, leads, allStages, onQuickMove }: KanbanColumnProps) {
+function KanbanColumn({ stage, leads, allStages, onQuickMove, showMissingPhoneAlert }: KanbanColumnProps) {
   // Make the column droppable using the stage ID
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
