@@ -46,6 +46,7 @@ interface KanbanCardProps {
   stages?: FunnelStageCustom[];
   currentStageId?: string;
   onQuickMove?: (leadId: string, lead: Lead, targetStage: FunnelStageCustom) => void;
+  showMissingPhoneAlert?: boolean;
 }
 
 function formatCurrency(value: number | null) {
