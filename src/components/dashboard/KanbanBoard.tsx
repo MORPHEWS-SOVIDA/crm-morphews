@@ -58,7 +58,7 @@ function formatCurrency(value: number | null) {
   }).format(value);
 }
 
-function KanbanCard({ lead, stages, currentStageId, onQuickMove }: KanbanCardProps) {
+function KanbanCard({ lead, stages, currentStageId, onQuickMove, showMissingPhoneAlert }: KanbanCardProps) {
   const {
     attributes,
     listeners,
