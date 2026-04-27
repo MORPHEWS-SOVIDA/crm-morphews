@@ -75,6 +75,7 @@ function KanbanCard({ lead, stages, currentStageId, onQuickMove, showMissingPhon
 
   const instagramUrl = getInstagramProfileUrl(lead.instagram);
   const negotiatedValue = formatCurrency(lead.negotiated_value);
+  const missingPhone = showMissingPhoneAlert && !(lead.whatsapp && String(lead.whatsapp).trim().length > 0);
 
   // Open lead in new tab
   const handleClick = (e: React.MouseEvent) => {
