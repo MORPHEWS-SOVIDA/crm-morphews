@@ -15,6 +15,7 @@ import { useTenant } from '@/hooks/useTenant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LeadsAdvancedFilters, LeadsFilters } from '@/components/leads/LeadsAdvancedFilters';
+import { ExportLeadsDialog } from '@/components/leads/ExportLeadsDialog';
 import { FunnelStage } from '@/types/lead';
 
 export default function LeadsList() {
@@ -139,12 +140,15 @@ export default function LeadsList() {
               Gerencie e acompanhe todos os seus leads
             </p>
           </div>
-          {canShowNewLeadButton && (
-            <Button onClick={() => navigate('/leads/new')} className="gap-2 w-full sm:w-auto">
-              <Plus className="w-4 h-4" />
-              Novo Lead
-            </Button>
-          )}
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <ExportLeadsDialog leads={filteredLeads} totalCount={leads.length} />
+            {canShowNewLeadButton && (
+              <Button onClick={() => navigate('/leads/new')} className="gap-2 w-full sm:w-auto">
+                <Plus className="w-4 h-4" />
+                Novo Lead
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Filters */}
