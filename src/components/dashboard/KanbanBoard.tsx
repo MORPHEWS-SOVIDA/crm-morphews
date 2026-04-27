@@ -103,7 +103,23 @@ function KanbanCard({ lead, stages, currentStageId, onQuickMove, showMissingPhon
         </button>
         
         <div className="flex-1 min-w-0" onClick={handleClick}>
-          <h4 className="font-medium text-sm text-foreground truncate">{lead.name}</h4>
+          <div className="flex items-center gap-1.5">
+            <h4 className="font-medium text-sm text-foreground truncate">{lead.name}</h4>
+            {missingPhone && (
+              <span
+                title="Lead sem número cadastrado"
+                aria-label="Lead sem número cadastrado"
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex-shrink-0"
+              >
+                <AlertTriangle className="w-2.5 h-2.5" />
+              </span>
+            )}
+          </div>
+          {missingPhone && (
+            <p className="text-[10px] font-medium text-destructive mt-0.5">
+              Lead sem número cadastrado
+            </p>
+          )}
           
           {lead.specialty && (
             <p className="text-xs text-muted-foreground truncate mt-0.5">{lead.specialty}</p>
