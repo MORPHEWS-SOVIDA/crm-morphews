@@ -15,6 +15,7 @@ import { useTenant } from '@/hooks/useTenant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LeadsAdvancedFilters, LeadsFilters } from '@/components/leads/LeadsAdvancedFilters';
+import { ExportLeadsDialog } from '@/components/leads/ExportLeadsDialog';
 import { FunnelStage } from '@/types/lead';
 
 export default function LeadsList() {
