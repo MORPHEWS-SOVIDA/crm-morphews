@@ -255,6 +255,7 @@ function KanbanColumn({ stage, leads, allStages, onQuickMove, showMissingPhoneAl
                 stages={allStages}
                 currentStageId={stage.id}
                 onQuickMove={onQuickMove}
+                showMissingPhoneAlert={showMissingPhoneAlert}
               />
             ))}
             {leads.length === 0 && (
