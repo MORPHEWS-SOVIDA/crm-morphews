@@ -570,6 +570,10 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
                 leads={leadsByStage[stage.id] || []}
                 allStages={sortedStages}
                 onQuickMove={handleQuickMove}
+                showMissingPhoneAlert={
+                  missingPhoneTriggerPosition !== null &&
+                  stage.position >= missingPhoneTriggerPosition
+                }
               />
             ))}
           </div>
