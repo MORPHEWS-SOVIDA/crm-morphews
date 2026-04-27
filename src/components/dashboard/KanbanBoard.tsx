@@ -323,6 +323,21 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     [stages]
   );
 
+  // Aviso visual "Lead sem número cadastrado" — restrito ao usuário antony@sovida.com.br.
+  // Começa na etapa "Lead não entrou no grupo - Mensagem" e segue para todas as posteriores.
+  const missingPhoneTriggerPosition = useMemo(() => {
+    const userEmail = (user?.email || '').toLowerCase();
+    if (userEmail !== 'antony@sovida.com.br') return null;
+    const trigger = sortedStages.find((s) =>
+      (s.name || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .startsWith('lead nao entrou no grupo')
+    );
+    return trigger ? trigger.position : null;
+  }, [sortedStages, user?.email]);
+
   // Group leads by funnel_stage_id (stable UUID-based grouping)
   const leadsByStage = useMemo(
     () => groupLeadsByFunnelStageId(filteredLeads, sortedStages),
