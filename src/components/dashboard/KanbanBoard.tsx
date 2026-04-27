@@ -28,7 +28,7 @@ import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { StageChangeDialog, StageChangeResult } from '@/components/StageChangeDialog';
 import { cn } from '@/lib/utils';
 import { getInstagramProfileUrl } from '@/lib/instagram';
-import { GripVertical, User, DollarSign, ChevronRight } from 'lucide-react';
+import { GripVertical, User, DollarSign, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Instagram } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
@@ -46,6 +46,7 @@ interface KanbanCardProps {
   stages?: FunnelStageCustom[];
   currentStageId?: string;
   onQuickMove?: (leadId: string, lead: Lead, targetStage: FunnelStageCustom) => void;
+  showMissingPhoneAlert?: boolean;
 }
 
 function formatCurrency(value: number | null) {
@@ -57,7 +58,7 @@ function formatCurrency(value: number | null) {
   }).format(value);
 }
 
-function KanbanCard({ lead, stages, currentStageId, onQuickMove }: KanbanCardProps) {
+function KanbanCard({ lead, stages, currentStageId, onQuickMove, showMissingPhoneAlert }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -74,6 +75,7 @@ function KanbanCard({ lead, stages, currentStageId, onQuickMove }: KanbanCardPro
 
   const instagramUrl = getInstagramProfileUrl(lead.instagram);
   const negotiatedValue = formatCurrency(lead.negotiated_value);
+  const missingPhone = showMissingPhoneAlert && !(lead.whatsapp && String(lead.whatsapp).trim().length > 0);
 
   // Open lead in new tab
   const handleClick = (e: React.MouseEvent) => {
@@ -101,7 +103,23 @@ function KanbanCard({ lead, stages, currentStageId, onQuickMove }: KanbanCardPro
         </button>
         
         <div className="flex-1 min-w-0" onClick={handleClick}>
-          <h4 className="font-medium text-sm text-foreground truncate">{lead.name}</h4>
+          <div className="flex items-center gap-1.5">
+            <h4 className="font-medium text-sm text-foreground truncate">{lead.name}</h4>
+            {missingPhone && (
+              <span
+                title="Lead sem número cadastrado"
+                aria-label="Lead sem número cadastrado"
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-destructive text-destructive-foreground flex-shrink-0"
+              >
+                <AlertTriangle className="w-2.5 h-2.5" />
+              </span>
+            )}
+          </div>
+          {missingPhone && (
+            <p className="text-[10px] font-medium text-destructive mt-0.5">
+              Lead sem número cadastrado
+            </p>
+          )}
           
           {lead.specialty && (
             <p className="text-xs text-muted-foreground truncate mt-0.5">{lead.specialty}</p>
@@ -182,9 +200,10 @@ interface KanbanColumnProps {
   leads: Lead[];
   allStages: FunnelStageCustom[];
   onQuickMove: (leadId: string, lead: Lead, targetStage: FunnelStageCustom) => void;
+  showMissingPhoneAlert?: boolean;
 }
 
-function KanbanColumn({ stage, leads, allStages, onQuickMove }: KanbanColumnProps) {
+function KanbanColumn({ stage, leads, allStages, onQuickMove, showMissingPhoneAlert }: KanbanColumnProps) {
   // Make the column droppable using the stage ID
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
@@ -236,6 +255,7 @@ function KanbanColumn({ stage, leads, allStages, onQuickMove }: KanbanColumnProp
                 stages={allStages}
                 currentStageId={stage.id}
                 onQuickMove={onQuickMove}
+                showMissingPhoneAlert={showMissingPhoneAlert}
               />
             ))}
             {leads.length === 0 && (
@@ -302,6 +322,21 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
     () => [...stages].sort((a, b) => a.position - b.position),
     [stages]
   );
+
+  // Aviso visual "Lead sem número cadastrado" — restrito ao usuário antony@sovida.com.br.
+  // Começa na etapa "Lead não entrou no grupo - Mensagem" e segue para todas as posteriores.
+  const missingPhoneTriggerPosition = useMemo(() => {
+    const userEmail = (user?.email || '').toLowerCase();
+    if (userEmail !== 'antony@sovida.com.br') return null;
+    const trigger = sortedStages.find((s) =>
+      (s.name || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .startsWith('lead nao entrou no grupo')
+    );
+    return trigger ? trigger.position : null;
+  }, [sortedStages, user?.email]);
 
   // Group leads by funnel_stage_id (stable UUID-based grouping)
   const leadsByStage = useMemo(
@@ -535,6 +570,10 @@ export function KanbanBoard({ leads, stages, selectedStars, selectedResponsavel 
                 leads={leadsByStage[stage.id] || []}
                 allStages={sortedStages}
                 onQuickMove={handleQuickMove}
+                showMissingPhoneAlert={
+                  missingPhoneTriggerPosition !== null &&
+                  stage.position >= missingPhoneTriggerPosition
+                }
               />
             ))}
           </div>
