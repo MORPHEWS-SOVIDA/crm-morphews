@@ -56,21 +56,27 @@ export function CustomDomainRedirect({ children }: { children: React.ReactNode }
   const { user, isLoading: isAuthLoading } = useAuth();
   const location = useLocation();
 
-  // Redirect sales.morphews.com to main login
-  useEffect(() => {
-    if (window.location.hostname === 'sales.morphews.com' || window.location.hostname === 'morphews.com') {
-      window.location.href = 'https://atomic.ia.br/login';
-    }
-  }, []);
+  // Hostname -> storefront slug mapping (rewrites internally, keeps URL in the bar)
+  // Add new entries here to point a connected custom domain to a specific storefront.
+  const HOSTNAME_TO_STOREFRONT: Record<string, string> = {
+    'sales.morphews.com': 'vvvero',
+    'morphews.com': 'vvvero',
+  };
+
+  const hostStorefrontSlug = HOSTNAME_TO_STOREFRONT[window.location.hostname];
 
   // While loading domain detection, show loader
   if (isLoading) {
     return <PageLoader />;
   }
 
-  // Block render if redirecting from sales.morphews.com
-  if (window.location.hostname === 'sales.morphews.com' || window.location.hostname === 'morphews.com') {
-    return <PageLoader />;
+  // If hostname is mapped to a storefront, render it directly (URL stays the same)
+  if (hostStorefrontSlug) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <CustomDomainStorefront slug={hostStorefrontSlug} />
+      </Suspense>
+    );
   }
 
   // Handle STOREFRONT custom domains - these always show the store
