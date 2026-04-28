@@ -79,6 +79,9 @@ export default function PickupClosingPrint() {
           created_at,
           payment_method,
           payment_method_id,
+          payment_status,
+          payment_confirmed_at,
+          payment_proof_url,
           delivery_status,
           payment_methods:payment_method_id (
             id,
@@ -107,6 +110,9 @@ export default function PickupClosingPrint() {
           payment_method: paymentMethod?.name || saleData?.payment_method || cs.payment_method || 'Não informado',
           payment_category: paymentMethod?.category || null,
           delivery_status: saleData?.delivery_status || null,
+          payment_status: saleData?.payment_status || null,
+          payment_confirmed_at: saleData?.payment_confirmed_at || null,
+          payment_proof_url: saleData?.payment_proof_url || null,
         };
       });
     },
@@ -269,25 +275,43 @@ export default function PickupClosingPrint() {
               <th>Nº Venda</th>
               <th>Cliente</th>
               <th>Forma Pgto</th>
+              <th>Pago?</th>
               <th>Data Venda</th>
               <th className="text-right">Valor</th>
             </tr>
           </thead>
           <tbody>
             {salesList.map(sale => {
+              const isPaid = !!(sale as any).payment_confirmed_at || (sale as any).payment_status === 'paid_now';
+              const hasProof = !!(sale as any).payment_proof_url;
               return (
                 <tr key={sale.id}>
                   <td className="font-bold">{sale.romaneio_number ? `#${sale.romaneio_number}` : '-'}</td>
                   <td>#{sale.sale_number}</td>
                   <td>{sale.lead_name || 'Cliente'}</td>
                   <td>{sale.payment_method || '-'}</td>
+                  <td style={{ fontSize: '10px' }}>
+                    {isPaid ? (
+                      <>
+                        <span style={{ color: '#2e7d32', fontWeight: 700 }}>✓ PAGO</span>
+                        <br />
+                        {hasProof ? (
+                          <span style={{ color: '#1565c0', fontWeight: 600 }}>📎 c/ comprovante</span>
+                        ) : (
+                          <span style={{ color: '#e65100', fontWeight: 600 }}>⚠ sem comprovante</span>
+                        )}
+                      </>
+                    ) : (
+                      <span style={{ color: '#d32f2f', fontWeight: 700 }}>NÃO</span>
+                    )}
+                  </td>
                   <td>{sale.sale_created_at ? format(parseISO(sale.sale_created_at), "dd/MM/yy") : '-'}</td>
                   <td className="text-right">{formatCurrency(sale.total_cents || 0)}</td>
                 </tr>
               );
             })}
             <tr className="total-row">
-              <td colSpan={5} className="font-bold">SUBTOTAL {config.label.toUpperCase()}</td>
+              <td colSpan={6} className="font-bold">SUBTOTAL {config.label.toUpperCase()}</td>
               <td className="text-right font-bold">{formatCurrency(total)}</td>
             </tr>
           </tbody>

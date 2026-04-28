@@ -21,6 +21,7 @@ interface SaleData {
   delivery_type: string | null;
   payment_confirmed_at: string | null;
   payment_status: string | null;
+  payment_proof_url: string | null;
   seller_user_id: string | null;
   assigned_delivery_user_id: string | null;
   delivery_region_id: string | null;
@@ -82,6 +83,7 @@ export default function RomaneioBatchPrint() {
           delivery_type,
           payment_confirmed_at,
           payment_status,
+          payment_proof_url,
           seller_user_id,
           assigned_delivery_user_id,
           delivery_region_id,
@@ -310,9 +312,20 @@ export default function RomaneioBatchPrint() {
                 {getDeliveryLabel(sale)}
               </span>
               {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') && (
-                <span className="ml-2 bg-green-600 text-white px-2 py-0.5" style={{ fontSize: '9px' }}>
-                  ✓ PAGO
-                </span>
+                <>
+                  <span className="ml-2 bg-green-600 text-white px-2 py-0.5" style={{ fontSize: '9px' }}>
+                    ✓ PAGO
+                  </span>
+                  {sale.payment_proof_url ? (
+                    <span className="ml-1 bg-blue-700 text-white px-2 py-0.5" style={{ fontSize: '9px' }}>
+                      📎 COMPROVANTE EM ANEXO
+                    </span>
+                  ) : (
+                    <span className="ml-1 border border-orange-600 text-orange-700 px-2 py-0.5" style={{ fontSize: '9px' }}>
+                      ⚠ SEM COMPROVANTE NO SISTEMA
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -458,7 +471,14 @@ export default function RomaneioBatchPrint() {
         </div>
 
         {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') && (
-          <div className="text-center mt-1 font-bold">✓ PAGO</div>
+          <div className="text-center mt-1">
+            <div className="font-bold">✓ PAGO</div>
+            <div style={{ fontSize: '9px' }} className="font-bold">
+              {sale.payment_proof_url
+                ? '📎 COMPROVANTE EM ANEXO NO SISTEMA'
+                : '⚠ SEM COMPROVANTE NO SISTEMA'}
+            </div>
+          </div>
         )}
 
         {/* QR Code - larger for easier scanning */}
