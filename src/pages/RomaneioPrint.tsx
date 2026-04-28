@@ -320,9 +320,20 @@ export default function RomaneioPrint() {
               {getDeliveryLabel()}
             </span>
             {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') && (
-              <span className="ml-2 bg-green-600 text-white px-2 py-0.5" style={{ fontSize: '9px' }}>
-                ✓ PAGO
-              </span>
+              <>
+                <span className="ml-2 bg-green-600 text-white px-2 py-0.5" style={{ fontSize: '9px' }}>
+                  ✓ PAGO
+                </span>
+                {sale.payment_proof_url ? (
+                  <span className="ml-1 bg-blue-700 text-white px-2 py-0.5" style={{ fontSize: '9px' }}>
+                    📎 COMPROVANTE EM ANEXO
+                  </span>
+                ) : (
+                  <span className="ml-1 border border-orange-600 text-orange-700 px-2 py-0.5" style={{ fontSize: '9px' }}>
+                    ⚠ SEM COMPROVANTE NO SISTEMA
+                  </span>
+                )}
+              </>
             )}
           </div>
         </div>
