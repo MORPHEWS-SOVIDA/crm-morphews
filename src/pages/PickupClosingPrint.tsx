@@ -118,6 +118,11 @@ export default function PickupClosingPrint() {
           payment_status: saleData?.payment_status || null,
           payment_confirmed_at: saleData?.payment_confirmed_at || null,
           payment_proof_url: saleData?.payment_proof_url || null,
+          proof_source: (saleData as any)?.proof_source || null,
+          external_order_id: (saleData as any)?.external_order_id || null,
+          external_order_url: (saleData as any)?.external_order_url || null,
+          external_source: (saleData as any)?.external_source || null,
+          pos_transaction_id: (saleData as any)?.pos_transaction_id || null,
         };
       });
     },
