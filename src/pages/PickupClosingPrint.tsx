@@ -293,8 +293,9 @@ export default function PickupClosingPrint() {
           </thead>
           <tbody>
             {salesList.map(sale => {
-              const isPaid = !!(sale as any).payment_confirmed_at || (sale as any).payment_status === 'paid_now';
-              const hasProof = !!(sale as any).payment_proof_url;
+              const isPaid = !!(sale as any).payment_confirmed_at || (sale as any).payment_status === 'paid_now' || (sale as any).payment_status === 'confirmed';
+              const proofSource = resolveProofSource(sale as any);
+              const proofBadge = proofSource ? getProofBadge(proofSource) : null;
               return (
                 <tr key={sale.id}>
                   <td className="font-bold">{sale.romaneio_number ? `#${sale.romaneio_number}` : '-'}</td>
@@ -306,8 +307,8 @@ export default function PickupClosingPrint() {
                       <>
                         <span style={{ color: '#2e7d32', fontWeight: 700 }}>✓ PAGO</span>
                         <br />
-                        {hasProof ? (
-                          <span style={{ color: '#1565c0', fontWeight: 600 }}>📎 c/ comprovante</span>
+                        {proofBadge ? (
+                          <span style={{ color: '#1565c0', fontWeight: 600 }}>{proofBadge.icon} {proofBadge.label}</span>
                         ) : (
                           <span style={{ color: '#e65100', fontWeight: 600 }}>⚠ sem comprovante</span>
                         )}
