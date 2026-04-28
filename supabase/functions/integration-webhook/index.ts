@@ -2019,11 +2019,22 @@ Deno.serve(async (req) => {
         payment_notes: typedIntegration.sale_tag ? `[${typedIntegration.sale_tag}]` : null,
         payment_method: saleData.payment_method || null,
         payment_installments: saleData.installments ? parseInt(String(saleData.installments)) || 1 : null,
-        // If sale is created as payment_confirmed, also set payment_status and timestamp
+        // If sale is created as payment_confirmed, also set payment_status, timestamp and proof_source
         ...((() => {
           const raw = typedIntegration.sale_status_on_create || 'draft';
           const mapped = ({ 'pago': true, 'paid': true, 'confirmado': true, 'confirmed': true, 'payment_confirmed': true } as Record<string, boolean>)[raw.toLowerCase()];
-          return mapped ? { payment_status: 'paid', payment_confirmed_at: new Date().toISOString() } : {};
+          if (!mapped) return {};
+          // Determine proof source automatically from integration provider name
+          const provider = (typedIntegration.name || '').toLowerCase();
+          let proofSource = 'external_system';
+          if (provider.includes('payt')) proofSource = 'webhook_payt';
+          else if (provider.includes('mercado') || provider.includes('mp')) proofSource = 'webhook_mercadopago';
+          else if (provider.includes('shopify')) proofSource = 'webhook_shopify';
+          return {
+            payment_status: 'paid',
+            payment_confirmed_at: new Date().toISOString(),
+            proof_source: proofSource,
+          };
         })()),
       };
       
