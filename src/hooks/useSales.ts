@@ -66,6 +66,7 @@ export interface Sale {
   payment_installments: number | null;
   payment_notes: string | null;
   payment_proof_url: string | null;
+  proof_source: string | null;
   payment_status: 'not_paid' | 'will_pay_before' | 'paid_now' | null;
   missing_payment_proof: boolean;
   invoice_pdf_url: string | null;
