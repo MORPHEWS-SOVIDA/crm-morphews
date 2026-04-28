@@ -82,6 +82,11 @@ export default function PickupClosingPrint() {
           payment_status,
           payment_confirmed_at,
           payment_proof_url,
+          proof_source,
+          external_order_id,
+          external_order_url,
+          external_source,
+          pos_transaction_id,
           delivery_status,
           payment_methods:payment_method_id (
             id,
