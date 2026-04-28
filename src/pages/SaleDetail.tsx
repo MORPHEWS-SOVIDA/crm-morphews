@@ -1760,7 +1760,7 @@ export default function SaleDetail() {
                 </div>
 
                 {/* Payment Status Warning */}
-                {sale.payment_status === 'will_pay_before' && !sale.payment_proof_url && (
+                {sale.payment_status === 'will_pay_before' && !hasPaymentProof(sale as any) && (
                   <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
                     <div className="flex items-start gap-2">
                       <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
@@ -1776,16 +1776,45 @@ export default function SaleDetail() {
                   </div>
                 )}
 
-                {sale.payment_status === 'paid_now' && sale.payment_proof_url && (
-                  <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                      <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                        Comprovante anexado na criação da venda
-                      </p>
+                {(() => {
+                  const proof = resolveProofSource(sale as any);
+                  if (!proof) return null;
+                  const badge = getProofBadge(proof);
+                  if (!badge) return null;
+                  const isManual = proof === 'manual_upload';
+                  const subtitle = isManual
+                    ? 'Comprovante anexado manualmente.'
+                    : proof === 'pos_terminal'
+                      ? 'Pagamento confirmado pela maquininha (POS).'
+                      : proof === 'webhook_payt'
+                        ? 'Pagamento confirmado automaticamente via webhook da Payt.'
+                        : proof === 'webhook_mercadopago'
+                          ? 'Pagamento confirmado automaticamente via webhook do Mercado Pago.'
+                          : proof === 'webhook_shopify'
+                            ? 'Pagamento confirmado automaticamente via webhook da Shopify.'
+                            : 'Pagamento confirmado por sistema externo.';
+                  return (
+                    <div className={`p-3 rounded-lg border ${badge.className}`}>
+                      <div className="flex items-start gap-2">
+                        <span className="text-base leading-none mt-0.5">{badge.icon}</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{badge.label}</p>
+                          <p className="text-xs opacity-80">{subtitle}</p>
+                          {!isManual && sale.external_order_url && (
+                            <a
+                              href={sale.external_order_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs underline mt-1 inline-block"
+                            >
+                              Abrir pedido externo
+                            </a>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Missing Payment Proof Alert - Non-conforming sale */}
                 {(sale as any).missing_payment_proof && (
