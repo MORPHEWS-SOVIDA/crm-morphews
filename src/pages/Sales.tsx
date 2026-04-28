@@ -295,8 +295,8 @@ export default function Sales() {
         if (saleDate !== saleDateFilter) return false;
       }
       
-      // No payment proof filter
-      if (noPaymentProofFilter === 'no_proof' && sale.payment_proof_url) {
+      // No payment proof filter (considers webhooks and external systems)
+      if (noPaymentProofFilter === 'no_proof' && hasPaymentProof(sale as any)) {
         return false;
       }
       
