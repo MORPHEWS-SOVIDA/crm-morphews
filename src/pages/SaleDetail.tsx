@@ -189,7 +189,7 @@ function DeliveryActionsCard({
 
   const handleDeliveryClick = () => {
     // Check if payment method requires proof and proof is missing
-    const needsProof = paymentMethodRequiresProof && !sale.payment_proof_url;
+    const needsProof = paymentMethodRequiresProof && !hasPaymentProof(sale as any);
     
     if (needsProof) {
       setShowDeliveryProofDialog(true);
