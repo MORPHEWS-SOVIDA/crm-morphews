@@ -532,8 +532,15 @@ export default function RomaneioPrint() {
       <div className="border-b border-dashed border-gray-400 pb-1 mb-1">
         <div className="flex justify-between" style={{ fontSize: '10px' }}>
           <span>PAGO:</span>
-          <span className="font-bold">{sale.payment_confirmed_at ? 'SIM ✓' : 'NÃO'}</span>
+          <span className="font-bold">{(sale.payment_confirmed_at || sale.payment_status === 'paid_now') ? 'SIM ✓' : 'NÃO'}</span>
         </div>
+        {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') && (
+          <div className="text-center font-bold mt-0.5" style={{ fontSize: '9px' }}>
+            {sale.payment_proof_url
+              ? '📎 COMPROVANTE EM ANEXO NO SISTEMA'
+              : '⚠ SEM COMPROVANTE NO SISTEMA'}
+          </div>
+        )}
         {sale.discount_cents > 0 && (
           <div className="text-right" style={{ fontSize: '9px' }}>
             <span className="line-through text-gray-500">DE {formatCurrency(sale.total_cents + sale.discount_cents)}</span>
