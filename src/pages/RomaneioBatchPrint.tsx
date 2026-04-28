@@ -83,6 +83,7 @@ export default function RomaneioBatchPrint() {
           delivery_type,
           payment_confirmed_at,
           payment_status,
+          payment_proof_url,
           seller_user_id,
           assigned_delivery_user_id,
           delivery_region_id,
