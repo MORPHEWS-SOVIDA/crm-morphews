@@ -74,6 +74,7 @@ const SalesReport = lazy(() => import("./pages/SalesReport"));
 const Attribution = lazy(() => import("./pages/Attribution"));
 const PosTransactionsReport = lazy(() => import("./pages/PosTransactionsReport"));
 const Cobrar = lazy(() => import("./pages/Cobrar"));
+const Calculadora = lazy(() => import("./pages/Calculadora"));
 
 // Products & Stock
 const Products = lazy(() => import("./pages/Products"));
@@ -1183,6 +1184,14 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Cobrar />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/calculadora"
+                  element={
+                    <ProtectedRoute>
+                      <Calculadora />
                     </ProtectedRoute>
                   }
                 />

@@ -7,7 +7,8 @@ import { WalletTab } from '@/components/payment-links/WalletTab';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
-import { Link2, Receipt, Phone, Wallet } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Link2, Receipt, Phone, Wallet, Calculator } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const TAB_SLUG_MAP: Record<string, string> = {
@@ -84,11 +85,21 @@ export default function Cobrar() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Cobranças</h1>
-          <p className="text-muted-foreground">
-            Crie links de pagamento, gerencie transações e realize cobranças
-          </p>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold">Cobranças</h1>
+            <p className="text-muted-foreground">
+              Crie links de pagamento, gerencie transações e realize cobranças
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate('/calculadora')}
+            className="gap-2"
+          >
+            <Calculator className="h-4 w-4" />
+            Calculadora
+          </Button>
         </div>
 
         <Tabs value={mappedTab} onValueChange={(v) => navigate(`/cobrar/${SLUG_FROM_TAB[v] || v}`, { replace: true })} defaultValue={getDefaultTab()}>
