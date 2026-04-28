@@ -68,6 +68,7 @@ import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { normalizeText } from '@/lib/utils';
+import { hasPaymentProof, resolveProofSource, getProofBadge } from '@/lib/paymentProof';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const STATUS_TABS: { value: SaleStatus | 'all'; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
