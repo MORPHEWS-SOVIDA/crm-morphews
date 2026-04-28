@@ -21,6 +21,7 @@ interface SaleData {
   delivery_type: string | null;
   payment_confirmed_at: string | null;
   payment_status: string | null;
+  payment_proof_url: string | null;
   seller_user_id: string | null;
   assigned_delivery_user_id: string | null;
   delivery_region_id: string | null;
