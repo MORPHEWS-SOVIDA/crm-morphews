@@ -15623,6 +15623,7 @@ export type Database = {
             | null
           printed_at: string | null
           printed_by: string | null
+          proof_source: string | null
           return_latitude: number | null
           return_longitude: number | null
           return_notes: string | null
@@ -15739,6 +15740,7 @@ export type Database = {
             | null
           printed_at?: string | null
           printed_by?: string | null
+          proof_source?: string | null
           return_latitude?: number | null
           return_longitude?: number | null
           return_notes?: string | null
@@ -15855,6 +15857,7 @@ export type Database = {
             | null
           printed_at?: string | null
           printed_by?: string | null
+          proof_source?: string | null
           return_latitude?: number | null
           return_longitude?: number | null
           return_notes?: string | null
