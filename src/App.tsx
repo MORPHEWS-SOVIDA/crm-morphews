@@ -1187,6 +1187,14 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/calculadora"
+                  element={
+                    <ProtectedRoute>
+                      <Calculadora />
+                    </ProtectedRoute>
+                  }
+                />
                 
                 {/* Receptive - handled by its own module access hook but protected */}
                 <Route
