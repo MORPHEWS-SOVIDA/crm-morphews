@@ -7,7 +7,8 @@ import { WalletTab } from '@/components/payment-links/WalletTab';
 import { useOrgFeatures } from '@/hooks/usePlanFeatures';
 import { useMyPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
-import { Link2, Receipt, Phone, Wallet } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Link2, Receipt, Phone, Wallet, Calculator } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const TAB_SLUG_MAP: Record<string, string> = {
