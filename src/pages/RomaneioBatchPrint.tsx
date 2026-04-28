@@ -471,7 +471,14 @@ export default function RomaneioBatchPrint() {
         </div>
 
         {(sale.payment_confirmed_at || sale.payment_status === 'paid_now') && (
-          <div className="text-center mt-1 font-bold">✓ PAGO</div>
+          <div className="text-center mt-1">
+            <div className="font-bold">✓ PAGO</div>
+            <div style={{ fontSize: '9px' }} className="font-bold">
+              {sale.payment_proof_url
+                ? '📎 COMPROVANTE EM ANEXO NO SISTEMA'
+                : '⚠ SEM COMPROVANTE NO SISTEMA'}
+            </div>
+          </div>
         )}
 
         {/* QR Code - larger for easier scanning */}
