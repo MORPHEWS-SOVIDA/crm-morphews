@@ -110,6 +110,9 @@ export default function PickupClosingPrint() {
           payment_method: paymentMethod?.name || saleData?.payment_method || cs.payment_method || 'Não informado',
           payment_category: paymentMethod?.category || null,
           delivery_status: saleData?.delivery_status || null,
+          payment_status: saleData?.payment_status || null,
+          payment_confirmed_at: saleData?.payment_confirmed_at || null,
+          payment_proof_url: saleData?.payment_proof_url || null,
         };
       });
     },
