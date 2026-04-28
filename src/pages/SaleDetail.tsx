@@ -824,8 +824,8 @@ export default function SaleDetail() {
   const handleValidateExpedition = async () => {
     if (!sale) return;
     
-    // Check if payment proof is required but not present
-    if (sale.payment_status === 'will_pay_before' && !sale.payment_proof_url) {
+    // Check if payment proof is required but not present (webhooks/POS count as proof)
+    if (sale.payment_status === 'will_pay_before' && !hasPaymentProof(sale as any)) {
       setShowPaymentProofRequiredDialog(true);
       return;
     }
