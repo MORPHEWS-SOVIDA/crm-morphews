@@ -8,6 +8,7 @@ import { formatCurrency } from '@/hooks/useSales';
 import { formatPaymentMethod } from '@/hooks/usePickupClosings';
 import { Loader2 } from 'lucide-react';
 import { getCategoryConfig, PAYMENT_CATEGORIES, type PaymentCategory } from '@/lib/paymentCategories';
+import { resolveProofSource, getProofBadge } from '@/lib/paymentProof';
 
 // Map closing_type to display title
 const closingTypeLabels: Record<string, { title: string; emoji: string }> = {
