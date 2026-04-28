@@ -8,6 +8,7 @@ import { formatCurrency } from '@/hooks/useSales';
 import { formatPaymentMethod } from '@/hooks/usePickupClosings';
 import { Loader2 } from 'lucide-react';
 import { getCategoryConfig, PAYMENT_CATEGORIES, type PaymentCategory } from '@/lib/paymentCategories';
+import { resolveProofSource, getProofBadge } from '@/lib/paymentProof';
 
 // Map closing_type to display title
 const closingTypeLabels: Record<string, { title: string; emoji: string }> = {
@@ -82,6 +83,11 @@ export default function PickupClosingPrint() {
           payment_status,
           payment_confirmed_at,
           payment_proof_url,
+          proof_source,
+          external_order_id,
+          external_order_url,
+          external_source,
+          pos_transaction_id,
           delivery_status,
           payment_methods:payment_method_id (
             id,
@@ -113,6 +119,11 @@ export default function PickupClosingPrint() {
           payment_status: saleData?.payment_status || null,
           payment_confirmed_at: saleData?.payment_confirmed_at || null,
           payment_proof_url: saleData?.payment_proof_url || null,
+          proof_source: (saleData as any)?.proof_source || null,
+          external_order_id: (saleData as any)?.external_order_id || null,
+          external_order_url: (saleData as any)?.external_order_url || null,
+          external_source: (saleData as any)?.external_source || null,
+          pos_transaction_id: (saleData as any)?.pos_transaction_id || null,
         };
       });
     },
@@ -282,8 +293,9 @@ export default function PickupClosingPrint() {
           </thead>
           <tbody>
             {salesList.map(sale => {
-              const isPaid = !!(sale as any).payment_confirmed_at || (sale as any).payment_status === 'paid_now';
-              const hasProof = !!(sale as any).payment_proof_url;
+              const isPaid = !!(sale as any).payment_confirmed_at || (sale as any).payment_status === 'paid_now' || (sale as any).payment_status === 'confirmed';
+              const proofSource = resolveProofSource(sale as any);
+              const proofBadge = proofSource ? getProofBadge(proofSource) : null;
               return (
                 <tr key={sale.id}>
                   <td className="font-bold">{sale.romaneio_number ? `#${sale.romaneio_number}` : '-'}</td>
@@ -295,8 +307,8 @@ export default function PickupClosingPrint() {
                       <>
                         <span style={{ color: '#2e7d32', fontWeight: 700 }}>✓ PAGO</span>
                         <br />
-                        {hasProof ? (
-                          <span style={{ color: '#1565c0', fontWeight: 600 }}>📎 c/ comprovante</span>
+                        {proofBadge ? (
+                          <span style={{ color: '#1565c0', fontWeight: 600 }}>{proofBadge.icon} {proofBadge.label}</span>
                         ) : (
                           <span style={{ color: '#e65100', fontWeight: 600 }}>⚠ sem comprovante</span>
                         )}

@@ -68,6 +68,7 @@ import { useDeliveryRegions } from '@/hooks/useDeliveryConfig';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { normalizeText } from '@/lib/utils';
+import { hasPaymentProof, resolveProofSource, getProofBadge } from '@/lib/paymentProof';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const STATUS_TABS: { value: SaleStatus | 'all'; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -294,8 +295,8 @@ export default function Sales() {
         if (saleDate !== saleDateFilter) return false;
       }
       
-      // No payment proof filter
-      if (noPaymentProofFilter === 'no_proof' && sale.payment_proof_url) {
+      // No payment proof filter (considers webhooks and external systems)
+      if (noPaymentProofFilter === 'no_proof' && hasPaymentProof(sale as any)) {
         return false;
       }
       
@@ -971,13 +972,27 @@ export default function Sales() {
                               </span>
                             )}
 
-                            {/* Missing payment proof indicator */}
-                            {!sale.payment_proof_url && sale.status !== 'draft' && sale.status !== 'cancelled' && (
-                              <span className="flex items-center gap-1 text-amber-600">
-                                <FileX className="w-3.5 h-3.5" />
-                                Sem comprovante
-                              </span>
-                            )}
+                            {/* Payment proof indicator */}
+                            {(() => {
+                              if (sale.status === 'draft' || sale.status === 'cancelled') return null;
+                              const proof = resolveProofSource(sale as any);
+                              if (proof) {
+                                const badge = getProofBadge(proof);
+                                if (!badge) return null;
+                                return (
+                                  <span className={`flex items-center gap-1 px-2 py-0.5 rounded border text-xs ${badge.className}`}>
+                                    <span>{badge.icon}</span>
+                                    {badge.label}
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="flex items-center gap-1 text-amber-600">
+                                  <FileX className="w-3.5 h-3.5" />
+                                  Sem comprovante
+                                </span>
+                              );
+                            })()}
 
                             {/* Missing tracking code for carrier */}
                             {sale.delivery_type === 'carrier' && !sale.tracking_code && (
