@@ -62,6 +62,23 @@ import {
   History
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+// Safe format: returns fallback if date is null/invalid (prevents "Invalid time value" crashes)
+const safeFormat = (
+  value: string | number | Date | null | undefined,
+  fmt: string,
+  options?: Parameters<typeof format>[2],
+  fallback = '—'
+): string => {
+  if (!value) return fallback;
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return fallback;
+  try {
+    return format(d, fmt, options);
+  } catch {
+    return fallback;
+  }
+};
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useSale, useUpdateSale, formatCurrency, getStatusLabel, getStatusColor, DeliveryStatus, getDeliveryStatusLabel } from '@/hooks/useSales';
