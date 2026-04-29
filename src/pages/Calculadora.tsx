@@ -34,9 +34,18 @@ export default function Calculadora() {
   const navigate = useNavigate();
   const { data: orgId } = useEcommerceOrganizationId();
   const { data: feesData, isLoading } = useTenantInstallmentFees(orgId);
+  const createLink = useCreatePaymentLink();
 
   const [netCents, setNetCents] = useState<number>(10000); // valor desejado líquido
   const [chargeCents, setChargeCents] = useState<number>(10000); // valor a cobrar simulado
+
+  // Estado do dialog de criar link
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkTitle, setLinkTitle] = useState('');
+  const [linkSourceCents, setLinkSourceCents] = useState<number>(0);
+  const [linkMaxInstallments, setLinkMaxInstallments] = useState<number>(12);
+  const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const installmentFees = feesData?.installment_fees ?? {};
   const maxInstallments = feesData?.max_installments ?? 12;
