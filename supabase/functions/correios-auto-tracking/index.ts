@@ -56,41 +56,66 @@ async function getCorreiosOfficialToken(): Promise<string | null> {
     return cachedCorreiosToken.token;
   }
 
-  try {
-    const basic = btoa(`${user}:${apiToken}`);
-    const resp = await fetch('https://api.correios.com.br/token/v1/autentica/cartaopostagem', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${basic}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({ numero: postingCard }),
+  const contract = Deno.env.get('CORREIOS_CONTRACT');
+  const basic = btoa(`${user}:${apiToken}`);
+
+  // Try in order: contrato → cartaopostagem → autentica (genérico)
+  const attempts: Array<{ url: string; body?: Record<string, unknown> | null; label: string }> = [];
+  if (contract) {
+    attempts.push({
+      url: 'https://api.correios.com.br/token/v1/autentica/contrato',
+      body: { numero: contract },
+      label: 'contrato',
     });
-
-    if (!resp.ok) {
-      const txt = await resp.text();
-      console.log(`[auto-tracking] Correios auth failed [${resp.status}]: ${txt.substring(0, 300)}`);
-      return null;
-    }
-
-    const data = await resp.json();
-    const token = data.token as string | undefined;
-    const expiraEm = data.expiraEm as string | undefined; // ISO date
-
-    if (!token) {
-      console.log('[auto-tracking] Correios auth: no token in response');
-      return null;
-    }
-
-    const expiresAt = expiraEm ? new Date(expiraEm).getTime() : (Date.now() + 23 * 60 * 60 * 1000);
-    cachedCorreiosToken = { token, expiresAt };
-    console.log(`[auto-tracking] Correios official token acquired, expires at ${new Date(expiresAt).toISOString()}`);
-    return token;
-  } catch (e) {
-    console.log('[auto-tracking] Correios auth exception:', e instanceof Error ? e.message : e);
-    return null;
   }
+  attempts.push({
+    url: 'https://api.correios.com.br/token/v1/autentica/cartaopostagem',
+    body: { numero: postingCard },
+    label: 'cartaopostagem',
+  });
+  attempts.push({
+    url: 'https://api.correios.com.br/token/v1/autentica',
+    body: null,
+    label: 'autentica',
+  });
+
+  for (const attempt of attempts) {
+    try {
+      const resp = await fetch(attempt.url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basic}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: attempt.body ? JSON.stringify(attempt.body) : undefined,
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        console.log(`[auto-tracking] Correios auth (${attempt.label}) failed [${resp.status}]: ${txt.substring(0, 250)}`);
+        continue;
+      }
+
+      const data = await resp.json();
+      const token = data.token as string | undefined;
+      const expiraEm = data.expiraEm as string | undefined;
+
+      if (!token) {
+        console.log(`[auto-tracking] Correios auth (${attempt.label}): no token in response`);
+        continue;
+      }
+
+      const expiresAt = expiraEm ? new Date(expiraEm).getTime() : (Date.now() + 23 * 60 * 60 * 1000);
+      cachedCorreiosToken = { token, expiresAt };
+      console.log(`[auto-tracking] Correios official token acquired via ${attempt.label}, expires at ${new Date(expiresAt).toISOString()}`);
+      return token;
+    } catch (e) {
+      console.log(`[auto-tracking] Correios auth (${attempt.label}) exception:`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  return null;
 }
 
 // Try multiple tracking APIs with fallback (official → proxyapp → LinkeTrack)
