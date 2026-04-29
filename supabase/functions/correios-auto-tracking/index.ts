@@ -124,42 +124,45 @@ async function fetchTracking(trackingCode: string): Promise<{ status: string; lo
   try {
     const token = await getCorreiosOfficialToken();
     if (token) {
-      const response = await fetch(
+      // Try both known paths: /srorastro/v1/objetos and /rastro/v1/objetos
+      const rastroUrls = [
         `https://api.correios.com.br/srorastro/v1/objetos/${trackingCode}`,
-        {
+        `https://api.correios.com.br/rastro/v1/objetos/${trackingCode}`,
+      ];
+
+      for (const url of rastroUrls) {
+        const response = await fetch(url, {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        }
-      );
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        const obj = data.objetos?.[0];
-        if (obj && obj.eventos && obj.eventos.length > 0) {
-          const latest = obj.eventos[0];
-          const statusText = latest.descricao || latest.tipo || '';
-          const location = latest.unidade?.nome
-            || (latest.unidade?.endereco
-              ? `${latest.unidade.endereco.cidade || ''}${latest.unidade.endereco.uf ? '/' + latest.unidade.endereco.uf : ''}`
-              : '');
+        if (response.ok) {
+          const data = await response.json();
+          const obj = data.objetos?.[0];
+          if (obj && obj.eventos && obj.eventos.length > 0) {
+            const latest = obj.eventos[0];
+            const statusText = latest.descricao || latest.tipo || '';
+            const location = latest.unidade?.nome
+              || (latest.unidade?.endereco
+                ? `${latest.unidade.endereco.cidade || ''}${latest.unidade.endereco.uf ? '/' + latest.unidade.endereco.uf : ''}`
+                : '');
 
-          let deliveryEstimate: string | null = null;
-          if (obj.dtPrevista) {
-            deliveryEstimate = String(obj.dtPrevista).substring(0, 10);
+            let deliveryEstimate: string | null = null;
+            if (obj.dtPrevista) {
+              deliveryEstimate = String(obj.dtPrevista).substring(0, 10);
+            }
+
+            return { status: statusText, location, deliveryEstimate, events: obj.eventos };
           }
-
-          return { status: statusText, location, deliveryEstimate, events: obj.eventos };
-        } else {
-          console.log(`[auto-tracking] Official API returned no events for ${trackingCode}`);
+        } else if (response.status === 401) {
+          cachedCorreiosToken = null;
+          const txt = await response.text();
+          console.log(`[auto-tracking] Official API 401 for ${trackingCode}: ${txt.substring(0, 200)}`);
+          break;
+        } else if (response.status !== 404) {
+          const txt = await response.text();
+          console.log(`[auto-tracking] Official API failed [${response.status}] (${url}): ${txt.substring(0, 200)}`);
         }
-      } else {
-        const txt = await response.text();
-        console.log(`[auto-tracking] Official API failed [${response.status}] for ${trackingCode}: ${txt.substring(0, 200)}`);
-        // If 401, invalidate token cache so next attempt re-authenticates
-        if (response.status === 401) cachedCorreiosToken = null;
       }
     }
   } catch (e) {
