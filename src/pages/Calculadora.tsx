@@ -82,6 +82,15 @@ export default function Calculadora() {
     return list;
   }, [netCents, installmentFees, maxInstallments]);
 
+  const openCreateLinkDialog = (amountCents: number, installments: number) => {
+    setLinkSourceCents(amountCents);
+    setLinkMaxInstallments(Math.max(1, Math.min(maxInstallments, installments)));
+    setLinkTitle('');
+    setCreatedSlug(null);
+    setCopied(false);
+    setLinkDialogOpen(true);
+  };
+
   // Reverso: dado um valor a cobrar do cliente em X parcelas, quanto fica de líquido
   const [reverseInstallments, setReverseInstallments] = useState<number>(12);
   const reverseInfo = useMemo(() => {
