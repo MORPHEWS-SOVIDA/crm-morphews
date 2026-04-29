@@ -1992,7 +1992,7 @@ export default function SaleDetail() {
                           </div>
                           {postSaleSurvey.completed_at && (
                             <p className="text-xs text-green-600 dark:text-green-500 mt-1">
-                              Em {format(new Date(postSaleSurvey.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              Em {safeFormat(postSaleSurvey.completed_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                             </p>
                           )}
                         </div>
