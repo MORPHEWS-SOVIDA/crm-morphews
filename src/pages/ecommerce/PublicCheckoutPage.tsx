@@ -280,6 +280,7 @@ export default function PublicCheckoutPage() {
 
   const handleTotalWithInterestChange = (newTotal: number, installments: number) => {
     setTotalWithInterest(installments > 1 ? newTotal : null);
+    setSelectedInstallments(installments > 0 ? installments : 1);
   };
 
   // Fetch shipping quotes when CEP is complete and mode is calculated
