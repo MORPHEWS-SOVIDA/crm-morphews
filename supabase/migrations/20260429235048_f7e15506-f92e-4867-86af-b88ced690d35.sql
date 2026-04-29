@@ -1,0 +1,1 @@
+UPDATE tenant_payment_fees SET max_transaction_cents = 15000000 WHERE organization_id = '650b1667-e345-498e-9d41-b963faf824a7';

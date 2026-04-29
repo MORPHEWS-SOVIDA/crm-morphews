@@ -40,15 +40,24 @@ export default function Calculadora() {
       totalCharged: number;
       interestPercentage: number;
       extraForCustomer: number;
+      pagarmeMonthlyRate: number;
     }> = [];
     for (let i = 1; i <= maxInstallments; i++) {
       const info = calculateInstallmentWithInterest(netCents, i, installmentFees, true);
+      // Taxa mensal equivalente para o Pagar.me (juros compostos a partir da 2ª parcela):
+      // total = liquido * (1 + taxaMensal)^(n - 1)  →  taxaMensal = (total/liquido)^(1/(n-1)) - 1
+      let pagarmeMonthlyRate = 0;
+      if (i > 1 && netCents > 0 && info.totalWithInterest > netCents) {
+        pagarmeMonthlyRate =
+          (Math.pow(info.totalWithInterest / netCents, 1 / (i - 1)) - 1) * 100;
+      }
       list.push({
         installments: i,
         installmentValue: info.installmentValue,
         totalCharged: info.totalWithInterest,
         interestPercentage: info.interestPercentage,
         extraForCustomer: info.totalWithInterest - netCents,
+        pagarmeMonthlyRate,
       });
     }
     return list;
@@ -110,17 +119,20 @@ export default function Calculadora() {
                 </div>
 
                 <div className="rounded-lg border">
-                  <div className="grid grid-cols-4 gap-2 p-3 text-xs font-medium text-muted-foreground border-b bg-muted/40">
+                  <div className="grid grid-cols-5 gap-2 p-3 text-xs font-medium text-muted-foreground border-b bg-muted/40">
                     <div>Parcelas</div>
                     <div className="text-right">Parcela</div>
                     <div className="text-right">Total cobrado</div>
                     <div className="text-right">Juros</div>
+                    <div className="text-right" title="Taxa mensal a configurar no campo 'Acréscimo no preço ao mês' do Pagar.me (a partir da 2ª parcela)">
+                      Taxa Pagar.me/mês
+                    </div>
                   </div>
                   <div className="max-h-[420px] overflow-auto">
                     {rows.map((r) => (
                       <div
                         key={r.installments}
-                        className="grid grid-cols-4 gap-2 p-3 text-sm border-b last:border-0 hover:bg-muted/30"
+                        className="grid grid-cols-5 gap-2 p-3 text-sm border-b last:border-0 hover:bg-muted/30"
                       >
                         <div className="font-medium">{r.installments}x</div>
                         <div className="text-right">{formatBRL(r.installmentValue)}</div>
@@ -138,6 +150,15 @@ export default function Calculadora() {
                             </Badge>
                           )}
                         </div>
+                        <div className="text-right">
+                          {r.pagarmeMonthlyRate > 0 ? (
+                            <Badge className="text-xs bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
+                              {r.pagarmeMonthlyRate.toFixed(2)}%
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -145,7 +166,7 @@ export default function Calculadora() {
 
                 <p className="text-xs text-muted-foreground flex gap-2">
                   <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                  Os juros são jogados para o cliente. Você sempre recebe o valor líquido informado.
+                  Use a coluna <strong>Taxa Pagar.me/mês</strong> no campo "Acréscimo no preço ao mês (em %)" do Pagar.me, com "Parcelas com acréscimo: A partir da 2ª".
                 </p>
               </CardContent>
             </Card>
