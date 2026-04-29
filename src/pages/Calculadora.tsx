@@ -187,6 +187,15 @@ export default function Calculadora() {
                   <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
                   Use a coluna <strong>Taxa Pagar.me/mês</strong> no campo "Acréscimo no preço ao mês (em %)" do Pagar.me, com "Parcelas com acréscimo: A partir da 2ª".
                 </p>
+
+                <Button
+                  className="w-full"
+                  onClick={() => openCreateLinkDialog(netCents, maxInstallments)}
+                  disabled={!netCents}
+                >
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Criar link de cobrança ({formatBRL(netCents)})
+                </Button>
               </CardContent>
             </Card>
 
