@@ -1149,6 +1149,9 @@ serve(async (req) => {
       .update({
         payment_status: paymentStatus,
         gateway_transaction_id: paymentResult.response.transaction_id || null,
+        // Force payment_installments to mirror exactly what was sent to the gateway,
+        // so DB state matches the real charge (prevents Ramon-Schunk-style discrepancies).
+        payment_installments: installmentsForGateway,
       })
       .eq('id', sale.id);
 
