@@ -772,6 +772,8 @@ serve(async (req) => {
       total_cents: totalCents,
       payment_method: payment_method,
       payment_installments: payment_method === 'credit_card' && Number(body.installments) > 0 ? Number(body.installments) : 1,
+      // Marker for later UPDATE after we know exactly what installments value was forwarded
+      // to the gateway (single source of truth = installmentsForGateway).
       payment_notes: `Checkout via ${storefront_id ? 'loja' : landing_page_id ? 'landing page' : 'standalone checkout'}`,
       src: utm?.src || null,
       utm_source: utm?.utm_source || null,
