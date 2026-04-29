@@ -38,21 +38,151 @@ function mapCorreiosStatus(statusText: string): string | null {
   return null;
 }
 
-// Try multiple tracking APIs with fallback
+// ===== Official Correios API token cache =====
+let cachedCorreiosToken: { token: string; expiresAt: number } | null = null;
+
+async function getCorreiosOfficialToken(): Promise<string | null> {
+  const user = Deno.env.get('CORREIOS_USER');
+  const apiToken = Deno.env.get('CORREIOS_API_TOKEN');
+  const postingCard = Deno.env.get('CORREIOS_POSTING_CARD');
+
+  if (!user || !apiToken || !postingCard) {
+    console.log('[auto-tracking] Correios official credentials not configured, skipping official API');
+    return null;
+  }
+
+  // Reuse cached token if still valid (with 60s safety margin)
+  if (cachedCorreiosToken && cachedCorreiosToken.expiresAt > Date.now() + 60_000) {
+    return cachedCorreiosToken.token;
+  }
+
+  const contract = Deno.env.get('CORREIOS_CONTRACT');
+  const basic = btoa(`${user}:${apiToken}`);
+
+  // Try in order: contrato → cartaopostagem → autentica (genérico)
+  const attempts: Array<{ url: string; body?: Record<string, unknown> | null; label: string }> = [];
+  if (contract) {
+    attempts.push({
+      url: 'https://api.correios.com.br/token/v1/autentica/contrato',
+      body: { numero: contract },
+      label: 'contrato',
+    });
+  }
+  attempts.push({
+    url: 'https://api.correios.com.br/token/v1/autentica/cartaopostagem',
+    body: { numero: postingCard },
+    label: 'cartaopostagem',
+  });
+  attempts.push({
+    url: 'https://api.correios.com.br/token/v1/autentica',
+    body: null,
+    label: 'autentica',
+  });
+
+  for (const attempt of attempts) {
+    try {
+      const resp = await fetch(attempt.url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basic}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: attempt.body ? JSON.stringify(attempt.body) : undefined,
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        console.log(`[auto-tracking] Correios auth (${attempt.label}) failed [${resp.status}]: ${txt.substring(0, 250)}`);
+        continue;
+      }
+
+      const data = await resp.json();
+      const token = data.token as string | undefined;
+      const expiraEm = data.expiraEm as string | undefined;
+
+      if (!token) {
+        console.log(`[auto-tracking] Correios auth (${attempt.label}): no token in response`);
+        continue;
+      }
+
+      const expiresAt = expiraEm ? new Date(expiraEm).getTime() : (Date.now() + 23 * 60 * 60 * 1000);
+      cachedCorreiosToken = { token, expiresAt };
+      console.log(`[auto-tracking] Correios official token acquired via ${attempt.label}, expires at ${new Date(expiresAt).toISOString()}`);
+      return token;
+    } catch (e) {
+      console.log(`[auto-tracking] Correios auth (${attempt.label}) exception:`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  return null;
+}
+
+// Try multiple tracking APIs with fallback (official → proxyapp → LinkeTrack)
 async function fetchTracking(trackingCode: string): Promise<{ status: string; location: string; deliveryEstimate: string | null; events: any[] } | null> {
-  // Try 1: Correios proxyapp (official)
+  // Try 1: Official Correios SRO Rastro API (with contract token)
+  try {
+    const token = await getCorreiosOfficialToken();
+    if (token) {
+      // Try both known paths: /srorastro/v1/objetos and /rastro/v1/objetos
+      const rastroUrls = [
+        `https://api.correios.com.br/srorastro/v1/objetos/${trackingCode}?resultado=T`,
+        `https://api.correios.com.br/rastro/v1/objetos/${trackingCode}?resultado=T`,
+      ];
+
+      for (const url of rastroUrls) {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'Accept-Language': 'pt-BR',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const obj = data.objetos?.[0];
+          if (obj && obj.eventos && obj.eventos.length > 0) {
+            const latest = obj.eventos[0];
+            const statusText = latest.descricao || latest.tipo || '';
+            const location = latest.unidade?.nome
+              || (latest.unidade?.endereco
+                ? `${latest.unidade.endereco.cidade || ''}${latest.unidade.endereco.uf ? '/' + latest.unidade.endereco.uf : ''}`
+                : '');
+
+            let deliveryEstimate: string | null = null;
+            if (obj.dtPrevista) {
+              deliveryEstimate = String(obj.dtPrevista).substring(0, 10);
+            }
+
+            return { status: statusText, location, deliveryEstimate, events: obj.eventos };
+          }
+        } else if (response.status === 401) {
+          cachedCorreiosToken = null;
+          const txt = await response.text();
+          console.log(`[auto-tracking] Official API 401 for ${trackingCode}: ${txt.substring(0, 200)}`);
+          break;
+        } else if (response.status !== 404) {
+          const txt = await response.text();
+          console.log(`[auto-tracking] Official API failed [${response.status}] (${url}): ${txt.substring(0, 200)}`);
+        }
+      }
+    }
+  } catch (e) {
+    console.log(`[auto-tracking] Official Correios API error for ${trackingCode}:`, e instanceof Error ? e.message : e);
+  }
+
+  // Try 2: Correios proxyapp (public, often blocked)
   try {
     const response = await fetch(
       `https://proxyapp.correios.com.br/v1/sro-rastro/${trackingCode}`,
       {
         method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0',
-        },
+        headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
       }
     );
-    
+
     if (response.ok) {
       const data = await response.json();
       if (data.objetos && data.objetos[0] && data.objetos[0].eventos) {
@@ -60,42 +190,31 @@ async function fetchTracking(trackingCode: string): Promise<{ status: string; lo
         const latest = obj.eventos[0];
         const statusText = latest.descricao || latest.tipo || '';
         const location = latest.unidade?.nome || latest.unidade?.endereco?.cidade || '';
-        
-        // Extract delivery estimate
+
         let deliveryEstimate: string | null = null;
         if (obj.dtPrevista) {
-          // Format: YYYY-MM-DDT...
           deliveryEstimate = obj.dtPrevista.substring(0, 10);
         }
-        
-        return {
-          status: statusText,
-          location,
-          deliveryEstimate,
-          events: obj.eventos,
-        };
+
+        return { status: statusText, location, deliveryEstimate, events: obj.eventos };
       }
     }
   } catch (e) {
     console.log(`[auto-tracking] Correios proxyapp failed for ${trackingCode}:`, e instanceof Error ? e.message : e);
   }
 
-  // Try 2: LinkeTrack API
+  // Try 3: LinkeTrack API
   try {
     const response = await fetch(
       `https://api.linketrack.com/track/json?user=teste&token=1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f&codigo=${trackingCode}`,
-      {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-      }
+      { method: 'GET', headers: { 'Accept': 'application/json' } }
     );
 
     if (response.ok) {
       const data = await response.json();
       if (data.eventos && data.eventos.length > 0) {
         const latest = data.eventos[0];
-        
-        // Extract delivery estimate from subStatus
+
         let deliveryEstimate: string | null = null;
         for (const evento of data.eventos) {
           if (evento.subStatus) {
@@ -111,12 +230,7 @@ async function fetchTracking(trackingCode: string): Promise<{ status: string; lo
           if (deliveryEstimate) break;
         }
 
-        return {
-          status: latest.status || '',
-          location: latest.local || '',
-          deliveryEstimate,
-          events: data.eventos,
-        };
+        return { status: latest.status || '', location: latest.local || '', deliveryEstimate, events: data.eventos };
       }
     }
   } catch (e) {
@@ -141,13 +255,14 @@ Deno.serve(async (req) => {
     
     const { data: sales, error: salesError } = await supabase
       .from('sales')
-      .select('id, tracking_code, carrier_tracking_status, organization_id, lead_id, seller_user_id')
+      .select('id, tracking_code, carrier_tracking_status, organization_id, lead_id, seller_user_id, status, delivered_at')
       .not('tracking_code', 'is', null)
       .neq('tracking_code', '')
-      .neq('status', 'cancelled')
+      .not('status', 'in', '(cancelled,delivered,finalized,closed)')
+      .is('delivered_at', null)
       .not('carrier_tracking_status', 'eq', 'delivered')
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(500);
 
     if (salesError) throw salesError;
 
