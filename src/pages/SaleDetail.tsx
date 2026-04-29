@@ -1240,7 +1240,7 @@ export default function SaleDetail() {
                 )}
                 {(sale as any).closing_modified_at && (
                   <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
-                    Alterada em {format(new Date((sale as any).closing_modified_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    Alterada em {safeFormat((sale as any).closing_modified_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                 )}
               </div>
