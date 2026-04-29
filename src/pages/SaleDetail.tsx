@@ -62,6 +62,23 @@ import {
   History
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+// Safe format: returns fallback if date is null/invalid (prevents "Invalid time value" crashes)
+const safeFormat = (
+  value: string | number | Date | null | undefined,
+  fmt: string,
+  options?: Parameters<typeof format>[2],
+  fallback = '—'
+): string => {
+  if (!value) return fallback;
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return fallback;
+  try {
+    return format(d, fmt, options);
+  } catch {
+    return fallback;
+  }
+};
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useSale, useUpdateSale, formatCurrency, getStatusLabel, getStatusColor, DeliveryStatus, getDeliveryStatusLabel } from '@/hooks/useSales';
@@ -1167,7 +1184,7 @@ export default function SaleDetail() {
                 )}
               </div>
               <p className="text-muted-foreground">
-                Criada em {format(new Date(sale.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                Criada em {safeFormat(sale.created_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
               </p>
             </div>
           </div>
@@ -1223,7 +1240,7 @@ export default function SaleDetail() {
                 )}
                 {(sale as any).closing_modified_at && (
                   <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
-                    Alterada em {format(new Date((sale as any).closing_modified_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    Alterada em {safeFormat((sale as any).closing_modified_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                 )}
               </div>
@@ -1269,7 +1286,7 @@ export default function SaleDetail() {
                           <p>CPF/CNPJ: {(sale.lead as any).cpf_cnpj}</p>
                         )}
                         {(sale.lead as any)?.birth_date && (
-                          <p>Nascimento: {format(new Date((sale.lead as any).birth_date + 'T12:00:00'), 'dd/MM/yyyy')}</p>
+                          <p>Nascimento: {safeFormat((sale.lead as any).birth_date + 'T12:00:00', 'dd/MM/yyyy', undefined, 'data inválida')}</p>
                         )}
                         {(sale.lead as any)?.favorite_team && (
                           <p>Time: {(sale.lead as any).favorite_team}</p>
@@ -1393,7 +1410,7 @@ export default function SaleDetail() {
                       <div>
                         <p className="text-xs text-muted-foreground">Data Agendada</p>
                         <p className="font-medium">
-                          {format(new Date(sale.scheduled_delivery_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+                          {safeFormat(sale.scheduled_delivery_date + 'T12:00:00', 'dd/MM/yyyy', { locale: ptBR })}
                           {sale.scheduled_delivery_shift && (
                             <span className="text-xs text-muted-foreground ml-1">
                               ({sale.scheduled_delivery_shift === 'morning' ? 'Manhã' : sale.scheduled_delivery_shift === 'afternoon' ? 'Tarde' : 'Dia Inteiro'})
@@ -1736,7 +1753,7 @@ export default function SaleDetail() {
                     <div className="flex-1">
                       <span className="text-sm">Venda Criada</span>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(sale.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        {safeFormat(sale.created_at, "dd/MM/yyyy HH:mm", { locale: ptBR })}
                       </p>
                     </div>
                   </div>
@@ -1746,7 +1763,7 @@ export default function SaleDetail() {
                       <div className="flex-1">
                         <span className="text-sm">Expedição Validada</span>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(sale.expedition_validated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          {safeFormat(sale.expedition_validated_at, "dd/MM/yyyy HH:mm", { locale: ptBR })}
                         </p>
                       </div>
                     </div>
@@ -1975,7 +1992,7 @@ export default function SaleDetail() {
                           </div>
                           {postSaleSurvey.completed_at && (
                             <p className="text-xs text-green-600 dark:text-green-500 mt-1">
-                              Em {format(new Date(postSaleSurvey.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              Em {safeFormat(postSaleSurvey.completed_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                             </p>
                           )}
                         </div>
@@ -2136,7 +2153,7 @@ export default function SaleDetail() {
                       <div key={log.id} className="text-sm border-b last:border-0 pb-2 last:pb-0">
                         <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
                           <span>
-                            {format(new Date(log.changed_at), "dd/MM/yy HH:mm", { locale: ptBR })}
+                            {safeFormat(log.changed_at, "dd/MM/yy HH:mm", { locale: ptBR })}
                           </span>
                           <span>•</span>
                           <span>
