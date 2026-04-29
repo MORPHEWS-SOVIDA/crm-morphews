@@ -223,13 +223,14 @@ Deno.serve(async (req) => {
     
     const { data: sales, error: salesError } = await supabase
       .from('sales')
-      .select('id, tracking_code, carrier_tracking_status, organization_id, lead_id, seller_user_id')
+      .select('id, tracking_code, carrier_tracking_status, organization_id, lead_id, seller_user_id, status, delivered_at')
       .not('tracking_code', 'is', null)
       .neq('tracking_code', '')
-      .neq('status', 'cancelled')
+      .not('status', 'in', '(cancelled,delivered,finalized,closed)')
+      .is('delivered_at', null)
       .not('carrier_tracking_status', 'eq', 'delivered')
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(500);
 
     if (salesError) throw salesError;
 
