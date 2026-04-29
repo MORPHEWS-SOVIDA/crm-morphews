@@ -1753,7 +1753,7 @@ export default function SaleDetail() {
                     <div className="flex-1">
                       <span className="text-sm">Venda Criada</span>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(sale.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        {safeFormat(sale.created_at, "dd/MM/yyyy HH:mm", { locale: ptBR })}
                       </p>
                     </div>
                   </div>
