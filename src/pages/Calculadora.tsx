@@ -40,6 +40,7 @@ export default function Calculadora() {
       totalCharged: number;
       interestPercentage: number;
       extraForCustomer: number;
+      pagarmeMonthlyRate: number;
     }> = [];
     for (let i = 1; i <= maxInstallments; i++) {
       const info = calculateInstallmentWithInterest(netCents, i, installmentFees, true);
