@@ -2153,7 +2153,7 @@ export default function SaleDetail() {
                       <div key={log.id} className="text-sm border-b last:border-0 pb-2 last:pb-0">
                         <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
                           <span>
-                            {format(new Date(log.changed_at), "dd/MM/yy HH:mm", { locale: ptBR })}
+                            {safeFormat(log.changed_at, "dd/MM/yy HH:mm", { locale: ptBR })}
                           </span>
                           <span>•</span>
                           <span>
