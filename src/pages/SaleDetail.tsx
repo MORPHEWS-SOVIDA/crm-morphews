@@ -1410,7 +1410,7 @@ export default function SaleDetail() {
                       <div>
                         <p className="text-xs text-muted-foreground">Data Agendada</p>
                         <p className="font-medium">
-                          {format(new Date(sale.scheduled_delivery_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+                          {safeFormat(sale.scheduled_delivery_date + 'T12:00:00', 'dd/MM/yyyy', { locale: ptBR })}
                           {sale.scheduled_delivery_shift && (
                             <span className="text-xs text-muted-foreground ml-1">
                               ({sale.scheduled_delivery_shift === 'morning' ? 'Manhã' : sale.scheduled_delivery_shift === 'afternoon' ? 'Tarde' : 'Dia Inteiro'})
