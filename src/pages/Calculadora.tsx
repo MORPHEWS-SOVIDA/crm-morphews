@@ -2,16 +2,26 @@ import { useMemo, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calculator, ArrowLeft, Info } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Calculator, ArrowLeft, Info, Link2, Copy, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useEcommerceOrganizationId } from '@/hooks/ecommerce/useEcommerceOrganizationId';
 import {
   useTenantInstallmentFees,
   calculateInstallmentWithInterest,
 } from '@/hooks/ecommerce/useTenantInstallmentFees';
+import { useCreatePaymentLink } from '@/hooks/usePaymentLinks';
 
 function formatBRL(cents: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -24,9 +34,18 @@ export default function Calculadora() {
   const navigate = useNavigate();
   const { data: orgId } = useEcommerceOrganizationId();
   const { data: feesData, isLoading } = useTenantInstallmentFees(orgId);
+  const createLink = useCreatePaymentLink();
 
   const [netCents, setNetCents] = useState<number>(10000); // valor desejado líquido
   const [chargeCents, setChargeCents] = useState<number>(10000); // valor a cobrar simulado
+
+  // Estado do dialog de criar link
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkTitle, setLinkTitle] = useState('');
+  const [linkSourceCents, setLinkSourceCents] = useState<number>(0);
+  const [linkMaxInstallments, setLinkMaxInstallments] = useState<number>(12);
+  const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const installmentFees = feesData?.installment_fees ?? {};
   const maxInstallments = feesData?.max_installments ?? 12;
@@ -62,6 +81,15 @@ export default function Calculadora() {
     }
     return list;
   }, [netCents, installmentFees, maxInstallments]);
+
+  const openCreateLinkDialog = (amountCents: number, installments: number) => {
+    setLinkSourceCents(amountCents);
+    setLinkMaxInstallments(Math.max(1, Math.min(maxInstallments, installments)));
+    setLinkTitle('');
+    setCreatedSlug(null);
+    setCopied(false);
+    setLinkDialogOpen(true);
+  };
 
   // Reverso: dado um valor a cobrar do cliente em X parcelas, quanto fica de líquido
   const [reverseInstallments, setReverseInstallments] = useState<number>(12);
@@ -168,6 +196,15 @@ export default function Calculadora() {
                   <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
                   Use a coluna <strong>Taxa Pagar.me/mês</strong> no campo "Acréscimo no preço ao mês (em %)" do Pagar.me, com "Parcelas com acréscimo: A partir da 2ª".
                 </p>
+
+                <Button
+                  className="w-full"
+                  onClick={() => openCreateLinkDialog(netCents, maxInstallments)}
+                  disabled={!netCents}
+                >
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Criar link de cobrança ({formatBRL(netCents)})
+                </Button>
               </CardContent>
             </Card>
 
@@ -236,16 +273,137 @@ export default function Calculadora() {
 
                 <Button
                   className="w-full"
-                  onClick={() => navigate('/cobrar/links')}
-                  variant="outline"
+                  onClick={() => openCreateLinkDialog(chargeCents, reverseInstallments)}
+                  disabled={!chargeCents}
                 >
-                  Criar link de cobrança
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Criar link de cobrança ({formatBRL(chargeCents)})
                 </Button>
               </CardContent>
             </Card>
           </div>
         )}
       </div>
+
+      {/* Dialog: criar link de pagamento direto */}
+      <Dialog
+        open={linkDialogOpen}
+        onOpenChange={(o) => {
+          setLinkDialogOpen(o);
+          if (!o) {
+            setCreatedSlug(null);
+            setCopied(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5" />
+              {createdSlug ? 'Link criado!' : 'Criar link de cobrança'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {createdSlug ? (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted rounded-lg text-sm break-all">
+                {`${window.location.origin}/pagar/${createdSlug}`}
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/pagar/${createdSlug}`);
+                  setCopied(true);
+                  toast.success('Link copiado!');
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+              >
+                {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                {copied ? 'Copiado' : 'Copiar link'}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate('/cobrar/links')}
+              >
+                Ver todos os links
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Título *</Label>
+                <Input
+                  value={linkTitle}
+                  onChange={(e) => setLinkTitle(e.target.value)}
+                  placeholder="Ex: Cliente Bruno - Consultoria"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Valor</Label>
+                <CurrencyInput value={linkSourceCents} onChange={setLinkSourceCents} />
+              </div>
+              <div className="space-y-2">
+                <Label>Parcelas máximas</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={maxInstallments}
+                  value={linkMaxInstallments}
+                  onChange={(e) =>
+                    setLinkMaxInstallments(
+                      Math.max(1, Math.min(maxInstallments, parseInt(e.target.value) || 1))
+                    )
+                  }
+                />
+              </div>
+              <p className="text-xs text-muted-foreground flex gap-2">
+                <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                Os juros são absorvidos pelo cliente conforme as taxas configuradas.
+              </p>
+            </div>
+          )}
+
+          {!createdSlug && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!linkTitle.trim()) {
+                    toast.error('Informe um título');
+                    return;
+                  }
+                  if (!linkSourceCents) {
+                    toast.error('Informe um valor');
+                    return;
+                  }
+                  try {
+                    const res = await createLink.mutateAsync({
+                      title: linkTitle,
+                      amount_cents: linkSourceCents,
+                      allow_custom_amount: false,
+                      pix_enabled: true,
+                      boleto_enabled: false,
+                      card_enabled: true,
+                      max_installments: linkMaxInstallments,
+                      interest_bearer: 'customer',
+                    });
+                    setCreatedSlug((res as { slug: string }).slug);
+                    toast.success('Link criado com sucesso!');
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Erro ao criar link');
+                  }
+                }}
+                disabled={createLink.isPending}
+              >
+                {createLink.isPending ? 'Criando...' : 'Criar link'}
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
