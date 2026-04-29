@@ -84,6 +84,7 @@ export default function PublicCheckoutPage() {
   const [addOrderBump, setAddOrderBump] = useState(false);
   const [cardData, setCardData] = useState<CreditCardData | null>(null);
   const [totalWithInterest, setTotalWithInterest] = useState<number | null>(null);
+  const [selectedInstallments, setSelectedInstallments] = useState<number>(1);
   const [countdownTime, setCountdownTime] = useState<number | null>(null);
   
   // Shipping state
@@ -280,6 +281,7 @@ export default function PublicCheckoutPage() {
 
   const handleTotalWithInterestChange = (newTotal: number, installments: number) => {
     setTotalWithInterest(installments > 1 ? newTotal : null);
+    setSelectedInstallments(installments > 0 ? installments : 1);
   };
 
   // Fetch shipping quotes when CEP is complete and mode is calculated
@@ -540,7 +542,13 @@ export default function PublicCheckoutPage() {
           shipping_mode: shippingMode,
         },
         payment_method: paymentMethod,
-        installments: cardData?.installments || 1,
+        // CRITICAL: send installments at root so backend forwards to gateway.
+        // Without this, customer is charged the inflated total upfront (Ramon Schunk bug).
+        // Prefer the explicitly tracked selectedInstallments (synced via onTotalWithInterestChange)
+        // and fall back to cardData?.installments to avoid race conditions.
+        installments: paymentMethod === 'credit_card'
+          ? (selectedInstallments && selectedInstallments > 0 ? selectedInstallments : (cardData?.installments || 1))
+          : 1,
         total_with_interest_cents: paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest + shippingCost : undefined,
         card_data: paymentMethod === 'credit_card' && cardData ? {
           number: cardData.card_number,
