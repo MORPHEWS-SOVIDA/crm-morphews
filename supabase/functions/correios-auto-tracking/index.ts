@@ -38,21 +38,119 @@ function mapCorreiosStatus(statusText: string): string | null {
   return null;
 }
 
-// Try multiple tracking APIs with fallback
+// ===== Official Correios API token cache =====
+let cachedCorreiosToken: { token: string; expiresAt: number } | null = null;
+
+async function getCorreiosOfficialToken(): Promise<string | null> {
+  const user = Deno.env.get('CORREIOS_USER');
+  const apiToken = Deno.env.get('CORREIOS_API_TOKEN');
+  const postingCard = Deno.env.get('CORREIOS_POSTING_CARD');
+
+  if (!user || !apiToken || !postingCard) {
+    console.log('[auto-tracking] Correios official credentials not configured, skipping official API');
+    return null;
+  }
+
+  // Reuse cached token if still valid (with 60s safety margin)
+  if (cachedCorreiosToken && cachedCorreiosToken.expiresAt > Date.now() + 60_000) {
+    return cachedCorreiosToken.token;
+  }
+
+  try {
+    const basic = btoa(`${user}:${apiToken}`);
+    const resp = await fetch('https://api.correios.com.br/token/v1/autentica/cartaopostagem', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${basic}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ numero: postingCard }),
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text();
+      console.log(`[auto-tracking] Correios auth failed [${resp.status}]: ${txt.substring(0, 300)}`);
+      return null;
+    }
+
+    const data = await resp.json();
+    const token = data.token as string | undefined;
+    const expiraEm = data.expiraEm as string | undefined; // ISO date
+
+    if (!token) {
+      console.log('[auto-tracking] Correios auth: no token in response');
+      return null;
+    }
+
+    const expiresAt = expiraEm ? new Date(expiraEm).getTime() : (Date.now() + 23 * 60 * 60 * 1000);
+    cachedCorreiosToken = { token, expiresAt };
+    console.log(`[auto-tracking] Correios official token acquired, expires at ${new Date(expiresAt).toISOString()}`);
+    return token;
+  } catch (e) {
+    console.log('[auto-tracking] Correios auth exception:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+// Try multiple tracking APIs with fallback (official → proxyapp → LinkeTrack)
 async function fetchTracking(trackingCode: string): Promise<{ status: string; location: string; deliveryEstimate: string | null; events: any[] } | null> {
-  // Try 1: Correios proxyapp (official)
+  // Try 1: Official Correios SRO Rastro API (with contract token)
+  try {
+    const token = await getCorreiosOfficialToken();
+    if (token) {
+      const response = await fetch(
+        `https://api.correios.com.br/srorastro/v1/objetos/${trackingCode}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const obj = data.objetos?.[0];
+        if (obj && obj.eventos && obj.eventos.length > 0) {
+          const latest = obj.eventos[0];
+          const statusText = latest.descricao || latest.tipo || '';
+          const location = latest.unidade?.nome
+            || (latest.unidade?.endereco
+              ? `${latest.unidade.endereco.cidade || ''}${latest.unidade.endereco.uf ? '/' + latest.unidade.endereco.uf : ''}`
+              : '');
+
+          let deliveryEstimate: string | null = null;
+          if (obj.dtPrevista) {
+            deliveryEstimate = String(obj.dtPrevista).substring(0, 10);
+          }
+
+          return { status: statusText, location, deliveryEstimate, events: obj.eventos };
+        } else {
+          console.log(`[auto-tracking] Official API returned no events for ${trackingCode}`);
+        }
+      } else {
+        const txt = await response.text();
+        console.log(`[auto-tracking] Official API failed [${response.status}] for ${trackingCode}: ${txt.substring(0, 200)}`);
+        // If 401, invalidate token cache so next attempt re-authenticates
+        if (response.status === 401) cachedCorreiosToken = null;
+      }
+    }
+  } catch (e) {
+    console.log(`[auto-tracking] Official Correios API error for ${trackingCode}:`, e instanceof Error ? e.message : e);
+  }
+
+  // Try 2: Correios proxyapp (public, often blocked)
   try {
     const response = await fetch(
       `https://proxyapp.correios.com.br/v1/sro-rastro/${trackingCode}`,
       {
         method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0',
-        },
+        headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' },
       }
     );
-    
+
     if (response.ok) {
       const data = await response.json();
       if (data.objetos && data.objetos[0] && data.objetos[0].eventos) {
@@ -60,42 +158,31 @@ async function fetchTracking(trackingCode: string): Promise<{ status: string; lo
         const latest = obj.eventos[0];
         const statusText = latest.descricao || latest.tipo || '';
         const location = latest.unidade?.nome || latest.unidade?.endereco?.cidade || '';
-        
-        // Extract delivery estimate
+
         let deliveryEstimate: string | null = null;
         if (obj.dtPrevista) {
-          // Format: YYYY-MM-DDT...
           deliveryEstimate = obj.dtPrevista.substring(0, 10);
         }
-        
-        return {
-          status: statusText,
-          location,
-          deliveryEstimate,
-          events: obj.eventos,
-        };
+
+        return { status: statusText, location, deliveryEstimate, events: obj.eventos };
       }
     }
   } catch (e) {
     console.log(`[auto-tracking] Correios proxyapp failed for ${trackingCode}:`, e instanceof Error ? e.message : e);
   }
 
-  // Try 2: LinkeTrack API
+  // Try 3: LinkeTrack API
   try {
     const response = await fetch(
       `https://api.linketrack.com/track/json?user=teste&token=1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f&codigo=${trackingCode}`,
-      {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-      }
+      { method: 'GET', headers: { 'Accept': 'application/json' } }
     );
 
     if (response.ok) {
       const data = await response.json();
       if (data.eventos && data.eventos.length > 0) {
         const latest = data.eventos[0];
-        
-        // Extract delivery estimate from subStatus
+
         let deliveryEstimate: string | null = null;
         for (const evento of data.eventos) {
           if (evento.subStatus) {
@@ -111,12 +198,7 @@ async function fetchTracking(trackingCode: string): Promise<{ status: string; lo
           if (deliveryEstimate) break;
         }
 
-        return {
-          status: latest.status || '',
-          location: latest.local || '',
-          deliveryEstimate,
-          events: data.eventos,
-        };
+        return { status: latest.status || '', location: latest.local || '', deliveryEstimate, events: data.eventos };
       }
     }
   } catch (e) {
