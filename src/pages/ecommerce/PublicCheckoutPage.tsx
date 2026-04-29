@@ -84,6 +84,7 @@ export default function PublicCheckoutPage() {
   const [addOrderBump, setAddOrderBump] = useState(false);
   const [cardData, setCardData] = useState<CreditCardData | null>(null);
   const [totalWithInterest, setTotalWithInterest] = useState<number | null>(null);
+  const [selectedInstallments, setSelectedInstallments] = useState<number>(1);
   const [countdownTime, setCountdownTime] = useState<number | null>(null);
   
   // Shipping state
