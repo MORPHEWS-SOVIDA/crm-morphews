@@ -542,7 +542,13 @@ export default function PublicCheckoutPage() {
           shipping_mode: shippingMode,
         },
         payment_method: paymentMethod,
-        installments: cardData?.installments || 1,
+        // CRITICAL: send installments at root so backend forwards to gateway.
+        // Without this, customer is charged the inflated total upfront (Ramon Schunk bug).
+        // Prefer the explicitly tracked selectedInstallments (synced via onTotalWithInterestChange)
+        // and fall back to cardData?.installments to avoid race conditions.
+        installments: paymentMethod === 'credit_card'
+          ? (selectedInstallments && selectedInstallments > 0 ? selectedInstallments : (cardData?.installments || 1))
+          : 1,
         total_with_interest_cents: paymentMethod === 'credit_card' && totalWithInterest ? totalWithInterest + shippingCost : undefined,
         card_data: paymentMethod === 'credit_card' && cardData ? {
           number: cardData.card_number,
