@@ -43,12 +43,20 @@ export default function Calculadora() {
     }> = [];
     for (let i = 1; i <= maxInstallments; i++) {
       const info = calculateInstallmentWithInterest(netCents, i, installmentFees, true);
+      // Taxa mensal equivalente para o Pagar.me (juros compostos a partir da 2ª parcela):
+      // total = liquido * (1 + taxaMensal)^(n - 1)  →  taxaMensal = (total/liquido)^(1/(n-1)) - 1
+      let pagarmeMonthlyRate = 0;
+      if (i > 1 && netCents > 0 && info.totalWithInterest > netCents) {
+        pagarmeMonthlyRate =
+          (Math.pow(info.totalWithInterest / netCents, 1 / (i - 1)) - 1) * 100;
+      }
       list.push({
         installments: i,
         installmentValue: info.installmentValue,
         totalCharged: info.totalWithInterest,
         interestPercentage: info.interestPercentage,
         extraForCustomer: info.totalWithInterest - netCents,
+        pagarmeMonthlyRate,
       });
     }
     return list;
