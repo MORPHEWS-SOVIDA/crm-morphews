@@ -1286,7 +1286,7 @@ export default function SaleDetail() {
                           <p>CPF/CNPJ: {(sale.lead as any).cpf_cnpj}</p>
                         )}
                         {(sale.lead as any)?.birth_date && (
-                          <p>Nascimento: {format(new Date((sale.lead as any).birth_date + 'T12:00:00'), 'dd/MM/yyyy')}</p>
+                          <p>Nascimento: {safeFormat((sale.lead as any).birth_date + 'T12:00:00', 'dd/MM/yyyy', undefined, 'data inválida')}</p>
                         )}
                         {(sale.lead as any)?.favorite_team && (
                           <p>Time: {(sale.lead as any).favorite_team}</p>
