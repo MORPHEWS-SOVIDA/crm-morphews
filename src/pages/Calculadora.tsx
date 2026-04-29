@@ -2,16 +2,26 @@ import { useMemo, useState } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calculator, ArrowLeft, Info } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Calculator, ArrowLeft, Info, Link2, Copy, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useEcommerceOrganizationId } from '@/hooks/ecommerce/useEcommerceOrganizationId';
 import {
   useTenantInstallmentFees,
   calculateInstallmentWithInterest,
 } from '@/hooks/ecommerce/useTenantInstallmentFees';
+import { useCreatePaymentLink } from '@/hooks/usePaymentLinks';
 
 function formatBRL(cents: number) {
   return new Intl.NumberFormat('pt-BR', {
