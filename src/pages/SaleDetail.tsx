@@ -1184,7 +1184,7 @@ export default function SaleDetail() {
                 )}
               </div>
               <p className="text-muted-foreground">
-                Criada em {format(new Date(sale.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                Criada em {safeFormat(sale.created_at, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
               </p>
             </div>
           </div>
