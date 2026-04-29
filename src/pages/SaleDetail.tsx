@@ -1763,7 +1763,7 @@ export default function SaleDetail() {
                       <div className="flex-1">
                         <span className="text-sm">Expedição Validada</span>
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(sale.expedition_validated_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          {safeFormat(sale.expedition_validated_at, "dd/MM/yyyy HH:mm", { locale: ptBR })}
                         </p>
                       </div>
                     </div>
