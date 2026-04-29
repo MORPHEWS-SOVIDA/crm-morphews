@@ -126,14 +126,18 @@ async function fetchTracking(trackingCode: string): Promise<{ status: string; lo
     if (token) {
       // Try both known paths: /srorastro/v1/objetos and /rastro/v1/objetos
       const rastroUrls = [
-        `https://api.correios.com.br/srorastro/v1/objetos/${trackingCode}`,
-        `https://api.correios.com.br/rastro/v1/objetos/${trackingCode}`,
+        `https://api.correios.com.br/srorastro/v1/objetos/${trackingCode}?resultado=T`,
+        `https://api.correios.com.br/rastro/v1/objetos/${trackingCode}?resultado=T`,
       ];
 
       for (const url of rastroUrls) {
         const response = await fetch(url, {
           method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'Accept-Language': 'pt-BR',
+          },
         });
 
         if (response.ok) {
