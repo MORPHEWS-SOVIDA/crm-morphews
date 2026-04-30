@@ -1152,3 +1152,138 @@ export function useFinancialOrgSettings() {
     },
   });
 }
+
+// ============================================================
+// DASHBOARD MVP — agregações leves a partir de financial_transactions
+// ============================================================
+export interface DashboardFilters {
+  start_date: string;       // yyyy-mm-dd (competence/due ref)
+  end_date: string;         // yyyy-mm-dd
+  entity_id?: string | null;
+}
+
+export interface DashboardSummary {
+  realizado_inflow_cents: number;
+  realizado_outflow_cents: number;
+  saldo_realizado_cents: number;
+  previsto_inflow_cents: number;
+  previsto_outflow_cents: number;
+  saldo_previsto_cents: number;
+  vencidos_cents: number;
+  vence_7d_cents: number;
+  vence_30d_cents: number;
+  count_total: number;
+}
+
+export interface DashboardBreakdownRow {
+  id: string | null;
+  name: string;
+  outflow_cents: number;
+  inflow_cents: number;
+}
+
+export interface DashboardData {
+  summary: DashboardSummary;
+  by_category: DashboardBreakdownRow[];
+  by_cost_center: DashboardBreakdownRow[];
+  by_entity: DashboardBreakdownRow[];
+  rows: FinancialTransaction[];
+}
+
+export function useFinancialDashboard(filters: DashboardFilters) {
+  return useQuery({
+    queryKey: ['financial-dashboard-v2', filters],
+    enabled: !!filters.start_date && !!filters.end_date,
+    queryFn: async (): Promise<DashboardData> => {
+      // Buscar transações no intervalo (por due_date OR paid_at no intervalo)
+      let q = supabase
+        .from('financial_transactions')
+        .select('*, financial_categories(id,name), cost_centers(id,name), financial_entities(id,name)')
+        .eq('organization_id', ORG)
+        .or(`due_date.gte.${filters.start_date},paid_at.gte.${filters.start_date}`)
+        .order('due_date', { ascending: true })
+        .limit(2000);
+      if (filters.entity_id) q = q.eq('entity_id', filters.entity_id);
+      const { data, error } = await q;
+      if (error) throw error;
+
+      const today = new Date().toISOString().slice(0, 10);
+      const in7 = new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10);
+      const in30 = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10);
+
+      const summary: DashboardSummary = {
+        realizado_inflow_cents: 0, realizado_outflow_cents: 0, saldo_realizado_cents: 0,
+        previsto_inflow_cents: 0, previsto_outflow_cents: 0, saldo_previsto_cents: 0,
+        vencidos_cents: 0, vence_7d_cents: 0, vence_30d_cents: 0, count_total: 0,
+      };
+      const catMap = new Map<string, DashboardBreakdownRow>();
+      const ccMap = new Map<string, DashboardBreakdownRow>();
+      const entMap = new Map<string, DashboardBreakdownRow>();
+
+      const inRange = (d: string | null) => !!d && d >= filters.start_date && d <= filters.end_date;
+
+      const rows = (data ?? []) as any[];
+
+      for (const r of rows) {
+        summary.count_total++;
+        const realized = r.status === 'realizado' || r.status === 'conciliado';
+        const cancelled = r.status === 'cancelado' || r.status === 'estornado';
+        const amount = (realized ? r.actual_amount_cents : r.expected_amount_cents) ?? 0;
+
+        if (cancelled) continue;
+
+        // Realizado dentro do range (paid_at) → fluxo de caixa real
+        if (realized && inRange((r.paid_at ?? '').slice(0, 10))) {
+          if (r.direction === 'inflow') summary.realizado_inflow_cents += amount;
+          else summary.realizado_outflow_cents += amount;
+        }
+
+        // Previsto dentro do range (due_date) → projeção
+        if (!realized && inRange(r.due_date)) {
+          if (r.direction === 'inflow') summary.previsto_inflow_cents += amount;
+          else summary.previsto_outflow_cents += amount;
+
+          if (r.due_date && r.due_date < today) summary.vencidos_cents += amount;
+          else if (r.due_date && r.due_date <= in7) summary.vence_7d_cents += amount;
+          else if (r.due_date && r.due_date <= in30) summary.vence_30d_cents += amount;
+        }
+
+        // Breakdown — usa sempre o "melhor valor disponível" dentro do range
+        const counts =
+          (realized && inRange((r.paid_at ?? '').slice(0, 10))) ||
+          (!realized && inRange(r.due_date));
+        if (!counts) continue;
+
+        const bump = (
+          map: Map<string, DashboardBreakdownRow>,
+          id: string | null,
+          name: string,
+        ) => {
+          const key = id ?? '__none__';
+          const cur = map.get(key) ?? { id, name, outflow_cents: 0, inflow_cents: 0 };
+          if (r.direction === 'inflow') cur.inflow_cents += amount;
+          else cur.outflow_cents += amount;
+          map.set(key, cur);
+        };
+
+        bump(catMap, r.category_id, r.financial_categories?.name ?? 'Sem categoria');
+        bump(ccMap, r.cost_center_id, r.cost_centers?.name ?? 'Sem centro');
+        bump(entMap, r.entity_id, r.financial_entities?.name ?? 'Sem entidade');
+      }
+
+      summary.saldo_realizado_cents = summary.realizado_inflow_cents - summary.realizado_outflow_cents;
+      summary.saldo_previsto_cents = summary.previsto_inflow_cents - summary.previsto_outflow_cents;
+
+      const sortByOut = (a: DashboardBreakdownRow, b: DashboardBreakdownRow) =>
+        b.outflow_cents - a.outflow_cents;
+
+      return {
+        summary,
+        by_category: Array.from(catMap.values()).sort(sortByOut),
+        by_cost_center: Array.from(ccMap.values()).sort(sortByOut),
+        by_entity: Array.from(entMap.values()).sort(sortByOut),
+        rows: rows as FinancialTransaction[],
+      };
+    },
+  });
+}
