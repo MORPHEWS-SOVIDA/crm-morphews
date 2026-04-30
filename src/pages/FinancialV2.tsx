@@ -342,7 +342,13 @@ function TransactionsTab() {
                   </div>
                   {!['realizado', 'conciliado', 'cancelado', 'estornado'].includes(t.status) && (
                     <>
-                      <Button size="sm" variant="outline" onClick={() => { setPaying(t); setActualReais(((t.expected_amount_cents ?? 0) / 100).toFixed(2)); setDiffReason(''); }}>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setPaying(t);
+                        setActualReais(((t.expected_amount_cents ?? 0) / 100).toFixed(2));
+                        setDiffReason('');
+                        setBankAccountId(bankAccounts?.find(b => b.is_default)?.id ?? '');
+                        setPaidAt(new Date().toISOString().slice(0, 10));
+                      }}>
                         <CheckCircle2 className="w-4 h-4 mr-1" />Pagar
                       </Button>
                       <Button size="sm" variant="ghost" onClick={async () => {
