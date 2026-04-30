@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, CheckCircle2, XCircle, Building2, ListTree, ScrollText, Lock, Landmark, Tags, Layers } from 'lucide-react';
+import { Loader2, Plus, CheckCircle2, XCircle, Building2, ListTree, ScrollText, Lock, Landmark, Tags, Layers, Receipt } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useFinancialAccess,
@@ -33,6 +33,7 @@ import { BanksTab } from '@/components/financial-v2/BanksTab';
 import { SuppliersTab } from '@/components/financial-v2/SuppliersTab';
 import { CategoriesTab } from '@/components/financial-v2/CategoriesTab';
 import { CostCentersTab } from '@/components/financial-v2/CostCentersTab';
+import { PayablesTab } from '@/components/financial-v2/PayablesTab';
 
 const STATUS_VARIANTS: Record<FinancialTxStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   previsto: 'outline',
@@ -100,8 +101,9 @@ function FinancialV2Content() {
             Fundação multi-entidade — CNPJs, CPFs, projetos, imóveis e família.
           </p>
         </div>
-        <Tabs defaultValue="transactions" className="space-y-4">
+        <Tabs defaultValue="payables" className="space-y-4">
           <TabsList className="flex-wrap h-auto">
+            <TabsTrigger value="payables"><Receipt className="w-4 h-4 mr-2" />Contas a Pagar</TabsTrigger>
             <TabsTrigger value="transactions"><ListTree className="w-4 h-4 mr-2" />Lançamentos</TabsTrigger>
             <TabsTrigger value="entities"><Building2 className="w-4 h-4 mr-2" />Entidades</TabsTrigger>
             <TabsTrigger value="banks"><Landmark className="w-4 h-4 mr-2" />Bancos</TabsTrigger>
@@ -110,6 +112,7 @@ function FinancialV2Content() {
             <TabsTrigger value="cost-centers"><Layers className="w-4 h-4 mr-2" />Centros</TabsTrigger>
             <TabsTrigger value="audit"><ScrollText className="w-4 h-4 mr-2" />Auditoria</TabsTrigger>
           </TabsList>
+          <TabsContent value="payables"><PayablesTab /></TabsContent>
           <TabsContent value="transactions"><TransactionsTab /></TabsContent>
           <TabsContent value="entities"><EntitiesTab /></TabsContent>
           <TabsContent value="banks"><BanksTab /></TabsContent>
