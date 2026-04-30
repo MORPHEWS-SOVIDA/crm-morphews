@@ -791,6 +791,352 @@ export function useSetDefaultBankAccount() {
   });
 }
 
+// ============================================================
+// ENTREGA 2 — CONTAS A PAGAR (lista enriquecida + cards + ações)
+// ============================================================
+export type PayableQuickFilter =
+  | 'overdue' | 'today' | 'next7' | 'next30'
+  | 'open' | 'paid' | 'cancelled' | 'all';
+
+export interface PayableFilters {
+  quick?: PayableQuickFilter;
+  entity_id?: string;
+  supplier_id?: string;
+  category_id?: string;
+  cost_center_id?: string;
+  bank_account_id?: string;
+  search?: string;
+}
+
+export interface PayableRow extends FinancialTransaction {
+  supplier_id: string | null;
+  bank_account_id: string | null;
+  source: string | null;
+  difference_reason: string | null;
+  entity?: { id: string; name: string } | null;
+  supplier?: { id: string; name: string } | null;
+  category?: { id: string; name: string } | null;
+  cost_center?: { id: string; name: string } | null;
+  bank_account?: { id: string; name: string } | null;
+}
+
+const today = () => new Date().toISOString().slice(0, 10);
+const addDays = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+export function usePayables(filters: PayableFilters = {}) {
+  return useQuery({
+    queryKey: ['financial-payables-v2', filters],
+    queryFn: async () => {
+      let q = supabase
+        .from('financial_transactions')
+        .select(`
+          *,
+          entity:financial_entities!financial_transactions_entity_id_fkey(id,name),
+          supplier:suppliers!financial_transactions_supplier_id_fkey(id,name),
+          category:financial_categories!financial_transactions_category_id_fkey(id,name),
+          cost_center:cost_centers!financial_transactions_cost_center_id_fkey(id,name),
+          bank_account:bank_accounts!financial_transactions_bank_account_id_fkey(id,name)
+        `)
+        .eq('organization_id', ORG)
+        .eq('direction', 'outflow')
+        .order('due_date', { ascending: true, nullsFirst: false });
+
+      switch (filters.quick) {
+        case 'overdue':
+          q = q.lt('due_date', today()).not('status', 'in', '(realizado,conciliado,cancelado,estornado)');
+          break;
+        case 'today':
+          q = q.eq('due_date', today()).not('status', 'in', '(realizado,conciliado,cancelado,estornado)');
+          break;
+        case 'next7':
+          q = q.gte('due_date', today()).lte('due_date', addDays(7))
+               .not('status', 'in', '(realizado,conciliado,cancelado,estornado)');
+          break;
+        case 'next30':
+          q = q.gte('due_date', today()).lte('due_date', addDays(30))
+               .not('status', 'in', '(realizado,conciliado,cancelado,estornado)');
+          break;
+        case 'open':
+          q = q.in('status', ['previsto', 'pendente_aprovacao', 'aprovado', 'vencido', 'pago_parcial']);
+          break;
+        case 'paid':
+          q = q.in('status', ['realizado', 'conciliado']);
+          break;
+        case 'cancelled':
+          q = q.in('status', ['cancelado', 'estornado']);
+          break;
+      }
+
+      if (filters.entity_id) q = q.eq('entity_id', filters.entity_id);
+      if (filters.supplier_id) q = q.eq('supplier_id', filters.supplier_id);
+      if (filters.category_id) q = q.eq('category_id', filters.category_id);
+      if (filters.cost_center_id) q = q.eq('cost_center_id', filters.cost_center_id);
+      if (filters.bank_account_id) q = q.eq('bank_account_id', filters.bank_account_id);
+      if (filters.search) q = q.ilike('description', `%${filters.search}%`);
+
+      const { data, error } = await q.limit(500);
+      if (error) throw error;
+      return (data ?? []) as unknown as PayableRow[];
+    },
+  });
+}
+
+export interface PayableSummary {
+  overdue_cents: number;
+  today_cents: number;
+  next7_cents: number;
+  next30_cents: number;
+  paid_month_cents: number;
+}
+
+export function usePayablesSummary() {
+  return useQuery({
+    queryKey: ['financial-payables-summary-v2'],
+    queryFn: async (): Promise<PayableSummary> => {
+      const t = today();
+      const d7 = addDays(7);
+      const d30 = addDays(30);
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      const monthStartIso = monthStart.toISOString().slice(0, 10);
+
+      const base = supabase
+        .from('financial_transactions')
+        .select('expected_amount_cents, actual_amount_cents, status, due_date, paid_at')
+        .eq('organization_id', ORG)
+        .eq('direction', 'outflow');
+
+      const { data, error } = await base.limit(5000);
+      if (error) throw error;
+
+      const open = (s: string) => !['realizado', 'conciliado', 'cancelado', 'estornado'].includes(s);
+      const sum = (rows: any[], field: 'expected_amount_cents' | 'actual_amount_cents') =>
+        rows.reduce((acc, r) => acc + (Number(r[field]) || 0), 0);
+
+      const rows = data ?? [];
+      return {
+        overdue_cents: sum(rows.filter(r => r.due_date && r.due_date < t && open(r.status)), 'expected_amount_cents'),
+        today_cents: sum(rows.filter(r => r.due_date === t && open(r.status)), 'expected_amount_cents'),
+        next7_cents: sum(rows.filter(r => r.due_date && r.due_date >= t && r.due_date <= d7 && open(r.status)), 'expected_amount_cents'),
+        next30_cents: sum(rows.filter(r => r.due_date && r.due_date >= t && r.due_date <= d30 && open(r.status)), 'expected_amount_cents'),
+        paid_month_cents: sum(
+          rows.filter(r => (r.status === 'realizado' || r.status === 'conciliado') && r.paid_at && r.paid_at.slice(0, 10) >= monthStartIso),
+          'actual_amount_cents'
+        ),
+      };
+    },
+  });
+}
+
+export interface CreatePayableInput {
+  entity_id: string;
+  supplier_id?: string | null;
+  category_id?: string | null;
+  cost_center_id?: string | null;
+  bank_account_id?: string | null;
+  description: string;
+  type?: FinancialTxType;
+  expected_amount_cents: number;
+  due_date: string;
+  competence_date?: string | null;
+  notes?: string | null;
+  document_number?: string | null;
+  // recurrence
+  recurrence_months?: number;
+  recurrence_day?: number;
+}
+
+export function useCreatePayable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreatePayableInput) => {
+      const months = Math.max(1, input.recurrence_months ?? 1);
+      const baseDate = new Date(input.due_date + 'T12:00:00');
+      const day = input.recurrence_day ?? baseDate.getDate();
+
+      const rows = Array.from({ length: months }).map((_, i) => {
+        const d = new Date(baseDate);
+        d.setMonth(baseDate.getMonth() + i);
+        // honor desired day-of-month
+        const lastDayOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        d.setDate(Math.min(day, lastDayOfMonth));
+        return {
+          organization_id: ORG,
+          entity_id: input.entity_id,
+          supplier_id: input.supplier_id ?? null,
+          category_id: input.category_id ?? null,
+          cost_center_id: input.cost_center_id ?? null,
+          bank_account_id: input.bank_account_id ?? null,
+          description: months > 1 ? `${input.description} (${i + 1}/${months})` : input.description,
+          type: input.type ?? 'despesa',
+          direction: 'outflow' as FinancialDirection,
+          status: 'previsto' as FinancialTxStatus,
+          source: months > 1 ? 'recorrencia' : 'manual',
+          expected_amount_cents: input.expected_amount_cents,
+          due_date: d.toISOString().slice(0, 10),
+          competence_date: input.competence_date ?? null,
+          notes: input.notes ?? null,
+          document_number: input.document_number ?? null,
+        };
+      });
+
+      const { data, error } = await supabase
+        .from('financial_transactions')
+        .insert(rows as any)
+        .select();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-payables-v2'] });
+      qc.invalidateQueries({ queryKey: ['financial-payables-summary-v2'] });
+      qc.invalidateQueries({ queryKey: ['financial-transactions-v2'] });
+      toast.success('Conta(s) prevista(s) criada(s)');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useDuplicatePayable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { source: PayableRow; due_date: string }) => {
+      const s = input.source;
+      const { data, error } = await supabase
+        .from('financial_transactions')
+        .insert({
+          organization_id: ORG,
+          entity_id: s.entity_id,
+          supplier_id: s.supplier_id ?? null,
+          category_id: s.category_id ?? null,
+          cost_center_id: s.cost_center_id ?? null,
+          bank_account_id: s.bank_account_id ?? null,
+          description: s.description,
+          type: s.type,
+          direction: 'outflow',
+          status: 'previsto',
+          source: 'manual',
+          expected_amount_cents: s.expected_amount_cents,
+          due_date: input.due_date,
+          competence_date: s.competence_date ?? null,
+          notes: s.notes ?? null,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-payables-v2'] });
+      qc.invalidateQueries({ queryKey: ['financial-payables-summary-v2'] });
+      toast.success('Lançamento duplicado');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+// ----------------- ATTACHMENTS -----------------
+export interface FinancialAttachment {
+  id: string;
+  organization_id: string;
+  transaction_id: string | null;
+  attachment_type: string;
+  file_url: string;
+  file_name: string | null;
+  mime_type: string | null;
+  file_size: number | null;
+  uploaded_at: string;
+}
+
+export function useTransactionAttachments(transactionId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['financial-attachments-v2', transactionId],
+    enabled: !!transactionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('financial_attachments')
+        .select('*')
+        .eq('transaction_id', transactionId!)
+        .order('uploaded_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as FinancialAttachment[];
+    },
+  });
+}
+
+export function useUploadAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      transaction_id: string;
+      file: File;
+      attachment_type: string;
+      entity_id?: string | null;
+    }) => {
+      const path = `${ORG}/${input.transaction_id}/${Date.now()}_${input.file.name}`;
+      const up = await supabase.storage
+        .from('financial-attachments')
+        .upload(path, input.file, { contentType: input.file.type, upsert: false });
+      if (up.error) throw up.error;
+
+      const { data: signed } = await supabase.storage
+        .from('financial-attachments')
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+
+      const { data, error } = await supabase
+        .from('financial_attachments')
+        .insert({
+          organization_id: ORG,
+          transaction_id: input.transaction_id,
+          entity_id: input.entity_id ?? null,
+          attachment_type: input.attachment_type,
+          file_url: path, // store storage path; signed URL gerada on demand
+          file_name: input.file.name,
+          mime_type: input.file.type,
+          file_size: input.file.size,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return { ...data, signed_url: signed?.signedUrl };
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['financial-attachments-v2', vars.transaction_id] });
+      toast.success('Anexo enviado');
+    },
+    onError: (e: Error) => toast.error('Erro no upload: ' + e.message),
+  });
+}
+
+export async function getAttachmentSignedUrl(path: string) {
+  const { data, error } = await supabase.storage
+    .from('financial-attachments')
+    .createSignedUrl(path, 60 * 10);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+export function useDeleteAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; storage_path: string; transaction_id: string }) => {
+      await supabase.storage.from('financial-attachments').remove([input.storage_path]);
+      const { error } = await supabase.from('financial_attachments').delete().eq('id', input.id);
+      if (error) throw error;
+      return input;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['financial-attachments-v2', vars.transaction_id] });
+      toast.success('Anexo removido');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
 // ----------------- ORG SETTINGS -----------------
 export function useFinancialOrgSettings() {
   return useQuery({
