@@ -24270,6 +24270,142 @@ export type Database = {
           owner_user_id: string
         }[]
       }
+      fn_cancel_transaction: {
+        Args: { _reason: string; _transaction_id: string }
+        Returns: {
+          account_payable_id: string | null
+          actual_amount_cents: number | null
+          approved_at: string | null
+          approved_by: string | null
+          bank_account_id: string | null
+          bank_transaction_id: string | null
+          boleto_barcode: string | null
+          canceled_at: string | null
+          cancellation_reason: string | null
+          category_id: string | null
+          competence_date: string | null
+          cost_center_id: string | null
+          counterparty_name: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          difference_amount_cents: number | null
+          difference_notes: string | null
+          difference_reason:
+            | Database["public"]["Enums"]["financial_difference_reason"]
+            | null
+          direction: Database["public"]["Enums"]["financial_transaction_direction"]
+          document_number: string | null
+          due_date: string | null
+          entity_id: string | null
+          expected_amount_cents: number
+          expected_payment_date: string | null
+          external_reference: string | null
+          id: string
+          invoice_number: string | null
+          notes: string | null
+          organization_id: string
+          paid_at: string | null
+          payment_method_id: string | null
+          payment_method_snapshot: Json | null
+          pix_key: string | null
+          purchase_invoice_id: string | null
+          reconciled_at: string | null
+          reconciled_by: string | null
+          requires_review: boolean
+          risk_level: Database["public"]["Enums"]["financial_risk_level"]
+          risk_reasons: Json | null
+          risk_score: number
+          sale_id: string | null
+          source: Database["public"]["Enums"]["financial_source"]
+          source_metadata: Json | null
+          status: Database["public"]["Enums"]["financial_transaction_status"]
+          supplier_id: string | null
+          tags: string[] | null
+          type: Database["public"]["Enums"]["financial_transaction_type"]
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "financial_transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_mark_overdue_transactions: {
+        Args: { _org_id: string }
+        Returns: number
+      }
+      fn_register_payment: {
+        Args: {
+          _actual_amount_cents: number
+          _difference_notes?: string
+          _difference_reason?: string
+          _paid_at?: string
+          _transaction_id: string
+        }
+        Returns: {
+          account_payable_id: string | null
+          actual_amount_cents: number | null
+          approved_at: string | null
+          approved_by: string | null
+          bank_account_id: string | null
+          bank_transaction_id: string | null
+          boleto_barcode: string | null
+          canceled_at: string | null
+          cancellation_reason: string | null
+          category_id: string | null
+          competence_date: string | null
+          cost_center_id: string | null
+          counterparty_name: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          difference_amount_cents: number | null
+          difference_notes: string | null
+          difference_reason:
+            | Database["public"]["Enums"]["financial_difference_reason"]
+            | null
+          direction: Database["public"]["Enums"]["financial_transaction_direction"]
+          document_number: string | null
+          due_date: string | null
+          entity_id: string | null
+          expected_amount_cents: number
+          expected_payment_date: string | null
+          external_reference: string | null
+          id: string
+          invoice_number: string | null
+          notes: string | null
+          organization_id: string
+          paid_at: string | null
+          payment_method_id: string | null
+          payment_method_snapshot: Json | null
+          pix_key: string | null
+          purchase_invoice_id: string | null
+          reconciled_at: string | null
+          reconciled_by: string | null
+          requires_review: boolean
+          risk_level: Database["public"]["Enums"]["financial_risk_level"]
+          risk_reasons: Json | null
+          risk_score: number
+          sale_id: string | null
+          source: Database["public"]["Enums"]["financial_source"]
+          source_metadata: Json | null
+          status: Database["public"]["Enums"]["financial_transaction_status"]
+          supplier_id: string | null
+          tags: string[] | null
+          type: Database["public"]["Enums"]["financial_transaction_type"]
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "financial_transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       generate_bot_system_prompt:
         | {
             Args: {
@@ -24532,6 +24668,10 @@ export type Database = {
         Returns: undefined
       }
       has_admin_role: { Args: { user_id: string }; Returns: boolean }
+      has_financial_access: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_financial_admin: {
         Args: { _org_id: string; _user_id: string }
         Returns: boolean
