@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, CheckCircle2, XCircle, Building2, ListTree, ScrollText, Lock } from 'lucide-react';
+import { Loader2, Plus, CheckCircle2, XCircle, Building2, ListTree, ScrollText, Lock, Landmark } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useFinancialAccess,
@@ -23,6 +23,9 @@ import {
   useRegisterPayment,
   useCancelTransaction,
   useFinancialAuditLogs,
+  useFinancialBankAccounts,
+  useCreateFinancialBankAccount,
+  useFinancialOrgSettings,
   type FinancialEntityType,
   type FinancialDirection,
   type FinancialTxStatus,
