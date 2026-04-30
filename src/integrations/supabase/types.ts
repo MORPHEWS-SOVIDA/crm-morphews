@@ -17,20 +17,32 @@ export type Database = {
       accounts_payable: {
         Row: {
           amount_cents: number
+          amount_paid_cents: number | null
+          approval_status: string
           approved_at: string | null
           approved_by: string | null
           bank_account_id: string | null
           barcode: string | null
+          canceled_at: string | null
+          cancellation_reason: string | null
           category_id: string | null
+          competence_date: string | null
           cost_center_id: string | null
           created_at: string
           created_by: string | null
           description: string
+          difference_cents: number | null
+          difference_notes: string | null
+          difference_reason:
+            | Database["public"]["Enums"]["financial_difference_reason"]
+            | null
           discount_cents: number | null
           document_number: string | null
           due_date: string
+          entity_id: string | null
           fine_cents: number | null
           id: string
+          installment_group_id: string | null
           installment_number: number | null
           interest_cents: number | null
           is_recurring: boolean | null
@@ -40,12 +52,20 @@ export type Database = {
           paid_amount_cents: number | null
           paid_at: string | null
           parent_payable_id: string | null
+          payment_confirmed_at: string | null
+          payment_confirmed_by: string | null
           payment_method: string | null
           pix_code: string | null
           purchase_invoice_id: string | null
           recurrence_end_date: string | null
+          recurrence_id: string | null
           recurrence_type: string | null
           requires_approval: boolean | null
+          risk_level: Database["public"]["Enums"]["financial_risk_level"]
+          risk_reasons: Json | null
+          risk_score: number
+          scheduled_payment_date: string | null
+          source: Database["public"]["Enums"]["financial_source"]
           status: string | null
           supplier_id: string | null
           total_installments: number | null
@@ -53,20 +73,32 @@ export type Database = {
         }
         Insert: {
           amount_cents: number
+          amount_paid_cents?: number | null
+          approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
           bank_account_id?: string | null
           barcode?: string | null
+          canceled_at?: string | null
+          cancellation_reason?: string | null
           category_id?: string | null
+          competence_date?: string | null
           cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           description: string
+          difference_cents?: number | null
+          difference_notes?: string | null
+          difference_reason?:
+            | Database["public"]["Enums"]["financial_difference_reason"]
+            | null
           discount_cents?: number | null
           document_number?: string | null
           due_date: string
+          entity_id?: string | null
           fine_cents?: number | null
           id?: string
+          installment_group_id?: string | null
           installment_number?: number | null
           interest_cents?: number | null
           is_recurring?: boolean | null
@@ -76,12 +108,20 @@ export type Database = {
           paid_amount_cents?: number | null
           paid_at?: string | null
           parent_payable_id?: string | null
+          payment_confirmed_at?: string | null
+          payment_confirmed_by?: string | null
           payment_method?: string | null
           pix_code?: string | null
           purchase_invoice_id?: string | null
           recurrence_end_date?: string | null
+          recurrence_id?: string | null
           recurrence_type?: string | null
           requires_approval?: boolean | null
+          risk_level?: Database["public"]["Enums"]["financial_risk_level"]
+          risk_reasons?: Json | null
+          risk_score?: number
+          scheduled_payment_date?: string | null
+          source?: Database["public"]["Enums"]["financial_source"]
           status?: string | null
           supplier_id?: string | null
           total_installments?: number | null
@@ -89,20 +129,32 @@ export type Database = {
         }
         Update: {
           amount_cents?: number
+          amount_paid_cents?: number | null
+          approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
           bank_account_id?: string | null
           barcode?: string | null
+          canceled_at?: string | null
+          cancellation_reason?: string | null
           category_id?: string | null
+          competence_date?: string | null
           cost_center_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string
+          difference_cents?: number | null
+          difference_notes?: string | null
+          difference_reason?:
+            | Database["public"]["Enums"]["financial_difference_reason"]
+            | null
           discount_cents?: number | null
           document_number?: string | null
           due_date?: string
+          entity_id?: string | null
           fine_cents?: number | null
           id?: string
+          installment_group_id?: string | null
           installment_number?: number | null
           interest_cents?: number | null
           is_recurring?: boolean | null
@@ -112,12 +164,20 @@ export type Database = {
           paid_amount_cents?: number | null
           paid_at?: string | null
           parent_payable_id?: string | null
+          payment_confirmed_at?: string | null
+          payment_confirmed_by?: string | null
           payment_method?: string | null
           pix_code?: string | null
           purchase_invoice_id?: string | null
           recurrence_end_date?: string | null
+          recurrence_id?: string | null
           recurrence_type?: string | null
           requires_approval?: boolean | null
+          risk_level?: Database["public"]["Enums"]["financial_risk_level"]
+          risk_reasons?: Json | null
+          risk_score?: number
+          scheduled_payment_date?: string | null
+          source?: Database["public"]["Enums"]["financial_source"]
           status?: string | null
           supplier_id?: string | null
           total_installments?: number | null
@@ -146,6 +206,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "accounts_payable_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "accounts_payable_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -164,6 +231,13 @@ export type Database = {
             columns: ["purchase_invoice_id"]
             isOneToOne: false
             referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_recurrence_id_fkey"
+            columns: ["recurrence_id"]
+            isOneToOne: false
+            referencedRelation: "financial_recurrences"
             referencedColumns: ["id"]
           },
           {
@@ -1327,61 +1401,92 @@ export type Database = {
         Row: {
           account_digit: string | null
           account_number: string | null
+          account_subtype: string | null
           account_type: string | null
           agency: string | null
           agency_digit: string | null
+          balance_date: string | null
           bank_code: string | null
           bank_name: string | null
           color: string | null
           created_at: string
           current_balance_cents: number | null
+          entity_id: string | null
+          holder_document: string | null
+          holder_name: string | null
           id: string
           initial_balance_cents: number | null
           is_active: boolean | null
           is_default: boolean | null
+          last_reconciliation_at: string | null
+          manual_balance_cents: number | null
           name: string
+          notes: string | null
           organization_id: string
           updated_at: string
         }
         Insert: {
           account_digit?: string | null
           account_number?: string | null
+          account_subtype?: string | null
           account_type?: string | null
           agency?: string | null
           agency_digit?: string | null
+          balance_date?: string | null
           bank_code?: string | null
           bank_name?: string | null
           color?: string | null
           created_at?: string
           current_balance_cents?: number | null
+          entity_id?: string | null
+          holder_document?: string | null
+          holder_name?: string | null
           id?: string
           initial_balance_cents?: number | null
           is_active?: boolean | null
           is_default?: boolean | null
+          last_reconciliation_at?: string | null
+          manual_balance_cents?: number | null
           name: string
+          notes?: string | null
           organization_id: string
           updated_at?: string
         }
         Update: {
           account_digit?: string | null
           account_number?: string | null
+          account_subtype?: string | null
           account_type?: string | null
           agency?: string | null
           agency_digit?: string | null
+          balance_date?: string | null
           bank_code?: string | null
           bank_name?: string | null
           color?: string | null
           created_at?: string
           current_balance_cents?: number | null
+          entity_id?: string | null
+          holder_document?: string | null
+          holder_name?: string | null
           id?: string
           initial_balance_cents?: number | null
           is_active?: boolean | null
           is_default?: boolean | null
+          last_reconciliation_at?: string | null
+          manual_balance_cents?: number | null
           name?: string
+          notes?: string | null
           organization_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bank_accounts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bank_accounts_organization_id_fkey"
             columns: ["organization_id"]
@@ -1397,17 +1502,24 @@ export type Database = {
           amount_cents: number
           bank_account_id: string
           check_number: string | null
+          confidence_score: number
           created_at: string
           description: string | null
+          direction:
+            | Database["public"]["Enums"]["financial_transaction_direction"]
+            | null
+          entity_id: string | null
           fitid: string | null
           id: string
           import_batch_id: string | null
           is_reconciled: boolean | null
           manual_entry_id: string | null
+          matched_transaction_id: string | null
           memo: string | null
           organization_id: string
           reconciled_at: string | null
           reconciled_by: string | null
+          reconciliation_status: string
           ref_number: string | null
           sale_installment_id: string | null
           transaction_date: string
@@ -1418,17 +1530,24 @@ export type Database = {
           amount_cents: number
           bank_account_id: string
           check_number?: string | null
+          confidence_score?: number
           created_at?: string
           description?: string | null
+          direction?:
+            | Database["public"]["Enums"]["financial_transaction_direction"]
+            | null
+          entity_id?: string | null
           fitid?: string | null
           id?: string
           import_batch_id?: string | null
           is_reconciled?: boolean | null
           manual_entry_id?: string | null
+          matched_transaction_id?: string | null
           memo?: string | null
           organization_id: string
           reconciled_at?: string | null
           reconciled_by?: string | null
+          reconciliation_status?: string
           ref_number?: string | null
           sale_installment_id?: string | null
           transaction_date: string
@@ -1439,17 +1558,24 @@ export type Database = {
           amount_cents?: number
           bank_account_id?: string
           check_number?: string | null
+          confidence_score?: number
           created_at?: string
           description?: string | null
+          direction?:
+            | Database["public"]["Enums"]["financial_transaction_direction"]
+            | null
+          entity_id?: string | null
           fitid?: string | null
           id?: string
           import_batch_id?: string | null
           is_reconciled?: boolean | null
           manual_entry_id?: string | null
+          matched_transaction_id?: string | null
           memo?: string | null
           organization_id?: string
           reconciled_at?: string | null
           reconciled_by?: string | null
+          reconciliation_status?: string
           ref_number?: string | null
           sale_installment_id?: string | null
           transaction_date?: string
@@ -1468,6 +1594,20 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_matched_transaction_id_fkey"
+            columns: ["matched_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "financial_transactions"
             referencedColumns: ["id"]
           },
           {
@@ -2769,6 +2909,66 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_centers: {
+        Row: {
+          code: string | null
+          color: string | null
+          created_at: string
+          description: string | null
+          entity_id: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          parent_id: string | null
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          code?: string | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          entity_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_centers_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_centers_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
             referencedColumns: ["id"]
           },
         ]
@@ -5115,12 +5315,181 @@ export type Database = {
           },
         ]
       }
+      financial_attachments: {
+        Row: {
+          account_payable_id: string | null
+          attachment_type: string
+          bank_transaction_id: string | null
+          duplicate_of_id: string | null
+          entity_id: string | null
+          extracted_data: Json | null
+          file_hash: string | null
+          file_name: string | null
+          file_size: number | null
+          file_url: string
+          id: string
+          mime_type: string | null
+          notes: string | null
+          ocr_text: string | null
+          organization_id: string
+          purchase_invoice_id: string | null
+          transaction_id: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          account_payable_id?: string | null
+          attachment_type: string
+          bank_transaction_id?: string | null
+          duplicate_of_id?: string | null
+          entity_id?: string | null
+          extracted_data?: Json | null
+          file_hash?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url: string
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          ocr_text?: string | null
+          organization_id: string
+          purchase_invoice_id?: string | null
+          transaction_id?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          account_payable_id?: string | null
+          attachment_type?: string
+          bank_transaction_id?: string | null
+          duplicate_of_id?: string | null
+          entity_id?: string | null
+          extracted_data?: Json | null
+          file_hash?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          ocr_text?: string | null
+          organization_id?: string
+          purchase_invoice_id?: string | null
+          transaction_id?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_attachments_account_payable_id_fkey"
+            columns: ["account_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_attachments_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_attachments_duplicate_of_id_fkey"
+            columns: ["duplicate_of_id"]
+            isOneToOne: false
+            referencedRelation: "financial_attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_attachments_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_attachments_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_attachments_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "financial_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_audit_logs: {
+        Row: {
+          action: string
+          after_data: Json | null
+          before_data: Json | null
+          changed_fields: string[] | null
+          created_at: string
+          entity_id: string | null
+          id: string
+          ip_address: string | null
+          organization_id: string
+          reason: string | null
+          record_id: string
+          table_name: string
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          after_data?: Json | null
+          before_data?: Json | null
+          changed_fields?: string[] | null
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          organization_id: string
+          reason?: string | null
+          record_id: string
+          table_name: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          after_data?: Json | null
+          before_data?: Json | null
+          changed_fields?: string[] | null
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          ip_address?: string | null
+          organization_id?: string
+          reason?: string | null
+          record_id?: string
+          table_name?: string
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       financial_categories: {
         Row: {
+          affects_cashflow: boolean
+          affects_dre: boolean
+          code: string | null
           created_at: string
           dre_group: string | null
           id: string
           is_active: boolean | null
+          is_deductible: boolean
+          is_fixed: boolean
+          is_personal: boolean
           is_system: boolean | null
           name: string
           organization_id: string
@@ -5130,10 +5499,16 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          affects_cashflow?: boolean
+          affects_dre?: boolean
+          code?: string | null
           created_at?: string
           dre_group?: string | null
           id?: string
           is_active?: boolean | null
+          is_deductible?: boolean
+          is_fixed?: boolean
+          is_personal?: boolean
           is_system?: boolean | null
           name: string
           organization_id: string
@@ -5143,10 +5518,16 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          affects_cashflow?: boolean
+          affects_dre?: boolean
+          code?: string | null
           created_at?: string
           dre_group?: string | null
           id?: string
           is_active?: boolean | null
+          is_deductible?: boolean
+          is_fixed?: boolean
+          is_personal?: boolean
           is_system?: boolean | null
           name?: string
           organization_id?: string
@@ -5168,6 +5549,471 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "financial_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_entities: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          document: string | null
+          entity_type: Database["public"]["Enums"]["financial_entity_type"]
+          fiscal_company_id: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          organization_id: string
+          responsible_name: string | null
+          responsible_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          document?: string | null
+          entity_type?: Database["public"]["Enums"]["financial_entity_type"]
+          fiscal_company_id?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          organization_id: string
+          responsible_name?: string | null
+          responsible_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          document?: string | null
+          entity_type?: Database["public"]["Enums"]["financial_entity_type"]
+          fiscal_company_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          responsible_name?: string | null
+          responsible_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_entities_fiscal_company_id_fkey"
+            columns: ["fiscal_company_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_organization_settings: {
+        Row: {
+          alert_days_before_due: number
+          allow_aux_role_create: boolean
+          allow_financial_role_pay: boolean
+          created_at: string
+          default_currency: string
+          organization_id: string
+          reporting_regime: string
+          require_approval_above_cents: number
+          require_approval_for_bank_change: boolean
+          require_approval_for_new_supplier: boolean
+          require_category: boolean
+          require_cost_center: boolean
+          require_proof_above_cents: number
+          updated_at: string
+        }
+        Insert: {
+          alert_days_before_due?: number
+          allow_aux_role_create?: boolean
+          allow_financial_role_pay?: boolean
+          created_at?: string
+          default_currency?: string
+          organization_id: string
+          reporting_regime?: string
+          require_approval_above_cents?: number
+          require_approval_for_bank_change?: boolean
+          require_approval_for_new_supplier?: boolean
+          require_category?: boolean
+          require_cost_center?: boolean
+          require_proof_above_cents?: number
+          updated_at?: string
+        }
+        Update: {
+          alert_days_before_due?: number
+          allow_aux_role_create?: boolean
+          allow_financial_role_pay?: boolean
+          created_at?: string
+          default_currency?: string
+          organization_id?: string
+          reporting_regime?: string
+          require_approval_above_cents?: number
+          require_approval_for_bank_change?: boolean
+          require_approval_for_new_supplier?: boolean
+          require_category?: boolean
+          require_cost_center?: boolean
+          require_proof_above_cents?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      financial_recurrences: {
+        Row: {
+          amount_cents: number
+          bank_account_id: string | null
+          category_id: string | null
+          cost_center_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          direction: Database["public"]["Enums"]["financial_transaction_direction"]
+          due_day: number | null
+          end_date: string | null
+          entity_id: string | null
+          generate_days_before: number
+          generated_count: number
+          id: string
+          is_active: boolean
+          is_variable_amount: boolean
+          last_generated_at: string | null
+          next_due_date: string | null
+          notes: string | null
+          organization_id: string
+          periodicity: string
+          requires_approval: boolean
+          start_date: string
+          supplier_id: string | null
+          total_occurrences: number | null
+          type: Database["public"]["Enums"]["financial_transaction_type"]
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          bank_account_id?: string | null
+          category_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          direction: Database["public"]["Enums"]["financial_transaction_direction"]
+          due_day?: number | null
+          end_date?: string | null
+          entity_id?: string | null
+          generate_days_before?: number
+          generated_count?: number
+          id?: string
+          is_active?: boolean
+          is_variable_amount?: boolean
+          last_generated_at?: string | null
+          next_due_date?: string | null
+          notes?: string | null
+          organization_id: string
+          periodicity: string
+          requires_approval?: boolean
+          start_date: string
+          supplier_id?: string | null
+          total_occurrences?: number | null
+          type: Database["public"]["Enums"]["financial_transaction_type"]
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          bank_account_id?: string | null
+          category_id?: string | null
+          cost_center_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          direction?: Database["public"]["Enums"]["financial_transaction_direction"]
+          due_day?: number | null
+          end_date?: string | null
+          entity_id?: string | null
+          generate_days_before?: number
+          generated_count?: number
+          id?: string
+          is_active?: boolean
+          is_variable_amount?: boolean
+          last_generated_at?: string | null
+          next_due_date?: string | null
+          notes?: string | null
+          organization_id?: string
+          periodicity?: string
+          requires_approval?: boolean
+          start_date?: string
+          supplier_id?: string | null
+          total_occurrences?: number | null
+          type?: Database["public"]["Enums"]["financial_transaction_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_recurrences_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_recurrences_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "financial_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_recurrences_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_recurrences_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_recurrences_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_transactions: {
+        Row: {
+          account_payable_id: string | null
+          actual_amount_cents: number | null
+          approved_at: string | null
+          approved_by: string | null
+          bank_account_id: string | null
+          bank_transaction_id: string | null
+          boleto_barcode: string | null
+          canceled_at: string | null
+          cancellation_reason: string | null
+          category_id: string | null
+          competence_date: string | null
+          cost_center_id: string | null
+          counterparty_name: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          difference_amount_cents: number | null
+          difference_notes: string | null
+          difference_reason:
+            | Database["public"]["Enums"]["financial_difference_reason"]
+            | null
+          direction: Database["public"]["Enums"]["financial_transaction_direction"]
+          document_number: string | null
+          due_date: string | null
+          entity_id: string | null
+          expected_amount_cents: number
+          expected_payment_date: string | null
+          external_reference: string | null
+          id: string
+          invoice_number: string | null
+          notes: string | null
+          organization_id: string
+          paid_at: string | null
+          payment_method_id: string | null
+          payment_method_snapshot: Json | null
+          pix_key: string | null
+          purchase_invoice_id: string | null
+          reconciled_at: string | null
+          reconciled_by: string | null
+          requires_review: boolean
+          risk_level: Database["public"]["Enums"]["financial_risk_level"]
+          risk_reasons: Json | null
+          risk_score: number
+          sale_id: string | null
+          source: Database["public"]["Enums"]["financial_source"]
+          source_metadata: Json | null
+          status: Database["public"]["Enums"]["financial_transaction_status"]
+          supplier_id: string | null
+          tags: string[] | null
+          type: Database["public"]["Enums"]["financial_transaction_type"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_payable_id?: string | null
+          actual_amount_cents?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
+          boleto_barcode?: string | null
+          canceled_at?: string | null
+          cancellation_reason?: string | null
+          category_id?: string | null
+          competence_date?: string | null
+          cost_center_id?: string | null
+          counterparty_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          difference_amount_cents?: number | null
+          difference_notes?: string | null
+          difference_reason?:
+            | Database["public"]["Enums"]["financial_difference_reason"]
+            | null
+          direction: Database["public"]["Enums"]["financial_transaction_direction"]
+          document_number?: string | null
+          due_date?: string | null
+          entity_id?: string | null
+          expected_amount_cents?: number
+          expected_payment_date?: string | null
+          external_reference?: string | null
+          id?: string
+          invoice_number?: string | null
+          notes?: string | null
+          organization_id: string
+          paid_at?: string | null
+          payment_method_id?: string | null
+          payment_method_snapshot?: Json | null
+          pix_key?: string | null
+          purchase_invoice_id?: string | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          requires_review?: boolean
+          risk_level?: Database["public"]["Enums"]["financial_risk_level"]
+          risk_reasons?: Json | null
+          risk_score?: number
+          sale_id?: string | null
+          source?: Database["public"]["Enums"]["financial_source"]
+          source_metadata?: Json | null
+          status?: Database["public"]["Enums"]["financial_transaction_status"]
+          supplier_id?: string | null
+          tags?: string[] | null
+          type: Database["public"]["Enums"]["financial_transaction_type"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_payable_id?: string | null
+          actual_amount_cents?: number | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bank_account_id?: string | null
+          bank_transaction_id?: string | null
+          boleto_barcode?: string | null
+          canceled_at?: string | null
+          cancellation_reason?: string | null
+          category_id?: string | null
+          competence_date?: string | null
+          cost_center_id?: string | null
+          counterparty_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          difference_amount_cents?: number | null
+          difference_notes?: string | null
+          difference_reason?:
+            | Database["public"]["Enums"]["financial_difference_reason"]
+            | null
+          direction?: Database["public"]["Enums"]["financial_transaction_direction"]
+          document_number?: string | null
+          due_date?: string | null
+          entity_id?: string | null
+          expected_amount_cents?: number
+          expected_payment_date?: string | null
+          external_reference?: string | null
+          id?: string
+          invoice_number?: string | null
+          notes?: string | null
+          organization_id?: string
+          paid_at?: string | null
+          payment_method_id?: string | null
+          payment_method_snapshot?: Json | null
+          pix_key?: string | null
+          purchase_invoice_id?: string | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          requires_review?: boolean
+          risk_level?: Database["public"]["Enums"]["financial_risk_level"]
+          risk_reasons?: Json | null
+          risk_score?: number
+          sale_id?: string | null
+          source?: Database["public"]["Enums"]["financial_source"]
+          source_metadata?: Json | null
+          status?: Database["public"]["Enums"]["financial_transaction_status"]
+          supplier_id?: string | null
+          tags?: string[] | null
+          type?: Database["public"]["Enums"]["financial_transaction_type"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_transactions_account_payable_id_fkey"
+            columns: ["account_payable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_bank_transaction_id_fkey"
+            columns: ["bank_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bank_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "financial_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_cost_center_id_fkey"
+            columns: ["cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_purchase_invoice_id_fkey"
+            columns: ["purchase_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -17813,6 +18659,7 @@ export type Database = {
           bank_account: string | null
           bank_account_type: string | null
           bank_agency: string | null
+          bank_data_history: Json | null
           bank_name: string | null
           cep: string | null
           city: string | null
@@ -17822,11 +18669,16 @@ export type Database = {
           cost_center_id: string | null
           cpf: string | null
           created_at: string
+          default_category_id: string | null
+          default_cost_center_id: string | null
+          default_payment_term_days: number | null
           email: string | null
+          entity_id: string | null
           id: string
           ie: string | null
           im: string | null
           is_active: boolean | null
+          is_blocked: boolean
           name: string
           neighborhood: string | null
           notes: string | null
@@ -17834,7 +18686,9 @@ export type Database = {
           organization_id: string
           phone: string | null
           pix_key: string | null
+          pix_key_history: Json | null
           pix_key_type: string | null
+          risk_level: Database["public"]["Enums"]["financial_risk_level"]
           state: string | null
           street: string | null
           trade_name: string | null
@@ -17844,6 +18698,7 @@ export type Database = {
           bank_account?: string | null
           bank_account_type?: string | null
           bank_agency?: string | null
+          bank_data_history?: Json | null
           bank_name?: string | null
           cep?: string | null
           city?: string | null
@@ -17853,11 +18708,16 @@ export type Database = {
           cost_center_id?: string | null
           cpf?: string | null
           created_at?: string
+          default_category_id?: string | null
+          default_cost_center_id?: string | null
+          default_payment_term_days?: number | null
           email?: string | null
+          entity_id?: string | null
           id?: string
           ie?: string | null
           im?: string | null
           is_active?: boolean | null
+          is_blocked?: boolean
           name: string
           neighborhood?: string | null
           notes?: string | null
@@ -17865,7 +18725,9 @@ export type Database = {
           organization_id: string
           phone?: string | null
           pix_key?: string | null
+          pix_key_history?: Json | null
           pix_key_type?: string | null
+          risk_level?: Database["public"]["Enums"]["financial_risk_level"]
           state?: string | null
           street?: string | null
           trade_name?: string | null
@@ -17875,6 +18737,7 @@ export type Database = {
           bank_account?: string | null
           bank_account_type?: string | null
           bank_agency?: string | null
+          bank_data_history?: Json | null
           bank_name?: string | null
           cep?: string | null
           city?: string | null
@@ -17884,11 +18747,16 @@ export type Database = {
           cost_center_id?: string | null
           cpf?: string | null
           created_at?: string
+          default_category_id?: string | null
+          default_cost_center_id?: string | null
+          default_payment_term_days?: number | null
           email?: string | null
+          entity_id?: string | null
           id?: string
           ie?: string | null
           im?: string | null
           is_active?: boolean | null
+          is_blocked?: boolean
           name?: string
           neighborhood?: string | null
           notes?: string | null
@@ -17896,7 +18764,9 @@ export type Database = {
           organization_id?: string
           phone?: string | null
           pix_key?: string | null
+          pix_key_history?: Json | null
           pix_key_type?: string | null
+          risk_level?: Database["public"]["Enums"]["financial_risk_level"]
           state?: string | null
           street?: string | null
           trade_name?: string | null
@@ -17908,6 +18778,27 @@ export type Database = {
             columns: ["cost_center_id"]
             isOneToOne: false
             referencedRelation: "payment_cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_default_category_id_fkey"
+            columns: ["default_category_id"]
+            isOneToOne: false
+            referencedRelation: "financial_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_default_cost_center_id_fkey"
+            columns: ["default_cost_center_id"]
+            isOneToOne: false
+            referencedRelation: "cost_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entities"
             referencedColumns: ["id"]
           },
           {
@@ -23641,6 +24532,10 @@ export type Database = {
         Returns: undefined
       }
       has_admin_role: { Args: { user_id: string }; Returns: boolean }
+      has_financial_admin: {
+        Args: { _org_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_onboarding_completed: { Args: never; Returns: boolean }
       has_role: {
         Args: {
@@ -23929,6 +24824,55 @@ export type Database = {
         | "delivered_wrong_time"
         | "delivered_other"
       delivery_type: "pickup" | "motoboy" | "carrier"
+      financial_difference_reason:
+        | "desconto"
+        | "juros"
+        | "multa"
+        | "correcao"
+        | "pagamento_parcial"
+        | "erro"
+        | "ajuste_manual"
+      financial_entity_type:
+        | "cnpj"
+        | "cpf"
+        | "projeto"
+        | "imovel"
+        | "familia"
+        | "carteira"
+        | "centro_operacional"
+        | "outro"
+      financial_risk_level: "baixo" | "medio" | "alto" | "critico"
+      financial_source:
+        | "manual"
+        | "planilha_importada"
+        | "venda"
+        | "nota_fiscal"
+        | "boleto"
+        | "extrato_bancario"
+        | "gateway"
+        | "webhook"
+        | "ia"
+        | "recorrencia"
+      financial_transaction_direction: "inflow" | "outflow"
+      financial_transaction_status:
+        | "previsto"
+        | "pendente_aprovacao"
+        | "aprovado"
+        | "realizado"
+        | "conciliado"
+        | "cancelado"
+        | "estornado"
+        | "vencido"
+        | "pago_parcial"
+      financial_transaction_type:
+        | "receita"
+        | "despesa"
+        | "transferencia_entrada"
+        | "transferencia_saida"
+        | "taxa"
+        | "imposto"
+        | "estorno"
+        | "ajuste"
       funnel_stage:
         | "prospect"
         | "contacted"
@@ -24231,6 +25175,60 @@ export const Constants = {
         "delivered_other",
       ],
       delivery_type: ["pickup", "motoboy", "carrier"],
+      financial_difference_reason: [
+        "desconto",
+        "juros",
+        "multa",
+        "correcao",
+        "pagamento_parcial",
+        "erro",
+        "ajuste_manual",
+      ],
+      financial_entity_type: [
+        "cnpj",
+        "cpf",
+        "projeto",
+        "imovel",
+        "familia",
+        "carteira",
+        "centro_operacional",
+        "outro",
+      ],
+      financial_risk_level: ["baixo", "medio", "alto", "critico"],
+      financial_source: [
+        "manual",
+        "planilha_importada",
+        "venda",
+        "nota_fiscal",
+        "boleto",
+        "extrato_bancario",
+        "gateway",
+        "webhook",
+        "ia",
+        "recorrencia",
+      ],
+      financial_transaction_direction: ["inflow", "outflow"],
+      financial_transaction_status: [
+        "previsto",
+        "pendente_aprovacao",
+        "aprovado",
+        "realizado",
+        "conciliado",
+        "cancelado",
+        "estornado",
+        "vencido",
+        "pago_parcial",
+      ],
+      financial_transaction_type: [
+        "receita",
+        "despesa",
+        "transferencia_entrada",
+        "transferencia_saida",
+        "taxa",
+        "imposto",
+        "estorno",
+        "ajuste",
+      ],
       funnel_stage: [
         "prospect",
         "contacted",
