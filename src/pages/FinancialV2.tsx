@@ -101,15 +101,21 @@ function FinancialV2Content() {
           </p>
         </div>
         <Tabs defaultValue="transactions" className="space-y-4">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="transactions"><ListTree className="w-4 h-4 mr-2" />Lançamentos</TabsTrigger>
             <TabsTrigger value="entities"><Building2 className="w-4 h-4 mr-2" />Entidades</TabsTrigger>
             <TabsTrigger value="banks"><Landmark className="w-4 h-4 mr-2" />Bancos</TabsTrigger>
+            <TabsTrigger value="suppliers"><Tags className="w-4 h-4 mr-2" />Fornecedores</TabsTrigger>
+            <TabsTrigger value="categories"><ListTree className="w-4 h-4 mr-2" />Categorias</TabsTrigger>
+            <TabsTrigger value="cost-centers"><Layers className="w-4 h-4 mr-2" />Centros</TabsTrigger>
             <TabsTrigger value="audit"><ScrollText className="w-4 h-4 mr-2" />Auditoria</TabsTrigger>
           </TabsList>
           <TabsContent value="transactions"><TransactionsTab /></TabsContent>
           <TabsContent value="entities"><EntitiesTab /></TabsContent>
           <TabsContent value="banks"><BanksTab /></TabsContent>
+          <TabsContent value="suppliers"><SuppliersTab /></TabsContent>
+          <TabsContent value="categories"><CategoriesTab /></TabsContent>
+          <TabsContent value="cost-centers"><CostCentersTab /></TabsContent>
           <TabsContent value="audit"><AuditTab /></TabsContent>
         </Tabs>
       </div>
