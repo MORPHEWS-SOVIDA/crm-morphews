@@ -2954,6 +2954,7 @@ export type Database = {
           organization_id: string
           parent_id: string | null
           position: number
+          responsible_user_id: string | null
           scope: string
           updated_at: string
           updated_by: string | null
@@ -2972,6 +2973,7 @@ export type Database = {
           organization_id: string
           parent_id?: string | null
           position?: number
+          responsible_user_id?: string | null
           scope?: string
           updated_at?: string
           updated_by?: string | null
@@ -2990,6 +2992,7 @@ export type Database = {
           organization_id?: string
           parent_id?: string | null
           position?: number
+          responsible_user_id?: string | null
           scope?: string
           updated_at?: string
           updated_by?: string | null
@@ -5612,15 +5615,19 @@ export type Database = {
           created_at: string
           created_by: string | null
           document: string | null
+          email: string | null
           entity_type: Database["public"]["Enums"]["financial_entity_type"]
           fiscal_company_id: string | null
           id: string
           is_active: boolean
+          legal_name: string | null
           name: string
           notes: string | null
           organization_id: string
+          phone: string | null
           responsible_name: string | null
           responsible_user_id: string | null
+          trade_name: string | null
           updated_at: string
         }
         Insert: {
@@ -5628,15 +5635,19 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           document?: string | null
+          email?: string | null
           entity_type?: Database["public"]["Enums"]["financial_entity_type"]
           fiscal_company_id?: string | null
           id?: string
           is_active?: boolean
+          legal_name?: string | null
           name: string
           notes?: string | null
           organization_id: string
+          phone?: string | null
           responsible_name?: string | null
           responsible_user_id?: string | null
+          trade_name?: string | null
           updated_at?: string
         }
         Update: {
@@ -5644,15 +5655,19 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           document?: string | null
+          email?: string | null
           entity_type?: Database["public"]["Enums"]["financial_entity_type"]
           fiscal_company_id?: string | null
           id?: string
           is_active?: boolean
+          legal_name?: string | null
           name?: string
           notes?: string | null
           organization_id?: string
+          phone?: string | null
           responsible_name?: string | null
           responsible_user_id?: string | null
+          trade_name?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -18785,6 +18800,7 @@ export type Database = {
           notes: string | null
           number: string | null
           organization_id: string
+          person_type: string | null
           phone: string | null
           pix_key: string | null
           pix_key_history: Json | null
@@ -18828,6 +18844,7 @@ export type Database = {
           notes?: string | null
           number?: string | null
           organization_id: string
+          person_type?: string | null
           phone?: string | null
           pix_key?: string | null
           pix_key_history?: Json | null
@@ -18871,6 +18888,7 @@ export type Database = {
           notes?: string | null
           number?: string | null
           organization_id?: string
+          person_type?: string | null
           phone?: string | null
           pix_key?: string | null
           pix_key_history?: Json | null
