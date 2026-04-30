@@ -82,23 +82,32 @@ export default function FinancialV2() {
     );
   }
 
+  return <FinancialV2Content />;
+}
+
+function FinancialV2Content() {
+  const { data: settings } = useFinancialOrgSettings();
+  const displayName = (settings as any)?.financial_display_name ?? 'MORPHEWS';
+
   return (
     <Layout>
       <div className="container mx-auto py-6 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Razão Financeiro</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Razão Financeiro · {displayName}</h1>
           <p className="text-muted-foreground">
-            Fundação multi-entidade — MORPHEWS, SOVIDA, TRI VIVA, CPFs, projetos, imóveis e família.
+            Fundação multi-entidade — CNPJs, CPFs, projetos, imóveis e família.
           </p>
         </div>
         <Tabs defaultValue="transactions" className="space-y-4">
           <TabsList>
             <TabsTrigger value="transactions"><ListTree className="w-4 h-4 mr-2" />Lançamentos</TabsTrigger>
             <TabsTrigger value="entities"><Building2 className="w-4 h-4 mr-2" />Entidades</TabsTrigger>
+            <TabsTrigger value="banks"><Landmark className="w-4 h-4 mr-2" />Bancos</TabsTrigger>
             <TabsTrigger value="audit"><ScrollText className="w-4 h-4 mr-2" />Auditoria</TabsTrigger>
           </TabsList>
           <TabsContent value="transactions"><TransactionsTab /></TabsContent>
           <TabsContent value="entities"><EntitiesTab /></TabsContent>
+          <TabsContent value="banks"><BanksTab /></TabsContent>
           <TabsContent value="audit"><AuditTab /></TabsContent>
         </Tabs>
       </div>
