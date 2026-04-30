@@ -202,11 +202,14 @@ function TransactionsTab() {
   const createTx = useCreateFinancialTransaction();
   const registerPayment = useRegisterPayment();
   const cancelTx = useCancelTransaction();
+  const { data: bankAccounts } = useFinancialBankAccounts();
 
   const [open, setOpen] = useState(false);
   const [paying, setPaying] = useState<FinancialTransaction | null>(null);
   const [actualReais, setActualReais] = useState('');
   const [diffReason, setDiffReason] = useState<string>('');
+  const [bankAccountId, setBankAccountId] = useState<string>('');
+  const [paidAt, setPaidAt] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   const [form, setForm] = useState({
     entity_id: '', category_id: '', cost_center_id: '',
