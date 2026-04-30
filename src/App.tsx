@@ -142,6 +142,7 @@ const ScheduledMessages = lazy(() => import("./pages/ScheduledMessages"));
 
 // Financial
 const Financial = lazy(() => import("./pages/Financial"));
+const FinancialV2 = lazy(() => import("./pages/FinancialV2"));
 
 // Receptive
 const AddReceptivo = lazy(() => import("./pages/AddReceptivo"));
@@ -1166,6 +1167,16 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['reports_view']}>
                       <Financial />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Razão Financeiro V2 — Mini-Fase 1B (gate por has_financial_access no banco) */}
+                <Route
+                  path="/financeiro-v2"
+                  element={
+                    <ProtectedRoute>
+                      <FinancialV2 />
                     </ProtectedRoute>
                   }
                 />
