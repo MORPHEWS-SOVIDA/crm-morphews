@@ -15,7 +15,6 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   useFinancialAccess,
   useFinancialEntities,
-  useCreateFinancialEntity,
   useFinancialCategoriesV2,
   useCostCentersV2,
   useFinancialTransactions,
@@ -24,13 +23,16 @@ import {
   useCancelTransaction,
   useFinancialAuditLogs,
   useFinancialBankAccounts,
-  useCreateFinancialBankAccount,
   useFinancialOrgSettings,
-  type FinancialEntityType,
   type FinancialDirection,
   type FinancialTxStatus,
   type FinancialTransaction,
 } from '@/hooks/useFinancialV2';
+import { EntitiesTab } from '@/components/financial-v2/EntitiesTab';
+import { BanksTab } from '@/components/financial-v2/BanksTab';
+import { SuppliersTab } from '@/components/financial-v2/SuppliersTab';
+import { CategoriesTab } from '@/components/financial-v2/CategoriesTab';
+import { CostCentersTab } from '@/components/financial-v2/CostCentersTab';
 
 const STATUS_VARIANTS: Record<FinancialTxStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   previsto: 'outline',
