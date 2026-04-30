@@ -4,9 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 /**
- * Hooks da Mini-Fase 1B do Razão Financeiro (módulo restrito ao Thiago).
- * Tudo passa pelo gate has_financial_access via RLS — não precisamos
- * filtrar manualmente: o banco devolve só o que for permitido.
+ * Hooks do Razão Financeiro (módulo restrito ao Thiago / org SOVIDA → MORPHEWS).
+ * Tudo passa pelo gate has_financial_access via RLS.
  */
 
 export type FinancialEntityType =
@@ -29,6 +28,11 @@ export interface FinancialEntity {
   name: string;
   entity_type: FinancialEntityType;
   document: string | null;
+  legal_name: string | null;
+  trade_name: string | null;
+  responsible_name: string | null;
+  phone: string | null;
+  email: string | null;
   color: string | null;
   is_active: boolean;
   notes: string | null;
@@ -38,14 +42,29 @@ export interface FinancialEntity {
 export interface FinancialCategory {
   id: string;
   name: string;
-  type: 'income' | 'expense';
+  type: 'income' | 'expense' | string;
   dre_group: string | null;
+  code: string | null;
+  parent_id: string | null;
+  is_fixed: boolean | null;
+  affects_dre: boolean | null;
+  affects_cashflow: boolean | null;
+  is_active: boolean;
+  position: number | null;
+  scope: string | null;
 }
 
 export interface CostCenter {
   id: string;
   name: string;
   code: string | null;
+  description: string | null;
+  color: string | null;
+  entity_id: string | null;
+  responsible_user_id: string | null;
+  is_active: boolean;
+  position: number | null;
+  scope: string | null;
 }
 
 export interface FinancialTransaction {
@@ -73,7 +92,7 @@ export interface FinancialTransaction {
   updated_at: string;
 }
 
-const ORG = '650b1667-e345-498e-9d41-b963faf824a7';
+export const ORG = '650b1667-e345-498e-9d41-b963faf824a7';
 
 // ----------------- ACCESS GATE -----------------
 export function useFinancialAccess() {
@@ -93,7 +112,23 @@ export function useFinancialAccess() {
   });
 }
 
-// ----------------- ENTITIES -----------------
+// ============================================================
+// ENTIDADES FINANCEIRAS
+// ============================================================
+export interface EntityInput {
+  name: string;
+  entity_type: FinancialEntityType;
+  document?: string | null;
+  legal_name?: string | null;
+  trade_name?: string | null;
+  responsible_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  color?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+}
+
 export function useFinancialEntities() {
   return useQuery({
     queryKey: ['financial-entities-v2'],
@@ -103,7 +138,7 @@ export function useFinancialEntities() {
         .select('*')
         .order('name');
       if (error) throw error;
-      return (data ?? []) as FinancialEntity[];
+      return (data ?? []) as unknown as FinancialEntity[];
     },
   });
 }
@@ -111,10 +146,10 @@ export function useFinancialEntities() {
 export function useCreateFinancialEntity() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { name: string; entity_type: FinancialEntityType; document?: string; color?: string; notes?: string }) => {
+    mutationFn: async (input: EntityInput) => {
       const { data, error } = await supabase
         .from('financial_entities')
-        .insert({ organization_id: ORG, is_active: true, ...input })
+        .insert({ organization_id: ORG, is_active: true, ...input } as any)
         .select()
         .single();
       if (error) throw error;
@@ -128,44 +163,355 @@ export function useCreateFinancialEntity() {
   });
 }
 
-// ----------------- CATEGORIES & COST CENTERS -----------------
-export function useFinancialCategoriesV2() {
+export function useUpdateFinancialEntity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string } & Partial<EntityInput>) => {
+      const { data, error } = await supabase
+        .from('financial_entities')
+        .update(patch as any)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-entities-v2'] });
+      toast.success('Entidade atualizada');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useToggleFinancialEntity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase
+        .from('financial_entities')
+        .update({ is_active })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-entities-v2'] });
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+// ============================================================
+// CATEGORIAS FINANCEIRAS
+// ============================================================
+export interface CategoryInput {
+  name: string;
+  type: string;
+  dre_group?: string | null;
+  code?: string | null;
+  parent_id?: string | null;
+  is_fixed?: boolean;
+  affects_dre?: boolean;
+  affects_cashflow?: boolean;
+  position?: number;
+  is_active?: boolean;
+}
+
+export function useFinancialCategoriesV2(activeOnly = false) {
   return useQuery({
-    queryKey: ['financial-categories-v2'],
+    queryKey: ['financial-categories-v2', activeOnly],
     queryFn: async () => {
+      let q = supabase
+        .from('financial_categories')
+        .select('id, name, type, dre_group, code, parent_id, is_fixed, affects_dre, affects_cashflow, is_active, position, scope')
+        .order('position');
+      if (activeOnly) q = q.eq('is_active', true);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as FinancialCategory[];
+    },
+  });
+}
+
+export function useCreateFinancialCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CategoryInput) => {
       const { data, error } = await supabase
         .from('financial_categories')
-        .select('id, name, type, dre_group')
-        .eq('is_active', true)
-        .order('position');
+        .insert({
+          organization_id: ORG,
+          is_active: true,
+          scope: 'financial',
+          is_financial_enabled: true,
+          ...input,
+        } as any)
+        .select()
+        .single();
       if (error) throw error;
-      return (data ?? []) as FinancialCategory[];
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-categories-v2'] });
+      toast.success('Categoria criada');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useUpdateFinancialCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string } & Partial<CategoryInput>) => {
+      const { error } = await supabase
+        .from('financial_categories')
+        .update(patch as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-categories-v2'] });
+      toast.success('Categoria atualizada');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useToggleFinancialCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase
+        .from('financial_categories')
+        .update({ is_active })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['financial-categories-v2'] }),
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+// ============================================================
+// CENTROS DE CUSTO
+// ============================================================
+export interface CostCenterInput {
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  color?: string | null;
+  entity_id?: string | null;
+  responsible_user_id?: string | null;
+  position?: number;
+  is_active?: boolean;
+}
+
+export function useCostCentersV2(activeOnly = false) {
+  return useQuery({
+    queryKey: ['cost-centers-v2', activeOnly],
+    queryFn: async () => {
+      let q = supabase
+        .from('cost_centers')
+        .select('id, name, code, description, color, entity_id, responsible_user_id, is_active, position, scope')
+        .order('position');
+      if (activeOnly) q = q.eq('is_active', true);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as CostCenter[];
     },
   });
 }
 
-export function useCostCentersV2() {
-  return useQuery({
-    queryKey: ['cost-centers-v2'],
-    queryFn: async () => {
+export function useCreateCostCenter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CostCenterInput) => {
       const { data, error } = await supabase
         .from('cost_centers')
-        .select('id, name, code')
-        .eq('is_active', true)
-        .order('position');
+        .insert({
+          organization_id: ORG,
+          is_active: true,
+          scope: 'financial',
+          is_financial_enabled: true,
+          ...input,
+        } as any)
+        .select()
+        .single();
       if (error) throw error;
-      return (data ?? []) as CostCenter[];
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cost-centers-v2'] });
+      toast.success('Centro de custo criado');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useUpdateCostCenter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string } & Partial<CostCenterInput>) => {
+      const { error } = await supabase
+        .from('cost_centers')
+        .update(patch as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cost-centers-v2'] });
+      toast.success('Centro de custo atualizado');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useToggleCostCenter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase
+        .from('cost_centers')
+        .update({ is_active })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cost-centers-v2'] }),
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+// ============================================================
+// FORNECEDORES (escopo financial)
+// ============================================================
+export interface FinancialSupplier {
+  id: string;
+  name: string;
+  trade_name: string | null;
+  person_type: 'PF' | 'PJ' | null;
+  cnpj: string | null;
+  cpf: string | null;
+  email: string | null;
+  phone: string | null;
+  pix_key: string | null;
+  pix_key_type: string | null;
+  bank_name: string | null;
+  bank_agency: string | null;
+  bank_account: string | null;
+  bank_account_type: string | null;
+  default_category_id: string | null;
+  default_cost_center_id: string | null;
+  entity_id: string | null;
+  notes: string | null;
+  is_active: boolean;
+}
+
+export interface SupplierInput {
+  name: string;
+  trade_name?: string | null;
+  person_type?: 'PF' | 'PJ' | null;
+  cnpj?: string | null;
+  cpf?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  pix_key?: string | null;
+  pix_key_type?: string | null;
+  bank_name?: string | null;
+  bank_agency?: string | null;
+  bank_account?: string | null;
+  bank_account_type?: string | null;
+  default_category_id?: string | null;
+  default_cost_center_id?: string | null;
+  entity_id?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+}
+
+export function useFinancialSuppliers(activeOnly = false) {
+  return useQuery({
+    queryKey: ['financial-suppliers-v2', activeOnly],
+    queryFn: async () => {
+      let q = supabase
+        .from('suppliers')
+        .select('id, name, trade_name, person_type, cnpj, cpf, email, phone, pix_key, pix_key_type, bank_name, bank_agency, bank_account, bank_account_type, default_category_id, default_cost_center_id, entity_id, notes, is_active')
+        .eq('organization_id', ORG)
+        .order('name');
+      if (activeOnly) q = q.eq('is_active', true);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as unknown as FinancialSupplier[];
     },
   });
 }
 
-// ----------------- TRANSACTIONS -----------------
+export function useCreateFinancialSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: SupplierInput) => {
+      const { data, error } = await supabase
+        .from('suppliers')
+        .insert({
+          organization_id: ORG,
+          is_active: true,
+          scope: 'financial',
+          is_financial_enabled: true,
+          ...input,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-suppliers-v2'] });
+      toast.success('Fornecedor criado');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useUpdateFinancialSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string } & Partial<SupplierInput>) => {
+      const { error } = await supabase
+        .from('suppliers')
+        .update(patch as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-suppliers-v2'] });
+      toast.success('Fornecedor atualizado');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useToggleFinancialSupplier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase
+        .from('suppliers')
+        .update({ is_active })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['financial-suppliers-v2'] }),
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+// ============================================================
+// TRANSACTIONS (sem mudanças vs 1A.1)
+// ============================================================
 export interface TransactionFilters {
   status?: FinancialTxStatus[];
   entity_id?: string;
   direction?: FinancialDirection;
-  from?: string; // due_date >=
-  to?: string;   // due_date <=
+  from?: string;
+  to?: string;
 }
 
 export function useFinancialTransactions(filters: TransactionFilters = {}) {
@@ -210,7 +556,7 @@ export function useCreateFinancialTransaction() {
           status: 'previsto',
           source: 'manual',
           ...input,
-        })
+        } as any)
         .select()
         .single();
       if (error) throw error;
@@ -308,19 +654,39 @@ export interface FinancialBankAccount {
   scope: string;
   color: string | null;
   current_balance_cents: number | null;
+  initial_balance_cents: number | null;
+  balance_date: string | null;
+  notes: string | null;
 }
 
-export function useFinancialBankAccounts() {
+export interface BankAccountInput {
+  name: string;
+  entity_id?: string | null;
+  bank_name?: string | null;
+  bank_code?: string | null;
+  agency?: string | null;
+  account_number?: string | null;
+  account_type?: string;
+  initial_balance_cents?: number;
+  balance_date?: string | null;
+  color?: string | null;
+  notes?: string | null;
+  is_default?: boolean;
+  is_active?: boolean;
+}
+
+export function useFinancialBankAccounts(includeInactive = false) {
   return useQuery({
-    queryKey: ['financial-bank-accounts-v2'],
+    queryKey: ['financial-bank-accounts-v2', includeInactive],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('bank_accounts')
         .select('*')
         .eq('organization_id', ORG)
-        .eq('is_active', true)
         .eq('is_financial_enabled', true)
-        .in('scope', ['financial', 'general'])
+        .in('scope', ['financial', 'general']);
+      if (!includeInactive) q = q.eq('is_active', true);
+      const { data, error } = await q
         .order('is_default', { ascending: false })
         .order('name');
       if (error) throw error;
@@ -332,17 +698,7 @@ export function useFinancialBankAccounts() {
 export function useCreateFinancialBankAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: {
-      name: string;
-      entity_id?: string | null;
-      bank_name?: string;
-      bank_code?: string;
-      agency?: string;
-      account_number?: string;
-      account_type?: string;
-      initial_balance_cents?: number;
-      color?: string;
-    }) => {
+    mutationFn: async (input: BankAccountInput) => {
       const { data, error } = await supabase
         .from('bank_accounts')
         .insert({
@@ -356,7 +712,10 @@ export function useCreateFinancialBankAccount() {
           account_type: input.account_type ?? 'corrente',
           initial_balance_cents: input.initial_balance_cents ?? 0,
           current_balance_cents: input.initial_balance_cents ?? 0,
+          balance_date: input.balance_date ?? null,
           color: input.color ?? null,
+          notes: input.notes ?? null,
+          is_default: input.is_default ?? false,
           is_active: true,
           scope: 'financial',
           is_financial_enabled: true,
@@ -369,6 +728,64 @@ export function useCreateFinancialBankAccount() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['financial-bank-accounts-v2'] });
       toast.success('Conta bancária criada');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useUpdateFinancialBankAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: { id: string } & Partial<BankAccountInput>) => {
+      const { error } = await supabase
+        .from('bank_accounts')
+        .update(patch as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-bank-accounts-v2'] });
+      toast.success('Conta atualizada');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useToggleFinancialBankAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase
+        .from('bank_accounts')
+        .update({ is_active })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['financial-bank-accounts-v2'] }),
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+export function useSetDefaultBankAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // unset all then set selected
+      const { error: e1 } = await supabase
+        .from('bank_accounts')
+        .update({ is_default: false } as any)
+        .eq('organization_id', ORG)
+        .eq('is_default', true);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase
+        .from('bank_accounts')
+        .update({ is_default: true } as any)
+        .eq('id', id);
+      if (e2) throw e2;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-bank-accounts-v2'] });
+      toast.success('Conta padrão atualizada');
     },
     onError: (e: Error) => toast.error('Erro: ' + e.message),
   });

@@ -10,12 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, CheckCircle2, XCircle, Building2, ListTree, ScrollText, Lock, Landmark } from 'lucide-react';
+import { Loader2, Plus, CheckCircle2, XCircle, Building2, ListTree, ScrollText, Lock, Landmark, Tags, Layers } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useFinancialAccess,
   useFinancialEntities,
-  useCreateFinancialEntity,
   useFinancialCategoriesV2,
   useCostCentersV2,
   useFinancialTransactions,
@@ -24,13 +23,16 @@ import {
   useCancelTransaction,
   useFinancialAuditLogs,
   useFinancialBankAccounts,
-  useCreateFinancialBankAccount,
   useFinancialOrgSettings,
-  type FinancialEntityType,
   type FinancialDirection,
   type FinancialTxStatus,
   type FinancialTransaction,
 } from '@/hooks/useFinancialV2';
+import { EntitiesTab } from '@/components/financial-v2/EntitiesTab';
+import { BanksTab } from '@/components/financial-v2/BanksTab';
+import { SuppliersTab } from '@/components/financial-v2/SuppliersTab';
+import { CategoriesTab } from '@/components/financial-v2/CategoriesTab';
+import { CostCentersTab } from '@/components/financial-v2/CostCentersTab';
 
 const STATUS_VARIANTS: Record<FinancialTxStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   previsto: 'outline',
@@ -99,97 +101,25 @@ function FinancialV2Content() {
           </p>
         </div>
         <Tabs defaultValue="transactions" className="space-y-4">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="transactions"><ListTree className="w-4 h-4 mr-2" />Lançamentos</TabsTrigger>
             <TabsTrigger value="entities"><Building2 className="w-4 h-4 mr-2" />Entidades</TabsTrigger>
             <TabsTrigger value="banks"><Landmark className="w-4 h-4 mr-2" />Bancos</TabsTrigger>
+            <TabsTrigger value="suppliers"><Tags className="w-4 h-4 mr-2" />Fornecedores</TabsTrigger>
+            <TabsTrigger value="categories"><ListTree className="w-4 h-4 mr-2" />Categorias</TabsTrigger>
+            <TabsTrigger value="cost-centers"><Layers className="w-4 h-4 mr-2" />Centros</TabsTrigger>
             <TabsTrigger value="audit"><ScrollText className="w-4 h-4 mr-2" />Auditoria</TabsTrigger>
           </TabsList>
           <TabsContent value="transactions"><TransactionsTab /></TabsContent>
           <TabsContent value="entities"><EntitiesTab /></TabsContent>
           <TabsContent value="banks"><BanksTab /></TabsContent>
+          <TabsContent value="suppliers"><SuppliersTab /></TabsContent>
+          <TabsContent value="categories"><CategoriesTab /></TabsContent>
+          <TabsContent value="cost-centers"><CostCentersTab /></TabsContent>
           <TabsContent value="audit"><AuditTab /></TabsContent>
         </Tabs>
       </div>
     </Layout>
-  );
-}
-
-// =================== ENTITIES ===================
-function EntitiesTab() {
-  const { data: entities, isLoading } = useFinancialEntities();
-  const createEntity = useCreateFinancialEntity();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<{ name: string; entity_type: FinancialEntityType; document: string; notes: string }>({
-    name: '', entity_type: 'cnpj', document: '', notes: '',
-  });
-
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>Entidades financeiras</CardTitle>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm"><Plus className="w-4 h-4 mr-1" />Nova entidade</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Nova entidade</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div><Label>Nome *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
-              <div>
-                <Label>Tipo</Label>
-                <Select value={form.entity_type} onValueChange={(v: FinancialEntityType) => setForm({ ...form, entity_type: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cnpj">CNPJ</SelectItem>
-                    <SelectItem value="cpf">CPF</SelectItem>
-                    <SelectItem value="projeto">Projeto</SelectItem>
-                    <SelectItem value="imovel">Imóvel</SelectItem>
-                    <SelectItem value="familia">Família</SelectItem>
-                    <SelectItem value="carteira">Carteira</SelectItem>
-                    <SelectItem value="centro_operacional">Centro operacional</SelectItem>
-                    <SelectItem value="outro">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div><Label>Documento (opcional)</Label><Input value={form.document} onChange={e => setForm({ ...form, document: e.target.value })} /></div>
-              <div><Label>Notas</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button
-                disabled={!form.name || createEntity.isPending}
-                onClick={async () => {
-                  await createEntity.mutateAsync({
-                    name: form.name, entity_type: form.entity_type,
-                    document: form.document || undefined, notes: form.notes || undefined,
-                  });
-                  setForm({ name: '', entity_type: 'cnpj', document: '', notes: '' });
-                  setOpen(false);
-                }}
-              >Criar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-          <div className="grid gap-2">
-            {entities?.map(e => (
-              <div key={e.id} className="flex items-center gap-3 p-3 border rounded-md">
-                <div className="w-3 h-3 rounded-full" style={{ background: e.color || 'hsl(var(--muted))' }} />
-                <div className="flex-1">
-                  <div className="font-medium">{e.name}</div>
-                  <div className="text-xs text-muted-foreground">{e.entity_type}{e.document ? ` · ${e.document}` : ''}</div>
-                </div>
-                <Badge variant="outline">{e.is_active ? 'ativa' : 'inativa'}</Badge>
-              </div>
-            ))}
-            {!entities?.length && <p className="text-sm text-muted-foreground">Nenhuma entidade ainda.</p>}
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }
 
@@ -452,121 +382,6 @@ function TransactionsTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
-  );
-}
-
-// =================== BANKS ===================
-function BanksTab() {
-  const { data: banks, isLoading } = useFinancialBankAccounts();
-  const { data: entities } = useFinancialEntities();
-  const createBank = useCreateFinancialBankAccount();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: '', entity_id: '', bank_name: '', bank_code: '',
-    agency: '', account_number: '', account_type: 'corrente',
-    initial_balance_reais: '0',
-  });
-
-  const reset = () => setForm({
-    name: '', entity_id: '', bank_name: '', bank_code: '',
-    agency: '', account_number: '', account_type: 'corrente',
-    initial_balance_reais: '0',
-  });
-
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>Contas bancárias</CardTitle>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm"><Plus className="w-4 h-4 mr-1" />Nova conta</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Nova conta bancária</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div><Label>Apelido *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Itaú PJ MORPHEWS" /></div>
-              <div>
-                <Label>Entidade vinculada</Label>
-                <Select value={form.entity_id} onValueChange={v => setForm({ ...form, entity_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>
-                    {entities?.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Banco</Label><Input value={form.bank_name} onChange={e => setForm({ ...form, bank_name: e.target.value })} /></div>
-                <div><Label>Código</Label><Input value={form.bank_code} onChange={e => setForm({ ...form, bank_code: e.target.value })} /></div>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div><Label>Agência</Label><Input value={form.agency} onChange={e => setForm({ ...form, agency: e.target.value })} /></div>
-                <div><Label>Conta</Label><Input value={form.account_number} onChange={e => setForm({ ...form, account_number: e.target.value })} /></div>
-                <div>
-                  <Label>Tipo</Label>
-                  <Select value={form.account_type} onValueChange={v => setForm({ ...form, account_type: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="corrente">Corrente</SelectItem>
-                      <SelectItem value="poupanca">Poupança</SelectItem>
-                      <SelectItem value="caixa">Caixa</SelectItem>
-                      <SelectItem value="investimento">Investimento</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div>
-                <Label>Saldo inicial (R$)</Label>
-                <Input type="number" step="0.01" value={form.initial_balance_reais} onChange={e => setForm({ ...form, initial_balance_reais: e.target.value })} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button
-                disabled={!form.name || createBank.isPending}
-                onClick={async () => {
-                  await createBank.mutateAsync({
-                    name: form.name,
-                    entity_id: form.entity_id || null,
-                    bank_name: form.bank_name || undefined,
-                    bank_code: form.bank_code || undefined,
-                    agency: form.agency || undefined,
-                    account_number: form.account_number || undefined,
-                    account_type: form.account_type,
-                    initial_balance_cents: Math.round(parseFloat(form.initial_balance_reais || '0') * 100),
-                  });
-                  reset();
-                  setOpen(false);
-                }}
-              >Criar conta</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-          <div className="grid gap-2">
-            {banks?.map(b => {
-              const ent = entities?.find(e => e.id === b.entity_id);
-              return (
-                <div key={b.id} className="flex items-center gap-3 p-3 border rounded-md">
-                  <Landmark className="w-4 h-4 text-muted-foreground" />
-                  <div className="flex-1">
-                    <div className="font-medium">{b.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {b.bank_name ?? '—'} · ag {b.agency ?? '—'} · cc {b.account_number ?? '—'}
-                      {ent ? ` · ${ent.name}` : ''}
-                    </div>
-                  </div>
-                  <div className="font-mono text-sm">{fmt(b.current_balance_cents ?? 0)}</div>
-                  {b.is_default && <Badge variant="outline">padrão</Badge>}
-                </div>
-              );
-            })}
-            {!banks?.length && <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada. Crie a primeira para registrar pagamentos.</p>}
-          </div>
-        )}
-      </CardContent>
     </Card>
   );
 }
