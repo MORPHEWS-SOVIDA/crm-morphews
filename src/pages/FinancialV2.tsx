@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, CheckCircle2, XCircle, Building2, ListTree, ScrollText, Lock } from 'lucide-react';
+import { Loader2, Plus, CheckCircle2, XCircle, Building2, ListTree, ScrollText, Lock, Landmark } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useFinancialAccess,
@@ -23,6 +23,9 @@ import {
   useRegisterPayment,
   useCancelTransaction,
   useFinancialAuditLogs,
+  useFinancialBankAccounts,
+  useCreateFinancialBankAccount,
+  useFinancialOrgSettings,
   type FinancialEntityType,
   type FinancialDirection,
   type FinancialTxStatus,
@@ -79,23 +82,32 @@ export default function FinancialV2() {
     );
   }
 
+  return <FinancialV2Content />;
+}
+
+function FinancialV2Content() {
+  const { data: settings } = useFinancialOrgSettings();
+  const displayName = (settings as any)?.financial_display_name ?? 'MORPHEWS';
+
   return (
     <Layout>
       <div className="container mx-auto py-6 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Razão Financeiro</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Razão Financeiro · {displayName}</h1>
           <p className="text-muted-foreground">
-            Fundação multi-entidade — MORPHEWS, SOVIDA, TRI VIVA, CPFs, projetos, imóveis e família.
+            Fundação multi-entidade — CNPJs, CPFs, projetos, imóveis e família.
           </p>
         </div>
         <Tabs defaultValue="transactions" className="space-y-4">
           <TabsList>
             <TabsTrigger value="transactions"><ListTree className="w-4 h-4 mr-2" />Lançamentos</TabsTrigger>
             <TabsTrigger value="entities"><Building2 className="w-4 h-4 mr-2" />Entidades</TabsTrigger>
+            <TabsTrigger value="banks"><Landmark className="w-4 h-4 mr-2" />Bancos</TabsTrigger>
             <TabsTrigger value="audit"><ScrollText className="w-4 h-4 mr-2" />Auditoria</TabsTrigger>
           </TabsList>
           <TabsContent value="transactions"><TransactionsTab /></TabsContent>
           <TabsContent value="entities"><EntitiesTab /></TabsContent>
+          <TabsContent value="banks"><BanksTab /></TabsContent>
           <TabsContent value="audit"><AuditTab /></TabsContent>
         </Tabs>
       </div>
@@ -190,11 +202,14 @@ function TransactionsTab() {
   const createTx = useCreateFinancialTransaction();
   const registerPayment = useRegisterPayment();
   const cancelTx = useCancelTransaction();
+  const { data: bankAccounts } = useFinancialBankAccounts();
 
   const [open, setOpen] = useState(false);
   const [paying, setPaying] = useState<FinancialTransaction | null>(null);
   const [actualReais, setActualReais] = useState('');
   const [diffReason, setDiffReason] = useState<string>('');
+  const [bankAccountId, setBankAccountId] = useState<string>('');
+  const [paidAt, setPaidAt] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
   const [form, setForm] = useState({
     entity_id: '', category_id: '', cost_center_id: '',
@@ -327,7 +342,13 @@ function TransactionsTab() {
                   </div>
                   {!['realizado', 'conciliado', 'cancelado', 'estornado'].includes(t.status) && (
                     <>
-                      <Button size="sm" variant="outline" onClick={() => { setPaying(t); setActualReais(((t.expected_amount_cents ?? 0) / 100).toFixed(2)); setDiffReason(''); }}>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setPaying(t);
+                        setActualReais(((t.expected_amount_cents ?? 0) / 100).toFixed(2));
+                        setDiffReason('');
+                        setBankAccountId(bankAccounts?.find(b => b.is_default)?.id ?? '');
+                        setPaidAt(new Date().toISOString().slice(0, 10));
+                      }}>
                         <CheckCircle2 className="w-4 h-4 mr-1" />Pagar
                       </Button>
                       <Button size="sm" variant="ghost" onClick={async () => {
@@ -350,37 +371,79 @@ function TransactionsTab() {
       <Dialog open={!!paying} onOpenChange={v => !v && setPaying(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Registrar pagamento</DialogTitle></DialogHeader>
-          {paying && (
-            <div className="space-y-3">
-              <div className="text-sm text-muted-foreground">{paying.description}</div>
-              <div><Label>Valor previsto</Label><Input value={fmt(paying.expected_amount_cents)} disabled /></div>
-              <div><Label>Valor efetivamente pago (R$) *</Label><Input type="number" step="0.01" value={actualReais} onChange={e => setActualReais(e.target.value)} /></div>
-              <div>
-                <Label>Motivo da diferença (se houver)</Label>
-                <Select value={diffReason} onValueChange={setDiffReason}>
-                  <SelectTrigger><SelectValue placeholder="Sem diferença" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="desconto">Desconto</SelectItem>
-                    <SelectItem value="juros">Juros</SelectItem>
-                    <SelectItem value="multa">Multa</SelectItem>
-                    <SelectItem value="correcao">Correção</SelectItem>
-                    <SelectItem value="pagamento_parcial">Pagamento parcial</SelectItem>
-                    <SelectItem value="erro">Erro</SelectItem>
-                    <SelectItem value="ajuste_manual">Ajuste manual</SelectItem>
-                  </SelectContent>
-                </Select>
+          {paying && (() => {
+            const expectedCents = paying.expected_amount_cents ?? 0;
+            const actualCents = Math.round(parseFloat(actualReais || '0') * 100);
+            const hasDifference = !!actualReais && actualCents !== expectedCents;
+            return (
+              <div className="space-y-3">
+                <div className="text-sm text-muted-foreground">{paying.description}</div>
+                <div><Label>Valor previsto</Label><Input value={fmt(paying.expected_amount_cents)} disabled /></div>
+                <div>
+                  <Label>Conta bancária *</Label>
+                  <Select value={bankAccountId} onValueChange={setBankAccountId}>
+                    <SelectTrigger><SelectValue placeholder="Selecione a conta" /></SelectTrigger>
+                    <SelectContent>
+                      {bankAccounts?.map(b => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}{b.bank_name ? ` · ${b.bank_name}` : ''}
+                        </SelectItem>
+                      ))}
+                      {!bankAccounts?.length && (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
+                          Nenhuma conta cadastrada. Vá em Bancos.
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Data do pagamento *</Label>
+                    <Input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Valor pago (R$) *</Label>
+                    <Input type="number" step="0.01" value={actualReais} onChange={e => setActualReais(e.target.value)} />
+                  </div>
+                </div>
+                {hasDifference && (
+                  <div>
+                    <Label>Motivo da diferença * ({fmt(actualCents - expectedCents)})</Label>
+                    <Select value={diffReason} onValueChange={setDiffReason}>
+                      <SelectTrigger><SelectValue placeholder="Obrigatório quando há diferença" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="desconto">Desconto</SelectItem>
+                        <SelectItem value="juros">Juros</SelectItem>
+                        <SelectItem value="multa">Multa</SelectItem>
+                        <SelectItem value="correcao">Correção</SelectItem>
+                        <SelectItem value="pagamento_parcial">Pagamento parcial</SelectItem>
+                        <SelectItem value="erro">Erro</SelectItem>
+                        <SelectItem value="ajuste_manual">Ajuste manual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setPaying(null)}>Cancelar</Button>
             <Button
-              disabled={!actualReais || registerPayment.isPending}
+              disabled={(() => {
+                if (!paying || !actualReais || !bankAccountId || !paidAt || registerPayment.isPending) return true;
+                const actualCents = Math.round(parseFloat(actualReais) * 100);
+                const hasDifference = actualCents !== (paying.expected_amount_cents ?? 0);
+                if (hasDifference && !diffReason) return true;
+                return false;
+              })()}
               onClick={async () => {
                 if (!paying) return;
                 await registerPayment.mutateAsync({
                   transaction_id: paying.id,
+                  bank_account_id: bankAccountId,
                   actual_amount_cents: Math.round(parseFloat(actualReais) * 100),
+                  paid_at: new Date(paidAt + 'T12:00:00').toISOString(),
                   difference_reason: diffReason || undefined,
                 });
                 setPaying(null);
@@ -389,6 +452,121 @@ function TransactionsTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </Card>
+  );
+}
+
+// =================== BANKS ===================
+function BanksTab() {
+  const { data: banks, isLoading } = useFinancialBankAccounts();
+  const { data: entities } = useFinancialEntities();
+  const createBank = useCreateFinancialBankAccount();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    name: '', entity_id: '', bank_name: '', bank_code: '',
+    agency: '', account_number: '', account_type: 'corrente',
+    initial_balance_reais: '0',
+  });
+
+  const reset = () => setForm({
+    name: '', entity_id: '', bank_name: '', bank_code: '',
+    agency: '', account_number: '', account_type: 'corrente',
+    initial_balance_reais: '0',
+  });
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>Contas bancárias</CardTitle>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm"><Plus className="w-4 h-4 mr-1" />Nova conta</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Nova conta bancária</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>Apelido *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Itaú PJ MORPHEWS" /></div>
+              <div>
+                <Label>Entidade vinculada</Label>
+                <Select value={form.entity_id} onValueChange={v => setForm({ ...form, entity_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    {entities?.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Banco</Label><Input value={form.bank_name} onChange={e => setForm({ ...form, bank_name: e.target.value })} /></div>
+                <div><Label>Código</Label><Input value={form.bank_code} onChange={e => setForm({ ...form, bank_code: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>Agência</Label><Input value={form.agency} onChange={e => setForm({ ...form, agency: e.target.value })} /></div>
+                <div><Label>Conta</Label><Input value={form.account_number} onChange={e => setForm({ ...form, account_number: e.target.value })} /></div>
+                <div>
+                  <Label>Tipo</Label>
+                  <Select value={form.account_type} onValueChange={v => setForm({ ...form, account_type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="corrente">Corrente</SelectItem>
+                      <SelectItem value="poupanca">Poupança</SelectItem>
+                      <SelectItem value="caixa">Caixa</SelectItem>
+                      <SelectItem value="investimento">Investimento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Saldo inicial (R$)</Label>
+                <Input type="number" step="0.01" value={form.initial_balance_reais} onChange={e => setForm({ ...form, initial_balance_reais: e.target.value })} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button
+                disabled={!form.name || createBank.isPending}
+                onClick={async () => {
+                  await createBank.mutateAsync({
+                    name: form.name,
+                    entity_id: form.entity_id || null,
+                    bank_name: form.bank_name || undefined,
+                    bank_code: form.bank_code || undefined,
+                    agency: form.agency || undefined,
+                    account_number: form.account_number || undefined,
+                    account_type: form.account_type,
+                    initial_balance_cents: Math.round(parseFloat(form.initial_balance_reais || '0') * 100),
+                  });
+                  reset();
+                  setOpen(false);
+                }}
+              >Criar conta</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+          <div className="grid gap-2">
+            {banks?.map(b => {
+              const ent = entities?.find(e => e.id === b.entity_id);
+              return (
+                <div key={b.id} className="flex items-center gap-3 p-3 border rounded-md">
+                  <Landmark className="w-4 h-4 text-muted-foreground" />
+                  <div className="flex-1">
+                    <div className="font-medium">{b.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {b.bank_name ?? '—'} · ag {b.agency ?? '—'} · cc {b.account_number ?? '—'}
+                      {ent ? ` · ${ent.name}` : ''}
+                    </div>
+                  </div>
+                  <div className="font-mono text-sm">{fmt(b.current_balance_cents ?? 0)}</div>
+                  {b.is_default && <Badge variant="outline">padrão</Badge>}
+                </div>
+              );
+            })}
+            {!banks?.length && <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada. Crie a primeira para registrar pagamentos.</p>}
+          </div>
+        )}
+      </CardContent>
     </Card>
   );
 }

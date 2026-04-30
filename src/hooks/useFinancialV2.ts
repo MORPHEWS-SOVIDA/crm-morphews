@@ -229,6 +229,7 @@ export function useRegisterPayment() {
   return useMutation({
     mutationFn: async (input: {
       transaction_id: string;
+      bank_account_id: string;
       actual_amount_cents: number;
       paid_at?: string;
       difference_reason?: string;
@@ -236,6 +237,7 @@ export function useRegisterPayment() {
     }) => {
       const { data, error } = await supabase.rpc('fn_register_payment', {
         _transaction_id: input.transaction_id,
+        _bank_account_id: input.bank_account_id,
         _actual_amount_cents: input.actual_amount_cents,
         _paid_at: input.paid_at ?? new Date().toISOString(),
         _difference_reason: input.difference_reason ?? null,
@@ -285,6 +287,105 @@ export function useFinancialAuditLogs(limit = 100) {
         .limit(limit);
       if (error) throw error;
       return data ?? [];
+    },
+  });
+}
+
+// ----------------- BANK ACCOUNTS (financial scope) -----------------
+export interface FinancialBankAccount {
+  id: string;
+  organization_id: string;
+  entity_id: string | null;
+  name: string;
+  bank_name: string | null;
+  bank_code: string | null;
+  agency: string | null;
+  account_number: string | null;
+  account_type: string;
+  is_active: boolean;
+  is_default: boolean;
+  is_financial_enabled: boolean;
+  scope: string;
+  color: string | null;
+  current_balance_cents: number | null;
+}
+
+export function useFinancialBankAccounts() {
+  return useQuery({
+    queryKey: ['financial-bank-accounts-v2'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bank_accounts')
+        .select('*')
+        .eq('organization_id', ORG)
+        .eq('is_active', true)
+        .eq('is_financial_enabled', true)
+        .in('scope', ['financial', 'general'])
+        .order('is_default', { ascending: false })
+        .order('name');
+      if (error) throw error;
+      return (data ?? []) as unknown as FinancialBankAccount[];
+    },
+  });
+}
+
+export function useCreateFinancialBankAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      name: string;
+      entity_id?: string | null;
+      bank_name?: string;
+      bank_code?: string;
+      agency?: string;
+      account_number?: string;
+      account_type?: string;
+      initial_balance_cents?: number;
+      color?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from('bank_accounts')
+        .insert({
+          organization_id: ORG,
+          name: input.name,
+          entity_id: input.entity_id ?? null,
+          bank_name: input.bank_name ?? null,
+          bank_code: input.bank_code ?? null,
+          agency: input.agency ?? null,
+          account_number: input.account_number ?? null,
+          account_type: input.account_type ?? 'corrente',
+          initial_balance_cents: input.initial_balance_cents ?? 0,
+          current_balance_cents: input.initial_balance_cents ?? 0,
+          color: input.color ?? null,
+          is_active: true,
+          scope: 'financial',
+          is_financial_enabled: true,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['financial-bank-accounts-v2'] });
+      toast.success('Conta bancária criada');
+    },
+    onError: (e: Error) => toast.error('Erro: ' + e.message),
+  });
+}
+
+// ----------------- ORG SETTINGS -----------------
+export function useFinancialOrgSettings() {
+  return useQuery({
+    queryKey: ['financial-org-settings-v2'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('financial_organization_settings')
+        .select('*')
+        .eq('organization_id', ORG)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
     },
   });
 }

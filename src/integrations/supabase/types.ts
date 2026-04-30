@@ -192,6 +192,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "accounts_payable_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_bank_accounts_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "accounts_payable_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
@@ -1410,6 +1417,7 @@ export type Database = {
           bank_name: string | null
           color: string | null
           created_at: string
+          created_by: string | null
           current_balance_cents: number | null
           entity_id: string | null
           holder_document: string | null
@@ -1418,12 +1426,15 @@ export type Database = {
           initial_balance_cents: number | null
           is_active: boolean | null
           is_default: boolean | null
+          is_financial_enabled: boolean
           last_reconciliation_at: string | null
           manual_balance_cents: number | null
           name: string
           notes: string | null
           organization_id: string
+          scope: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           account_digit?: string | null
@@ -1437,6 +1448,7 @@ export type Database = {
           bank_name?: string | null
           color?: string | null
           created_at?: string
+          created_by?: string | null
           current_balance_cents?: number | null
           entity_id?: string | null
           holder_document?: string | null
@@ -1445,12 +1457,15 @@ export type Database = {
           initial_balance_cents?: number | null
           is_active?: boolean | null
           is_default?: boolean | null
+          is_financial_enabled?: boolean
           last_reconciliation_at?: string | null
           manual_balance_cents?: number | null
           name: string
           notes?: string | null
           organization_id: string
+          scope?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           account_digit?: string | null
@@ -1464,6 +1479,7 @@ export type Database = {
           bank_name?: string | null
           color?: string | null
           created_at?: string
+          created_by?: string | null
           current_balance_cents?: number | null
           entity_id?: string | null
           holder_document?: string | null
@@ -1472,12 +1488,15 @@ export type Database = {
           initial_balance_cents?: number | null
           is_active?: boolean | null
           is_default?: boolean | null
+          is_financial_enabled?: boolean
           last_reconciliation_at?: string | null
           manual_balance_cents?: number | null
           name?: string
           notes?: string | null
           organization_id?: string
+          scope?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -1594,6 +1613,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_bank_accounts_view"
             referencedColumns: ["id"]
           },
           {
@@ -2918,43 +2944,55 @@ export type Database = {
           code: string | null
           color: string | null
           created_at: string
+          created_by: string | null
           description: string | null
           entity_id: string | null
           id: string
           is_active: boolean
+          is_financial_enabled: boolean
           name: string
           organization_id: string
           parent_id: string | null
           position: number
+          scope: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           code?: string | null
           color?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           entity_id?: string | null
           id?: string
           is_active?: boolean
+          is_financial_enabled?: boolean
           name: string
           organization_id: string
           parent_id?: string | null
           position?: number
+          scope?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           code?: string | null
           color?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           entity_id?: string | null
           id?: string
           is_active?: boolean
+          is_financial_enabled?: boolean
           name?: string
           organization_id?: string
           parent_id?: string | null
           position?: number
+          scope?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -5484,10 +5522,13 @@ export type Database = {
           affects_dre: boolean
           code: string | null
           created_at: string
+          created_by: string | null
           dre_group: string | null
+          entity_id: string | null
           id: string
           is_active: boolean | null
           is_deductible: boolean
+          is_financial_enabled: boolean
           is_fixed: boolean
           is_personal: boolean
           is_system: boolean | null
@@ -5495,18 +5536,23 @@ export type Database = {
           organization_id: string
           parent_id: string | null
           position: number | null
+          scope: string
           type: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           affects_cashflow?: boolean
           affects_dre?: boolean
           code?: string | null
           created_at?: string
+          created_by?: string | null
           dre_group?: string | null
+          entity_id?: string | null
           id?: string
           is_active?: boolean | null
           is_deductible?: boolean
+          is_financial_enabled?: boolean
           is_fixed?: boolean
           is_personal?: boolean
           is_system?: boolean | null
@@ -5514,18 +5560,23 @@ export type Database = {
           organization_id: string
           parent_id?: string | null
           position?: number | null
+          scope?: string
           type: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           affects_cashflow?: boolean
           affects_dre?: boolean
           code?: string | null
           created_at?: string
+          created_by?: string | null
           dre_group?: string | null
+          entity_id?: string | null
           id?: string
           is_active?: boolean | null
           is_deductible?: boolean
+          is_financial_enabled?: boolean
           is_fixed?: boolean
           is_personal?: boolean
           is_system?: boolean | null
@@ -5533,8 +5584,10 @@ export type Database = {
           organization_id?: string
           parent_id?: string | null
           position?: number | null
+          scope?: string
           type?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -5618,7 +5671,12 @@ export type Database = {
           allow_aux_role_create: boolean
           allow_financial_role_pay: boolean
           created_at: string
+          created_by: string | null
           default_currency: string
+          default_entity_id: string | null
+          financial_display_name: string | null
+          financial_plan: string
+          is_financial_enabled: boolean
           organization_id: string
           reporting_regime: string
           require_approval_above_cents: number
@@ -5628,13 +5686,19 @@ export type Database = {
           require_cost_center: boolean
           require_proof_above_cents: number
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           alert_days_before_due?: number
           allow_aux_role_create?: boolean
           allow_financial_role_pay?: boolean
           created_at?: string
+          created_by?: string | null
           default_currency?: string
+          default_entity_id?: string | null
+          financial_display_name?: string | null
+          financial_plan?: string
+          is_financial_enabled?: boolean
           organization_id: string
           reporting_regime?: string
           require_approval_above_cents?: number
@@ -5644,13 +5708,19 @@ export type Database = {
           require_cost_center?: boolean
           require_proof_above_cents?: number
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           alert_days_before_due?: number
           allow_aux_role_create?: boolean
           allow_financial_role_pay?: boolean
           created_at?: string
+          created_by?: string | null
           default_currency?: string
+          default_entity_id?: string | null
+          financial_display_name?: string | null
+          financial_plan?: string
+          is_financial_enabled?: boolean
           organization_id?: string
           reporting_regime?: string
           require_approval_above_cents?: number
@@ -5660,6 +5730,7 @@ export type Database = {
           require_cost_center?: boolean
           require_proof_above_cents?: number
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -5757,6 +5828,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_recurrences_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_bank_accounts_view"
             referencedColumns: ["id"]
           },
           {
@@ -5965,6 +6043,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_bank_accounts_view"
             referencedColumns: ["id"]
           },
           {
@@ -10533,6 +10618,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ofx_imports_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_bank_accounts_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ofx_imports_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -12007,6 +12099,13 @@ export type Database = {
             columns: ["default_bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_cost_centers_default_bank_account_id_fkey"
+            columns: ["default_bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_bank_accounts_view"
             referencedColumns: ["id"]
           },
           {
@@ -18669,6 +18768,7 @@ export type Database = {
           cost_center_id: string | null
           cpf: string | null
           created_at: string
+          created_by: string | null
           default_category_id: string | null
           default_cost_center_id: string | null
           default_payment_term_days: number | null
@@ -18679,6 +18779,7 @@ export type Database = {
           im: string | null
           is_active: boolean | null
           is_blocked: boolean
+          is_financial_enabled: boolean
           name: string
           neighborhood: string | null
           notes: string | null
@@ -18689,10 +18790,12 @@ export type Database = {
           pix_key_history: Json | null
           pix_key_type: string | null
           risk_level: Database["public"]["Enums"]["financial_risk_level"]
+          scope: string
           state: string | null
           street: string | null
           trade_name: string | null
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           bank_account?: string | null
@@ -18708,6 +18811,7 @@ export type Database = {
           cost_center_id?: string | null
           cpf?: string | null
           created_at?: string
+          created_by?: string | null
           default_category_id?: string | null
           default_cost_center_id?: string | null
           default_payment_term_days?: number | null
@@ -18718,6 +18822,7 @@ export type Database = {
           im?: string | null
           is_active?: boolean | null
           is_blocked?: boolean
+          is_financial_enabled?: boolean
           name: string
           neighborhood?: string | null
           notes?: string | null
@@ -18728,10 +18833,12 @@ export type Database = {
           pix_key_history?: Json | null
           pix_key_type?: string | null
           risk_level?: Database["public"]["Enums"]["financial_risk_level"]
+          scope?: string
           state?: string | null
           street?: string | null
           trade_name?: string | null
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           bank_account?: string | null
@@ -18747,6 +18854,7 @@ export type Database = {
           cost_center_id?: string | null
           cpf?: string | null
           created_at?: string
+          created_by?: string | null
           default_category_id?: string | null
           default_cost_center_id?: string | null
           default_payment_term_days?: number | null
@@ -18757,6 +18865,7 @@ export type Database = {
           im?: string | null
           is_active?: boolean | null
           is_blocked?: boolean
+          is_financial_enabled?: boolean
           name?: string
           neighborhood?: string | null
           notes?: string | null
@@ -18767,10 +18876,12 @@ export type Database = {
           pix_key_history?: Json | null
           pix_key_type?: string | null
           risk_level?: Database["public"]["Enums"]["financial_risk_level"]
+          scope?: string
           state?: string | null
           street?: string | null
           trade_name?: string | null
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -23845,6 +23956,117 @@ export type Database = {
           },
         ]
       }
+      financial_bank_accounts_view: {
+        Row: {
+          account_digit: string | null
+          account_number: string | null
+          account_subtype: string | null
+          account_type: string | null
+          agency: string | null
+          agency_digit: string | null
+          balance_date: string | null
+          bank_code: string | null
+          bank_name: string | null
+          color: string | null
+          created_at: string | null
+          created_by: string | null
+          current_balance_cents: number | null
+          entity_id: string | null
+          holder_document: string | null
+          holder_name: string | null
+          id: string | null
+          initial_balance_cents: number | null
+          is_active: boolean | null
+          is_default: boolean | null
+          is_financial_enabled: boolean | null
+          last_reconciliation_at: string | null
+          manual_balance_cents: number | null
+          name: string | null
+          notes: string | null
+          organization_id: string | null
+          scope: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_digit?: string | null
+          account_number?: string | null
+          account_subtype?: string | null
+          account_type?: string | null
+          agency?: string | null
+          agency_digit?: string | null
+          balance_date?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_balance_cents?: number | null
+          entity_id?: string | null
+          holder_document?: string | null
+          holder_name?: string | null
+          id?: string | null
+          initial_balance_cents?: number | null
+          is_active?: boolean | null
+          is_default?: boolean | null
+          is_financial_enabled?: boolean | null
+          last_reconciliation_at?: string | null
+          manual_balance_cents?: number | null
+          name?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          scope?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_digit?: string | null
+          account_number?: string | null
+          account_subtype?: string | null
+          account_type?: string | null
+          agency?: string | null
+          agency_digit?: string | null
+          balance_date?: string | null
+          bank_code?: string | null
+          bank_name?: string | null
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_balance_cents?: number | null
+          entity_id?: string | null
+          holder_document?: string | null
+          holder_name?: string | null
+          id?: string | null
+          initial_balance_cents?: number | null
+          is_active?: boolean | null
+          is_default?: boolean | null
+          is_financial_enabled?: boolean | null
+          last_reconciliation_at?: string | null
+          manual_balance_cents?: number | null
+          name?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          scope?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "financial_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manipulated_sale_items_view: {
         Row: {
           client_name: string | null
@@ -24340,6 +24562,7 @@ export type Database = {
       fn_register_payment: {
         Args: {
           _actual_amount_cents: number
+          _bank_account_id: string
           _difference_notes?: string
           _difference_reason?: string
           _paid_at?: string
