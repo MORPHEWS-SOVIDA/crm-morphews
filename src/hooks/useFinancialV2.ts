@@ -229,6 +229,7 @@ export function useRegisterPayment() {
   return useMutation({
     mutationFn: async (input: {
       transaction_id: string;
+      bank_account_id: string;
       actual_amount_cents: number;
       paid_at?: string;
       difference_reason?: string;
@@ -236,6 +237,7 @@ export function useRegisterPayment() {
     }) => {
       const { data, error } = await supabase.rpc('fn_register_payment', {
         _transaction_id: input.transaction_id,
+        _bank_account_id: input.bank_account_id,
         _actual_amount_cents: input.actual_amount_cents,
         _paid_at: input.paid_at ?? new Date().toISOString(),
         _difference_reason: input.difference_reason ?? null,
