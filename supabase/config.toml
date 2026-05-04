@@ -189,3 +189,6 @@ verify_jwt = false
 
 [functions.checkout-quote]
 verify_jwt = false
+
+[functions.notify-withdrawal-request]
+verify_jwt = false
