@@ -333,7 +333,12 @@ export function useRequestWithdrawal() {
           balance_cents: account.balance_cents - amountCents,
         })
         .eq('id', virtualAccountId);
-      
+
+      // Notify finance team via email (non-blocking)
+      supabase.functions
+        .invoke('notify-withdrawal-request', { body: { withdrawalId: data.id } })
+        .catch((err) => console.error('notify-withdrawal-request failed:', err));
+
       return data;
     },
     onSuccess: () => {
