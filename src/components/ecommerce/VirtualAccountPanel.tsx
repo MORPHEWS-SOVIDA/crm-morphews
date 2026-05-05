@@ -57,9 +57,17 @@ export function VirtualAccountPanel() {
   const { role } = useTenant();
   const isPartner = role?.startsWith('partner_') ?? false;
   
-  const { data: account, isLoading: accountLoading } = useSmartVirtualAccount(isPartner);
+  const accountQuery = useSmartVirtualAccount(isPartner);
+  const { data: account, isLoading: accountLoading, refetch: refetchAccount } = accountQuery;
   const { data: transactions } = useVirtualTransactions(account?.id);
   const { data: withdrawals } = useMyWithdrawals();
+
+  // (B) Force refresh when panel mounts to avoid stale cross-device cache
+  // showing "no bank data" when it was just registered on another device.
+  useEffect(() => {
+    refetchAccount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { data: settings } = usePlatformSettings();
   const updateBankData = useUpdateBankData();
   const requestWithdrawal = useRequestWithdrawal();
