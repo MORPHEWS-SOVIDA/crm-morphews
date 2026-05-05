@@ -18,6 +18,7 @@ import {
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 import {
   useSmartVirtualAccount,
   useVirtualTransactions,
