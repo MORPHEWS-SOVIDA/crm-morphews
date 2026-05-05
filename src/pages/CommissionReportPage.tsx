@@ -509,6 +509,14 @@ export default function CommissionReportPage() {
               <X className="h-4 w-4" />
               Limpar Filtros
             </Button>
+            <Button variant="outline" onClick={handleExportSalesXlsx} className="gap-2">
+              <Download className="h-4 w-4" />
+              Excel (Vendas)
+            </Button>
+            <Button variant="outline" onClick={handleExportSellerSignaturePdf} className="gap-2">
+              <Download className="h-4 w-4" />
+              PDF Reconhecimento
+            </Button>
             <Button variant="outline" onClick={handlePrint}>
               <Printer className="h-4 w-4 mr-2" />
               Imprimir
