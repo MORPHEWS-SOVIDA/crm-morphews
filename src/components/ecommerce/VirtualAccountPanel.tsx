@@ -97,15 +97,50 @@ export function VirtualAccountPanel() {
 
   const handleSaveBankData = () => {
     if (!account) return;
-    
+
+    // (A) Strict client-side validation with persistent error toasts
+    const errors: string[] = [];
+    if (!bankForm.bank_code.trim()) errors.push('Código do banco é obrigatório');
+    if (!bankForm.bank_name.trim()) errors.push('Nome do banco é obrigatório');
+    if (!bankForm.agency.trim()) errors.push('Agência é obrigatória');
+    if (!bankForm.account_number.trim()) errors.push('Conta é obrigatória');
+    if (!bankForm.holder_name.trim()) errors.push('Nome do titular é obrigatório');
+    const docDigits = bankForm.holder_document.replace(/\D/g, '');
+    if (docDigits.length !== 11 && docDigits.length !== 14) {
+      errors.push('CPF (11 dígitos) ou CNPJ (14 dígitos) inválido');
+    }
+    if (bankForm.pix_key && !bankForm.pix_key_type) {
+      errors.push('Selecione o tipo da chave Pix');
+    }
+
+    if (errors.length > 0) {
+      toast.error('Corrija os campos abaixo', {
+        description: errors.join(' • '),
+        duration: Infinity,
+        closeButton: true,
+      });
+      return;
+    }
+
     updateBankData.mutate(
       {
         virtualAccountId: account.id,
         ...bankForm,
+        holder_document: docDigits,
         pix_key_type: bankForm.pix_key_type || undefined,
       },
       {
-        onSuccess: () => setBankDialogOpen(false),
+        onSuccess: () => {
+          setBankDialogOpen(false);
+          refetchAccount();
+        },
+        onError: (err: Error) => {
+          toast.error('Falha ao salvar dados bancários', {
+            description: err.message,
+            duration: Infinity,
+            closeButton: true,
+          });
+        },
       }
     );
   };
