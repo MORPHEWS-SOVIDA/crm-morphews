@@ -380,6 +380,89 @@ export default function CommissionReportPage() {
 
   const handlePrint = () => window.print();
 
+  const handleExportSalesXlsx = async () => {
+    const XLSX = await import('xlsx');
+    const rows = filteredSales.map((sale) => {
+      const seller = users.find((u) => u.user_id === sale.seller_user_id);
+      const sellerName = seller ? `${seller.first_name} ${seller.last_name}`.trim() : '-';
+      return {
+        Data: format(parseISO(sale.created_at), 'dd/MM/yyyy', { locale: ptBR }),
+        'Data Entrega': sale.delivered_at ? format(parseISO(sale.delivered_at), 'dd/MM/yyyy', { locale: ptBR }) : '-',
+        Cliente: sale.lead?.name || '-',
+        WhatsApp: sale.lead?.whatsapp || '-',
+        Vendedor: sellerName,
+        Produtos: (sale.items || []).map((i) => `${i.quantity}x ${i.product_name}`).join(', '),
+        'Forma Pagamento': sale.payment_method || '-',
+        'Tipo Entrega': sale.delivery_type || '-',
+        Status: sale.status,
+        'Valor Venda (R$)': (sale.total_cents / 100).toFixed(2).replace('.', ','),
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Vendas');
+    XLSX.writeFile(wb, `relatorio-vendas-${startDate}-a-${endDate}.xlsx`);
+  };
+
+  const handleExportSellerSignaturePdf = async () => {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    const periodLabel = `${format(parseISO(startDate), 'dd/MM/yyyy')} a ${format(parseISO(endDate), 'dd/MM/yyyy')}`;
+
+    const sellersToExport = sellerFilter !== 'all'
+      ? sellerData.filter((s) => s.userId === sellerFilter)
+      : sellerData;
+
+    if (sellersToExport.length === 0) return;
+
+    const doc = new jsPDF();
+    sellersToExport.forEach((seller, idx) => {
+      if (idx > 0) doc.addPage();
+      doc.setFontSize(14);
+      doc.text('Termo de Reconhecimento de Vendas Entregues', 105, 15, { align: 'center' });
+      doc.setFontSize(10);
+      doc.text(`Vendedor: ${seller.name}`, 14, 25);
+      doc.text(`Período: ${periodLabel}`, 14, 31);
+
+      const deliveredSales = seller.sales.filter((s) =>
+        ['delivered', 'closed', 'finalized'].includes(s.status)
+      );
+
+      const body = deliveredSales.map((sale) => [
+        sale.delivered_at ? format(parseISO(sale.delivered_at), 'dd/MM/yyyy') : format(parseISO(sale.created_at), 'dd/MM/yyyy'),
+        sale.lead?.name || '-',
+        (sale.items || []).map((i) => `${i.quantity}x ${i.product_name}`).join(', ').slice(0, 60),
+        formatCurrency(sale.total_cents),
+      ]);
+
+      const totalValue = deliveredSales.reduce((sum, s) => sum + s.total_cents, 0);
+
+      autoTable(doc, {
+        startY: 36,
+        head: [['Data Entrega', 'Cliente', 'Produtos', 'Valor']],
+        body,
+        foot: [['', '', 'TOTAL', formatCurrency(totalValue)]],
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [60, 60, 60] },
+        footStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
+      });
+
+      const finalY = (doc as any).lastAutoTable.finalY || 40;
+      const declarationY = finalY + 12;
+      doc.setFontSize(9);
+      const text = `Eu, ${seller.name}, declaro para os devidos fins que reconheço as vendas relacionadas acima como entregues por mim no período de ${periodLabel}, totalizando ${formatCurrency(totalValue)}. Este documento serve como justificativa do valor de comissão pago em meu contracheque.`;
+      const lines = doc.splitTextToSize(text, 180);
+      doc.text(lines, 14, declarationY);
+
+      const signY = declarationY + lines.length * 5 + 25;
+      doc.line(20, signY, 110, signY);
+      doc.text(`${seller.name}`, 20, signY + 5);
+      doc.text(`Data: ____/____/______`, 130, signY + 5);
+    });
+
+    doc.save(`reconhecimento-vendas-${startDate}-a-${endDate}.pdf`);
+  };
+
   if (isLoading) {
     return (
       <Layout>
@@ -425,6 +508,14 @@ export default function CommissionReportPage() {
             <Button variant="outline" onClick={clearFilters} className="gap-2">
               <X className="h-4 w-4" />
               Limpar Filtros
+            </Button>
+            <Button variant="outline" onClick={handleExportSalesXlsx} className="gap-2">
+              <Download className="h-4 w-4" />
+              Excel (Vendas)
+            </Button>
+            <Button variant="outline" onClick={handleExportSellerSignaturePdf} className="gap-2">
+              <Download className="h-4 w-4" />
+              PDF Reconhecimento
             </Button>
             <Button variant="outline" onClick={handlePrint}>
               <Printer className="h-4 w-4 mr-2" />
