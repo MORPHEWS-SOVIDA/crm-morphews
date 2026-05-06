@@ -309,16 +309,26 @@ export default function PickupClosingPrint() {
             </tr>
           </thead>
           <tbody>
-            {salesList.map(sale => {
+            {salesList.map((sale, idx) => {
               const isPaid = !!(sale as any).payment_confirmed_at || (sale as any).payment_status === 'paid_now' || (sale as any).payment_status === 'confirmed';
               const proofSource = resolveProofSource(sale as any);
               const proofBadge = proofSource ? getProofBadge(proofSource) : null;
+              const isSplit = (sale as any)._isSplitPart;
+              const displayAmount = (sale as any)._displayAmount ?? (sale.total_cents || 0);
+              const displayMethod = (sale as any)._displayMethod ?? sale.payment_method ?? '-';
               return (
-                <tr key={sale.id}>
+                <tr key={`${sale.id}_${idx}`}>
                   <td className="font-bold">{sale.romaneio_number ? `#${sale.romaneio_number}` : '-'}</td>
                   <td>#{sale.sale_number}</td>
-                  <td>{sale.lead_name || 'Cliente'}</td>
-                  <td>{sale.payment_method || '-'}</td>
+                  <td>
+                    {sale.lead_name || 'Cliente'}
+                    {isSplit && (
+                      <span style={{ fontSize: '9px', color: '#7c3aed', marginLeft: 4, fontWeight: 600 }}>
+                        (parte de venda dividida — total {formatCurrency(sale.total_cents || 0)})
+                      </span>
+                    )}
+                  </td>
+                  <td>{displayMethod}</td>
                   <td style={{ fontSize: '10px' }}>
                     {isPaid ? (
                       <>
@@ -335,7 +345,7 @@ export default function PickupClosingPrint() {
                     )}
                   </td>
                   <td>{sale.sale_created_at ? format(parseISO(sale.sale_created_at), "dd/MM/yy") : '-'}</td>
-                  <td className="text-right">{formatCurrency(sale.total_cents || 0)}</td>
+                  <td className="text-right">{formatCurrency(displayAmount)}</td>
                 </tr>
               );
             })}
