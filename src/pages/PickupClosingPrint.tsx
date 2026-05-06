@@ -99,6 +99,23 @@ export default function PickupClosingPrint() {
 
       if (salesError) throw salesError;
 
+      // Fetch split payment lines for these sales
+      const { data: paymentsData } = await supabase
+        .from('sale_payments')
+        .select('sale_id, amount_cents, payment_method_name, payment_method:payment_methods(name, category)')
+        .in('sale_id', saleIds);
+
+      const splitMap: Record<string, Array<{ amount_cents: number; payment_method_name: string; payment_category: string | null }>> = {};
+      (paymentsData || []).forEach((p: any) => {
+        const sid = p.sale_id;
+        if (!splitMap[sid]) splitMap[sid] = [];
+        splitMap[sid].push({
+          amount_cents: p.amount_cents || 0,
+          payment_method_name: p.payment_method_name || p.payment_method?.name || 'Não informado',
+          payment_category: p.payment_method?.category || null,
+        });
+      });
+
       // Create a map for quick lookup
       const salesMap = new Map(salesData?.map(s => [s.id, s]));
 
@@ -108,13 +125,17 @@ export default function PickupClosingPrint() {
         // payment_methods can come as object or array depending on Supabase join
         const rawPm = saleData?.payment_methods;
         const paymentMethod = (Array.isArray(rawPm) ? rawPm[0] : rawPm) as { id: string; name: string; category: string } | null;
-        
+        const splitLines = splitMap[cs.sale_id] || [];
+        const hasSplit = splitLines.length > 1;
+
         return {
           ...cs,
           romaneio_number: saleData?.romaneio_number || null,
           sale_created_at: saleData?.created_at || null,
           payment_method: paymentMethod?.name || saleData?.payment_method || cs.payment_method || 'Não informado',
           payment_category: paymentMethod?.category || null,
+          split_lines: hasSplit ? splitLines : undefined,
+          is_split_payment: hasSplit,
           delivery_status: saleData?.delivery_status || null,
           payment_status: saleData?.payment_status || null,
           payment_confirmed_at: saleData?.payment_confirmed_at || null,
@@ -130,82 +151,78 @@ export default function PickupClosingPrint() {
     enabled: !!closingId,
   });
 
-  // Group sales by payment category (use category from payment_methods table if available)
+  // Group sales by payment category — splitting split-payment sales across categories
   const groupedByCategory = React.useMemo(() => {
-    const groups: Record<PaymentCategory, typeof sales> = {
-      cash: [],
-      pix: [],
-      card_machine: [],
-      payment_link: [],
-      ecommerce: [],
-      boleto_prepaid: [],
-      boleto_postpaid: [],
-      boleto_installment: [],
-      gift: [],
-      other: [],
+    type Row = (typeof sales)[number] & {
+      _displayAmount: number;
+      _displayMethod: string;
+      _isSplitPart?: boolean;
+    };
+    const groups: Record<PaymentCategory, Row[]> = {
+      cash: [], pix: [], card_machine: [], payment_link: [], ecommerce: [],
+      boleto_prepaid: [], boleto_postpaid: [], boleto_installment: [], gift: [], other: [],
+    };
+
+    const inferCategory = (method: string): PaymentCategory => {
+      const m = (method || '').toLowerCase();
+      if (m.includes('cartao') || m.includes('cartão') || m.includes('card') ||
+          m.includes('credito') || m.includes('crédito') || m.includes('débito') ||
+          m.includes('debito') || m.includes('maquininha')) return 'card_machine';
+      if (m.includes('pix')) return 'pix';
+      if (m.includes('dinheiro') || m.includes('cash') || m.includes('especie') || m.includes('espécie')) return 'cash';
+      if (m.includes('link') && m.includes('pagamento')) return 'payment_link';
+      if (m.includes('ecommerce') || m.includes('e-commerce') || m.includes('loja virtual')) return 'ecommerce';
+      if (m.includes('boleto') && (m.includes('pré') || m.includes('pre') || m.includes('antes') || m.includes('antecip'))) return 'boleto_prepaid';
+      if (m.includes('boleto') && (m.includes('pós') || m.includes('pos') || m.includes('depois') || m.includes('faturado'))) return 'boleto_postpaid';
+      if (m.includes('boleto') && m.includes('parcel')) return 'boleto_installment';
+      if (m.includes('boleto')) return 'boleto_prepaid';
+      if (m.includes('vale') || m.includes('presente') || m.includes('gift')) return 'gift';
+      return 'other';
     };
 
     sales.forEach(sale => {
-      // First, try to use the category from payment_methods table
-      if (sale.payment_category && sale.payment_category in groups) {
-        groups[sale.payment_category as PaymentCategory].push(sale);
+      const splitLines = (sale as any).split_lines as
+        | Array<{ amount_cents: number; payment_method_name: string; payment_category: string | null }>
+        | undefined;
+
+      if (splitLines && splitLines.length > 1) {
+        // Split sale: one row per line, in its respective category
+        splitLines.forEach(line => {
+          const cat = (line.payment_category && line.payment_category in groups
+            ? line.payment_category
+            : inferCategory(line.payment_method_name)) as PaymentCategory;
+          groups[cat].push({
+            ...(sale as any),
+            _displayAmount: line.amount_cents,
+            _displayMethod: line.payment_method_name,
+            _isSplitPart: true,
+          } as Row);
+        });
         return;
       }
-      
-      // Fallback: infer from payment_method text
-      const method = (sale.payment_method || '').toLowerCase();
-      
-      // Match to categories based on keywords
-      if (method.includes('cartao') || method.includes('cartão') || method.includes('card') || 
-          method.includes('credito') || method.includes('crédito') || method.includes('débito') || 
-          method.includes('debito') || method.includes('maquininha')) {
-        groups.card_machine.push(sale);
-      } else if (method.includes('pix')) {
-        groups.pix.push(sale);
-      } else if (method.includes('dinheiro') || method.includes('cash') || method.includes('especie') || method.includes('espécie')) {
-        groups.cash.push(sale);
-      } else if (method.includes('link') && method.includes('pagamento')) {
-        groups.payment_link.push(sale);
-      } else if (method.includes('ecommerce') || method.includes('e-commerce') || method.includes('loja virtual')) {
-        groups.ecommerce.push(sale);
-      } else if (method.includes('boleto') && (method.includes('pré') || method.includes('pre') || method.includes('antes') || method.includes('antecip'))) {
-        groups.boleto_prepaid.push(sale);
-      } else if (method.includes('boleto') && (method.includes('pós') || method.includes('pos') || method.includes('depois') || method.includes('faturado'))) {
-        groups.boleto_postpaid.push(sale);
-      } else if (method.includes('boleto') && method.includes('parcel')) {
-        groups.boleto_installment.push(sale);
-      } else if (method.includes('boleto')) {
-        // Generic boleto - put in prepaid by default
-        groups.boleto_prepaid.push(sale);
-      } else if (method.includes('vale') || method.includes('presente') || method.includes('gift')) {
-        groups.gift.push(sale);
-      } else {
-        groups.other.push(sale);
-      }
+
+      const cat = (sale.payment_category && sale.payment_category in groups
+        ? sale.payment_category
+        : inferCategory(sale.payment_method)) as PaymentCategory;
+      groups[cat].push({
+        ...(sale as any),
+        _displayAmount: sale.total_cents || 0,
+        _displayMethod: sale.payment_method || '-',
+      } as Row);
     });
 
     return groups;
   }, [sales]);
 
-  // Calculate totals by category
+  // Calculate totals by category (sum of displayed amounts)
   const categoryTotals = React.useMemo(() => {
     const totals: Record<PaymentCategory, number> = {
-      cash: 0,
-      pix: 0,
-      card_machine: 0,
-      payment_link: 0,
-      ecommerce: 0,
-      boleto_prepaid: 0,
-      boleto_postpaid: 0,
-      boleto_installment: 0,
-      gift: 0,
-      other: 0,
+      cash: 0, pix: 0, card_machine: 0, payment_link: 0, ecommerce: 0,
+      boleto_prepaid: 0, boleto_postpaid: 0, boleto_installment: 0, gift: 0, other: 0,
     };
-
-    Object.entries(groupedByCategory).forEach(([cat, salesList]) => {
-      totals[cat as PaymentCategory] = salesList.reduce((sum, s) => sum + (s.total_cents || 0), 0);
+    Object.entries(groupedByCategory).forEach(([cat, rows]) => {
+      totals[cat as PaymentCategory] = rows.reduce((sum, r: any) => sum + (r._displayAmount || 0), 0);
     });
-
     return totals;
   }, [groupedByCategory]);
 
@@ -292,16 +309,26 @@ export default function PickupClosingPrint() {
             </tr>
           </thead>
           <tbody>
-            {salesList.map(sale => {
+            {salesList.map((sale, idx) => {
               const isPaid = !!(sale as any).payment_confirmed_at || (sale as any).payment_status === 'paid_now' || (sale as any).payment_status === 'confirmed';
               const proofSource = resolveProofSource(sale as any);
               const proofBadge = proofSource ? getProofBadge(proofSource) : null;
+              const isSplit = (sale as any)._isSplitPart;
+              const displayAmount = (sale as any)._displayAmount ?? (sale.total_cents || 0);
+              const displayMethod = (sale as any)._displayMethod ?? sale.payment_method ?? '-';
               return (
-                <tr key={sale.id}>
+                <tr key={`${sale.id}_${idx}`}>
                   <td className="font-bold">{sale.romaneio_number ? `#${sale.romaneio_number}` : '-'}</td>
                   <td>#{sale.sale_number}</td>
-                  <td>{sale.lead_name || 'Cliente'}</td>
-                  <td>{sale.payment_method || '-'}</td>
+                  <td>
+                    {sale.lead_name || 'Cliente'}
+                    {isSplit && (
+                      <span style={{ fontSize: '9px', color: '#7c3aed', marginLeft: 4, fontWeight: 600 }}>
+                        (parte de venda dividida — total {formatCurrency(sale.total_cents || 0)})
+                      </span>
+                    )}
+                  </td>
+                  <td>{displayMethod}</td>
                   <td style={{ fontSize: '10px' }}>
                     {isPaid ? (
                       <>
@@ -318,7 +345,7 @@ export default function PickupClosingPrint() {
                     )}
                   </td>
                   <td>{sale.sale_created_at ? format(parseISO(sale.sale_created_at), "dd/MM/yy") : '-'}</td>
-                  <td className="text-right">{formatCurrency(sale.total_cents || 0)}</td>
+                  <td className="text-right">{formatCurrency(displayAmount)}</td>
                 </tr>
               );
             })}
