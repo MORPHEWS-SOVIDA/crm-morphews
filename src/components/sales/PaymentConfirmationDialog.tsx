@@ -59,6 +59,7 @@ export function PaymentConfirmationDialog({
   existingPaymentMethodId,
   allowTotalEdit = false,
 }: PaymentConfirmationDialogProps) {
+  const { data: paymentMethods = [] } = useActivePaymentMethodsEnhanced();
   const [lines, setLines] = useState<PaymentLine[]>([]);
   const [notes, setNotes] = useState('');
   const [adjustedTotal, setAdjustedTotal] = useState(totalCents);
@@ -70,11 +71,12 @@ export function PaymentConfirmationDialog({
       setAdjustedTotal(totalCents);
       // Start with one empty line pre-filled with existing method if available
       if (existingPaymentMethodId) {
+        const existing = paymentMethods.find((m) => m.id === existingPaymentMethodId);
         setLines([
           {
             id: genLineId(),
             payment_method_id: existingPaymentMethodId,
-            payment_method_name: '',
+            payment_method_name: existing?.name || '',
             amount_cents: totalCents,
           },
         ]);
@@ -82,7 +84,7 @@ export function PaymentConfirmationDialog({
         setLines([]);
       }
     }
-  }, [open, existingPaymentMethodId, totalCents]);
+  }, [open, existingPaymentMethodId, totalCents, paymentMethods]);
 
   const handleSubmit = () => {
     if (lines.length === 0) return;
