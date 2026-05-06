@@ -99,6 +99,23 @@ export default function PickupClosingPrint() {
 
       if (salesError) throw salesError;
 
+      // Fetch split payment lines for these sales
+      const { data: paymentsData } = await supabase
+        .from('sale_payments')
+        .select('sale_id, amount_cents, payment_method_name, payment_method:payment_methods(name, category)')
+        .in('sale_id', saleIds);
+
+      const splitMap: Record<string, Array<{ amount_cents: number; payment_method_name: string; payment_category: string | null }>> = {};
+      (paymentsData || []).forEach((p: any) => {
+        const sid = p.sale_id;
+        if (!splitMap[sid]) splitMap[sid] = [];
+        splitMap[sid].push({
+          amount_cents: p.amount_cents || 0,
+          payment_method_name: p.payment_method_name || p.payment_method?.name || 'Não informado',
+          payment_category: p.payment_method?.category || null,
+        });
+      });
+
       // Create a map for quick lookup
       const salesMap = new Map(salesData?.map(s => [s.id, s]));
 
@@ -108,13 +125,17 @@ export default function PickupClosingPrint() {
         // payment_methods can come as object or array depending on Supabase join
         const rawPm = saleData?.payment_methods;
         const paymentMethod = (Array.isArray(rawPm) ? rawPm[0] : rawPm) as { id: string; name: string; category: string } | null;
-        
+        const splitLines = splitMap[cs.sale_id] || [];
+        const hasSplit = splitLines.length > 1;
+
         return {
           ...cs,
           romaneio_number: saleData?.romaneio_number || null,
           sale_created_at: saleData?.created_at || null,
           payment_method: paymentMethod?.name || saleData?.payment_method || cs.payment_method || 'Não informado',
           payment_category: paymentMethod?.category || null,
+          split_lines: hasSplit ? splitLines : undefined,
+          is_split_payment: hasSplit,
           delivery_status: saleData?.delivery_status || null,
           payment_status: saleData?.payment_status || null,
           payment_confirmed_at: saleData?.payment_confirmed_at || null,
