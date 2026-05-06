@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { CreditCard } from 'lucide-react';
 import { SplitPaymentEditor, PaymentLine } from './SplitPaymentEditor';
+import { useActivePaymentMethodsEnhanced } from '@/hooks/usePaymentMethodsEnhanced';
 
 export interface PaymentConfirmationData {
   payment_method_id: string;
