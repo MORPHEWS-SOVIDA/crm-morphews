@@ -163,8 +163,18 @@ export function createEmptyTotals(): CategoryTotals {
   };
 }
 
+export interface SaleForTotals {
+  total_cents?: number | null;
+  payment_category?: string | null;
+  /** When provided, the sale is split: each line contributes to its own category */
+  split_lines?: Array<{
+    amount_cents: number;
+    payment_category?: string | null;
+  }>;
+}
+
 export function calculateCategoryTotals(
-  sales: Array<{ total_cents?: number | null; payment_category?: string | null }>
+  sales: SaleForTotals[]
 ): { total: number; byCategory: CategoryTotals } {
   const totals = createEmptyTotals();
   let total = 0;
@@ -172,7 +182,17 @@ export function calculateCategoryTotals(
   sales.forEach(sale => {
     const amount = sale.total_cents || 0;
     total += amount;
-    
+
+    // If split lines exist and sum > 0, distribute by line category
+    if (sale.split_lines && sale.split_lines.length > 0) {
+      sale.split_lines.forEach(line => {
+        const lineCat = (line.payment_category || sale.payment_category || 'other') as PaymentCategory;
+        const target = lineCat in totals ? lineCat : 'other';
+        totals[target] += line.amount_cents || 0;
+      });
+      return;
+    }
+
     const category = (sale.payment_category || 'other') as PaymentCategory;
     if (category in totals) {
       totals[category] += amount;
