@@ -152,13 +152,35 @@ export function useAvailableClosingSales(closingType: ClosingType) {
         }, {} as typeof profilesMap);
       }
       
+      // Fetch split payment lines for selected sales (sale_payments)
+      const saleIds = (data || []).map(s => s.id);
+      let splitMap: Record<string, Array<{ amount_cents: number; payment_category: string | null; payment_method_name: string | null }>> = {};
+      if (saleIds.length > 0) {
+        const { data: payments } = await supabase
+          .from('sale_payments')
+          .select('sale_id, amount_cents, payment_method_name, payment_method_id, payment_method:payment_methods(category)')
+          .in('sale_id', saleIds);
+        (payments || []).forEach((p: any) => {
+          const sid = p.sale_id;
+          if (!splitMap[sid]) splitMap[sid] = [];
+          splitMap[sid].push({
+            amount_cents: p.amount_cents || 0,
+            payment_category: p.payment_method?.category || null,
+            payment_method_name: p.payment_method_name || null,
+          });
+        });
+      }
+
       // Map the data to include payment_category, profiles, and tracking info
       return (data || []).map(sale => {
         // Get the most relevant tracking info (from sale or melhor_envio_labels)
         const melhorEnvioLabel = (sale as any).melhor_envio_labels?.[0];
         const trackingCode = sale.tracking_code || melhorEnvioLabel?.tracking_code;
         const trackingStatus = sale.carrier_tracking_status || melhorEnvioLabel?.status;
-        
+
+        const splitLines = splitMap[sale.id];
+        const hasSplit = splitLines && splitLines.length > 1;
+
         return {
           ...sale,
           // Use category from payment_method_rel
@@ -169,6 +191,9 @@ export function useAvailableClosingSales(closingType: ClosingType) {
           tracking_code: trackingCode || null,
           carrier_tracking_status: trackingStatus || null,
           melhor_envio_label: melhorEnvioLabel || null,
+          // Split payment info (used by calculateCategoryTotals)
+          split_lines: hasSplit ? splitLines : undefined,
+          is_split_payment: hasSplit,
         };
       });
     },
