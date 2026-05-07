@@ -39,6 +39,13 @@ const sections = [
     color: 'text-orange-600',
   },
   {
+    title: 'Conferir Vendas por Lote',
+    description: 'Rastreie quais vendas levaram etiquetas de um lote específico',
+    icon: Layers,
+    href: '/expedicao/etiquetas-seriais/lotes',
+    color: 'text-amber-600',
+  },
+  {
     title: 'Buscar Etiquetas',
     description: 'Pesquise etiquetas por código ou parte do código',
     icon: Search,
