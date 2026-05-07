@@ -98,6 +98,7 @@ const SerialSearchPage = lazy(() => import("./pages/serial-labels/SerialSearchPa
 const SerialRegisterBatchPage = lazy(() => import("./pages/serial-labels/SerialRegisterBatchPage"));
 const SerialLogsPage = lazy(() => import("./pages/serial-labels/SerialLogsPage"));
 const SerialStockPage = lazy(() => import("./pages/serial-labels/SerialStockPage"));
+const SerialBatchReportPage = lazy(() => import("./pages/serial-labels/SerialBatchReportPage"));
 const AllDeliveries = lazy(() => import("./pages/AllDeliveries"));
 const RomaneioPrint = lazy(() => import("./pages/RomaneioPrint"));
 const RomaneioBatchPrint = lazy(() => import("./pages/RomaneioBatchPrint"));
@@ -1074,6 +1075,14 @@ const App = () => (
                   element={
                     <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
                       <SerialStockPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/expedicao/etiquetas-seriais/lotes"
+                  element={
+                    <ProtectedRoute requiredPermissions={['deliveries_view_all']}>
+                      <SerialBatchReportPage />
                     </ProtectedRoute>
                   }
                 />

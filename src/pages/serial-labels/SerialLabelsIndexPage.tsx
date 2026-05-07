@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { QrCode, Tag, ClipboardList, RotateCcw, ScanLine, Search, Upload, FileText, Package } from 'lucide-react';
+import { QrCode, Tag, ClipboardList, RotateCcw, ScanLine, Search, Upload, FileText, Package, Layers } from 'lucide-react';
 
 const sections = [
   {
@@ -37,6 +37,13 @@ const sections = [
     icon: ScanLine,
     href: '/expedicao/etiquetas-seriais/scanner',
     color: 'text-orange-600',
+  },
+  {
+    title: 'Conferir Vendas por Lote',
+    description: 'Rastreie quais vendas levaram etiquetas de um lote específico',
+    icon: Layers,
+    href: '/expedicao/etiquetas-seriais/lotes',
+    color: 'text-amber-600',
   },
   {
     title: 'Buscar Etiquetas',
