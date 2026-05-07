@@ -86,7 +86,7 @@ export default function SerialBatchReportPage() {
       if (salesIds.length === 0) return [];
       const { data, error } = await supabase
         .from('sales')
-        .select('id, sale_number, contact_name, total_cents, status, delivered_at, created_at')
+        .select('id, romaneio_number, total_cents, status, delivered_at, created_at, lead:leads(name)')
         .in('id', salesIds);
       if (error) throw error;
       return data || [];
@@ -96,7 +96,7 @@ export default function SerialBatchReportPage() {
 
   const salesById = useMemo(() => {
     const m: Record<string, any> = {};
-    sales.forEach(s => { m[s.id] = s; });
+    (sales as any[]).forEach((s: any) => { m[s.id] = s; });
     return m;
   }, [sales]);
 
