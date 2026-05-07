@@ -851,6 +851,14 @@ export default function Expedition() {
               <Package className="w-4 h-4 mr-2" />
               Etiquetas Correios
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.open('/expedicao/etiquetas-seriais', '_blank')}
+              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+            >
+              <QrCode className="w-4 h-4 mr-2" />
+              Gestão de Estoque (QR Codes)
+            </Button>
             <Button variant="outline" onClick={() => window.open('/relatorios/expedicao', '_blank')}>
               <FileText className="w-4 h-4 mr-2" />
               Relatório
