@@ -14249,6 +14249,7 @@ export type Database = {
           batch_label: string | null
           created_at: string
           id: string
+          lote: string | null
           organization_id: string
           product_id: string | null
           product_name: string | null
@@ -14265,6 +14266,7 @@ export type Database = {
           stocked_at: string | null
           stocked_by: string | null
           updated_at: string
+          validade: string | null
         }
         Insert: {
           assigned_at?: string | null
@@ -14272,6 +14274,7 @@ export type Database = {
           batch_label?: string | null
           created_at?: string
           id?: string
+          lote?: string | null
           organization_id: string
           product_id?: string | null
           product_name?: string | null
@@ -14288,6 +14291,7 @@ export type Database = {
           stocked_at?: string | null
           stocked_by?: string | null
           updated_at?: string
+          validade?: string | null
         }
         Update: {
           assigned_at?: string | null
@@ -14295,6 +14299,7 @@ export type Database = {
           batch_label?: string | null
           created_at?: string
           id?: string
+          lote?: string | null
           organization_id?: string
           product_id?: string | null
           product_name?: string | null
@@ -14311,6 +14316,7 @@ export type Database = {
           stocked_at?: string | null
           stocked_by?: string | null
           updated_at?: string
+          validade?: string | null
         }
         Relationships: [
           {
