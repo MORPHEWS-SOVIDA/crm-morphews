@@ -53,6 +53,7 @@ import {
   Download,
   ExternalLink,
   RefreshCw,
+  QrCode,
 } from 'lucide-react';
 import { format, parseISO, isToday, isTomorrow, startOfDay, addDays, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
