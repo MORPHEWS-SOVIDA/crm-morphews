@@ -43,39 +43,54 @@ export function useAssignSerialsToProduct() {
       productName, 
       serialStart, 
       serialEnd, 
-      prefix 
+      prefix,
+      lote,
+      validade,
+      explicitCodes,
     }: { 
       productId: string; 
       productName: string; 
-      serialStart: number; 
-      serialEnd: number; 
-      prefix: string;
+      serialStart?: number; 
+      serialEnd?: number; 
+      prefix?: string;
+      lote?: string | null;
+      validade?: string | null;
+      explicitCodes?: string[];
     }) => {
       if (!orgId) throw new Error('Organização não encontrada');
       
       const now = new Date().toISOString();
-      const codes: string[] = [];
-      
-      for (let i = serialStart; i <= serialEnd; i++) {
-        codes.push(`${prefix}${String(i).padStart(5, '0')}`);
+      let codes: string[] = [];
+      if (explicitCodes && explicitCodes.length > 0) {
+        codes = explicitCodes.map(c => c.toUpperCase());
+      } else if (prefix && serialStart != null && serialEnd != null) {
+        for (let i = serialStart; i <= serialEnd; i++) {
+          codes.push(`${prefix}${String(i).padStart(5, '0')}`);
+        }
+      } else {
+        throw new Error('Informe a faixa de etiquetas ou códigos lidos');
       }
 
       // Update existing labels only — never create new ones
       const BATCH_SIZE = 200;
       let total = 0;
 
+      const updatePayload: any = {
+        product_id: productId,
+        product_name: productName,
+        status: 'in_stock',
+        stocked_at: now,
+        stocked_by: user?.id,
+      };
+      if (lote !== undefined) updatePayload.lote = lote || null;
+      if (validade !== undefined) updatePayload.validade = validade || null;
+
       for (let i = 0; i < codes.length; i += BATCH_SIZE) {
         const batch = codes.slice(i, i + BATCH_SIZE);
         
         const { data, error } = await supabase
           .from('product_serial_labels')
-          .update({
-            product_id: productId,
-            product_name: productName,
-            status: 'in_stock' as any,
-            stocked_at: now,
-            stocked_by: user?.id,
-          })
+          .update(updatePayload)
           .eq('organization_id', orgId)
           .in('serial_code', batch)
           .select('id');
@@ -85,7 +100,7 @@ export function useAssignSerialsToProduct() {
       }
 
       if (total === 0) {
-        throw new Error(`Nenhuma etiqueta encontrada com prefixo ${prefix} na faixa ${serialStart}-${serialEnd}`);
+        throw new Error(`Nenhuma etiqueta encontrada para os códigos informados`);
       }
 
       return { updated: total, codes };
