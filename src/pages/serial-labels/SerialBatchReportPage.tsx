@@ -203,11 +203,11 @@ export default function SerialBatchReportPage() {
                           <td className="text-xs">
                             {sale ? (
                               <Link to={`/vendas/${sale.id}`} className="text-primary hover:underline">
-                                #{sale.sale_number}
+                                #{sale.romaneio_number || sale.id.slice(0, 8)}
                               </Link>
                             ) : '-'}
                           </td>
-                          <td className="text-xs">{sale?.contact_name || '-'}</td>
+                          <td className="text-xs">{sale?.lead?.name || '-'}</td>
                         </tr>
                       );
                     })}
