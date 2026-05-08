@@ -395,6 +395,25 @@ export function SaleCheckpointsCard({
 
   const handleDispatch = async () => {
     try {
+      // TRAVA DURA — exige bipe de QR de TODOS os produtos rastreados antes de despachar
+      const { data: saleRow } = await supabase
+        .from('sales')
+        .select('organization_id')
+        .eq('id', saleId)
+        .maybeSingle();
+      const orgId = (saleRow as any)?.organization_id;
+      if (orgId) {
+        const { validateQrScansForDispatch, formatMissingScansMessage } = await import('@/lib/validation/qrDispatchValidation');
+        const qr = await validateQrScansForDispatch(saleId, orgId);
+        if (!qr.ok) {
+          toast.error(formatMissingScansMessage(qr.missing), {
+            duration: 12000,
+            style: { whiteSpace: 'pre-line' },
+          });
+          return;
+        }
+      }
+
       await toggleMutation.mutateAsync({
         saleId,
         checkpointType: 'dispatched',
