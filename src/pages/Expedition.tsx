@@ -509,6 +509,19 @@ export default function Expedition() {
   const handleDispatch = async (saleId: string, motoboyId?: string, skippedConference: boolean = false) => {
     setIsUpdating(saleId);
     try {
+      // TRAVA DURA — defesa em profundidade: revalida bipes mesmo se chamado direto
+      if (organizationId) {
+        const { validateQrScansForDispatch, formatMissingScansMessage } = await import('@/lib/validation/qrDispatchValidation');
+        const qr = await validateQrScansForDispatch(saleId, organizationId);
+        if (!qr.ok) {
+          toast.error(formatMissingScansMessage(qr.missing), {
+            duration: 12000,
+            style: { whiteSpace: 'pre-line' },
+          });
+          setIsUpdating(null);
+          return;
+        }
+      }
       // IMPORTANT: Check current motoboy status before dispatch to avoid resetting
       // if motoboy already picked up the delivery
       const { data: currentSale } = await supabase
