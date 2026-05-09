@@ -281,14 +281,15 @@ export function useRequestWithdrawal() {
       virtualAccountId: string; 
       amountCents: number;
     }) => {
-      // Fetch account to validate balance
+      // Fetch account to validate balance + bank data
       const { data: account, error: accError } = await supabase
         .from('virtual_accounts')
         .select('balance_cents, bank_data:virtual_account_bank_data(*)')
         .eq('id', virtualAccountId)
-        .single();
+        .maybeSingle();
       
       if (accError) throw accError;
+      if (!account) throw new Error('Carteira não encontrada');
       if (account.balance_cents < amountCents) {
         throw new Error('Saldo insuficiente');
       }
@@ -303,7 +304,7 @@ export function useRequestWithdrawal() {
         .from('platform_settings')
         .select('setting_value')
         .eq('setting_key', 'withdrawal_rules')
-        .single();
+        .maybeSingle();
       
       const rules = (settings?.setting_value || { fee_percentage: 2.5, fee_fixed_cents: 0 }) as { fee_percentage: number; fee_fixed_cents: number };
       const feePercentage = Number(rules.fee_percentage) || 2.5;
@@ -326,13 +327,11 @@ export function useRequestWithdrawal() {
       
       if (error) throw error;
       
-      // Debit from balance
-      await supabase
-        .from('virtual_accounts')
-        .update({
-          balance_cents: account.balance_cents - amountCents,
-        })
-        .eq('id', virtualAccountId);
+      // Recalcula via RPC (única fonte da verdade — desconta o saque pendente do saldo)
+      await supabase.rpc('recalc_virtual_account', {
+        p_account_id: virtualAccountId,
+        p_triggered_by: 'withdrawal-request',
+      });
 
       // Notify finance team via email (non-blocking)
       supabase.functions
