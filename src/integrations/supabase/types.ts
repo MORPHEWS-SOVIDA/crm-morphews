@@ -20498,6 +20498,45 @@ export type Database = {
         }
         Relationships: []
       }
+      virtual_account_audit_log: {
+        Row: {
+          created_at: string
+          drift_balance_cents: number | null
+          drift_pending_cents: number | null
+          id: string
+          new_balance_cents: number
+          new_pending_cents: number
+          old_balance_cents: number
+          old_pending_cents: number
+          triggered_by: string
+          virtual_account_id: string
+        }
+        Insert: {
+          created_at?: string
+          drift_balance_cents?: number | null
+          drift_pending_cents?: number | null
+          id?: string
+          new_balance_cents: number
+          new_pending_cents: number
+          old_balance_cents: number
+          old_pending_cents: number
+          triggered_by?: string
+          virtual_account_id: string
+        }
+        Update: {
+          created_at?: string
+          drift_balance_cents?: number | null
+          drift_pending_cents?: number | null
+          id?: string
+          new_balance_cents?: number
+          new_pending_cents?: number
+          old_balance_cents?: number
+          old_pending_cents?: number
+          triggered_by?: string
+          virtual_account_id?: string
+        }
+        Relationships: []
+      }
       virtual_account_bank_data: {
         Row: {
           account_number: string
@@ -25062,6 +25101,15 @@ export type Database = {
         Args: { p_invoice_id: string; p_user_id: string }
         Returns: Json
       }
+      recalc_all_virtual_accounts: {
+        Args: { p_triggered_by?: string }
+        Returns: Json
+      }
+      recalc_virtual_account: {
+        Args: { p_account_id: string; p_triggered_by?: string }
+        Returns: Json
+      }
+      release_pending_balances_sql: { Args: never; Returns: Json }
       reopen_whatsapp_conversation: {
         Args: { p_conversation_id: string; p_instance_id: string }
         Returns: Json
