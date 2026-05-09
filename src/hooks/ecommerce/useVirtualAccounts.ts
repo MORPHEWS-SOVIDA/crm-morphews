@@ -418,28 +418,6 @@ export function useReviewWithdrawal() {
       
       if (status === 'rejected' && rejectionReason) {
         updateData.rejection_reason = rejectionReason;
-        
-        // Refund balance
-        const { data: withdrawal } = await supabase
-          .from('withdrawal_requests')
-          .select('virtual_account_id, amount_cents')
-          .eq('id', id)
-          .single();
-        
-        if (withdrawal) {
-          const { data: account } = await supabase
-            .from('virtual_accounts')
-            .select('balance_cents')
-            .eq('id', withdrawal.virtual_account_id)
-            .single();
-          
-          if (account) {
-            await supabase
-              .from('virtual_accounts')
-              .update({ balance_cents: account.balance_cents + withdrawal.amount_cents })
-              .eq('id', withdrawal.virtual_account_id);
-          }
-        }
       }
       
       if (status === 'completed') {
@@ -457,6 +435,35 @@ export function useReviewWithdrawal() {
         .single();
       
       if (error) throw error;
+
+      // Quando saque é concluído, registra transação de débito definitiva (auditável)
+      if (status === 'completed' && data) {
+        const { data: org } = await supabase
+          .from('virtual_accounts')
+          .select('organization_id')
+          .eq('id', data.virtual_account_id)
+          .maybeSingle();
+
+        await supabase.from('virtual_transactions').insert({
+          virtual_account_id: data.virtual_account_id,
+          organization_id: org?.organization_id,
+          transaction_type: 'withdrawal',
+          status: 'completed',
+          amount_cents: -data.amount_cents,
+          net_amount_cents: -data.amount_cents,
+          description: `Saque processado #${data.id.slice(0,8)}`,
+          reference_id: data.id,
+        });
+      }
+
+      // Recalcula a carteira (rejeitado devolve, concluído mantém débito, etc.)
+      if (data?.virtual_account_id) {
+        await supabase.rpc('recalc_virtual_account', {
+          p_account_id: data.virtual_account_id,
+          p_triggered_by: `withdrawal-${status}`,
+        });
+      }
+
       return data;
     },
     onSuccess: () => {
