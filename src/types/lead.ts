@@ -25,6 +25,10 @@ export interface Lead {
   meeting_link: string | null;
   created_at: string;
   updated_at: string;
+  /** Timestamp of when the lead entered its current funnel stage (auto-updated by trigger) */
+  stage_changed_at?: string | null;
+  /** Organization owning the lead — used for org-scoped UI rules */
+  organization_id?: string | null;
 }
 
 /**
