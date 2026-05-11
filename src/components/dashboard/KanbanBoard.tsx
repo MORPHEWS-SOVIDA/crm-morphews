@@ -50,6 +50,54 @@ interface KanbanCardProps {
   showMissingPhoneAlert?: boolean;
 }
 
+// === Follow-up "+20h" alert config ===
+// Scoped to a single organization (MARCA PRÓPRIA) per request from antony@sovida.com.br.
+const FOLLOWUP_ALERT_ORG_ID = '2d272c40-22e9-40e2-8cdc-3be142f61717';
+const FOLLOWUP_ALERT_THRESHOLD_MS = 20 * 60 * 60 * 1000; // 20 hours
+const FOLLOWUP_ALERT_STAGE_IDS = new Set<string>([
+  // Grupo F1-F5
+  'c04ce26d-181f-4803-8e25-96b0f299b131',
+  '58d91c38-2364-416e-895d-5a87e722cbde',
+  '6963b080-b0c1-4c8b-95cf-1447123b36ba',
+  '5ba95db1-fc85-4c03-aff6-ac32d88f3b2c',
+  '143df111-7ed6-423d-b286-c7df67967bd0',
+  // No-show SDR F1-F5
+  '11ccc64f-6030-441d-9322-5d6bade9ec50',
+  '586cf111-d3b6-47fa-b125-4bf2977bfed9',
+  '9f6bd6d3-858f-48f8-8b3a-7634cd2d31fa',
+  'd25ed528-5f7f-464d-8269-1ce756e9d0f3',
+  '1293f046-adc5-40ae-b2ac-9325c6ee1b91',
+  // Pós-SDR F1-F5
+  'dad05ba3-a7e4-4f18-a929-b0f177fd06b5',
+  'e325c867-7f69-4d15-bf99-8a2aeabda9a5',
+  '917fac71-dbfc-4467-8bdb-3c752ad23d1e',
+  '7021cf47-de01-4d4d-95fd-ac0069a02982',
+  'c9fe579e-1421-457e-87c4-92bc342e2c0f',
+  // No-show fechamento F1-F5
+  '2f46191c-d701-407f-b843-e6a2cf937829',
+  '8e6cbe6d-d73c-4aa6-8c9c-222c8ed0b351',
+  'b6f1512b-47f3-436b-982e-ab3774695a0f',
+  '12ac816a-2be1-4a15-a834-7154d1839d5e',
+  '8d03fd35-a7c7-4960-a1d5-6c1c297ce1a4',
+  // Proposta F1-F5
+  '2eaa4bac-8298-4a7f-960e-a414cd522ce6',
+  '266676d7-a79d-477d-9d1c-403ebb577c81',
+  '34a9b2fe-66b0-4bba-acdc-51d24ce79852',
+  '1cf4a2b5-b094-42af-a674-839c4c864139',
+  'a580429b-ae47-424c-8246-dc385daf347d',
+]);
+
+function shouldShowFollowupAlert(lead: Lead, currentStageId?: string): boolean {
+  if (!currentStageId) return false;
+  if (lead.organization_id !== FOLLOWUP_ALERT_ORG_ID) return false;
+  if (!FOLLOWUP_ALERT_STAGE_IDS.has(currentStageId)) return false;
+  const ts = lead.stage_changed_at;
+  if (!ts) return false;
+  const enteredAt = new Date(ts).getTime();
+  if (Number.isNaN(enteredAt)) return false;
+  return Date.now() - enteredAt > FOLLOWUP_ALERT_THRESHOLD_MS;
+}
+
 function formatCurrency(value: number | null) {
   if (!value) return null;
   return new Intl.NumberFormat('pt-BR', {
