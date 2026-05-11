@@ -79,12 +79,11 @@ const FOLLOWUP_ALERT_STAGE_IDS = new Set<string>([
   'b6f1512b-47f3-436b-982e-ab3774695a0f',
   '12ac816a-2be1-4a15-a834-7154d1839d5e',
   '8d03fd35-a7c7-4960-a1d5-6c1c297ce1a4',
-  // Proposta F1-F5
+  // Proposta F1-F4 (F5 excluído a pedido do usuário)
   '2eaa4bac-8298-4a7f-960e-a414cd522ce6',
   '266676d7-a79d-477d-9d1c-403ebb577c81',
   '34a9b2fe-66b0-4bba-acdc-51d24ce79852',
   '1cf4a2b5-b094-42af-a674-839c4c864139',
-  'a580429b-ae47-424c-8246-dc385daf347d',
 ]);
 
 function shouldShowFollowupAlert(lead: Lead, currentStageId?: string): boolean {
