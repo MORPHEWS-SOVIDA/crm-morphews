@@ -9797,6 +9797,7 @@ export type Database = {
           specialty: string | null
           src: string | null
           stage: Database["public"]["Enums"]["funnel_stage"]
+          stage_changed_at: string | null
           star_rating: number | null
           stars: number
           state: string | null
@@ -9864,6 +9865,7 @@ export type Database = {
           specialty?: string | null
           src?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
+          stage_changed_at?: string | null
           star_rating?: number | null
           stars?: number
           state?: string | null
@@ -9931,6 +9933,7 @@ export type Database = {
           specialty?: string | null
           src?: string | null
           stage?: Database["public"]["Enums"]["funnel_stage"]
+          stage_changed_at?: string | null
           star_rating?: number | null
           stars?: number
           state?: string | null
