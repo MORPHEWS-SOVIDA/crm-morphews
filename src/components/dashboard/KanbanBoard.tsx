@@ -125,6 +125,7 @@ function KanbanCard({ lead, stages, currentStageId, onQuickMove, showMissingPhon
   const instagramUrl = getInstagramProfileUrl(lead.instagram);
   const negotiatedValue = formatCurrency(lead.negotiated_value);
   const missingPhone = showMissingPhoneAlert && !(lead.whatsapp && String(lead.whatsapp).trim().length > 0);
+  const showFollowupAlert = shouldShowFollowupAlert(lead, currentStageId);
 
   // Open lead in new tab
   const handleClick = (e: React.MouseEvent) => {
@@ -137,12 +138,12 @@ function KanbanCard({ lead, stages, currentStageId, onQuickMove, showMissingPhon
       ref={setNodeRef}
       style={style}
       className={cn(
-        'bg-card rounded-lg p-3 shadow-sm border border-border/50 cursor-pointer',
+        'bg-card rounded-lg shadow-sm border border-border/50 cursor-pointer overflow-hidden',
         'hover:shadow-md hover:border-primary/30 transition-all',
         isDragging && 'opacity-50 shadow-lg'
       )}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2 p-3">
         <button
           {...attributes}
           {...listeners}
