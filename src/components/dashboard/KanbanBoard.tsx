@@ -232,6 +232,26 @@ function KanbanCard({ lead, stages, currentStageId, onQuickMove, showMissingPhon
           </div>
         </div>
       </div>
+
+      {showFollowupAlert && (
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-800 border-t border-amber-300 text-xs font-medium"
+                aria-label="Lead há mais de 20 horas nesta etapa de follow-up"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>+20h nesta etapa</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+              Este lead está há mais de 20h nesta etapa de follow-up.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
     </div>
   );
 }
