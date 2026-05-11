@@ -28,9 +28,10 @@ import { WhatsAppButton } from '@/components/WhatsAppButton';
 import { StageChangeDialog, StageChangeResult } from '@/components/StageChangeDialog';
 import { cn } from '@/lib/utils';
 import { getInstagramProfileUrl } from '@/lib/instagram';
-import { GripVertical, User, DollarSign, ChevronRight, AlertTriangle } from 'lucide-react';
+import { GripVertical, User, DollarSign, ChevronRight, AlertTriangle, AlertCircle } from 'lucide-react';
 import { Instagram } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
