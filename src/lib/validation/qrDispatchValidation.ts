@@ -11,6 +11,7 @@ export interface MissingScanDetail {
   product_name: string;
   required: number;
   scanned: number;
+  kind?: 'missing' | 'overscan';
 }
 
 export interface QrDispatchValidationResult {
@@ -101,7 +102,7 @@ export async function validateQrScansForDispatch(
     scannedCount.set(r.product_id, (scannedCount.get(r.product_id) || 0) + 1);
   }
 
-  // 5) Comparar e montar lista de pendências
+  // 5) Comparar e montar lista de pendências (faltando OU excesso)
   const missing: MissingScanDetail[] = [];
   for (const pid of qrActiveArr) {
     const req = required.get(pid)!;
@@ -112,6 +113,15 @@ export async function validateQrScansForDispatch(
         product_name: req.name,
         required: req.qty,
         scanned: scn,
+        kind: 'missing',
+      });
+    } else if (scn > req.qty) {
+      missing.push({
+        product_id: pid,
+        product_name: req.name,
+        required: req.qty,
+        scanned: scn,
+        kind: 'overscan',
       });
     }
   }
@@ -120,14 +130,17 @@ export async function validateQrScansForDispatch(
 }
 
 export function formatMissingScansMessage(missing: MissingScanDetail[]): string {
-  const lines = missing.map(
-    (m) => `• ${m.product_name}: ${m.scanned}/${m.required} bipado(s)`
-  );
+  const lines = missing.map((m) => {
+    if (m.kind === 'overscan') {
+      return `• ${m.product_name}: ${m.scanned} bipado(s) — pedido só pede ${m.required} (EXCESSO)`;
+    }
+    return `• ${m.product_name}: ${m.scanned}/${m.required} bipado(s)`;
+  });
   return [
-    '🚫 DESPACHO BLOQUEADO — faltam bipes de QR code:',
+    '🚫 DESPACHO BLOQUEADO — divergência de bipes:',
     ...lines,
     '',
-    'Bipe TODAS as unidades dos produtos rastreados antes de despachar.',
+    'Bipe a quantidade EXATA dos produtos rastreados antes de despachar.',
     'Manipulados e serviços são isentos.',
   ].join('\n');
 }

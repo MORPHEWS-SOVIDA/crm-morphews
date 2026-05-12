@@ -93,11 +93,17 @@ export function SaleScanValidation({
     const map: Record<string, { needed: number; scanned: number; productName: string }> = {};
     
     serialItems.forEach(item => {
-      map[item.product_id] = {
-        needed: item.quantity,
-        scanned: 0,
-        productName: item.product_name,
-      };
+      // Sum quantities when multiple sale_items share the same product_id
+      // (e.g. produto + "produto (Cópia)" cadastrado como mesmo product_id)
+      if (map[item.product_id]) {
+        map[item.product_id].needed += item.quantity;
+      } else {
+        map[item.product_id] = {
+          needed: item.quantity,
+          scanned: 0,
+          productName: item.product_name,
+        };
+      }
     });
 
     assignedSerials.forEach(serial => {
