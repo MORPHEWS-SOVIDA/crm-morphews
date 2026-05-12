@@ -11,6 +11,7 @@ export interface MissingScanDetail {
   product_name: string;
   required: number;
   scanned: number;
+  kind?: 'missing' | 'overscan';
 }
 
 export interface QrDispatchValidationResult {
