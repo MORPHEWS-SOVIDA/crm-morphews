@@ -144,19 +144,3 @@ export function formatMissingScansMessage(missing: MissingScanDetail[]): string 
     'Manipulados e serviços são isentos.',
   ].join('\n');
 }
-
-  return { ok: missing.length === 0, missing };
-}
-
-export function formatMissingScansMessage(missing: MissingScanDetail[]): string {
-  const lines = missing.map(
-    (m) => `• ${m.product_name}: ${m.scanned}/${m.required} bipado(s)`
-  );
-  return [
-    '🚫 DESPACHO BLOQUEADO — faltam bipes de QR code:',
-    ...lines,
-    '',
-    'Bipe TODAS as unidades dos produtos rastreados antes de despachar.',
-    'Manipulados e serviços são isentos.',
-  ].join('\n');
-}
