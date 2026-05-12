@@ -134,101 +134,153 @@ export function SaleScanValidation({
   const progressPercent = totalNeeded > 0 ? Math.min(100, (totalDone / totalNeeded) * 100) : 0;
   const isComplete = totalDone >= totalNeeded;
 
-  const handleScan = useCallback(async (code: string) => {
+  const handleScan = useCallback(async (rawCode: string) => {
     if (!orgId) return;
+    const code = (rawCode || '').trim().toUpperCase();
+    if (!code) return;
 
-    // Vibrate for feedback
-    if (navigator.vibrate) navigator.vibrate(100);
-
-    // Check for duplicate in this sale
-    const alreadyScanned = assignedSerials.find(s => s.serial_code === code.toUpperCase());
-    if (alreadyScanned) {
-      setScanResults(prev => [{
-        code,
-        status: 'warning',
-        message: 'Já escaneado neste pedido',
-        productName: alreadyScanned.product_name || undefined,
-      }, ...prev]);
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      toast.warning(`${code} já foi escaneado neste pedido`);
-      return;
+    // ---- Anti-pistola dupla: ignora releituras do mesmo código em < 1.5s ----
+    const now = Date.now();
+    const lastSeen = recentCodesRef.current.get(code);
+    if (lastSeen && now - lastSeen < DUPLICATE_WINDOW_MS) {
+      return; // silenciosamente ignora (pistola disparou 2x)
+    }
+    recentCodesRef.current.set(code, now);
+    // limpa entradas antigas
+    if (recentCodesRef.current.size > 200) {
+      for (const [k, t] of recentCodesRef.current) {
+        if (now - t > 10_000) recentCodesRef.current.delete(k);
+      }
     }
 
-    if (mode === 'separation') {
+    // ---- Lock global: só processa um bipe por vez ----
+    if (processingRef.current) {
+      toast.warning('Aguarde, processando bipe anterior...');
+      return;
+    }
+    processingRef.current = true;
+
+    // Vibrate for feedback
+    if (navigator.vibrate) navigator.vibrate(60);
+
+    try {
+      // Já escaneado neste pedido?
+      const alreadyScanned = assignedSerials.find(s => s.serial_code === code);
+      if (alreadyScanned) {
+        setScanResults(prev => [{
+          code,
+          status: 'warning',
+          message: 'Já escaneado neste pedido',
+          productName: alreadyScanned.product_name || undefined,
+        }, ...prev]);
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        toast.warning(`${code} já foi escaneado neste pedido`);
+        return;
+      }
+
+      if (mode !== 'separation') return;
+
+      // Look up what product this serial belongs to
+      const { data: label, error } = await supabase
+        .from('product_serial_labels')
+        .select('*, lead_products:product_id(name)')
+        .eq('organization_id', orgId)
+        .eq('serial_code', code)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!label) {
+        setScanResults(prev => [{ code, status: 'error', message: 'Etiqueta não encontrada no sistema' }, ...prev]);
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        toast.error(`${code} não encontrado`);
+        return;
+      }
+
+      if (label.status !== 'in_stock') {
+        setScanResults(prev => [{ code, status: 'error', message: `Status inválido: ${label.status}` }, ...prev]);
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        toast.error(`${code} não está em estoque (${label.status})`);
+        return;
+      }
+
+      // Produto faz parte do pedido?
+      const matchingItem = serialItems.find(item => item.product_id === label.product_id);
+      if (!matchingItem) {
+        const productName = (label.lead_products as any)?.name || label.product_name || 'Desconhecido';
+        setScanResults(prev => [{
+          code,
+          status: 'error',
+          message: `Produto "${productName}" não faz parte deste pedido`,
+          productName,
+        }, ...prev]);
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        toast.error(`${code} é ${productName} — não faz parte deste pedido!`);
+        return;
+      }
+
+      // Cap com contador OTIMISTA (cobre race entre bipes rápidos antes do refetch)
+      const prog = progressByProduct[label.product_id!];
+      const optimistic = optimisticByProductRef.current[label.product_id!] || 0;
+      const effectiveScanned = (prog?.scanned || 0) + optimistic;
+      if (prog && effectiveScanned >= prog.needed) {
+        setScanResults(prev => [{
+          code,
+          status: 'warning',
+          message: `Já tem ${prog.needed} unid. de ${matchingItem.product_name} escaneadas`,
+          productName: matchingItem.product_name,
+        }, ...prev]);
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        toast.warning(`Já tem a quantidade necessária de ${matchingItem.product_name}`);
+        return;
+      }
+
+      // Reserva otimista ANTES do await
+      optimisticByProductRef.current[label.product_id!] = optimistic + 1;
+
       try {
-        // Look up what product this serial belongs to
-        const { data: label, error } = await supabase
-          .from('product_serial_labels')
-          .select('*, lead_products:product_id(name)')
-          .eq('organization_id', orgId)
-          .eq('serial_code', code.toUpperCase())
-          .maybeSingle();
-
-        if (error) throw error;
-
-        if (!label) {
-          setScanResults(prev => [{ code, status: 'error', message: 'Etiqueta não encontrada no sistema' }, ...prev]);
-          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-          toast.error(`${code} não encontrado`);
-          return;
-        }
-
-        if (label.status !== 'in_stock') {
-          setScanResults(prev => [{ code, status: 'error', message: `Status inválido: ${label.status}` }, ...prev]);
-          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-          toast.error(`${code} não está em estoque`);
-          return;
-        }
-
-        // Check if product matches any serial sale item (not manipulados)
-        const matchingItem = serialItems.find(item => item.product_id === label.product_id);
-        if (!matchingItem) {
-          const productName = (label.lead_products as any)?.name || label.product_name || 'Desconhecido';
-          setScanResults(prev => [{
-            code,
-            status: 'error',
-            message: `Produto "${productName}" não faz parte deste pedido`,
-            productName,
-          }, ...prev]);
-          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-          toast.error(`${code} é ${productName} — não faz parte deste pedido!`);
-          return;
-        }
-
-        // Check if already have enough of this product
-        const prog = progressByProduct[label.product_id!];
-        if (prog && prog.scanned >= prog.needed) {
-          setScanResults(prev => [{
-            code,
-            status: 'warning',
-            message: `Já tem ${prog.needed} unid. de ${matchingItem.product_name} escaneadas`,
-            productName: matchingItem.product_name,
-          }, ...prev]);
-          toast.warning(`Já tem a quantidade necessária de ${matchingItem.product_name}`);
-          return;
-        }
-
-        // Assign to sale
         await assignMutation.mutateAsync({
           serialCode: code,
           saleId,
           saleItemId: matchingItem.id,
         });
-
-        setScanResults(prev => [{
-          code,
-          status: 'success',
-          message: 'Conferido!',
-          productName: matchingItem.product_name,
-        }, ...prev]);
-        
-        await refetchSerials();
-        toast.success(`✅ ${code} — ${matchingItem.product_name}`);
-
-      } catch (err: any) {
-        setScanResults(prev => [{ code, status: 'error', message: err.message }, ...prev]);
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      } catch (e: any) {
+        // rollback otimista
+        optimisticByProductRef.current[label.product_id!] = optimistic;
+        // Trata erro do trigger anti-overscan do banco
+        const msg = String(e?.message || '');
+        if (msg.includes('Excesso de bipes') || e?.code === '23514') {
+          setScanResults(prev => [{
+            code,
+            status: 'error',
+            message: `Excesso bloqueado pelo sistema: ${matchingItem.product_name}`,
+            productName: matchingItem.product_name,
+          }, ...prev]);
+          if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+          toast.error(`🚫 Excesso bloqueado: ${matchingItem.product_name}`);
+          return;
+        }
+        throw e;
       }
+
+      setScanResults(prev => [{
+        code,
+        status: 'success',
+        message: 'Conferido!',
+        productName: matchingItem.product_name,
+      }, ...prev]);
+
+      await refetchSerials();
+      // Após refetch, zera o otimista (já refletiu na contagem real)
+      optimisticByProductRef.current[label.product_id!] = 0;
+      toast.success(`✅ ${code} — ${matchingItem.product_name}`);
+
+    } catch (err: any) {
+      setScanResults(prev => [{ code, status: 'error', message: err.message }, ...prev]);
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      toast.error(err.message || 'Erro ao processar bipe');
+    } finally {
+      processingRef.current = false;
     }
   }, [orgId, assignedSerials, serialItems, mode, saleId, assignMutation, progressByProduct, refetchSerials]);
 
