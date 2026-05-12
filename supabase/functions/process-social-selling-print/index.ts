@@ -498,19 +498,25 @@ async function applyEntriesChunk(
   let leadsExisting = 0;
   let leadsSkipped = 0;
 
+  // Org Antony/Sovida: dedup só dentro do mesmo import (cada nova importação = novo follow-up enviado)
+  const ANTONY_ORG_ID = "2d272c40-22e9-40e2-8cdc-3be142f61717";
+  const dedupScopedByImport = orgId === ANTONY_ORG_ID;
+
   for (const entry of uniqueEntries) {
     if (entry.type === "handle") {
       const username = entry.value;
-      const { data: existingActivity } = await supabase
+      let dedupQuery = supabase
         .from("social_selling_activities")
         .select("id")
         .eq("organization_id", orgId)
         .eq("seller_id", importRecord.seller_id)
         .eq("profile_id", importRecord.profile_id)
         .eq("instagram_username", username)
-        .eq("activity_type", "message_sent")
-        .limit(1)
-        .maybeSingle();
+        .eq("activity_type", "message_sent");
+      if (dedupScopedByImport) {
+        dedupQuery = dedupQuery.eq("import_id", importRecord.id);
+      }
+      const { data: existingActivity } = await dedupQuery.limit(1).maybeSingle();
 
       if (existingActivity) {
         leadsSkipped++;
@@ -568,16 +574,18 @@ async function applyEntriesChunk(
     const displayName = entry.value;
     const normalizedKey = displayName.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-    const { data: existingActivity } = await supabase
+    let dedupQuery2 = supabase
       .from("social_selling_activities")
       .select("id")
       .eq("organization_id", orgId)
       .eq("seller_id", importRecord.seller_id)
       .eq("profile_id", importRecord.profile_id)
       .eq("instagram_username", normalizedKey)
-      .eq("activity_type", "message_sent")
-      .limit(1)
-      .maybeSingle();
+      .eq("activity_type", "message_sent");
+    if (dedupScopedByImport) {
+      dedupQuery2 = dedupQuery2.eq("import_id", importRecord.id);
+    }
+    const { data: existingActivity } = await dedupQuery2.limit(1).maybeSingle();
 
     if (existingActivity) {
       leadsSkipped++;
