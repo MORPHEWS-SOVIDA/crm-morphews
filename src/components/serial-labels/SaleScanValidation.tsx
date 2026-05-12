@@ -58,6 +58,15 @@ export function SaleScanValidation({
   const shipMutation = useShipSerials();
   const { data: assignedSerials = [], refetch: refetchSerials } = useSaleSerials(saleId);
 
+  // ===== Anti-race / anti-pistola dupla =====
+  // Lock para impedir reentrância enquanto um bipe ainda está sendo gravado
+  const processingRef = useRef(false);
+  // Contador otimista por produto (incrementa antes do refetch concluir)
+  const optimisticByProductRef = useRef<Record<string, number>>({});
+  // Códigos vistos recentemente — bloqueia dupla leitura da pistola
+  const recentCodesRef = useRef<Map<string, number>>(new Map());
+  const DUPLICATE_WINDOW_MS = 1500;
+
   // Fetch product categories to determine which items need scanning
   useEffect(() => {
     if (!orgId || saleItems.length === 0) return;
