@@ -26,6 +26,7 @@ import {
   type ProductComboPrice,
 } from '@/hooks/useProductCombos';
 import { useProducts } from '@/hooks/useProducts';
+import { useProductBrands } from '@/hooks/useProductBrands';
 import { CurrencyInput } from '@/components/ui/currency-input';
 
 interface ComboItem {
