@@ -182,6 +182,7 @@ export default function EditSale() {
           unit_price_cents: item.unit_price_cents,
           discount_cents: item.discount_cents,
           requisition_number: item.requisition_number,
+          combo_id: (item as any).combo_id ?? null,
           original: item,
         }))
       );
