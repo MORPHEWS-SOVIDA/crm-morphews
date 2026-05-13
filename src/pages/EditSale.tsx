@@ -115,9 +115,12 @@ export default function EditSale() {
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('fixed');
   const [discountValue, setDiscountValue] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false); // Synchronous lock to prevent double-save
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const { data: combos = [] } = useProductCombos();
+  const [selectedComboId, setSelectedComboId] = useState<string>('');
 
   // Delivery state
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('motoboy');
