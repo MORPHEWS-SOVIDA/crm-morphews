@@ -96,6 +96,7 @@ export default function ComboForm() {
       setName(combo.name);
       setDescription(combo.description || '');
       setSku(combo.sku || '');
+      setBrandId(combo.brand_id || 'none');
       setIsActive(combo.is_active);
       
       // Load items
