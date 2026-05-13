@@ -37,11 +37,12 @@ export function AssignSerialsToProduct() {
 
   const { data: stockLocations = [] } = useStockLocations();
 
-  // Default to the org's default location once loaded
-  if (!stockLocationId && stockLocations.length > 0) {
-    const def = stockLocations.find(l => l.is_default) || stockLocations[0];
-    if (def) setTimeout(() => setStockLocationId(def.id), 0);
-  }
+  useEffect(() => {
+    if (!stockLocationId && stockLocations.length > 0) {
+      const def = stockLocations.find(l => l.is_default) || stockLocations[0];
+      if (def) setStockLocationId(def.id);
+    }
+  }, [stockLocations, stockLocationId]);
 
   // Range mode
   const [prefix, setPrefix] = useState('VIDA');
