@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Plus, Search, Loader2, Pencil, Trash2, Package, ArrowLeft } from 'lucide-react';
 import { useProductCombos, useDeleteProductCombo } from '@/hooks/useProductCombos';
+import { useProductBrands } from '@/hooks/useProductBrands';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, useNavigate } from 'react-router-dom';
 // Simple text normalization for search
 const normalizeText = (text: string) => 
