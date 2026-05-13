@@ -33,6 +33,15 @@ export function AssignSerialsToProduct() {
   const [lote, setLote] = useState('');
   const [validadeMes, setValidadeMes] = useState('');
   const [validadeAno, setValidadeAno] = useState(String(new Date().getFullYear() + 1));
+  const [stockLocationId, setStockLocationId] = useState<string>('');
+
+  const { data: stockLocations = [] } = useStockLocations();
+
+  // Default to the org's default location once loaded
+  if (!stockLocationId && stockLocations.length > 0) {
+    const def = stockLocations.find(l => l.is_default) || stockLocations[0];
+    if (def) setTimeout(() => setStockLocationId(def.id), 0);
+  }
 
   // Range mode
   const [prefix, setPrefix] = useState('VIDA');
