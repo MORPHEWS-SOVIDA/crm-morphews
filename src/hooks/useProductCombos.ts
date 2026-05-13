@@ -72,6 +72,7 @@ export interface CreateComboInput {
   sku?: string;
   image_url?: string;
   is_active?: boolean;
+  brand_id?: string | null;
 }
 
 export interface CreateComboItemInput {
