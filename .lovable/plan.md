@@ -1,85 +1,56 @@
+## Diagnóstico
 
-# 🚀 Super IA - Vendedor do Futuro
+Venda `fc871bee-5445-47f2-b8bd-71ee4bfc4bae` (Leonan, R$647,80) tem **10 itens em vez de 5** — todos sem `combo_id`/`combo_item_parent_id`. O total da venda (`sales.total_cents = 64780`) está certo, mas os itens estão duplicados e os kits não estão estruturados como pai/filho.
 
-## Situação Atual
-Já existe infraestrutura significativa que NÃO está sendo usada:
-- ✅ `lead_ai_preferences` — preferências aprendidas por IA (tabela existe, não é consumida pelo agente)
-- ✅ `lead_conversation_summaries` — resumos de conversas (existe, não é injetada no prompt)
-- ✅ `lead-memory-analyze` — Edge Function que extrai tudo isso (existe, não é chamada automaticamente)
-- ✅ CRM Tools (ReAct) — agente já pode buscar produtos, pedidos, mover leads (existe na VPS)
-- ✅ `lead_followups` — sistema de follow-ups (existe, mas é manual)
-- ❌ **Nada disso está integrado** — o agente responde "sem memória"
+**Causa raiz** (em `src/pages/EditSale.tsx`, função `handleSave`):
 
-## Plano de Implementação
+1. **Sem proteção contra clique duplo**: itens novos são marcados com `id: new_${Date.now()}` e inseridos no save. Após inserir, o state não é atualizado — se o usuário clicar Salvar de novo (ou a UI re-renderizar antes do redirect), **os mesmos itens são inseridos novamente**. Foi exatamente o que aconteceu (12:35:09 e 12:35:21, gap de 12s).
+2. **Não conhece combos**: o `ProductSelectionDialog` permite escolher combos, mas o EditSale grava cada combo como uma linha plana com `combo_id = null` e `combo_item_parent_id = null` — perdendo a estrutura pai/filho que o `SaleDetail`, `Romaneio`, `Expedição` e split de comissões esperam.
 
-### Fase 1: Banco de Dados (Lovable)
-Criar tabela `ai_followup_queue` para o cron da VPS:
-- `organization_id`, `lead_id`, `conversation_id`
-- `trigger_type`: 'cron_inactive' | 'event_stage_change' | 'event_cart_abandon' | 'event_post_sale'
-- `context_snapshot`: JSON com preferências, resumo, último tópico
-- `generated_message`: mensagem gerada pela IA
-- `status`: 'pending' | 'sent' | 'skipped' | 'failed'
-- `scheduled_for`, `sent_at`
+## Correção em duas frentes
 
-### Fase 2: Edge Function `super-ia-context` (Lovable → VPS consome)
-Endpoint que o VPS chama para obter TUDO sobre um lead:
-- Preferências aprendidas (`lead_ai_preferences`)
-- Últimos resumos (`lead_conversation_summaries`)
-- Histórico de compras (`sales`)
-- Posição no funil (`leads` + `organization_funnel_stages`)
-- Follow-ups pendentes (`lead_followups`)
-- Últimas 30 mensagens da conversa
-- Produtos da organização
+### 1. Corrigir os dados da venda fc871bee (one-shot)
 
-### Fase 3: Motor de Follow-up na VPS
-Cron job que roda a cada 30 min:
-1. Busca leads inativos há X horas (configurável por organização)
-2. Chama `super-ia-context` para cada lead
-3. Usa Claude (Anthropic) para gerar mensagem contextual curta e humana
-4. Insere na `ai_followup_queue` com status 'pending'
-5. Envia via Evolution API
-6. Atualiza status para 'sent'
+Via `supabase--insert`:
 
-### Fase 4: Enriquecimento do Agente (VPS)
-Modificar o motor de execução na VPS para:
-1. Antes de responder, chamar `super-ia-context` e injetar no prompt
-2. Novas tools: `schedule_followup`, `update_lead_notes`, `create_sale_proposal`
-3. Após cada conversa encerrada, chamar `lead-memory-analyze` automaticamente
-4. Usar Claude Sonnet como modelo principal (ANTHROPIC_API_KEY da VPS)
+- Apagar os 5 itens duplicados (timestamp `12:35:21.662715+00`).
+- Apagar os 5 itens "soltos" restantes.
+- Inserir nova estrutura pai/filho com base nos kits Balestrero já cadastrados:
 
-### Fase 5: Frontend `/super-ia` (Lovable)
-Dashboard unificado com:
-- **Visão geral**: leads ativos, follow-ups pendentes, taxa de conversão
-- **Fila de follow-ups**: mensagens geradas aguardando envio/aprovação
-- **Memória do lead**: card com preferências e resumos aprendidos
-- **Configuração**: tempos de inatividade, gatilhos, modelo de IA
-- **Logs de atividade**: o que o agente fez automaticamente
+| Pai (combo) | Preço pai | Filhos (preço 0) |
+|---|---|---|
+| Kit Power Combat (`aaa20c1c…5555…89006`) | R$379,80 | Balestrero POWER + Combat Creatina |
+| Kit Omega 3 + NAC (`b1e57ec0…0001`) | R$119,00 | Omega Power + NAC Defense ×1 |
+| Kit NAC + Hydra Power (`b1e57ec0…0002`) | R$149,00 | NAC Defense ×1 + Hydra Power |
 
-### Fase 6: Gatilhos por Evento
-Triggers no banco que inserem na `ai_followup_queue`:
-- Lead mudou de etapa no funil → follow-up contextual
-- Carrinho abandonado → recuperação
-- Compra concluída → pós-venda/upsell após X dias
-- Lead sem resposta há X horas → reengajamento
+Total continua R$647,80, bate com `sales.total_cents`.
 
-### Primeiro Deploy: Sonatura (thiago@sonatura.com.br / 555181330321)
-1. Configurar agente com Claude via VPS
-2. Ativar memória automática
-3. Ativar follow-up cron de 2h
-4. Monitorar via `/super-ia`
+### 2. Blindar `EditSale.tsx` para nunca mais acontecer
 
-## Arquitetura Final
-```
-WhatsApp → Evolution API → VPS (webhook)
-  → Consulta super-ia-context (Lovable DB)
-  → Claude (Anthropic API direto)
-  → CRM Tools (via vps-bridge)
-  → Resposta via Evolution API
-  → Salva memória (lead-memory-analyze)
+a) **Lock anti-duplo-clique**: o botão Salvar e o `handleSave` já têm `isSaving`, mas falta um `useRef` síncrono pra cobrir o gap entre `setIsSaving(true)` e o re-render. Adicionar `savingRef` que retorna cedo se já estiver salvando.
 
-Cron VPS (30min)
-  → Busca leads inativos
-  → Consulta super-ia-context
-  → Claude gera follow-up
-  → Envia via Evolution API
-```
+b) **Marcar inseridos como `!isNew` após o insert**: usar `.insert(...).select()` e atualizar o state com os IDs reais retornados, pra que um segundo save não reinsira.
+
+c) **Explosão de combo no save** (espelhando a lógica do `ecommerce-checkout` documentada em `combo-explosion-v1`):
+
+   - Se `item.combo_id` estiver presente, inserir 1 item PAI (com `combo_id`, preço total do combo, `combo_item_parent_id = null`) e usar o `id` retornado para inserir N itens FILHOS (com `combo_item_parent_id = pai.id`, `combo_id` preenchido, `unit_price_cents = 0`, `quantity` = qty do componente × qty do combo).
+   - Buscar os componentes do combo via `product_combo_items` no momento do save.
+
+d) **`ProductSelectionDialog` precisa propagar `combo_id`** quando o usuário escolhe um kit. Verificar se já manda — se não, ajustar a interface `EditableItem` e `handleAddProduct` pra carregar `combo_id`.
+
+### Arquivos afetados
+
+- `src/pages/EditSale.tsx` — lock síncrono, explosão de combos no save, atualização de state pós-insert.
+- `src/components/sales/ProductSelectionDialog.tsx` — garantir que `combo_id` chega ao callback.
+- `src/pages/EditSale.tsx` interface `EditableItem` — adicionar `combo_id?: string`.
+
+### Fora do escopo (sugiro tarefa separada se quiser)
+
+- `AddReceptivo.tsx` (criação de venda nova) e `payment-webhook` (sale paga via Pagarme) — fluxos diferentes, podem ter o mesmo gap. Posso auditar depois se confirmar.
+
+## Validação
+
+1. Re-abrir `/vendas/fc871bee-5445-47f2-b8bd-71ee4bfc4bae` — deve mostrar 3 kits pai com componentes indentados, total R$647,80.
+2. Editar uma venda de teste, adicionar um kit, clicar Salvar 3x rápido → só 1 conjunto de itens deve ser gravado, com pai/filho corretos.
+
+Confirma que aplico tudo isso?
