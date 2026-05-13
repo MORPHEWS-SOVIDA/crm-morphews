@@ -15,6 +15,7 @@ export interface ProductCombo {
   sku: string | null;
   image_url: string | null;
   is_active: boolean;
+  brand_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -71,6 +72,7 @@ export interface CreateComboInput {
   sku?: string;
   image_url?: string;
   is_active?: boolean;
+  brand_id?: string | null;
 }
 
 export interface CreateComboItemInput {
@@ -229,6 +231,7 @@ export function useCreateProductCombo() {
           sku: input.sku || null,
           image_url: input.image_url || null,
           is_active: input.is_active ?? true,
+          brand_id: input.brand_id ?? null,
         })
         .select()
         .single();

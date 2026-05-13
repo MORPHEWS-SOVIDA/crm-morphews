@@ -26,6 +26,7 @@ import {
   type ProductComboPrice,
 } from '@/hooks/useProductCombos';
 import { useProducts } from '@/hooks/useProducts';
+import { useProductBrands } from '@/hooks/useProductBrands';
 import { CurrencyInput } from '@/components/ui/currency-input';
 
 interface ComboItem {
@@ -61,6 +62,7 @@ export default function ComboForm() {
 
   const { data: combo, isLoading: loadingCombo } = useProductCombo(isEditing ? id : undefined);
   const { data: products = [] } = useProducts();
+  const { data: brands = [] } = useProductBrands();
   const createCombo = useCreateProductCombo();
   const updateCombo = useUpdateProductCombo();
   const saveItems = useSaveComboItems();
@@ -70,6 +72,7 @@ export default function ComboForm() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [sku, setSku] = useState('');
+  const [brandId, setBrandId] = useState<string>('none');
   const [isActive, setIsActive] = useState(true);
   const [items, setItems] = useState<ComboItem[]>([]);
   const [multipliers, setMultipliers] = useState<ComboMultiplier[]>([
@@ -93,6 +96,7 @@ export default function ComboForm() {
       setName(combo.name);
       setDescription(combo.description || '');
       setSku(combo.sku || '');
+      setBrandId(combo.brand_id || 'none');
       setIsActive(combo.is_active);
       
       // Load items
@@ -217,6 +221,7 @@ export default function ComboForm() {
           description: description || null,
           sku: sku || null,
           is_active: isActive,
+          brand_id: brandId === 'none' ? null : brandId,
         });
       } else {
         const newCombo = await createCombo.mutateAsync({
@@ -224,6 +229,7 @@ export default function ComboForm() {
           description: description || undefined,
           sku: sku || undefined,
           is_active: isActive,
+          brand_id: brandId === 'none' ? null : brandId,
         });
         comboId = newCombo.id;
       }
@@ -315,6 +321,21 @@ export default function ComboForm() {
                   placeholder="COMBO-001"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Marca</Label>
+              <Select value={brandId} onValueChange={setBrandId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma marca..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem marca</SelectItem>
+                  {brands.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

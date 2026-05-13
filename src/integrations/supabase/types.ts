@@ -13762,6 +13762,7 @@ export type Database = {
       }
       product_combos: {
         Row: {
+          brand_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -13773,6 +13774,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -13784,6 +13786,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -13795,6 +13798,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "product_combos_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "product_brands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "product_combos_organization_id_fkey"
             columns: ["organization_id"]

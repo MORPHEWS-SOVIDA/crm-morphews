@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Plus, Search, Loader2, Pencil, Trash2, Package, ArrowLeft } from 'lucide-react';
 import { useProductCombos, useDeleteProductCombo } from '@/hooks/useProductCombos';
+import { useProductBrands } from '@/hooks/useProductBrands';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, useNavigate } from 'react-router-dom';
 // Simple text normalization for search
 const normalizeText = (text: string) => 
@@ -32,15 +34,25 @@ const normalizeText = (text: string) =>
 export default function ProductCombos() {
   const navigate = useNavigate();
   const { data: combos = [], isLoading } = useProductCombos();
+  const { data: brands = [] } = useProductBrands();
   const deleteCombo = useDeleteProductCombo();
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [brandFilter, setBrandFilter] = useState<string>('all');
   const [comboToDelete, setComboToDelete] = useState<string | null>(null);
 
-  const filteredCombos = combos.filter(combo =>
-    normalizeText(combo.name).includes(normalizeText(searchTerm)) ||
-    (combo.description && normalizeText(combo.description).includes(normalizeText(searchTerm)))
-  );
+  const filteredCombos = combos.filter(combo => {
+    const matchesSearch =
+      normalizeText(combo.name).includes(normalizeText(searchTerm)) ||
+      (combo.description && normalizeText(combo.description).includes(normalizeText(searchTerm)));
+    const matchesBrand =
+      brandFilter === 'all'
+        ? true
+        : brandFilter === 'none'
+          ? !combo.brand_id
+          : combo.brand_id === brandFilter;
+    return matchesSearch && matchesBrand;
+  });
 
   const handleDelete = async () => {
     if (!comboToDelete) return;
@@ -72,15 +84,29 @@ export default function ProductCombos() {
           </Button>
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar combos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search + brand filter */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar combos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={brandFilter} onValueChange={setBrandFilter}>
+            <SelectTrigger className="w-full sm:w-56">
+              <SelectValue placeholder="Filtrar por marca" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as marcas</SelectItem>
+              <SelectItem value="none">Sem marca</SelectItem>
+              {brands.map((b) => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Content */}
