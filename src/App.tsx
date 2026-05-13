@@ -98,6 +98,7 @@ const SerialSearchPage = lazy(() => import("./pages/serial-labels/SerialSearchPa
 const SerialRegisterBatchPage = lazy(() => import("./pages/serial-labels/SerialRegisterBatchPage"));
 const SerialLogsPage = lazy(() => import("./pages/serial-labels/SerialLogsPage"));
 const SerialStockPage = lazy(() => import("./pages/serial-labels/SerialStockPage"));
+const SerialTransfersPage = lazy(() => import("./pages/serial-labels/SerialTransfersPage"));
 const SerialBatchReportPage = lazy(() => import("./pages/serial-labels/SerialBatchReportPage"));
 const AllDeliveries = lazy(() => import("./pages/AllDeliveries"));
 const RomaneioPrint = lazy(() => import("./pages/RomaneioPrint"));
