@@ -641,6 +641,7 @@ export default function EditSale() {
       toast.error('Erro ao salvar alterações');
     } finally {
       setIsSaving(false);
+      savingRef.current = false;
       setShowConfirmDialog(false);
     }
   };
