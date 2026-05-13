@@ -70,6 +70,14 @@ import { useDeliveryRegions, useActiveShippingCarriers, getAvailableDeliveryDate
 import { useQueryClient } from '@tanstack/react-query';
 import { useUsers } from '@/hooks/useUsers';
 import { useActivePaymentMethods } from '@/hooks/usePaymentMethods';
+import { useProductCombos } from '@/hooks/useProductCombos';
+import {
+  Select as ComboSelect,
+  SelectContent as ComboSelectContent,
+  SelectItem as ComboSelectItem,
+  SelectTrigger as ComboSelectTrigger,
+  SelectValue as ComboSelectValue,
+} from '@/components/ui/select';
 
 interface EditableItem {
   id: string; // Sale item ID (existing) or temp ID (new)
@@ -80,6 +88,7 @@ interface EditableItem {
   unit_price_cents: number;
   discount_cents: number;
   requisition_number?: string | null;
+  combo_id?: string | null; // Set when this item is a combo (kit)
   original?: SaleItem; // Keep original for comparison
 }
 
