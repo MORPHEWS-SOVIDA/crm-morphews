@@ -46,6 +46,13 @@ const sections = [
     color: 'text-amber-600',
   },
   {
+    title: 'Transferir entre Locais',
+    description: 'Mova etiquetas de um centro logístico para outro (ex: CAJU → CORREIO)',
+    icon: ArrowRightLeft,
+    href: '/expedicao/etiquetas-seriais/transferencias-local-de-estoque',
+    color: 'text-cyan-600',
+  },
+  {
     title: 'Buscar Etiquetas',
     description: 'Pesquise etiquetas por código ou parte do código',
     icon: Search,
