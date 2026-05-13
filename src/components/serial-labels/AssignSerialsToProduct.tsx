@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 import { useAssignSerialsToProduct } from '@/hooks/useSerialLabels';
+import { useStockLocations } from '@/hooks/useStockLocations';
 import { useCreateStockMovement } from '@/hooks/useStock';
 import { useAuth } from '@/hooks/useAuth';
 import { logSerialAction } from '@/hooks/useSerialLabelLogs';
