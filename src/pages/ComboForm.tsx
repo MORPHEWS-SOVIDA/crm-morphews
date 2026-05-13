@@ -221,6 +221,7 @@ export default function ComboForm() {
           description: description || null,
           sku: sku || null,
           is_active: isActive,
+          brand_id: brandId === 'none' ? null : brandId,
         });
       } else {
         const newCombo = await createCombo.mutateAsync({
@@ -228,6 +229,7 @@ export default function ComboForm() {
           description: description || undefined,
           sku: sku || undefined,
           is_active: isActive,
+          brand_id: brandId === 'none' ? null : brandId,
         });
         comboId = newCombo.id;
       }
