@@ -24,7 +24,7 @@ export function useSerialTransfers() {
     queryKey: ['serial-transfers', orgId],
     queryFn: async () => {
       if (!orgId) return [];
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('serial_label_transfers')
         .select('*, from_location:from_location_id(name, code), to_location:to_location_id(name, code)')
         .eq('organization_id', orgId)
