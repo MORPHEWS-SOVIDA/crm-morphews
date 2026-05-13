@@ -192,6 +192,7 @@ export function AssignSerialsToProduct() {
         explicitCodes: scannedCodes,
         lote: lote.trim(),
         validade,
+        stockLocationId,
       });
 
       await stockMutation.mutateAsync({
