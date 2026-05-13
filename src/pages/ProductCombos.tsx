@@ -34,15 +34,25 @@ const normalizeText = (text: string) =>
 export default function ProductCombos() {
   const navigate = useNavigate();
   const { data: combos = [], isLoading } = useProductCombos();
+  const { data: brands = [] } = useProductBrands();
   const deleteCombo = useDeleteProductCombo();
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [brandFilter, setBrandFilter] = useState<string>('all');
   const [comboToDelete, setComboToDelete] = useState<string | null>(null);
 
-  const filteredCombos = combos.filter(combo =>
-    normalizeText(combo.name).includes(normalizeText(searchTerm)) ||
-    (combo.description && normalizeText(combo.description).includes(normalizeText(searchTerm)))
-  );
+  const filteredCombos = combos.filter(combo => {
+    const matchesSearch =
+      normalizeText(combo.name).includes(normalizeText(searchTerm)) ||
+      (combo.description && normalizeText(combo.description).includes(normalizeText(searchTerm)));
+    const matchesBrand =
+      brandFilter === 'all'
+        ? true
+        : brandFilter === 'none'
+          ? !combo.brand_id
+          : combo.brand_id === brandFilter;
+    return matchesSearch && matchesBrand;
+  });
 
   const handleDelete = async () => {
     if (!comboToDelete) return;
