@@ -144,6 +144,7 @@ export function AssignSerialsToProduct() {
         prefix,
         lote: lote.trim(),
         validade,
+        stockLocationId,
       });
 
       await stockMutation.mutateAsync({
