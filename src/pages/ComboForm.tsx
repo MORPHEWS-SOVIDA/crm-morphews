@@ -324,6 +324,21 @@ export default function ComboForm() {
             </div>
 
             <div className="space-y-2">
+              <Label>Marca</Label>
+              <Select value={brandId} onValueChange={setBrandId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma marca..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem marca</SelectItem>
+                  {brands.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Descrição</Label>
               <Textarea
                 value={description}
