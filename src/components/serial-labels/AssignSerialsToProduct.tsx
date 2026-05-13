@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentTenantId } from '@/hooks/useTenant';
 import { useAssignSerialsToProduct } from '@/hooks/useSerialLabels';
+import { useStockLocations } from '@/hooks/useStockLocations';
 import { useCreateStockMovement } from '@/hooks/useStock';
 import { useAuth } from '@/hooks/useAuth';
 import { logSerialAction } from '@/hooks/useSerialLabelLogs';
@@ -32,6 +33,16 @@ export function AssignSerialsToProduct() {
   const [lote, setLote] = useState('');
   const [validadeMes, setValidadeMes] = useState('');
   const [validadeAno, setValidadeAno] = useState(String(new Date().getFullYear() + 1));
+  const [stockLocationId, setStockLocationId] = useState<string>('');
+
+  const { data: stockLocations = [] } = useStockLocations();
+
+  useEffect(() => {
+    if (!stockLocationId && stockLocations.length > 0) {
+      const def = stockLocations.find(l => l.is_default) || stockLocations[0];
+      if (def) setStockLocationId(def.id);
+    }
+  }, [stockLocations, stockLocationId]);
 
   // Range mode
   const [prefix, setPrefix] = useState('VIDA');
@@ -71,6 +82,7 @@ export function AssignSerialsToProduct() {
     if (!selectedProductId || !selectedProduct) return 'Selecione um produto';
     if (!lote.trim()) return 'Informe o Lote';
     if (!validade) return 'Informe Mês/Ano de validade';
+    if (!stockLocationId) return 'Selecione o Local de Estoque';
     return null;
   };
 
@@ -132,6 +144,7 @@ export function AssignSerialsToProduct() {
         prefix,
         lote: lote.trim(),
         validade,
+        stockLocationId,
       });
 
       await stockMutation.mutateAsync({
@@ -179,6 +192,7 @@ export function AssignSerialsToProduct() {
         explicitCodes: scannedCodes,
         lote: lote.trim(),
         validade,
+        stockLocationId,
       });
 
       await stockMutation.mutateAsync({
@@ -275,6 +289,26 @@ export function AssignSerialsToProduct() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Local de Estoque */}
+        <div>
+          <Label>Local de Estoque</Label>
+          <Select value={stockLocationId} onValueChange={setStockLocationId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o local..." />
+            </SelectTrigger>
+            <SelectContent>
+              {stockLocations.map(loc => (
+                <SelectItem key={loc.id} value={loc.id}>
+                  {loc.name}{loc.is_default ? ' (padrão)' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            As etiquetas associadas darão entrada neste local. Padrão: SEDE-LOJA-CAJU.
+          </p>
         </div>
 
         {/* Mode tabs */}
