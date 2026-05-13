@@ -62,6 +62,7 @@ export default function ComboForm() {
 
   const { data: combo, isLoading: loadingCombo } = useProductCombo(isEditing ? id : undefined);
   const { data: products = [] } = useProducts();
+  const { data: brands = [] } = useProductBrands();
   const createCombo = useCreateProductCombo();
   const updateCombo = useUpdateProductCombo();
   const saveItems = useSaveComboItems();
@@ -71,6 +72,7 @@ export default function ComboForm() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [sku, setSku] = useState('');
+  const [brandId, setBrandId] = useState<string>('none');
   const [isActive, setIsActive] = useState(true);
   const [items, setItems] = useState<ComboItem[]>([]);
   const [multipliers, setMultipliers] = useState<ComboMultiplier[]>([
