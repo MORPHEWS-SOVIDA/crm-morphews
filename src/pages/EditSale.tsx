@@ -484,7 +484,9 @@ export default function EditSale() {
 
   const handleSave = async () => {
     if (!sale || !user || items.length === 0) return;
-    
+    // Synchronous lock — covers the gap between setIsSaving(true) and re-render
+    if (savingRef.current) return;
+    savingRef.current = true;
     setIsSaving(true);
     
     try {
@@ -517,26 +519,79 @@ export default function EditSale() {
         if (updateError) throw updateError;
       }
 
-      // 3. Insert new items
+      // 3. Insert new items — explode combos into parent + children
       const newItems = items.filter(i => i.isNew);
-      if (newItems.length > 0) {
-        const itemsToInsert = newItems.map(item => ({
-          sale_id: sale.id,
-          product_id: item.product_id,
-          product_name: item.product_name,
-          quantity: item.quantity,
-          unit_price_cents: item.unit_price_cents,
-          discount_cents: item.discount_cents,
-          total_cents: (item.unit_price_cents * item.quantity) - item.discount_cents,
-          requisition_number: item.requisition_number,
-        }));
-        
-        const { error: insertError } = await supabase
-          .from('sale_items')
-          .insert(itemsToInsert);
-        
-        if (insertError) throw insertError;
+      const insertedTempToReal: Record<string, string> = {};
+      for (const item of newItems) {
+        if (item.combo_id) {
+          // COMBO: insert parent then fetch components and insert children with price 0
+          const { data: parentRow, error: parentErr } = await supabase
+            .from('sale_items')
+            .insert({
+              sale_id: sale.id,
+              product_id: item.product_id,
+              product_name: item.product_name,
+              quantity: item.quantity,
+              unit_price_cents: item.unit_price_cents,
+              discount_cents: item.discount_cents,
+              total_cents: (item.unit_price_cents * item.quantity) - item.discount_cents,
+              combo_id: item.combo_id,
+              requisition_number: item.requisition_number,
+            })
+            .select('id')
+            .single();
+          if (parentErr) throw parentErr;
+          insertedTempToReal[item.id] = parentRow.id;
+
+          const { data: comps } = await supabase
+            .from('product_combo_items')
+            .select('product_id, quantity, product:lead_products(name)')
+            .eq('combo_id', item.combo_id)
+            .order('position');
+          if (comps && comps.length > 0) {
+            const childRows = comps.map((c: any) => ({
+              sale_id: sale.id,
+              product_id: c.product_id,
+              product_name: c.product?.name || 'Componente',
+              quantity: (c.quantity || 1) * item.quantity,
+              unit_price_cents: 0,
+              discount_cents: 0,
+              total_cents: 0,
+              combo_id: item.combo_id,
+              combo_item_parent_id: parentRow.id,
+            }));
+            const { error: childErr } = await supabase.from('sale_items').insert(childRows);
+            if (childErr) throw childErr;
+          }
+        } else {
+          const { data: row, error: insertError } = await supabase
+            .from('sale_items')
+            .insert({
+              sale_id: sale.id,
+              product_id: item.product_id,
+              product_name: item.product_name,
+              quantity: item.quantity,
+              unit_price_cents: item.unit_price_cents,
+              discount_cents: item.discount_cents,
+              total_cents: (item.unit_price_cents * item.quantity) - item.discount_cents,
+              requisition_number: item.requisition_number,
+            })
+            .select('id')
+            .single();
+          if (insertError) throw insertError;
+          insertedTempToReal[item.id] = row.id;
+        }
       }
+
+      // Update local state so the same items can't be re-inserted on a second save
+      if (Object.keys(insertedTempToReal).length > 0) {
+        setItems(prev => prev.map(it =>
+          insertedTempToReal[it.id]
+            ? { ...it, id: insertedTempToReal[it.id], isNew: false }
+            : it
+        ));
+      }
+
 
       // 4. Update sale totals, delivery fields, and payment status
       const { error: saleError } = await supabase
