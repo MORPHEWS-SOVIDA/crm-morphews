@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { QrCode, Tag, ClipboardList, RotateCcw, ScanLine, Search, Upload, FileText, Package, Layers } from 'lucide-react';
+import { QrCode, Tag, ClipboardList, RotateCcw, ScanLine, Search, Upload, FileText, Package, Layers, ArrowRightLeft } from 'lucide-react';
 
 const sections = [
   {
@@ -44,6 +44,13 @@ const sections = [
     icon: Layers,
     href: '/expedicao/etiquetas-seriais/lotes',
     color: 'text-amber-600',
+  },
+  {
+    title: 'Transferir entre Locais',
+    description: 'Mova etiquetas de um centro logístico para outro (ex: CAJU → CORREIO)',
+    icon: ArrowRightLeft,
+    href: '/expedicao/etiquetas-seriais/transferencias-local-de-estoque',
+    color: 'text-cyan-600',
   },
   {
     title: 'Buscar Etiquetas',
