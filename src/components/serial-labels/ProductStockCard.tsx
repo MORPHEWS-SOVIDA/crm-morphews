@@ -11,17 +11,21 @@ import type { ProductSummary, StockGroup } from '@/pages/serial-labels/SerialSto
 interface ProductStockCardProps {
   product: ProductSummary;
   orgId: string;
+  locationId?: string | null;
 }
 
-export function ProductStockCard({ product: p, orgId }: ProductStockCardProps) {
+export function ProductStockCard({ product: p, orgId, locationId = null }: ProductStockCardProps) {
   const [open, setOpen] = useState(false);
 
   // Lazy-load batch details only when expanded
   const { data: batches, isLoading } = useQuery({
-    queryKey: ['serial-stock-batches', orgId, p.product_id],
+    queryKey: ['serial-stock-batches', orgId, p.product_id, locationId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .rpc('get_serial_stock_overview', { p_organization_id: orgId });
+        .rpc('get_serial_stock_overview', {
+          p_organization_id: orgId,
+          p_location_id: locationId,
+        } as any);
       if (error) throw error;
       return (data || [])
         .filter((row: any) => row.product_id === p.product_id)
