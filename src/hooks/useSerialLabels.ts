@@ -47,6 +47,7 @@ export function useAssignSerialsToProduct() {
       lote,
       validade,
       explicitCodes,
+      stockLocationId,
     }: { 
       productId: string; 
       productName: string; 
@@ -56,6 +57,7 @@ export function useAssignSerialsToProduct() {
       lote?: string | null;
       validade?: string | null;
       explicitCodes?: string[];
+      stockLocationId?: string | null;
     }) => {
       if (!orgId) throw new Error('Organização não encontrada');
       
