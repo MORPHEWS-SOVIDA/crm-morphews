@@ -231,6 +231,7 @@ export function useCreateProductCombo() {
           sku: input.sku || null,
           image_url: input.image_url || null,
           is_active: input.is_active ?? true,
+          brand_id: input.brand_id ?? null,
         })
         .select()
         .single();
