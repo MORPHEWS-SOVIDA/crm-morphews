@@ -59,30 +59,29 @@ export function useTransferSerials() {
       const codes = Array.from(new Set(serialCodes.map(c => c.trim().toUpperCase()).filter(Boolean)));
 
       // Validate all exist + capture current location
-      const { data: existing, error: lookErr } = await supabase
+      const { data: existing, error: lookErr } = await (supabase as any)
         .from('product_serial_labels')
         .select('id, serial_code, stock_location_id, status')
         .eq('organization_id', orgId)
         .in('serial_code', codes);
       if (lookErr) throw lookErr;
 
-      const found = new Set((existing || []).map(r => r.serial_code));
+      const rows: Array<{ id: string; serial_code: string; stock_location_id: string | null; status: string }> = existing || [];
+      const found = new Set(rows.map(r => r.serial_code));
       const missing = codes.filter(c => !found.has(c));
       if (missing.length) throw new Error(`Etiquetas não encontradas: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '...' : ''}`);
 
-      const blocked = (existing || []).filter(r => r.status === 'shipped' || r.status === 'delivered');
+      const blocked = rows.filter(r => r.status === 'shipped' || r.status === 'delivered');
       if (blocked.length) throw new Error(`Etiquetas já enviadas/entregues não podem ser transferidas: ${blocked.slice(0, 5).map(b => b.serial_code).join(', ')}`);
 
-      // Group by current location to log "from"
-      const fromLocations = Array.from(new Set((existing || []).map(r => r.stock_location_id).filter(Boolean))) as string[];
+      const fromLocations = Array.from(new Set(rows.map(r => r.stock_location_id).filter(Boolean))) as string[];
       const fromLocationId = fromLocations.length === 1 ? fromLocations[0] : null;
 
-      // Update in batches
       const BATCH = 200;
       let updated = 0;
       for (let i = 0; i < codes.length; i += BATCH) {
         const slice = codes.slice(i, i + BATCH);
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('product_serial_labels')
           .update({ stock_location_id: toLocationId })
           .eq('organization_id', orgId)
@@ -92,7 +91,7 @@ export function useTransferSerials() {
         updated += data?.length || 0;
       }
 
-      const { error: logErr } = await supabase
+      const { error: logErr } = await (supabase as any)
         .from('serial_label_transfers')
         .insert({
           organization_id: orgId,
