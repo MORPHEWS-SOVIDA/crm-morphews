@@ -14275,6 +14275,7 @@ export type Database = {
           shipped_at: string | null
           shipped_by: string | null
           status: Database["public"]["Enums"]["serial_label_status"]
+          stock_location_id: string | null
           stock_movement_id: string | null
           stocked_at: string | null
           stocked_by: string | null
@@ -14300,6 +14301,7 @@ export type Database = {
           shipped_at?: string | null
           shipped_by?: string | null
           status?: Database["public"]["Enums"]["serial_label_status"]
+          stock_location_id?: string | null
           stock_movement_id?: string | null
           stocked_at?: string | null
           stocked_by?: string | null
@@ -14325,6 +14327,7 @@ export type Database = {
           shipped_at?: string | null
           shipped_by?: string | null
           status?: Database["public"]["Enums"]["serial_label_status"]
+          stock_location_id?: string | null
           stock_movement_id?: string | null
           stocked_at?: string | null
           stocked_by?: string | null
@@ -14351,6 +14354,13 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_serial_labels_stock_location_id_fkey"
+            columns: ["stock_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
             referencedColumns: ["id"]
           },
           {
@@ -17215,6 +17225,64 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      serial_label_transfers: {
+        Row: {
+          created_at: string
+          from_location_id: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          serial_codes: string[]
+          serial_count: number
+          to_location_id: string
+          transferred_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          from_location_id?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          serial_codes: string[]
+          serial_count: number
+          to_location_id: string
+          transferred_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          from_location_id?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          serial_codes?: string[]
+          serial_count?: number
+          to_location_id?: string
+          transferred_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "serial_label_transfers_from_location_id_fkey"
+            columns: ["from_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "serial_label_transfers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "serial_label_transfers_to_location_id_fkey"
+            columns: ["to_location_id"]
+            isOneToOne: false
+            referencedRelation: "stock_locations"
             referencedColumns: ["id"]
           },
         ]
