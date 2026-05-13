@@ -82,6 +82,7 @@ export function AssignSerialsToProduct() {
     if (!selectedProductId || !selectedProduct) return 'Selecione um produto';
     if (!lote.trim()) return 'Informe o Lote';
     if (!validade) return 'Informe Mês/Ano de validade';
+    if (!stockLocationId) return 'Selecione o Local de Estoque';
     return null;
   };
 
