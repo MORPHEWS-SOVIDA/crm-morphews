@@ -291,6 +291,26 @@ export function AssignSerialsToProduct() {
           </div>
         </div>
 
+        {/* Local de Estoque */}
+        <div>
+          <Label>Local de Estoque</Label>
+          <Select value={stockLocationId} onValueChange={setStockLocationId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o local..." />
+            </SelectTrigger>
+            <SelectContent>
+              {stockLocations.map(loc => (
+                <SelectItem key={loc.id} value={loc.id}>
+                  {loc.name}{loc.is_default ? ' (padrão)' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            As etiquetas associadas darão entrada neste local. Padrão: SEDE-LOJA-CAJU.
+          </p>
+        </div>
+
         {/* Mode tabs */}
         <Tabs defaultValue="range" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
