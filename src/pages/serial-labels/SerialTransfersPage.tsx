@@ -141,7 +141,10 @@ export default function SerialTransfersPage() {
 
             <TabsContent value="scan" className="space-y-3 pt-3">
               {scanning ? (
-                <QRScanner onScan={handleScannedCode} onClose={() => setScanning(false)} />
+                <div className="space-y-2">
+                  <QRScanner onScan={handleScannedCode} scanning />
+                  <Button variant="outline" className="w-full" onClick={() => setScanning(false)}>Parar Scanner</Button>
+                </div>
               ) : (
                 <Button variant="outline" className="w-full" onClick={() => setScanning(true)}>
                   <ScanLine className="h-4 w-4 mr-2" /> Iniciar Scanner
