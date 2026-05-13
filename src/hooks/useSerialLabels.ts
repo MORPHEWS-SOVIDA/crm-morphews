@@ -86,6 +86,7 @@ export function useAssignSerialsToProduct() {
       };
       if (lote !== undefined) updatePayload.lote = lote || null;
       if (validade !== undefined) updatePayload.validade = validade || null;
+      if (stockLocationId) updatePayload.stock_location_id = stockLocationId;
 
       for (let i = 0; i < codes.length; i += BATCH_SIZE) {
         const batch = codes.slice(i, i + BATCH_SIZE);
