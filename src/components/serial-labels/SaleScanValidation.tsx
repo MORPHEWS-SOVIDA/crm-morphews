@@ -390,6 +390,43 @@ export function SaleScanValidation({
 
   const config = modeConfig[mode];
 
+  const handleLinkConfirm = useCallback(async (input: {
+    productId: string;
+    saleItemId: string;
+    productName: string;
+    lote: string;
+    validade: string;
+  }) => {
+    const code = linkDialog.serialCode;
+    optimisticByProductRef.current[input.productId] =
+      (optimisticByProductRef.current[input.productId] || 0) + 1;
+    try {
+      const { error: rpcErr } = await supabase.rpc('link_and_assign_serial_to_sale', {
+        p_serial_code: code,
+        p_product_id: input.productId,
+        p_sale_id: saleId,
+        p_sale_item_id: input.saleItemId,
+        p_lote: input.lote || null,
+        p_validade: input.validade || null,
+      });
+      if (rpcErr) throw rpcErr;
+      setScanResults(prev => [{
+        code,
+        status: 'success',
+        message: `Vinculado e bipado em ${input.productName}`,
+        productName: input.productName,
+      }, ...prev]);
+      toast.success(`✅ ${code} → ${input.productName}`);
+      await refetchSerials();
+      optimisticByProductRef.current[input.productId] = 0;
+      setLinkDialog({ open: false, serialCode: '', pending: [] });
+    } catch (e: any) {
+      optimisticByProductRef.current[input.productId] =
+        Math.max(0, (optimisticByProductRef.current[input.productId] || 1) - 1);
+      toast.error(e.message || 'Falha ao vincular etiqueta');
+    }
+  }, [linkDialog.serialCode, saleId, refetchSerials]);
+
   return (
     <div className="space-y-4">
       {/* Header */}
