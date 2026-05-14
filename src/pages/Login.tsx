@@ -11,6 +11,7 @@ import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 import { useTheme } from 'next-themes';
 import { loginSchema } from '@/lib/validations';
 import { supabase } from '@/integrations/supabase/client';
+import { ConnectivityProbe } from '@/components/ConnectivityProbe';
 import type { User } from '@supabase/supabase-js';
 
 // Check if dashboard_funnel is disabled for the user's org → redirect elsewhere
@@ -229,6 +230,9 @@ export default function Login() {
           <p className="text-sm text-muted-foreground">
             Não tem acesso? Fale com o administrador.
           </p>
+          <div className="pt-3">
+            <ConnectivityProbe />
+          </div>
         </div>
       </div>
     </div>
