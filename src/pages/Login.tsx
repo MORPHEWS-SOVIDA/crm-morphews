@@ -253,7 +253,7 @@ export default function Login() {
             Não tem acesso? Fale com o administrador.
           </p>
           <div className="pt-3">
-            <ConnectivityProbe />
+            <ConnectivityProbe key={autoRunProbe} autoRun={autoRunProbe > 0} triggerError={loginError ?? undefined} />
           </div>
         </div>
       </div>
