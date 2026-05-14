@@ -203,6 +203,77 @@ export function SaleScanValidation({
         return;
       }
 
+      // ===== Etiqueta CRUA (available, sem produto): vincular na hora =====
+      if (label.status === 'available' && !label.product_id) {
+        // Calcula produtos pendentes (que ainda precisam de bipes)
+        const pendingByProduct = new Map<string, PendingProductOption>();
+        for (const item of serialItems) {
+          const prog = progressByProduct[item.product_id];
+          const optimistic = optimisticByProductRef.current[item.product_id] || 0;
+          const pendingQty = (prog?.needed || item.quantity) - (prog?.scanned || 0) - optimistic;
+          if (pendingQty <= 0) continue;
+          // Se houver vários sale_items pro mesmo produto, fica com o primeiro com pendência
+          if (!pendingByProduct.has(item.product_id)) {
+            pendingByProduct.set(item.product_id, {
+              product_id: item.product_id,
+              product_name: item.product_name,
+              sale_item_id: item.id,
+              pending: pendingQty,
+            });
+          }
+        }
+        const pending = Array.from(pendingByProduct.values());
+
+        if (pending.length === 0) {
+          setScanResults(prev => [{
+            code,
+            status: 'warning',
+            message: 'Todos os produtos do pedido já estão completos',
+          }, ...prev]);
+          toast.warning('Todos os produtos rastreáveis já foram bipados');
+          return;
+        }
+
+        if (pending.length === 1) {
+          // Auto-vincula sem perguntar
+          const choice = pending[0];
+          optimisticByProductRef.current[choice.product_id] =
+            (optimisticByProductRef.current[choice.product_id] || 0) + 1;
+          try {
+            const { error: rpcErr } = await supabase.rpc('link_and_assign_serial_to_sale', {
+              p_serial_code: code,
+              p_product_id: choice.product_id,
+              p_sale_id: saleId,
+              p_sale_item_id: choice.sale_item_id,
+            });
+            if (rpcErr) throw rpcErr;
+            setScanResults(prev => [{
+              code,
+              status: 'success',
+              message: `Vinculado e bipado em ${choice.product_name}`,
+              productName: choice.product_name,
+            }, ...prev]);
+            toast.success(`✅ ${code} → ${choice.product_name}`);
+            await refetchSerials();
+            optimisticByProductRef.current[choice.product_id] = 0;
+          } catch (e: any) {
+            optimisticByProductRef.current[choice.product_id] =
+              Math.max(0, (optimisticByProductRef.current[choice.product_id] || 1) - 1);
+            setScanResults(prev => [{
+              code,
+              status: 'error',
+              message: e.message || 'Falha ao vincular etiqueta',
+            }, ...prev]);
+            toast.error(e.message || 'Falha ao vincular etiqueta');
+          }
+          return;
+        }
+
+        // 2+ produtos pendentes — abre diálogo
+        setLinkDialog({ open: true, serialCode: code, pending });
+        return;
+      }
+
       if (label.status !== 'in_stock') {
         setScanResults(prev => [{ code, status: 'error', message: `Status inválido: ${label.status}` }, ...prev]);
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
