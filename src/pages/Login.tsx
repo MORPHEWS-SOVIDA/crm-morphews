@@ -50,6 +50,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [autoRunProbe, setAutoRunProbe] = useState(0);
 
   // If user is already logged in, check for temp password then redirect
   useEffect(() => {
