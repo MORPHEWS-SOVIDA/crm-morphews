@@ -65,15 +65,16 @@ export function LinkAvailableSerialDialog({
     if (!selectedProductId) return;
     let cancelled = false;
     setLoadingDefaults(true);
-    supabase
-      .rpc('get_last_lote_validade_for_product', { p_product_id: selectedProductId })
-      .then(({ data }) => {
-        if (cancelled) return;
-        const row = Array.isArray(data) ? data[0] : null;
-        setLote(row?.lote ?? '');
-        setValidade(row?.validade ?? '');
-      })
-      .finally(() => !cancelled && setLoadingDefaults(false));
+    (async () => {
+      const { data } = await supabase.rpc('get_last_lote_validade_for_product', {
+        p_product_id: selectedProductId,
+      });
+      if (cancelled) return;
+      const row = Array.isArray(data) ? data[0] : null;
+      setLote(row?.lote ?? '');
+      setValidade(row?.validade ?? '');
+      setLoadingDefaults(false);
+    })();
     return () => {
       cancelled = true;
     };
