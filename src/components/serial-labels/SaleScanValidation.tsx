@@ -579,6 +579,15 @@ export function SaleScanValidation({
           {shipMutation.isPending ? 'Finalizando...' : 'Confirmar Separação e Enviar'}
         </Button>
       )}
+
+      {/* Diálogo de vínculo de etiqueta crua */}
+      <LinkAvailableSerialDialog
+        open={linkDialog.open}
+        serialCode={linkDialog.serialCode}
+        pendingProducts={linkDialog.pending}
+        onCancel={() => setLinkDialog({ open: false, serialCode: '', pending: [] })}
+        onConfirm={handleLinkConfirm}
+      />
     </div>
   );
 }
