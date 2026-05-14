@@ -24877,6 +24877,13 @@ export type Database = {
         Args: { p_days?: number; p_instance_id: string }
         Returns: Json
       }
+      get_last_lote_validade_for_product: {
+        Args: { p_product_id: string }
+        Returns: {
+          lote: string
+          validade: string
+        }[]
+      }
       get_linked_lead_for_conversation: {
         Args: { p_conversation_id: string }
         Returns: {
@@ -25176,6 +25183,48 @@ export type Database = {
       join_affiliate_network: {
         Args: { p_email: string; p_invite_code: string; p_name: string }
         Returns: Json
+      }
+      link_and_assign_serial_to_sale: {
+        Args: {
+          p_lote?: string
+          p_product_id: string
+          p_sale_id: string
+          p_sale_item_id: string
+          p_serial_code: string
+          p_validade?: string
+        }
+        Returns: {
+          assigned_at: string | null
+          assigned_by: string | null
+          batch_label: string | null
+          created_at: string
+          id: string
+          lote: string | null
+          organization_id: string
+          product_id: string | null
+          product_name: string | null
+          return_reason: string | null
+          returned_at: string | null
+          returned_by: string | null
+          sale_id: string | null
+          sale_item_id: string | null
+          serial_code: string
+          shipped_at: string | null
+          shipped_by: string | null
+          status: Database["public"]["Enums"]["serial_label_status"]
+          stock_location_id: string | null
+          stock_movement_id: string | null
+          stocked_at: string | null
+          stocked_by: string | null
+          updated_at: string
+          validade: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "product_serial_labels"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       link_conversation_to_contact: {
         Args: { _contact_id: string; _conversation_id: string }

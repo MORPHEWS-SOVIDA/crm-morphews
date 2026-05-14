@@ -13,6 +13,7 @@ import {
   ScanLine, CheckCircle2, XCircle, AlertTriangle, Package, 
   Truck, Search, RotateCcw
 } from 'lucide-react';
+import { LinkAvailableSerialDialog, type PendingProductOption } from './LinkAvailableSerialDialog';
 
 // Categories that skip QR serial scanning (manual confirmation only)
 const NO_SCAN_CATEGORIES = ['manipulado', 'servico'];
@@ -53,6 +54,11 @@ export function SaleScanValidation({
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [confirmedManipulados, setConfirmedManipulados] = useState<Set<string>>(new Set());
   const [productCategories, setProductCategories] = useState<Record<string, string>>({});
+  const [linkDialog, setLinkDialog] = useState<{
+    open: boolean;
+    serialCode: string;
+    pending: PendingProductOption[];
+  }>({ open: false, serialCode: '', pending: [] });
 
   const assignMutation = useAssignSerialsToSale();
   const shipMutation = useShipSerials();
@@ -197,6 +203,77 @@ export function SaleScanValidation({
         return;
       }
 
+      // ===== Etiqueta CRUA (available, sem produto): vincular na hora =====
+      if (label.status === 'available' && !label.product_id) {
+        // Calcula produtos pendentes (que ainda precisam de bipes)
+        const pendingByProduct = new Map<string, PendingProductOption>();
+        for (const item of serialItems) {
+          const prog = progressByProduct[item.product_id];
+          const optimistic = optimisticByProductRef.current[item.product_id] || 0;
+          const pendingQty = (prog?.needed || item.quantity) - (prog?.scanned || 0) - optimistic;
+          if (pendingQty <= 0) continue;
+          // Se houver vários sale_items pro mesmo produto, fica com o primeiro com pendência
+          if (!pendingByProduct.has(item.product_id)) {
+            pendingByProduct.set(item.product_id, {
+              product_id: item.product_id,
+              product_name: item.product_name,
+              sale_item_id: item.id,
+              pending: pendingQty,
+            });
+          }
+        }
+        const pending = Array.from(pendingByProduct.values());
+
+        if (pending.length === 0) {
+          setScanResults(prev => [{
+            code,
+            status: 'warning',
+            message: 'Todos os produtos do pedido já estão completos',
+          }, ...prev]);
+          toast.warning('Todos os produtos rastreáveis já foram bipados');
+          return;
+        }
+
+        if (pending.length === 1) {
+          // Auto-vincula sem perguntar
+          const choice = pending[0];
+          optimisticByProductRef.current[choice.product_id] =
+            (optimisticByProductRef.current[choice.product_id] || 0) + 1;
+          try {
+            const { error: rpcErr } = await supabase.rpc('link_and_assign_serial_to_sale', {
+              p_serial_code: code,
+              p_product_id: choice.product_id,
+              p_sale_id: saleId,
+              p_sale_item_id: choice.sale_item_id,
+            });
+            if (rpcErr) throw rpcErr;
+            setScanResults(prev => [{
+              code,
+              status: 'success',
+              message: `Vinculado e bipado em ${choice.product_name}`,
+              productName: choice.product_name,
+            }, ...prev]);
+            toast.success(`✅ ${code} → ${choice.product_name}`);
+            await refetchSerials();
+            optimisticByProductRef.current[choice.product_id] = 0;
+          } catch (e: any) {
+            optimisticByProductRef.current[choice.product_id] =
+              Math.max(0, (optimisticByProductRef.current[choice.product_id] || 1) - 1);
+            setScanResults(prev => [{
+              code,
+              status: 'error',
+              message: e.message || 'Falha ao vincular etiqueta',
+            }, ...prev]);
+            toast.error(e.message || 'Falha ao vincular etiqueta');
+          }
+          return;
+        }
+
+        // 2+ produtos pendentes — abre diálogo
+        setLinkDialog({ open: true, serialCode: code, pending });
+        return;
+      }
+
       if (label.status !== 'in_stock') {
         setScanResults(prev => [{ code, status: 'error', message: `Status inválido: ${label.status}` }, ...prev]);
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
@@ -312,6 +389,43 @@ export function SaleScanValidation({
   };
 
   const config = modeConfig[mode];
+
+  const handleLinkConfirm = useCallback(async (input: {
+    productId: string;
+    saleItemId: string;
+    productName: string;
+    lote: string;
+    validade: string;
+  }) => {
+    const code = linkDialog.serialCode;
+    optimisticByProductRef.current[input.productId] =
+      (optimisticByProductRef.current[input.productId] || 0) + 1;
+    try {
+      const { error: rpcErr } = await supabase.rpc('link_and_assign_serial_to_sale', {
+        p_serial_code: code,
+        p_product_id: input.productId,
+        p_sale_id: saleId,
+        p_sale_item_id: input.saleItemId,
+        p_lote: input.lote || null,
+        p_validade: input.validade || null,
+      });
+      if (rpcErr) throw rpcErr;
+      setScanResults(prev => [{
+        code,
+        status: 'success',
+        message: `Vinculado e bipado em ${input.productName}`,
+        productName: input.productName,
+      }, ...prev]);
+      toast.success(`✅ ${code} → ${input.productName}`);
+      await refetchSerials();
+      optimisticByProductRef.current[input.productId] = 0;
+      setLinkDialog({ open: false, serialCode: '', pending: [] });
+    } catch (e: any) {
+      optimisticByProductRef.current[input.productId] =
+        Math.max(0, (optimisticByProductRef.current[input.productId] || 1) - 1);
+      toast.error(e.message || 'Falha ao vincular etiqueta');
+    }
+  }, [linkDialog.serialCode, saleId, refetchSerials]);
 
   return (
     <div className="space-y-4">
@@ -465,6 +579,15 @@ export function SaleScanValidation({
           {shipMutation.isPending ? 'Finalizando...' : 'Confirmar Separação e Enviar'}
         </Button>
       )}
+
+      {/* Diálogo de vínculo de etiqueta crua */}
+      <LinkAvailableSerialDialog
+        open={linkDialog.open}
+        serialCode={linkDialog.serialCode}
+        pendingProducts={linkDialog.pending}
+        onCancel={() => setLinkDialog({ open: false, serialCode: '', pending: [] })}
+        onConfirm={handleLinkConfirm}
+      />
     </div>
   );
 }
