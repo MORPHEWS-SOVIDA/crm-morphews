@@ -1,0 +1,1 @@
+DELETE FROM sale_items WHERE id = 'd18a638d-2dbf-4f0f-ba39-a0400cc515cd';
