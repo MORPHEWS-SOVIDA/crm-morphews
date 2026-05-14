@@ -229,6 +229,9 @@ export default function Login() {
           <p className="text-sm text-muted-foreground">
             Não tem acesso? Fale com o administrador.
           </p>
+          <div className="pt-3">
+            <ConnectivityProbe />
+          </div>
         </div>
       </div>
     </div>
