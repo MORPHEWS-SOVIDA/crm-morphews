@@ -30,8 +30,14 @@ async function timedFetch(url: string, init?: RequestInit, timeoutMs = 8000): Pr
   }
 }
 
-export function ConnectivityProbe() {
-  const [open, setOpen] = useState(false);
+interface ConnectivityProbeProps {
+  autoRun?: boolean;
+  defaultOpen?: boolean;
+  triggerError?: string;
+}
+
+export function ConnectivityProbe({ autoRun = false, defaultOpen = false, triggerError }: ConnectivityProbeProps = {}) {
+  const [open, setOpen] = useState(defaultOpen);
   const [results, setResults] = useState<ProbeResult[]>([]);
   const [running, setRunning] = useState(false);
 
