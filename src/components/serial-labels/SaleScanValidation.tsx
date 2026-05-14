@@ -13,6 +13,7 @@ import {
   ScanLine, CheckCircle2, XCircle, AlertTriangle, Package, 
   Truck, Search, RotateCcw
 } from 'lucide-react';
+import { LinkAvailableSerialDialog, type PendingProductOption } from './LinkAvailableSerialDialog';
 
 // Categories that skip QR serial scanning (manual confirmation only)
 const NO_SCAN_CATEGORIES = ['manipulado', 'servico'];
