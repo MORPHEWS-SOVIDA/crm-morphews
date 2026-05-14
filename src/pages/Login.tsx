@@ -11,6 +11,7 @@ import logoAtomicDark from '@/assets/logo-atomic-dark.png';
 import { useTheme } from 'next-themes';
 import { loginSchema } from '@/lib/validations';
 import { supabase } from '@/integrations/supabase/client';
+import { ConnectivityProbe } from '@/components/ConnectivityProbe';
 import type { User } from '@supabase/supabase-js';
 
 // Check if dashboard_funnel is disabled for the user's org → redirect elsewhere
