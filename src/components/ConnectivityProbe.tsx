@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2, CheckCircle2, XCircle, Activity, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -30,8 +30,14 @@ async function timedFetch(url: string, init?: RequestInit, timeoutMs = 8000): Pr
   }
 }
 
-export function ConnectivityProbe() {
-  const [open, setOpen] = useState(false);
+interface ConnectivityProbeProps {
+  autoRun?: boolean;
+  defaultOpen?: boolean;
+  triggerError?: string;
+}
+
+export function ConnectivityProbe({ autoRun = false, defaultOpen = false, triggerError }: ConnectivityProbeProps = {}) {
+  const [open, setOpen] = useState(defaultOpen);
   const [results, setResults] = useState<ProbeResult[]>([]);
   const [running, setRunning] = useState(false);
 
@@ -69,18 +75,27 @@ export function ConnectivityProbe() {
       `URL: ${window.location.href}`,
       `Navegador: ${ua}`,
       `Online: ${navigator.onLine}`,
+      triggerError ? `Erro do login: ${triggerError}` : '',
       '',
       ...results.map(r => `${r.status === 'ok' ? '✅' : '❌'} ${r.name} — ${r.detail} (${r.ms}ms)`),
-    ].join('\n');
+    ].filter(Boolean).join('\n');
     navigator.clipboard.writeText(lines);
     toast({ title: 'Copiado!', description: 'Cole no chat de suporte.' });
   };
+
+  useEffect(() => {
+    if (autoRun && results.length === 0 && !running) {
+      setOpen(true);
+      run();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun]);
 
   if (!open) {
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { setOpen(true); run(); }}
         className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1 mx-auto"
       >
         <Activity className="w-3 h-3" />

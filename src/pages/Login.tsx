@@ -50,6 +50,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [autoRunProbe, setAutoRunProbe] = useState(0);
 
   // If user is already logged in, check for temp password then redirect
   useEffect(() => {
@@ -87,9 +89,16 @@ export default function Login() {
     checkAndRedirect();
   }, [user, navigate, searchParams]);
 
+  const isNetworkError = (msg?: string) => {
+    if (!msg) return false;
+    const m = msg.toLowerCase();
+    return m.includes('failed to fetch') || m.includes('networkerror') || m.includes('load failed') || m.includes('network request failed') || m.includes('timeout') || m.includes('timed out');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    setLoginError(null);
 
     const result = loginSchema.safeParse({ email, password });
     if (!result.success) {
@@ -108,13 +117,20 @@ export default function Login() {
       const { error } = await signIn(email.trim(), password);
 
       if (error) {
+        const isNet = isNetworkError(error.message);
         toast({
-          title: 'Erro ao fazer login',
+          title: isNet ? 'Sem conexão com o servidor' : 'Erro ao fazer login',
           description: error.message === 'Invalid login credentials' 
             ? 'Email ou senha incorretos'
-            : error.message,
+            : isNet
+              ? 'Sua rede está bloqueando nosso servidor. Veja o relatório abaixo e envie ao suporte.'
+              : error.message,
           variant: 'destructive',
         });
+        if (isNet) {
+          setLoginError(error.message);
+          setAutoRunProbe((n) => n + 1);
+        }
         setIsLoading(false);
         return;
       }
@@ -138,13 +154,19 @@ export default function Login() {
           navigate(defaultRoute, { replace: true });
         }
       }, 100);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
+      const msg = err?.message || 'Erro inesperado';
+      const isNet = isNetworkError(msg);
       toast({
-        title: 'Erro ao fazer login',
-        description: 'Ocorreu um erro inesperado. Tente novamente.',
+        title: isNet ? 'Sem conexão com o servidor' : 'Erro ao fazer login',
+        description: isNet
+          ? 'Sua rede está bloqueando nosso servidor. Veja o relatório abaixo e envie ao suporte.'
+          : 'Ocorreu um erro inesperado. Tente novamente.',
         variant: 'destructive',
       });
+      setLoginError(msg);
+      setAutoRunProbe((n) => n + 1);
       setIsLoading(false);
     }
   };
@@ -231,7 +253,7 @@ export default function Login() {
             Não tem acesso? Fale com o administrador.
           </p>
           <div className="pt-3">
-            <ConnectivityProbe />
+            <ConnectivityProbe key={autoRunProbe} autoRun={autoRunProbe > 0} triggerError={loginError ?? undefined} />
           </div>
         </div>
       </div>
