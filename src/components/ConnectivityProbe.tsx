@@ -75,18 +75,27 @@ export function ConnectivityProbe({ autoRun = false, defaultOpen = false, trigge
       `URL: ${window.location.href}`,
       `Navegador: ${ua}`,
       `Online: ${navigator.onLine}`,
+      triggerError ? `Erro do login: ${triggerError}` : '',
       '',
       ...results.map(r => `${r.status === 'ok' ? '✅' : '❌'} ${r.name} — ${r.detail} (${r.ms}ms)`),
-    ].join('\n');
+    ].filter(Boolean).join('\n');
     navigator.clipboard.writeText(lines);
     toast({ title: 'Copiado!', description: 'Cole no chat de suporte.' });
   };
+
+  useEffect(() => {
+    if (autoRun && results.length === 0 && !running) {
+      setOpen(true);
+      run();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun]);
 
   if (!open) {
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { setOpen(true); run(); }}
         className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1 mx-auto"
       >
         <Activity className="w-3 h-3" />
