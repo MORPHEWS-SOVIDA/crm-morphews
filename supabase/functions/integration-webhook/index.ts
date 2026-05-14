@@ -1927,6 +1927,47 @@ Deno.serve(async (req) => {
         totalCents = matchedKitPriceCents;
         console.log('Using kit price:', totalCents / 100);
       }
+
+      // ========== "VOCÊ RECEBE" OVERRIDE (Payt + similar gateways) ==========
+      // The CRM sale total must reflect the *net amount the seller receives*,
+      // NOT the gross price the customer paid (which includes installment fees,
+      // platform fees and coproducer splits). Payt sends a `commission` array;
+      // the entry where `type === 'producer'` is the producer's net receivable
+      // (i.e. the "Você recebe" value shown in Payt's dashboard).
+      try {
+        const commissions = (payload as any)?.commission;
+        if (Array.isArray(commissions) && commissions.length > 0) {
+          const producer = commissions.find(
+            (c: any) => String(c?.type || '').toLowerCase() === 'producer'
+          );
+          const producerAmount = producer?.amount;
+          if (typeof producerAmount === 'number' && producerAmount > 0) {
+            console.log(
+              `[net-receivable] Overriding totalCents ${totalCents} -> ${producerAmount} (producer commission, "Você recebe")`
+            );
+            totalCents = Math.round(producerAmount);
+          }
+        }
+        // Generic fallbacks for other gateways that send a net field directly
+        if (totalCents === 0 || (payload as any)?.transaction?.net_value) {
+          const netCandidates = [
+            (payload as any)?.transaction?.net_value,
+            (payload as any)?.transaction?.received_value,
+            (payload as any)?.transaction?.amount_received,
+            (payload as any)?.net_amount,
+          ];
+          for (const n of netCandidates) {
+            if (typeof n === 'number' && n > 0) {
+              console.log(`[net-receivable] Using gateway net field: ${n}`);
+              totalCents = Math.round(n);
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[net-receivable] Failed to extract net amount:', e);
+      }
+
       
       // Get seller user - prioritize default_seller_id (new field), then first responsible, then lead's assigned_to
       console.log(`[SELLER] Integration "${typedIntegration.name}" default_seller_id=${typedIntegration.default_seller_id}, responsible_ids=${JSON.stringify(typedIntegration.default_responsible_user_ids)}, lead.assigned_to=${leadData.assigned_to}`);
