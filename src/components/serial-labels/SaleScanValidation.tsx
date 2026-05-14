@@ -54,6 +54,11 @@ export function SaleScanValidation({
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [confirmedManipulados, setConfirmedManipulados] = useState<Set<string>>(new Set());
   const [productCategories, setProductCategories] = useState<Record<string, string>>({});
+  const [linkDialog, setLinkDialog] = useState<{
+    open: boolean;
+    serialCode: string;
+    pending: PendingProductOption[];
+  }>({ open: false, serialCode: '', pending: [] });
 
   const assignMutation = useAssignSerialsToSale();
   const shipMutation = useShipSerials();
