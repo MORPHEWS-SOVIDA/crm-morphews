@@ -140,18 +140,29 @@ export function ConnectivityProbe({ autoRun = false, defaultOpen = false, trigge
         </ul>
       )}
 
-      {results.some(r => r.status === 'fail') && !running && (
-        <div className="text-xs text-muted-foreground space-y-1 border-t pt-2">
-          <p className="font-semibold text-foreground">Possíveis causas (em ordem):</p>
-          <ol className="list-decimal pl-4 space-y-0.5">
-            <li>Antivírus corporativo (Kaspersky, ESET, McAfee) inspecionando HTTPS</li>
-            <li>Firewall/Proxy da empresa bloqueando *.supabase.co</li>
-            <li>VPN ou Cloudflare WARP ativo</li>
-            <li>DNS do provedor — tente trocar para 1.1.1.1 ou 8.8.8.8</li>
-            <li>Teste em outra rede (4G/5G do celular) para confirmar</li>
-          </ol>
-        </div>
-      )}
+      {results.some(r => r.status === 'fail') && !running && (() => {
+        const dnsFailed = results.some(r => r.detail?.includes('NAME_NOT_RESOLVED') || r.detail?.includes('Failed to fetch') || r.detail?.includes('network error'));
+        return (
+          <div className="text-xs space-y-2 border-t pt-2">
+            {dnsFailed && (
+              <div className="p-2 rounded bg-destructive/10 border border-destructive/30 text-destructive">
+                <p className="font-bold">🔴 DNS bloqueado pela sua rede</p>
+                <p className="text-foreground/80 mt-1">Seu provedor de internet (ou antivírus) está impedindo o navegador de encontrar nosso servidor.</p>
+              </div>
+            )}
+            <div className="text-muted-foreground space-y-1">
+              <p className="font-semibold text-foreground">Como resolver (faça nesta ordem):</p>
+              <ol className="list-decimal pl-4 space-y-1">
+                <li><strong>Troque o DNS para 1.1.1.1</strong> (Cloudflare) — Painel de Controle → Rede → Adaptador → IPv4 → DNS preferencial: <code className="bg-muted px-1">1.1.1.1</code></li>
+                <li><strong>Teste no 4G do celular</strong> (compartilhar internet) — se funcionar, é a sua rede</li>
+                <li><strong>Desative o antivírus</strong> temporariamente (Kaspersky, ESET, McAfee inspecionam HTTPS)</li>
+                <li><strong>Tente outro navegador</strong> (Edge, Firefox) ou modo anônimo</li>
+                <li>Se nada funcionar, copie o relatório acima e envie ao suporte</li>
+              </ol>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
