@@ -13,6 +13,7 @@ import { loginSchema } from '@/lib/validations';
 import { supabase } from '@/integrations/supabase/client';
 import { ConnectivityProbe } from '@/components/ConnectivityProbe';
 import type { User } from '@supabase/supabase-js';
+import { consumeAuthNetworkIssue, isAuthNetworkError } from '@/lib/authNetworkGuard';
 
 // Check if dashboard_funnel is disabled for the user's org → redirect elsewhere
 async function getDefaultRoute(user: User): Promise<string> {
@@ -53,6 +54,19 @@ export default function Login() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [autoRunProbe, setAutoRunProbe] = useState(0);
 
+  useEffect(() => {
+    const issue = consumeAuthNetworkIssue();
+    if (!issue) return;
+
+    setLoginError(issue.message);
+    setAutoRunProbe((n) => n + 1);
+    toast({
+      title: 'Conexão com o backend interrompida',
+      description: 'Limpamos a sessão local para parar novas tentativas automáticas. Rode o diagnóstico abaixo.',
+      variant: 'destructive',
+    });
+  }, []);
+
   // If user is already logged in, check for temp password then redirect
   useEffect(() => {
     const checkAndRedirect = async () => {
@@ -89,12 +103,6 @@ export default function Login() {
     checkAndRedirect();
   }, [user, navigate, searchParams]);
 
-  const isNetworkError = (msg?: string) => {
-    if (!msg) return false;
-    const m = msg.toLowerCase();
-    return m.includes('failed to fetch') || m.includes('networkerror') || m.includes('load failed') || m.includes('network request failed') || m.includes('timeout') || m.includes('timed out');
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -117,7 +125,7 @@ export default function Login() {
       const { error } = await signIn(email.trim(), password);
 
       if (error) {
-        const isNet = isNetworkError(error.message);
+        const isNet = isAuthNetworkError(error);
         toast({
           title: isNet ? 'Sem conexão com o servidor' : 'Erro ao fazer login',
           description: error.message === 'Invalid login credentials' 
@@ -157,7 +165,7 @@ export default function Login() {
     } catch (err: any) {
       console.error('Login error:', err);
       const msg = err?.message || 'Erro inesperado';
-      const isNet = isNetworkError(msg);
+      const isNet = isAuthNetworkError(err || msg);
       toast({
         title: isNet ? 'Sem conexão com o servidor' : 'Erro ao fazer login',
         description: isNet
