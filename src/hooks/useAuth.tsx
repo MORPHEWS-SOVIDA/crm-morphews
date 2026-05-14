@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { clearSupabaseAuthStorage, isAuthNetworkError } from '@/lib/authNetworkGuard';
 
 interface Profile {
   id: string;
@@ -67,16 +68,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserData(session.user.id);
-      } else {
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          fetchUserData(session.user.id);
+        } else {
+          setIsLoading(false);
+        }
+      })
+      .catch((error) => {
+        if (isAuthNetworkError(error)) {
+          void (supabase.auth as unknown as { stopAutoRefresh?: () => Promise<void> }).stopAutoRefresh?.();
+          clearSupabaseAuthStorage(error?.message || 'Falha de conexão ao restaurar sessão.');
+        }
+        console.error('Error restoring auth session:', error);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setIsAdmin(false);
         setIsLoading(false);
-      }
-    });
+      });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -138,11 +152,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Emails sometimes show passwords with spacing; remove whitespace to avoid "Invalid login credentials".
     const normalizedPassword = password.replace(/\s+/g, "");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password: normalizedPassword,
-    });
-    return { error };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: normalizedPassword,
+      });
+
+      if (error && isAuthNetworkError(error)) {
+        void (supabase.auth as unknown as { stopAutoRefresh?: () => Promise<void> }).stopAutoRefresh?.();
+        clearSupabaseAuthStorage(error.message || 'Falha de conexão ao tentar login.');
+      }
+
+      return { error };
+    } catch (error: any) {
+      if (isAuthNetworkError(error)) {
+        void (supabase.auth as unknown as { stopAutoRefresh?: () => Promise<void> }).stopAutoRefresh?.();
+        clearSupabaseAuthStorage(error?.message || 'Falha de conexão ao tentar login.');
+      }
+      return { error: error instanceof Error ? error : new Error(error?.message || 'Erro ao fazer login') };
+    }
   };
 
   const signUp = async (data: SignUpData) => {
