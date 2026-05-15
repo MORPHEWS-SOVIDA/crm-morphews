@@ -229,6 +229,7 @@ export function useCreatePaymentLink() {
           notes: input.notes,
           interest_bearer: input.interest_bearer ?? 'customer',
           max_interest_free_installments: input.max_interest_free_installments,
+          installment_options: input.installment_options ?? null,
         })
         .select()
         .single();
