@@ -195,9 +195,14 @@ serve(async (req) => {
         }
         // Sobrescreve o valor cobrado com o total fixo da opção escolhida (segurança server-side)
         amount_cents = match.total_cents;
+        // Base para split = valor à vista; juros = diferença
+        baseAmountForSplit = baseTotal;
+        interest_amount_cents = Math.max(0, match.total_cents - baseTotal);
       } else {
         // PIX / boleto: sempre cobra o valor "à vista"
         amount_cents = baseTotal;
+        baseAmountForSplit = baseTotal;
+        interest_amount_cents = 0;
       }
     }
 
