@@ -55,9 +55,8 @@ serve(async (req) => {
     const { 
       paymentLinkId, 
       organizationId: orgIdFromBody,
-      amount_cents, 
       base_amount_cents,
-      interest_amount_cents = 0,
+      interest_amount_cents: interest_amount_cents_input = 0,
       payment_method, 
       installments = 1,
       customer, 
@@ -68,9 +67,11 @@ serve(async (req) => {
       lead_id,
       metadata = {}
     } = body;
+    let amount_cents: number = body.amount_cents;
+    let interest_amount_cents: number = interest_amount_cents_input;
 
     // Valor base para cálculo de comissões (sem juros) - se não informado, usa amount_cents
-    const baseAmountForSplit = base_amount_cents || amount_cents;
+    let baseAmountForSplit = base_amount_cents || amount_cents;
 
     // Validate required fields
     if (!amount_cents || !payment_method || !customer?.document) {
