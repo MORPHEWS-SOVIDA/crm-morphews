@@ -173,8 +173,32 @@ serve(async (req) => {
       boleto_release_days: 3,
       max_installments: 12,
       installment_fees: {},
-      max_transaction_cents: 500000,
+      max_transaction_cents: 10000000, // R$ 100.000 default
     };
+
+    // Validate against fixed installment options when defined on the link
+    if (paymentLink?.installment_options && Array.isArray(paymentLink.installment_options) && paymentLink.installment_options.length > 0) {
+      const opts = paymentLink.installment_options as Array<{ installments: number; total_cents: number }>;
+      const sortedOpts = [...opts].sort((a, b) => a.installments - b.installments);
+      const baseTotal = sortedOpts[0].total_cents; // valor "à vista"
+
+      if (payment_method === "credit_card") {
+        const match = opts.find((o) => o.installments === installments);
+        if (!match) {
+          return new Response(
+            JSON.stringify({
+              error: `Parcelamento não permitido. Opções disponíveis: ${sortedOpts.map((o) => o.installments + "x").join(", ")}`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        // Sobrescreve o valor cobrado com o total fixo da opção escolhida (segurança server-side)
+        amount_cents = match.total_cents;
+      } else {
+        // PIX / boleto: sempre cobra o valor "à vista"
+        amount_cents = baseTotal;
+      }
+    }
 
     // Validate transaction limit
     if (fees.max_transaction_cents && amount_cents > fees.max_transaction_cents) {
