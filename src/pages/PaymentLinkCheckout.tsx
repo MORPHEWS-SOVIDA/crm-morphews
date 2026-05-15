@@ -63,6 +63,7 @@ interface PaymentLink {
   // Interest bearer
   interest_bearer: string | null;
   max_interest_free_installments: number | null;
+  installment_options: Array<{ installments: number; total_cents: number }> | null;
 }
 
 interface TenantFees {
