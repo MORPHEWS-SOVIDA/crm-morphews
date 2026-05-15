@@ -415,7 +415,54 @@ serve(async (req) => {
     }
 
     const charge = pagarmeData.charges?.[0];
-    const transactionStatus = charge?.status === "paid" ? "paid" : "pending";
+    const lastTx = charge?.last_transaction;
+    const txStatus = lastTx?.status; // authorized_pending_capture, captured, paid, not_authorized, failed, refused, etc.
+    const chargeStatus = charge?.status;
+
+    // Determine if credit-card was actually approved.
+    const cardApproved =
+      payment_method === "credit_card" &&
+      (chargeStatus === "paid" ||
+        txStatus === "captured" ||
+        txStatus === "paid" ||
+        txStatus === "authorized_pending_capture");
+
+    const transactionStatus =
+      chargeStatus === "paid"
+        ? "paid"
+        : payment_method === "credit_card" && !cardApproved
+        ? "refused"
+        : "pending";
+
+    // Credit-card declined by issuer/acquirer → return clear error to UI
+    if (payment_method === "credit_card" && !cardApproved) {
+      const acquirerMsg = lastTx?.acquirer_message || lastTx?.gateway_response?.errors?.[0]?.message;
+      const friendly = acquirerMsg ||
+        "Cartão recusado pelo emissor. Verifique os dados ou tente outro cartão.";
+
+      await supabaseAdmin.from("payment_link_attempts").insert({
+        organization_id: organizationId,
+        payment_link_id: paymentLinkId,
+        payment_method,
+        amount_cents,
+        status: "refused",
+        error_code: lastTx?.acquirer_return_code || txStatus || "not_authorized",
+        error_message: friendly,
+        gateway_response: pagarmeData,
+        customer_document: cleanDocument,
+        ip_address: req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip"),
+        user_agent: req.headers.get("user-agent"),
+      });
+
+      return new Response(
+        JSON.stringify({
+          error: friendly,
+          code: lastTx?.acquirer_return_code || txStatus,
+          status: "refused",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Create transaction record
     const transactionData: Record<string, unknown> = {
