@@ -55,9 +55,8 @@ serve(async (req) => {
     const { 
       paymentLinkId, 
       organizationId: orgIdFromBody,
-      amount_cents, 
       base_amount_cents,
-      interest_amount_cents = 0,
+      interest_amount_cents: interest_amount_cents_input = 0,
       payment_method, 
       installments = 1,
       customer, 
@@ -68,9 +67,11 @@ serve(async (req) => {
       lead_id,
       metadata = {}
     } = body;
+    let amount_cents: number = body.amount_cents;
+    let interest_amount_cents: number = interest_amount_cents_input;
 
     // Valor base para cálculo de comissões (sem juros) - se não informado, usa amount_cents
-    const baseAmountForSplit = base_amount_cents || amount_cents;
+    let baseAmountForSplit = base_amount_cents || amount_cents;
 
     // Validate required fields
     if (!amount_cents || !payment_method || !customer?.document) {
@@ -173,8 +174,37 @@ serve(async (req) => {
       boleto_release_days: 3,
       max_installments: 12,
       installment_fees: {},
-      max_transaction_cents: 500000,
+      max_transaction_cents: 10000000, // R$ 100.000 default
     };
+
+    // Validate against fixed installment options when defined on the link
+    if (paymentLink?.installment_options && Array.isArray(paymentLink.installment_options) && paymentLink.installment_options.length > 0) {
+      const opts = paymentLink.installment_options as Array<{ installments: number; total_cents: number }>;
+      const sortedOpts = [...opts].sort((a, b) => a.installments - b.installments);
+      const baseTotal = sortedOpts[0].total_cents; // valor "à vista"
+
+      if (payment_method === "credit_card") {
+        const match = opts.find((o) => o.installments === installments);
+        if (!match) {
+          return new Response(
+            JSON.stringify({
+              error: `Parcelamento não permitido. Opções disponíveis: ${sortedOpts.map((o) => o.installments + "x").join(", ")}`,
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        // Sobrescreve o valor cobrado com o total fixo da opção escolhida (segurança server-side)
+        amount_cents = match.total_cents;
+        // Base para split = valor à vista; juros = diferença
+        baseAmountForSplit = baseTotal;
+        interest_amount_cents = Math.max(0, match.total_cents - baseTotal);
+      } else {
+        // PIX / boleto: sempre cobra o valor "à vista"
+        amount_cents = baseTotal;
+        baseAmountForSplit = baseTotal;
+        interest_amount_cents = 0;
+      }
+    }
 
     // Validate transaction limit
     if (fees.max_transaction_cents && amount_cents > fees.max_transaction_cents) {

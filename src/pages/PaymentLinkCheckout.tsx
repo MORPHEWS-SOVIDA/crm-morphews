@@ -63,6 +63,7 @@ interface PaymentLink {
   // Interest bearer
   interest_bearer: string | null;
   max_interest_free_installments: number | null;
+  installment_options: Array<{ installments: number; total_cents: number }> | null;
 }
 
 interface TenantFees {
@@ -121,7 +122,7 @@ export default function PaymentLinkCheckout() {
         .single();
       
       if (error) throw error;
-      return data as PaymentLink;
+      return data as unknown as PaymentLink;
     },
     enabled: !!slug,
   });
@@ -291,28 +292,39 @@ export default function PaymentLinkCheckout() {
 
   // Calculate installment values
   const getInstallmentOptions = () => {
+    // Se o link tem opções fixas configuradas, usa SOMENTE elas
+    const fixed = paymentLink?.installment_options;
+    if (fixed && Array.isArray(fixed) && fixed.length > 0) {
+      return fixed
+        .slice()
+        .sort((a, b) => a.installments - b.installments)
+        .map((o) => ({
+          installments: o.installments,
+          value: o.total_cents,
+          perInstallment: Math.ceil(o.total_cents / o.installments),
+          hasInterest: o.total_cents > (fixed[0]?.total_cents ?? o.total_cents),
+        }));
+    }
+
     if (!tenantFees) return [];
-    
+
     const maxInst = Math.min(
       paymentLink?.max_installments || 12,
       tenantFees.max_installments || 12
     );
-    
+
     const options = [];
     for (let i = 1; i <= maxInst; i++) {
       let value = amount;
       let hasInterest = false;
       const sellerPaysInterest = paymentLink?.interest_bearer === 'seller';
       const maxFreeInst = paymentLink?.max_interest_free_installments || 12;
-      
+
       if (i > 1 && tenantFees.installment_fee_passed_to_buyer && tenantFees.installment_fees) {
-        // If seller pays interest, don't add interest up to maxFreeInst
         if (sellerPaysInterest && i <= maxFreeInst) {
-          // Customer pays base amount (no interest)
           hasInterest = false;
         } else {
           const feePercent = tenantFees.installment_fees[i.toString()] || 2.69;
-          // Simple interest: total percentage applied to base amount
           value = Math.round(amount * (1 + feePercent / 100));
           hasInterest = true;
         }

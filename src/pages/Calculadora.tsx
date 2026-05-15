@@ -44,6 +44,8 @@ export default function Calculadora() {
   const [linkTitle, setLinkTitle] = useState('');
   const [linkSourceCents, setLinkSourceCents] = useState<number>(0);
   const [linkMaxInstallments, setLinkMaxInstallments] = useState<number>(12);
+  // Opções de parcelamento fixas: cada parcela com seu total cobrado
+  const [linkOptions, setLinkOptions] = useState<Array<{ installments: number; total_cents: number }>>([]);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -86,9 +88,35 @@ export default function Calculadora() {
     setLinkSourceCents(amountCents);
     setLinkMaxInstallments(Math.max(1, Math.min(maxInstallments, installments)));
     setLinkTitle('');
+    // Pré-popula com 1x, 6x e 12x usando os totais simulados
+    const presets = [1, 6, 12].filter((n) => n <= maxInstallments);
+    setLinkOptions(
+      presets.map((n) => {
+        const r = rows.find((x) => x.installments === n);
+        return { installments: n, total_cents: r?.totalCharged ?? amountCents };
+      }),
+    );
     setCreatedSlug(null);
     setCopied(false);
     setLinkDialogOpen(true);
+  };
+
+  const toggleLinkOption = (n: number) => {
+    setLinkOptions((prev) => {
+      const exists = prev.find((o) => o.installments === n);
+      if (exists) return prev.filter((o) => o.installments !== n);
+      const r = rows.find((x) => x.installments === n);
+      return [
+        ...prev,
+        { installments: n, total_cents: r?.totalCharged ?? linkSourceCents },
+      ].sort((a, b) => a.installments - b.installments);
+    });
+  };
+
+  const updateLinkOptionTotal = (n: number, total: number) => {
+    setLinkOptions((prev) =>
+      prev.map((o) => (o.installments === n ? { ...o, total_cents: total } : o)),
+    );
   };
 
   // Reverso: dado um valor a cobrar do cliente em X parcelas, quanto fica de líquido
@@ -344,22 +372,53 @@ export default function Calculadora() {
                 <CurrencyInput value={linkSourceCents} onChange={setLinkSourceCents} />
               </div>
               <div className="space-y-2">
-                <Label>Parcelas máximas</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={maxInstallments}
-                  value={linkMaxInstallments}
-                  onChange={(e) =>
-                    setLinkMaxInstallments(
-                      Math.max(1, Math.min(maxInstallments, parseInt(e.target.value) || 1))
-                    )
-                  }
-                />
+                <Label>Opções de parcelamento exibidas no checkout</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Marque quais parcelas o cliente verá. Você define o <strong>total cobrado</strong> em cada uma.
+                </p>
+                <div className="grid grid-cols-6 gap-1">
+                  {Array.from({ length: maxInstallments }, (_, i) => i + 1).map((n) => {
+                    const active = !!linkOptions.find((o) => o.installments === n);
+                    return (
+                      <Button
+                        key={n}
+                        type="button"
+                        size="sm"
+                        variant={active ? 'default' : 'outline'}
+                        onClick={() => toggleLinkOption(n)}
+                      >
+                        {n}x
+                      </Button>
+                    );
+                  })}
+                </div>
+                {linkOptions.length === 0 && (
+                  <p className="text-xs text-destructive">Selecione pelo menos 1 opção.</p>
+                )}
+                <div className="space-y-2 mt-2 max-h-[260px] overflow-auto pr-1">
+                  {linkOptions.map((opt) => {
+                    const perInst = Math.ceil(opt.total_cents / opt.installments);
+                    return (
+                      <div
+                        key={opt.installments}
+                        className="grid grid-cols-[60px_1fr_auto] gap-2 items-center text-sm border rounded-md p-2"
+                      >
+                        <Badge variant="outline" className="justify-center">{opt.installments}x</Badge>
+                        <CurrencyInput
+                          value={opt.total_cents}
+                          onChange={(v) => updateLinkOptionTotal(opt.installments, v)}
+                        />
+                        <div className="text-xs text-muted-foreground text-right whitespace-nowrap">
+                          {opt.installments}x de {formatBRL(perInst)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               <p className="text-xs text-muted-foreground flex gap-2">
                 <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                Os juros são absorvidos pelo cliente conforme as taxas configuradas.
+                O cliente verá <strong>somente</strong> as parcelas marcadas, com os valores que você definir.
               </p>
             </div>
           )}
@@ -379,16 +438,24 @@ export default function Calculadora() {
                     toast.error('Informe um valor');
                     return;
                   }
+                  if (linkOptions.length === 0) {
+                    toast.error('Selecione ao menos uma opção de parcelamento');
+                    return;
+                  }
                   try {
+                    const sorted = [...linkOptions].sort((a, b) => a.installments - b.installments);
+                    const maxInst = sorted[sorted.length - 1].installments;
+                    const baseAmount = sorted[0].total_cents; // valor "à vista" / menor parcela
                     const res = await createLink.mutateAsync({
                       title: linkTitle,
-                      amount_cents: linkSourceCents,
+                      amount_cents: baseAmount,
                       allow_custom_amount: false,
                       pix_enabled: true,
                       boleto_enabled: false,
                       card_enabled: true,
-                      max_installments: linkMaxInstallments,
+                      max_installments: maxInst,
                       interest_bearer: 'customer',
+                      installment_options: sorted,
                     });
                     setCreatedSlug((res as { slug: string }).slug);
                     toast.success('Link criado com sucesso!');
