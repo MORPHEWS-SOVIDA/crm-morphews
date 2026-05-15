@@ -438,16 +438,24 @@ export default function Calculadora() {
                     toast.error('Informe um valor');
                     return;
                   }
+                  if (linkOptions.length === 0) {
+                    toast.error('Selecione ao menos uma opção de parcelamento');
+                    return;
+                  }
                   try {
+                    const sorted = [...linkOptions].sort((a, b) => a.installments - b.installments);
+                    const maxInst = sorted[sorted.length - 1].installments;
+                    const baseAmount = sorted[0].total_cents; // valor "à vista" / menor parcela
                     const res = await createLink.mutateAsync({
                       title: linkTitle,
-                      amount_cents: linkSourceCents,
+                      amount_cents: baseAmount,
                       allow_custom_amount: false,
                       pix_enabled: true,
                       boleto_enabled: false,
                       card_enabled: true,
-                      max_installments: linkMaxInstallments,
+                      max_installments: maxInst,
                       interest_bearer: 'customer',
+                      installment_options: sorted,
                     });
                     setCreatedSlug((res as { slug: string }).slug);
                     toast.success('Link criado com sucesso!');
