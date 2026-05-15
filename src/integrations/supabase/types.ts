@@ -12467,6 +12467,7 @@ export type Database = {
           expires_at: string | null
           external_reference: string | null
           id: string
+          installment_options: Json | null
           interest_bearer: string
           is_active: boolean | null
           lead_id: string | null
@@ -12505,6 +12506,7 @@ export type Database = {
           expires_at?: string | null
           external_reference?: string | null
           id?: string
+          installment_options?: Json | null
           interest_bearer?: string
           is_active?: boolean | null
           lead_id?: string | null
@@ -12543,6 +12545,7 @@ export type Database = {
           expires_at?: string | null
           external_reference?: string | null
           id?: string
+          installment_options?: Json | null
           interest_bearer?: string
           is_active?: boolean | null
           lead_id?: string | null
