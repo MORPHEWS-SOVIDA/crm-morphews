@@ -372,22 +372,53 @@ export default function Calculadora() {
                 <CurrencyInput value={linkSourceCents} onChange={setLinkSourceCents} />
               </div>
               <div className="space-y-2">
-                <Label>Parcelas máximas</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={maxInstallments}
-                  value={linkMaxInstallments}
-                  onChange={(e) =>
-                    setLinkMaxInstallments(
-                      Math.max(1, Math.min(maxInstallments, parseInt(e.target.value) || 1))
-                    )
-                  }
-                />
+                <Label>Opções de parcelamento exibidas no checkout</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Marque quais parcelas o cliente verá. Você define o <strong>total cobrado</strong> em cada uma.
+                </p>
+                <div className="grid grid-cols-6 gap-1">
+                  {Array.from({ length: maxInstallments }, (_, i) => i + 1).map((n) => {
+                    const active = !!linkOptions.find((o) => o.installments === n);
+                    return (
+                      <Button
+                        key={n}
+                        type="button"
+                        size="sm"
+                        variant={active ? 'default' : 'outline'}
+                        onClick={() => toggleLinkOption(n)}
+                      >
+                        {n}x
+                      </Button>
+                    );
+                  })}
+                </div>
+                {linkOptions.length === 0 && (
+                  <p className="text-xs text-destructive">Selecione pelo menos 1 opção.</p>
+                )}
+                <div className="space-y-2 mt-2 max-h-[260px] overflow-auto pr-1">
+                  {linkOptions.map((opt) => {
+                    const perInst = Math.ceil(opt.total_cents / opt.installments);
+                    return (
+                      <div
+                        key={opt.installments}
+                        className="grid grid-cols-[60px_1fr_auto] gap-2 items-center text-sm border rounded-md p-2"
+                      >
+                        <Badge variant="outline" className="justify-center">{opt.installments}x</Badge>
+                        <CurrencyInput
+                          value={opt.total_cents}
+                          onChange={(v) => updateLinkOptionTotal(opt.installments, v)}
+                        />
+                        <div className="text-xs text-muted-foreground text-right whitespace-nowrap">
+                          {opt.installments}x de {formatBRL(perInst)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               <p className="text-xs text-muted-foreground flex gap-2">
                 <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                Os juros são absorvidos pelo cliente conforme as taxas configuradas.
+                O cliente verá <strong>somente</strong> as parcelas marcadas, com os valores que você definir.
               </p>
             </div>
           )}
