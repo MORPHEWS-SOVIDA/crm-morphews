@@ -437,15 +437,15 @@ export default function PaymentLinkCheckout() {
     } catch (err) {
       console.error('Payment error:', err);
       const errorMsg = err instanceof Error ? err.message : 'Erro ao processar pagamento';
-      // Translate common Pagar.me errors
+      // Mensagens da Pagar.me / adquirente já vêm em PT-BR — exibe direto
       if (errorMsg.includes('billing') && errorMsg.includes('required')) {
         toast.error('Endereço de cobrança é obrigatório para pagamento com cartão. Preencha o endereço e tente novamente.');
-      } else if (errorMsg.includes('refused') || errorMsg.includes('denied') || errorMsg.includes('failed')) {
+      } else if (/refused|denied|failed|not[_ ]authorized/i.test(errorMsg)) {
         toast.error('Cartão recusado pelo emissor. Verifique os dados ou tente outro cartão.');
       } else if (errorMsg.includes('validation_error')) {
         toast.error('Dados inválidos. Verifique todos os campos e tente novamente.');
       } else {
-        toast.error(errorMsg);
+        toast.error(errorMsg, { duration: 8000 });
       }
     } finally {
       setIsProcessing(false);
