@@ -166,6 +166,12 @@ export interface CreatePaymentLinkInput {
   notes?: string;
   interest_bearer?: string;
   max_interest_free_installments?: number;
+  /**
+   * Opções fixas de parcelamento. Quando definido, o checkout mostra APENAS
+   * essas opções. Cada item: { installments, total_cents } — total_cents é
+   * o valor total cobrado do cliente naquele número de parcelas.
+   */
+  installment_options?: Array<{ installments: number; total_cents: number }>;
 }
 
 export function useCreatePaymentLink() {
