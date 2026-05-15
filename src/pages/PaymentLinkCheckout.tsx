@@ -122,7 +122,7 @@ export default function PaymentLinkCheckout() {
         .single();
       
       if (error) throw error;
-      return data as PaymentLink;
+      return data as unknown as PaymentLink;
     },
     enabled: !!slug,
   });
