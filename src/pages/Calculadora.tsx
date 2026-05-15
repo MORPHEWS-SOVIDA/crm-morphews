@@ -88,9 +88,35 @@ export default function Calculadora() {
     setLinkSourceCents(amountCents);
     setLinkMaxInstallments(Math.max(1, Math.min(maxInstallments, installments)));
     setLinkTitle('');
+    // Pré-popula com 1x, 6x e 12x usando os totais simulados
+    const presets = [1, 6, 12].filter((n) => n <= maxInstallments);
+    setLinkOptions(
+      presets.map((n) => {
+        const r = rows.find((x) => x.installments === n);
+        return { installments: n, total_cents: r?.totalCharged ?? amountCents };
+      }),
+    );
     setCreatedSlug(null);
     setCopied(false);
     setLinkDialogOpen(true);
+  };
+
+  const toggleLinkOption = (n: number) => {
+    setLinkOptions((prev) => {
+      const exists = prev.find((o) => o.installments === n);
+      if (exists) return prev.filter((o) => o.installments !== n);
+      const r = rows.find((x) => x.installments === n);
+      return [
+        ...prev,
+        { installments: n, total_cents: r?.totalCharged ?? linkSourceCents },
+      ].sort((a, b) => a.installments - b.installments);
+    });
+  };
+
+  const updateLinkOptionTotal = (n: number, total: number) => {
+    setLinkOptions((prev) =>
+      prev.map((o) => (o.installments === n ? { ...o, total_cents: total } : o)),
+    );
   };
 
   // Reverso: dado um valor a cobrar do cliente em X parcelas, quanto fica de líquido
