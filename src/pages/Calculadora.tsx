@@ -44,6 +44,8 @@ export default function Calculadora() {
   const [linkTitle, setLinkTitle] = useState('');
   const [linkSourceCents, setLinkSourceCents] = useState<number>(0);
   const [linkMaxInstallments, setLinkMaxInstallments] = useState<number>(12);
+  // Opções de parcelamento fixas: cada parcela com seu total cobrado
+  const [linkOptions, setLinkOptions] = useState<Array<{ installments: number; total_cents: number }>>([]);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
