@@ -395,21 +395,52 @@ export default function Calculadora() {
                 {linkOptions.length === 0 && (
                   <p className="text-xs text-destructive">Selecione pelo menos 1 opção.</p>
                 )}
-                <div className="space-y-2 mt-2 max-h-[260px] overflow-auto pr-1">
+                <div className="space-y-2 mt-2 max-h-[320px] overflow-auto pr-1">
                   {linkOptions.map((opt) => {
                     const perInst = Math.ceil(opt.total_cents / opt.installments);
+                    const base = linkSourceCents > 0 ? linkSourceCents : opt.total_cents;
+                    const extra = opt.total_cents - base;
+                    const interestPct = base > 0 ? (extra / base) * 100 : 0;
+                    const hasInterest = extra > 0 && opt.installments > 1;
                     return (
                       <div
                         key={opt.installments}
-                        className="grid grid-cols-[60px_1fr_auto] gap-2 items-center text-sm border rounded-md p-2"
+                        className="border rounded-md p-2 space-y-2"
                       >
-                        <Badge variant="outline" className="justify-center">{opt.installments}x</Badge>
-                        <CurrencyInput
-                          value={opt.total_cents}
-                          onChange={(v) => updateLinkOptionTotal(opt.installments, v)}
-                        />
-                        <div className="text-xs text-muted-foreground text-right whitespace-nowrap">
-                          {opt.installments}x de {formatBRL(perInst)}
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline">{opt.installments}x</Badge>
+                          {opt.installments === 1 ? (
+                            <Badge variant="secondary" className="text-[10px]">à vista</Badge>
+                          ) : hasInterest ? (
+                            <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20 hover:bg-primary/20">
+                              Juros +{interestPct.toFixed(2)}% ({formatBRL(extra)})
+                            </Badge>
+                          ) : extra < 0 ? (
+                            <Badge variant="destructive" className="text-[10px]">
+                              Desconto {formatBRL(Math.abs(extra))}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px]">sem juros</Badge>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">Valor da parcela</Label>
+                            <CurrencyInput
+                              value={perInst}
+                              onChange={(v) => updateLinkOptionTotal(opt.installments, v * opt.installments)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">Total cobrado</Label>
+                            <CurrencyInput
+                              value={opt.total_cents}
+                              onChange={(v) => updateLinkOptionTotal(opt.installments, v)}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {opt.installments}x de <strong>{formatBRL(perInst)}</strong> = <strong>{formatBRL(opt.total_cents)}</strong>
                         </div>
                       </div>
                     );
