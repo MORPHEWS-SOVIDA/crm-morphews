@@ -1503,7 +1503,7 @@ export function IntegrationDetailDialog({
                           <SelectContent>
                             <SelectItem value="__none__">Selecione um vendedor...</SelectItem>
                             {users?.map(user => (
-                              <SelectItem key={user.id} value={user.id}>
+                              <SelectItem key={user.user_id} value={user.user_id}>
                                 {user.first_name} {user.last_name}
                               </SelectItem>
                             ))}
