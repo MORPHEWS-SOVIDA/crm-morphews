@@ -1630,6 +1630,83 @@ export function IntegrationDetailDialog({
                         </p>
                       </div>
 
+                      {/* Media upload */}
+                      <div className="space-y-2">
+                        <Label>Anexo (vídeo, imagem, áudio ou PDF)</Label>
+                        {autoMessageMediaUrl ? (
+                          <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                            {autoMessageMediaType === 'video' && <FileVideo className="h-5 w-5 text-primary" />}
+                            {autoMessageMediaType === 'image' && <FileImage className="h-5 w-5 text-primary" />}
+                            {autoMessageMediaType === 'audio' && <FileAudio className="h-5 w-5 text-primary" />}
+                            {autoMessageMediaType === 'document' && <FileTextIcon className="h-5 w-5 text-primary" />}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{autoMessageMediaUrl.split('/').pop()}</p>
+                              <p className="text-xs text-muted-foreground capitalize">{autoMessageMediaType}</p>
+                            </div>
+                            {autoMessageMediaType === 'video' && (
+                              <video src={autoMessageMediaUrl} controls className="h-16 rounded" />
+                            )}
+                            {autoMessageMediaType === 'image' && (
+                              <img src={autoMessageMediaUrl} alt="" className="h-16 rounded" />
+                            )}
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => { setAutoMessageMediaUrl(null); setAutoMessageMediaType(null); }}
+                            >
+                              <XIcon className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <label className="flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-dashed cursor-pointer hover:border-primary/50 transition-colors">
+                            <input
+                              type="file"
+                              accept="video/*,image/*,audio/*,application/pdf"
+                              className="hidden"
+                              disabled={uploadingMedia}
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                if (file.size > 50 * 1024 * 1024) {
+                                  toast.error('Arquivo muito grande (máx 50MB)');
+                                  return;
+                                }
+                                setUploadingMedia(true);
+                                try {
+                                  const ext = file.name.split('.').pop() || 'bin';
+                                  const path = `${integration.organization_id}/${integration.id}/${Date.now()}.${ext}`;
+                                  const { error: upErr } = await supabase.storage
+                                    .from('integration-media')
+                                    .upload(path, file, { upsert: true, contentType: file.type });
+                                  if (upErr) throw upErr;
+                                  const { data: pub } = supabase.storage.from('integration-media').getPublicUrl(path);
+                                  const t = file.type.startsWith('video/') ? 'video'
+                                    : file.type.startsWith('image/') ? 'image'
+                                    : file.type.startsWith('audio/') ? 'audio'
+                                    : 'document';
+                                  setAutoMessageMediaUrl(pub.publicUrl);
+                                  setAutoMessageMediaType(t);
+                                  toast.success('Mídia carregada!');
+                                } catch (err: any) {
+                                  toast.error('Falha no upload: ' + (err.message || err));
+                                } finally {
+                                  setUploadingMedia(false);
+                                }
+                              }}
+                            />
+                            {uploadingMedia ? (
+                              <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
+                            ) : (
+                              <><Upload className="h-4 w-4" /> Clique para enviar vídeo, imagem, áudio ou PDF (máx 50MB)</>
+                            )}
+                          </label>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          A mídia é enviada junto com a mensagem. Para vídeo/imagem/PDF, o texto vira legenda. Para áudio, o texto vai em mensagem separada.
+                        </p>
+                      </div>
+
                       {/* Instance selection */}
                       <div className="space-y-3">
                         <Label>Instâncias de WhatsApp</Label>
