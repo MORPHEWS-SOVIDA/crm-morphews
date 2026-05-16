@@ -2483,13 +2483,15 @@ Deno.serve(async (req) => {
         };
 
         // Auto-append link if template has none of the link placeholders and link exists
+        // If template has no link placeholder, auto-append the checkout link
         const hasLinkPlaceholder = /\{\{\s*(link|link_checkout|link_carrinho|checkout|checkout_link|url)\s*\}\}/i.test(autoText || '');
-        if (checkoutLink && !hasLinkPlaceholder && autoText) {
-          integration.auto_message_text = `${autoText}\n\n👉 Finalize sua compra aqui: ${checkoutLink}`;
+        let baseText = autoText || '';
+        if (checkoutLink && !hasLinkPlaceholder && baseText.trim().length > 0) {
+          baseText = `${baseText}\n\n👉 Finalize sua compra aqui: ${checkoutLink}`;
         }
 
         // Replace variables in message template
-        let messageText = autoText || '';
+        let messageText = baseText;
         for (const [k, v] of Object.entries(vars)) {
           const re = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
           messageText = messageText.replace(re, v);
