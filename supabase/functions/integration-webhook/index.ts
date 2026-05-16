@@ -2103,7 +2103,94 @@ Deno.serve(async (req) => {
           }
         }
       }
-      
+
+      // ========== CROSSELL MERGE LOGIC ==========
+      // If the matched product is flagged as crossell AND there's a recent draft sale
+      // (last 60 minutes) for the same lead, merge this item into that sale instead of
+      // creating a new one. Vendas ja impressas/expedidas NUNCA sao tocadas.
+      if (productId) {
+        const { data: crossellProduct } = await supabase
+          .from('lead_products')
+          .select('is_crossell')
+          .eq('id', productId)
+          .maybeSingle();
+
+        if (crossellProduct?.is_crossell) {
+          const sixtyMinAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+          const { data: recentSale } = await supabase
+            .from('sales')
+            .select('id, subtotal_cents, total_cents, discount_cents, romaneio_number')
+            .eq('lead_id', leadId)
+            .eq('organization_id', typedIntegration.organization_id)
+            .eq('status', 'draft')
+            .gte('created_at', sixtyMinAgo)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (recentSale?.id) {
+            console.log(`[crossell] Merging into existing draft sale ${recentSale.id} (romaneio ${recentSale.romaneio_number})`);
+            const unitPriceCents = Math.round(totalCents / quantity);
+            const { error: addItemErr } = await supabase
+              .from('sale_items')
+              .insert({
+                sale_id: recentSale.id,
+                product_id: productId,
+                product_name: productName,
+                quantity: quantity,
+                unit_price_cents: unitPriceCents,
+                discount_cents: 0,
+                total_cents: totalCents,
+                notes: `[CROSSELL ${typedIntegration.name}] ${productSku ? 'SKU: ' + productSku : ''}`.trim(),
+              });
+
+            if (addItemErr) {
+              console.error('[crossell] Failed to add item to existing sale, will fall back to new sale:', addItemErr);
+            } else {
+              const newSubtotal = (recentSale.subtotal_cents || 0) + totalCents;
+              const newTotal = (recentSale.total_cents || 0) + totalCents;
+              await supabase
+                .from('sales')
+                .update({
+                  subtotal_cents: newSubtotal,
+                  total_cents: newTotal,
+                  payment_notes: typedIntegration.sale_tag
+                    ? `[CROSSELL ${typedIntegration.sale_tag}]`
+                    : `[CROSSELL ${typedIntegration.name}]`,
+                })
+                .eq('id', recentSale.id);
+
+              await supabase.from('integration_logs').insert({
+                integration_id: typedIntegration.id,
+                organization_id: typedIntegration.organization_id,
+                direction: 'inbound',
+                status: 'success',
+                event_type: 'crossell_merged',
+                request_payload: payload,
+                response_payload: { merged_into_sale_id: recentSale.id, romaneio: recentSale.romaneio_number, added_cents: totalCents },
+                lead_id: leadId,
+                processing_time_ms: Date.now() - startTime,
+              });
+
+              saleId = recentSale.id;
+              // Skip the normal sale creation flow below
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  merged: true,
+                  sale_id: recentSale.id,
+                  romaneio_number: recentSale.romaneio_number,
+                  message: 'Crossell item merged into existing draft sale',
+                }),
+                { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          } else {
+            console.log('[crossell] No recent draft sale found within 60 min - creating new sale');
+          }
+        }
+      }
+
       // Get first address for the lead
       const { data: leadAddress } = await supabase
         .from('lead_addresses')
