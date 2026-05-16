@@ -513,6 +513,8 @@ export function IntegrationDetailDialog({
       auto_message_text: autoMessageText || null,
       auto_message_instance_ids: autoMessageInstanceIds,
       auto_message_rotation_enabled: autoMessageRotationEnabled,
+      auto_message_media_url: autoMessageMediaUrl,
+      auto_message_media_type: autoMessageMediaType,
       dedup_cooldown_minutes: dedupCooldownMinutes ? parseInt(dedupCooldownMinutes) : null,
       stage_priority_override: stagePriorityOverride,
     } as any);
