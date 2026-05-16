@@ -1880,14 +1880,26 @@ Deno.serve(async (req) => {
                 }
               }
             }
-            
-            // Also check payload's product.quantity for grouped products
-            if (!itemsQuantity && payload?.product?.type === 'grouped') {
-              const topQty = payload?.product?.quantity;
-              // For grouped products, the top-level quantity is usually 1 (the bundle)
-              // The real quantity is in items array - already handled above
+
+            // Fallback: top-level quantity fields (Minha Vitta / generic webhooks)
+            if (!itemsQuantity) {
+              const candidates = [
+                saleData.quantity,
+                payload?.quantity,
+                payload?.product?.quantity,
+                payload?.sale?.quantity,
+                payload?.items?.[0]?.quantity,
+              ];
+              for (const c of candidates) {
+                const n = parseInt(String(c ?? ''));
+                if (n && n > 0) {
+                  itemsQuantity = n;
+                  console.log(`Found quantity ${itemsQuantity} from top-level payload field`);
+                  break;
+                }
+              }
             }
-            
+
             // Try to find matching kit by quantity
             if (itemsQuantity) {
               const { data: kitByQty } = await supabase
