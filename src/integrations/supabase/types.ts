@@ -7649,6 +7649,8 @@ export type Database = {
           auto_followup_days: number | null
           auto_message_enabled: boolean
           auto_message_instance_ids: string[] | null
+          auto_message_media_type: string | null
+          auto_message_media_url: string | null
           auto_message_rotation_enabled: boolean
           auto_message_text: string | null
           consecutive_failures: number
@@ -7687,6 +7689,8 @@ export type Database = {
           auto_followup_days?: number | null
           auto_message_enabled?: boolean
           auto_message_instance_ids?: string[] | null
+          auto_message_media_type?: string | null
+          auto_message_media_url?: string | null
           auto_message_rotation_enabled?: boolean
           auto_message_text?: string | null
           consecutive_failures?: number
@@ -7725,6 +7729,8 @@ export type Database = {
           auto_followup_days?: number | null
           auto_message_enabled?: boolean
           auto_message_instance_ids?: string[] | null
+          auto_message_media_type?: string | null
+          auto_message_media_url?: string | null
           auto_message_rotation_enabled?: boolean
           auto_message_text?: string | null
           consecutive_failures?: number

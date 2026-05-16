@@ -1813,13 +1813,26 @@ Deno.serve(async (req) => {
       
       if (productSku) {
         console.log('Attempting to match by SKU:', productSku);
-        
-        // FIRST: Try to match by kit SKU (more specific)
+
+        // Normalize SKU: trim + lowercase, then apply known aliases (e.g. typos sent by partners)
+        const normalizeSku = (s: string): string => {
+          const base = String(s).trim().toLowerCase();
+          const aliases: Record<string, string> = {
+            'pulmonarebayy': 'pulmonarebaby', // Minha Vitta typo
+          };
+          return aliases[base] || base;
+        };
+        const normalizedSku = normalizeSku(productSku);
+        if (normalizedSku !== productSku.toLowerCase()) {
+          console.log(`SKU normalized: "${productSku}" -> "${normalizedSku}"`);
+        }
+
+        // FIRST: Try to match by kit SKU (case-insensitive)
         const { data: matchedKit } = await supabase
           .from('product_price_kits')
           .select('id, product_id, quantity, promotional_price_cents, regular_price_cents, sku')
           .eq('organization_id', typedIntegration.organization_id)
-          .eq('sku', productSku)
+          .ilike('sku', normalizedSku)
           .maybeSingle();
         
         if (matchedKit) {
@@ -1840,12 +1853,12 @@ Deno.serve(async (req) => {
             productName = kitProduct.name;
           }
         } else {
-          // FALLBACK: Try to match by product SKU
+          // FALLBACK: Try to match by product SKU (case-insensitive)
           const { data: matchedProduct } = await supabase
             .from('lead_products')
             .select('id, name, sku')
             .eq('organization_id', typedIntegration.organization_id)
-            .eq('sku', productSku)
+            .ilike('sku', normalizedSku)
             .maybeSingle();
           
           if (matchedProduct) {
@@ -1867,14 +1880,26 @@ Deno.serve(async (req) => {
                 }
               }
             }
-            
-            // Also check payload's product.quantity for grouped products
-            if (!itemsQuantity && payload?.product?.type === 'grouped') {
-              const topQty = payload?.product?.quantity;
-              // For grouped products, the top-level quantity is usually 1 (the bundle)
-              // The real quantity is in items array - already handled above
+
+            // Fallback: top-level quantity fields (Minha Vitta / generic webhooks)
+            if (!itemsQuantity) {
+              const candidates = [
+                saleData.quantity,
+                payload?.quantity,
+                payload?.product?.quantity,
+                payload?.sale?.quantity,
+                payload?.items?.[0]?.quantity,
+              ];
+              for (const c of candidates) {
+                const n = parseInt(String(c ?? ''));
+                if (n && n > 0) {
+                  itemsQuantity = n;
+                  console.log(`Found quantity ${itemsQuantity} from top-level payload field`);
+                  break;
+                }
+              }
             }
-            
+
             // Try to find matching kit by quantity
             if (itemsQuantity) {
               const { data: kitByQty } = await supabase
@@ -2238,12 +2263,15 @@ Deno.serve(async (req) => {
       const autoText = integration.auto_message_text;
       const autoInstanceIds: string[] = integration.auto_message_instance_ids || [];
       const autoRotation = integration.auto_message_rotation_enabled;
+      const autoMediaUrl: string | null = integration.auto_message_media_url || null;
+      const autoMediaType: string | null = integration.auto_message_media_type || null; // image|video|audio|document
+      const hasContent = (autoText && autoText.trim().length > 0) || !!autoMediaUrl;
       
-      if (autoEnabled && autoText && autoInstanceIds.length > 0 && leadData.whatsapp) {
-        console.log(`📨 Auto-message enabled for integration ${integration.name}, sending to ${leadData.whatsapp}`);
+      if (autoEnabled && hasContent && autoInstanceIds.length > 0 && leadData.whatsapp) {
+        console.log(`📨 Auto-message enabled for integration ${integration.name}, sending to ${leadData.whatsapp}${autoMediaUrl ? ` (with ${autoMediaType} media)` : ''}`);
         
         // Replace variables in message template
-        let messageText = autoText;
+        let messageText = autoText || '';
         messageText = messageText.replace(/\{\{nome\}\}/gi, leadData.name || 'Cliente');
         messageText = messageText.replace(/\{\{email\}\}/gi, leadData.email || '');
         messageText = messageText.replace(/\{\{produto\}\}/gi, leadData.product_name || '');
@@ -2277,22 +2305,50 @@ Deno.serve(async (req) => {
           const EVOLUTION_API_KEY_VAL = Deno.env.get('EVOLUTION_API_KEY') || '';
           const number = leadData.whatsapp.replace(/\D/g, '');
           
-          const response = await fetch(`${EVOLUTION_API_URL}/message/sendText/${inst.evolution_instance_id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY_VAL },
-            body: JSON.stringify({ number, text: messageText }),
-          });
+          let response: Response;
+          if (autoMediaUrl) {
+            // Send media (image/video/document/audio) with optional caption
+            const mediatype = (autoMediaType === 'audio' || autoMediaType === 'image' || autoMediaType === 'video' || autoMediaType === 'document') ? autoMediaType : 'document';
+            const endpoint = mediatype === 'audio' ? 'sendWhatsAppAudio' : 'sendMedia';
+            const body: Record<string, any> = mediatype === 'audio'
+              ? { number, audio: autoMediaUrl }
+              : {
+                  number,
+                  mediatype,
+                  media: autoMediaUrl,
+                  caption: messageText || undefined,
+                  fileName: autoMediaUrl.split('/').pop() || 'arquivo',
+                };
+            response = await fetch(`${EVOLUTION_API_URL}/message/${endpoint}/${inst.evolution_instance_id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY_VAL },
+              body: JSON.stringify(body),
+            });
+          } else {
+            response = await fetch(`${EVOLUTION_API_URL}/message/sendText/${inst.evolution_instance_id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY_VAL },
+              body: JSON.stringify({ number, text: messageText }),
+            });
+          }
           const result = await response.json();
           
           if (response.ok) {
             autoMessageSent = true;
             autoMessageError = null;
             console.log(`✅ Auto-message sent via ${inst.name} to ${number}`);
+            // If we sent media WITH a long caption (audio doesn't support caption), and the platform truncates, send text as follow-up
+            if (autoMediaUrl && autoMediaType === 'audio' && messageText) {
+              await fetch(`${EVOLUTION_API_URL}/message/sendText/${inst.evolution_instance_id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY_VAL },
+                body: JSON.stringify({ number, text: messageText }),
+              }).catch(() => {});
+            }
             break;
           } else {
             autoMessageError = JSON.stringify(result);
             console.error(`❌ Auto-message failed on ${inst.name}:`, result);
-            // Continue to next instance
           }
         }
         
