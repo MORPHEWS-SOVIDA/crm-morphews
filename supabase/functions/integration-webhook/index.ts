@@ -2330,12 +2330,81 @@ Deno.serve(async (req) => {
       if (autoEnabled && hasContent && autoInstanceIds.length > 0 && leadData.whatsapp) {
         console.log(`📨 Auto-message enabled for integration ${integration.name}, sending to ${leadData.whatsapp}${autoMediaUrl ? ` (with ${autoMediaType} media)` : ''}`);
         
+        // ============ Build replacement values from lead + address ============
+        const enderecoFull = [
+          addressData.street,
+          addressData.number ? `, ${addressData.number}` : '',
+          addressData.complement ? ` - ${addressData.complement}` : '',
+        ].filter(Boolean).join('').trim();
+
+        const vars: Record<string, string> = {
+          nome: leadData.name || 'Cliente',
+          email: leadData.email || '',
+          produto: leadData.product_name || productName || '',
+          whatsapp: leadData.whatsapp || '',
+          cpf: leadData.cpf_cnpj || '',
+          endereco: enderecoFull || '',
+          rua: addressData.street || '',
+          numero: addressData.number || '',
+          complemento: addressData.complement || '',
+          bairro: addressData.neighborhood || '',
+          cidade: addressData.city || '',
+          estado: addressData.state || '',
+          cep: addressData.cep || '',
+          pedido: saleData.external_id || '',
+          total: totalCents ? `R$ ${(totalCents / 100).toFixed(2).replace('.', ',')}` : '',
+        };
+
         // Replace variables in message template
         let messageText = autoText || '';
-        messageText = messageText.replace(/\{\{nome\}\}/gi, leadData.name || 'Cliente');
-        messageText = messageText.replace(/\{\{email\}\}/gi, leadData.email || '');
-        messageText = messageText.replace(/\{\{produto\}\}/gi, leadData.product_name || '');
-        messageText = messageText.replace(/\{\{whatsapp\}\}/gi, leadData.whatsapp || '');
+        for (const [k, v] of Object.entries(vars)) {
+          const re = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
+          messageText = messageText.replace(re, v);
+        }
+
+        // ============ Auto-fill empty labels (e.g. "Nome:" with no value) ============
+        // If a line ends with "Label:" (optionally with whitespace), try to fill it from vars.
+        const labelMap: Record<string, string> = {
+          'nome': vars.nome,
+          'nome completo': vars.nome,
+          'email': vars.email,
+          'e-mail': vars.email,
+          'whatsapp': vars.whatsapp,
+          'telefone': vars.whatsapp,
+          'celular': vars.whatsapp,
+          'cpf': vars.cpf,
+          'cpf/cnpj': vars.cpf,
+          'documento': vars.cpf,
+          'endereço': enderecoFull,
+          'endereco': enderecoFull,
+          'rua': vars.rua,
+          'número': vars.numero,
+          'numero': vars.numero,
+          'nº': vars.numero,
+          'complemento': vars.complemento,
+          'bairro': vars.bairro,
+          'cidade': vars.cidade,
+          'estado': vars.estado,
+          'uf': vars.estado,
+          'cep': vars.cep,
+          'produto': vars.produto,
+          'pedido': vars.pedido,
+          'total': vars.total,
+        };
+        messageText = messageText
+          .split('\n')
+          .map((line) => {
+            const m = line.match(/^(\s*)([A-Za-zÀ-ÿ\/\sº]+):\s*$/);
+            if (!m) return line;
+            const key = m[2].trim().toLowerCase();
+            const val = labelMap[key];
+            if (val && val.trim().length > 0) {
+              return `${m[1]}${m[2]}: ${val}`;
+            }
+            return line;
+          })
+          .join('\n');
+
         
         // Select instance: rotation or first available
         let selectedInstanceId: string;
