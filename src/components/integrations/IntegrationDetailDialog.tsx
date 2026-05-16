@@ -172,6 +172,13 @@ export function IntegrationDetailDialog({
   const [autoMessageRotationEnabled, setAutoMessageRotationEnabled] = useState(
     (integration as any).auto_message_rotation_enabled || false
   );
+  const [autoMessageMediaUrl, setAutoMessageMediaUrl] = useState<string | null>(
+    (integration as any).auto_message_media_url || null
+  );
+  const [autoMessageMediaType, setAutoMessageMediaType] = useState<string | null>(
+    (integration as any).auto_message_media_type || null
+  );
+  const [uploadingMedia, setUploadingMedia] = useState(false);
   
   // Deduplication settings
   const [dedupCooldownMinutes, setDedupCooldownMinutes] = useState<string>(
