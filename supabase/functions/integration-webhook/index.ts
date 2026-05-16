@@ -1813,13 +1813,26 @@ Deno.serve(async (req) => {
       
       if (productSku) {
         console.log('Attempting to match by SKU:', productSku);
-        
-        // FIRST: Try to match by kit SKU (more specific)
+
+        // Normalize SKU: trim + lowercase, then apply known aliases (e.g. typos sent by partners)
+        const normalizeSku = (s: string): string => {
+          const base = String(s).trim().toLowerCase();
+          const aliases: Record<string, string> = {
+            'pulmonarebayy': 'pulmonarebaby', // Minha Vitta typo
+          };
+          return aliases[base] || base;
+        };
+        const normalizedSku = normalizeSku(productSku);
+        if (normalizedSku !== productSku.toLowerCase()) {
+          console.log(`SKU normalized: "${productSku}" -> "${normalizedSku}"`);
+        }
+
+        // FIRST: Try to match by kit SKU (case-insensitive)
         const { data: matchedKit } = await supabase
           .from('product_price_kits')
           .select('id, product_id, quantity, promotional_price_cents, regular_price_cents, sku')
           .eq('organization_id', typedIntegration.organization_id)
-          .eq('sku', productSku)
+          .ilike('sku', normalizedSku)
           .maybeSingle();
         
         if (matchedKit) {
@@ -1840,12 +1853,12 @@ Deno.serve(async (req) => {
             productName = kitProduct.name;
           }
         } else {
-          // FALLBACK: Try to match by product SKU
+          // FALLBACK: Try to match by product SKU (case-insensitive)
           const { data: matchedProduct } = await supabase
             .from('lead_products')
             .select('id, name, sku')
             .eq('organization_id', typedIntegration.organization_id)
-            .eq('sku', productSku)
+            .ilike('sku', normalizedSku)
             .maybeSingle();
           
           if (matchedProduct) {
