@@ -1850,7 +1850,27 @@ Deno.serve(async (req) => {
       let matchedKitId: string | null = null;
       let matchedKitQuantity: number | null = null;
       let matchedKitPriceCents: number | null = null;
-      
+
+      // PAYT GROUPED PRODUCTS: when the parent product is type=grouped, the parent
+      // SKU is generic (e.g. "pulmonare") and won't match anything in the catalog.
+      // The real product is inside product.items[0].sku (e.g. "pulmonareinfantil")
+      // and the real quantity is items[0].quantity (3, 5, etc).
+      const isGroupedProduct =
+        String((payload as any)?.product?.type || '').toLowerCase() === 'grouped';
+      const firstItem = Array.isArray((payload as any)?.product?.items)
+        ? (payload as any).product.items[0]
+        : null;
+      if (isGroupedProduct && firstItem?.sku) {
+        console.log(
+          `[grouped] Parent SKU "${productSku}" is grouped; using child SKU "${firstItem.sku}" qty=${firstItem.quantity}`
+        );
+        productSku = String(firstItem.sku);
+        if (firstItem.name) productName = String(firstItem.name);
+        // Pre-seed quantity from items
+        const qtyFromItem = parseInt(String(firstItem.quantity ?? ''));
+        if (qtyFromItem > 0) saleData.quantity = qtyFromItem;
+      }
+
       if (productSku) {
         console.log('Attempting to match by SKU:', productSku);
 
