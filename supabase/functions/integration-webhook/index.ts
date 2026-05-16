@@ -1091,13 +1091,13 @@ Deno.serve(async (req) => {
     // DEDUPLICATION: Check for existing lead by whatsapp OR email
     // Each lead can only be in ONE stage. If found, UPDATE the stage.
     // ============================================================
-    let existingLead: { id: string; name: string; whatsapp: string; stage: string } | null = null;
+    let existingLead: { id: string; name: string; whatsapp: string; stage: string; funnel_stage_id: string | null } | null = null;
 
     // Priority 1: Match by WhatsApp (most reliable identifier)
     if (leadData.whatsapp) {
       const { data: existing } = await supabase
         .from('leads')
-        .select('id, name, whatsapp, stage')
+        .select('id, name, whatsapp, stage, funnel_stage_id')
         .eq('organization_id', typedIntegration.organization_id)
         .eq('whatsapp', leadData.whatsapp)
         .maybeSingle();
@@ -1109,7 +1109,7 @@ Deno.serve(async (req) => {
     if (!existingLead && leadData.email) {
       const { data: existing } = await supabase
         .from('leads')
-        .select('id, name, whatsapp, stage')
+        .select('id, name, whatsapp, stage, funnel_stage_id')
         .eq('organization_id', typedIntegration.organization_id)
         .eq('email', leadData.email)
         .maybeSingle();
