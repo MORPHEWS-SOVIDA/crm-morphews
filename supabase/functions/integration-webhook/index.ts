@@ -1190,24 +1190,48 @@ Deno.serve(async (req) => {
       };
 
       // ========== STAGE PRIORITY PROTECTION ==========
-      // Don't allow stage regression unless stage_priority_override is true
-      const shouldUpdateStage = (() => {
-        if (!newStage || newStage === previousStage) return false;
-        if (typedIntegration.stage_priority_override) return true; // Always update if override enabled
-        
+      // Don't allow stage regression unless stage_priority_override is true.
+      // Supports BOTH legacy enum stages AND custom funnel_stage_id (UUID) stages.
+      const shouldUpdateStage = await (async () => {
+        const enumChanged = !!newStage && newStage !== previousStage;
+        const funnelChanged = !!resolvedFunnelStageId && resolvedFunnelStageId !== existingLead.funnel_stage_id;
+        if (!enumChanged && !funnelChanged) return false;
+        if (typedIntegration.stage_priority_override) return true;
+
+        // Enum-based priority (legacy stages like 'paid' > 'waiting_payment')
         const prevPriority = STAGE_PRIORITY[previousStage] ?? 1;
         const newPriority = STAGE_PRIORITY[newStage] ?? 1;
-        
+
+        if (newPriority > prevPriority) return true;
         if (newPriority < prevPriority) {
-          console.log(`[STAGE PROTECTION] Blocking regression: ${previousStage}(${prevPriority}) -> ${newStage}(${newPriority})`);
+          console.log(`[STAGE PROTECTION] Blocking enum regression: ${previousStage}(${prevPriority}) -> ${newStage}(${newPriority})`);
           return false;
         }
-        return true;
+
+        // Enum tied (both 'unclassified', etc.): use funnel position from custom stages.
+        // Higher position = more advanced. Allows "NÃO PAGOU" (pos 27) -> "Venda Online" (pos 26)
+        // to be evaluated by integration intent, not blocked silently.
+        if (funnelChanged) {
+          const ids = [existingLead.funnel_stage_id, resolvedFunnelStageId].filter(Boolean) as string[];
+          const { data: posRows } = await supabase
+            .from('organization_funnel_stages')
+            .select('id, position, stage_type')
+            .in('id', ids);
+          const prevRow = posRows?.find(r => r.id === existingLead.funnel_stage_id);
+          const newRow = posRows?.find(r => r.id === resolvedFunnelStageId);
+          // Always allow if previous is cloud/trash (uncategorized inbox)
+          if (!prevRow || prevRow.stage_type === 'cloud' || prevRow.stage_type === 'trash') return true;
+          // Webhook-driven funnel transitions are intentional (paid > abandoned, etc.)
+          // Allow the integration to drive the funnel stage forward freely.
+          console.log(`[STAGE] Funnel transition: ${prevRow?.position} -> ${newRow?.position} (allowed by webhook intent)`);
+          return true;
+        }
+        return false;
       })();
 
       // Update stage if allowed
       if (shouldUpdateStage) {
-        updateData.stage = newStage;
+        if (newStage && newStage !== previousStage) updateData.stage = newStage;
         if (resolvedFunnelStageId) {
           updateData.funnel_stage_id = resolvedFunnelStageId;
         }
