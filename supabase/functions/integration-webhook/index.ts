@@ -2448,6 +2448,16 @@ Deno.serve(async (req) => {
           addressData.complement ? ` - ${addressData.complement}` : '',
         ].filter(Boolean).join('').trim();
 
+        // Extract checkout/cart link from payload (Payt, etc.)
+        const checkoutLink: string =
+          (payload?.link?.url as string) ||
+          (payload?.['link.url'] as string) ||
+          (payload?.checkout_url as string) ||
+          (payload?.checkout_link as string) ||
+          (payload?.cart_url as string) ||
+          (payload?.url as string) ||
+          '';
+
         const vars: Record<string, string> = {
           nome: leadData.name || 'Cliente',
           email: leadData.email || '',
@@ -2464,10 +2474,24 @@ Deno.serve(async (req) => {
           cep: addressData.cep || '',
           pedido: saleData.external_id || '',
           total: totalCents ? `R$ ${(totalCents / 100).toFixed(2).replace('.', ',')}` : '',
+          link: checkoutLink,
+          link_checkout: checkoutLink,
+          link_carrinho: checkoutLink,
+          checkout: checkoutLink,
+          checkout_link: checkoutLink,
+          url: checkoutLink,
         };
 
+        // Auto-append link if template has none of the link placeholders and link exists
+        // If template has no link placeholder, auto-append the checkout link
+        const hasLinkPlaceholder = /\{\{\s*(link|link_checkout|link_carrinho|checkout|checkout_link|url)\s*\}\}/i.test(autoText || '');
+        let baseText = autoText || '';
+        if (checkoutLink && !hasLinkPlaceholder && baseText.trim().length > 0) {
+          baseText = `${baseText}\n\n👉 Finalize sua compra aqui: ${checkoutLink}`;
+        }
+
         // Replace variables in message template
-        let messageText = autoText || '';
+        let messageText = baseText;
         for (const [k, v] of Object.entries(vars)) {
           const re = new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'gi');
           messageText = messageText.replace(re, v);
