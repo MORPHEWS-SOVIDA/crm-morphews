@@ -661,6 +661,46 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Unflatten dot-notation keys (e.g. Payt sends "product.items.0.sku" as flat keys)
+    // This converts { "product.sku": "x", "product.items.0.sku": "y" } => { product: { sku: "x", items: [ { sku: "y" } ] } }
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      const hasDottedKeys = Object.keys(payload).some(k => k.includes('.'));
+      if (hasDottedKeys) {
+        const unflattened: any = {};
+        for (const [key, value] of Object.entries(payload)) {
+          const parts = key.split('.');
+          let cur: any = unflattened;
+          for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            const isLast = i === parts.length - 1;
+            const nextPart = parts[i + 1];
+            const nextIsIndex = nextPart !== undefined && /^\d+$/.test(nextPart);
+            if (isLast) {
+              if (Array.isArray(cur)) {
+                const idx = parseInt(part);
+                if (!isNaN(idx)) cur[idx] = value;
+                else cur[part as any] = value;
+              } else {
+                cur[part] = value;
+              }
+            } else {
+              const isIdx = /^\d+$/.test(part);
+              if (Array.isArray(cur)) {
+                const idx = parseInt(part);
+                if (cur[idx] == null) cur[idx] = nextIsIndex ? [] : {};
+                cur = cur[idx];
+              } else {
+                if (cur[part] == null) cur[part] = nextIsIndex ? [] : {};
+                cur = cur[part];
+              }
+            }
+          }
+        }
+        // Merge: keep original flat keys too (for field mappers using dot paths) plus nested
+        payload = { ...payload, ...unflattened };
+      }
+    }
+
     const isPayloadTest = Boolean(payload && typeof payload === 'object' && (payload.test === true || payload.mode === 'test'));
     const effectiveTest = isTest || isPayloadTest;
 
