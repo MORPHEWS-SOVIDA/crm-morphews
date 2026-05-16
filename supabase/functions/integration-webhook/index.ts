@@ -2263,12 +2263,15 @@ Deno.serve(async (req) => {
       const autoText = integration.auto_message_text;
       const autoInstanceIds: string[] = integration.auto_message_instance_ids || [];
       const autoRotation = integration.auto_message_rotation_enabled;
+      const autoMediaUrl: string | null = integration.auto_message_media_url || null;
+      const autoMediaType: string | null = integration.auto_message_media_type || null; // image|video|audio|document
+      const hasContent = (autoText && autoText.trim().length > 0) || !!autoMediaUrl;
       
-      if (autoEnabled && autoText && autoInstanceIds.length > 0 && leadData.whatsapp) {
-        console.log(`📨 Auto-message enabled for integration ${integration.name}, sending to ${leadData.whatsapp}`);
+      if (autoEnabled && hasContent && autoInstanceIds.length > 0 && leadData.whatsapp) {
+        console.log(`📨 Auto-message enabled for integration ${integration.name}, sending to ${leadData.whatsapp}${autoMediaUrl ? ` (with ${autoMediaType} media)` : ''}`);
         
         // Replace variables in message template
-        let messageText = autoText;
+        let messageText = autoText || '';
         messageText = messageText.replace(/\{\{nome\}\}/gi, leadData.name || 'Cliente');
         messageText = messageText.replace(/\{\{email\}\}/gi, leadData.email || '');
         messageText = messageText.replace(/\{\{produto\}\}/gi, leadData.product_name || '');
@@ -2302,22 +2305,50 @@ Deno.serve(async (req) => {
           const EVOLUTION_API_KEY_VAL = Deno.env.get('EVOLUTION_API_KEY') || '';
           const number = leadData.whatsapp.replace(/\D/g, '');
           
-          const response = await fetch(`${EVOLUTION_API_URL}/message/sendText/${inst.evolution_instance_id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY_VAL },
-            body: JSON.stringify({ number, text: messageText }),
-          });
+          let response: Response;
+          if (autoMediaUrl) {
+            // Send media (image/video/document/audio) with optional caption
+            const mediatype = (autoMediaType === 'audio' || autoMediaType === 'image' || autoMediaType === 'video' || autoMediaType === 'document') ? autoMediaType : 'document';
+            const endpoint = mediatype === 'audio' ? 'sendWhatsAppAudio' : 'sendMedia';
+            const body: Record<string, any> = mediatype === 'audio'
+              ? { number, audio: autoMediaUrl }
+              : {
+                  number,
+                  mediatype,
+                  media: autoMediaUrl,
+                  caption: messageText || undefined,
+                  fileName: autoMediaUrl.split('/').pop() || 'arquivo',
+                };
+            response = await fetch(`${EVOLUTION_API_URL}/message/${endpoint}/${inst.evolution_instance_id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY_VAL },
+              body: JSON.stringify(body),
+            });
+          } else {
+            response = await fetch(`${EVOLUTION_API_URL}/message/sendText/${inst.evolution_instance_id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY_VAL },
+              body: JSON.stringify({ number, text: messageText }),
+            });
+          }
           const result = await response.json();
           
           if (response.ok) {
             autoMessageSent = true;
             autoMessageError = null;
             console.log(`✅ Auto-message sent via ${inst.name} to ${number}`);
+            // If we sent media WITH a long caption (audio doesn't support caption), and the platform truncates, send text as follow-up
+            if (autoMediaUrl && autoMediaType === 'audio' && messageText) {
+              await fetch(`${EVOLUTION_API_URL}/message/sendText/${inst.evolution_instance_id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY_VAL },
+                body: JSON.stringify({ number, text: messageText }),
+              }).catch(() => {});
+            }
             break;
           } else {
             autoMessageError = JSON.stringify(result);
             console.error(`❌ Auto-message failed on ${inst.name}:`, result);
-            // Continue to next instance
           }
         }
         
