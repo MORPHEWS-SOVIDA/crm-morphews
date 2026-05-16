@@ -63,6 +63,8 @@ import {
   TRANSFORM_TYPES,
 } from '@/hooks/useIntegrations';
 import { IntegrationTriggerRules } from './IntegrationTriggerRules';
+import { supabase } from '@/integrations/supabase/client';
+import { Upload, X as XIcon, FileVideo, FileImage, FileAudio, FileText as FileTextIcon } from 'lucide-react';
 import { useCustomFieldDefinitions } from '@/hooks/useLeadCustomFields';
 import { useProducts } from '@/hooks/useProducts';
 import { useUsers } from '@/hooks/useUsers';
