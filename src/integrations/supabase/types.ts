@@ -8986,6 +8986,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          is_crossell: boolean
           is_featured: boolean
           key_question_1: string | null
           key_question_2: string | null
@@ -9081,6 +9082,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_crossell?: boolean
           is_featured?: boolean
           key_question_1?: string | null
           key_question_2?: string | null
@@ -9176,6 +9178,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_crossell?: boolean
           is_featured?: boolean
           key_question_1?: string | null
           key_question_2?: string | null
