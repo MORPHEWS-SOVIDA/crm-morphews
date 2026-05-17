@@ -428,7 +428,8 @@ export function SellerDashboard({ viewAsUserId }: SellerDashboardProps = {}) {
           </CardContent>
         </Card>
 
-        {/* 2. Sugestões de Follow-up com IA */}
+        {/* Sugestões IA desativadas para parar consumo de créditos */}
+        {false && (<>
         <Card className="relative overflow-hidden border-2 border-blue-300 dark:border-blue-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-700 dark:text-blue-300">
@@ -592,6 +593,7 @@ export function SellerDashboard({ viewAsUserId }: SellerDashboardProps = {}) {
             )}
           </CardContent>
         </Card>
+        </>)}
 
         {/* 4. Follow-ups a Fazer */}
         <Card className="relative overflow-hidden border-2 border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40">
