@@ -16,6 +16,34 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * 🚫 Group-chat filter — used by INSERT and BATCH paths.
+ * WhatsApp group chats are rarely sales-related but generate massive CPU/storage cost.
+ * Returns true if the payload represents a group conversation/message we should drop.
+ */
+async function isGroupPayload(supabase: any, table: string, data: unknown): Promise<boolean> {
+  if (!isPlainObject(data)) return false;
+  if (table !== "whatsapp_messages" && table !== "whatsapp_conversations") return false;
+
+  const possibleJids = [
+    data.chat_id, data.remote_jid, data.remoteJid, data.phone_number,
+    data.sender_phone, data.senderPhone, data.customer_phone_e164,
+  ].map((v) => (typeof v === "string" ? v : "")).join("|");
+
+  if (possibleJids.includes("@g.us")) return true;
+  if (data.is_group === true) return true;
+
+  if (table === "whatsapp_messages" && typeof data.conversation_id === "string") {
+    const { data: conv } = await supabase
+      .from("whatsapp_conversations")
+      .select("is_group")
+      .eq("id", data.conversation_id)
+      .maybeSingle();
+    if (conv?.is_group === true) return true;
+  }
+  return false;
+}
+
 function normalizeMatch(
   action: string | undefined,
   body: Record<string, unknown>,
@@ -618,6 +646,12 @@ Deno.serve(async (req) => {
 
       // ── INSERT ───────────────────────────────────────────
       case "insert": {
+        // 🚫 Skip group chats entirely (saves CPU, storage, invocations)
+        if (await isGroupPayload(supabase, table, data)) {
+          console.log("⏭️  vps-bridge SKIP group:", table);
+          return json({ data: null, skipped: "group_chat" });
+        }
+
         // If inserting a media message without media_url, try to download from Evolution API
         if (table === "whatsapp_messages" && isPlainObject(data)) {
           const msgData = data as Record<string, unknown>;
@@ -926,6 +960,12 @@ Deno.serve(async (req) => {
                 break;
               }
               case "insert": {
+                // 🚫 Skip group messages/conversations in batch too
+                if (await isGroupPayload(supabase, op.table as string, op.data)) {
+                  console.log("⏭️  BATCH skip group:", op.table);
+                  results.push({ data: null, error: null });
+                  break;
+                }
                 let query = opDb.from(op.table as string).insert(op.data);
                 const iSelect = typeof op.select === "string" ? op.select : typeof opOptions?.select === "string" ? opOptions.select : null;
                 if (iSelect) query = query.select(iSelect as string);
