@@ -54,6 +54,18 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // 🚫 KILL SWITCH: Sugestões IA desativadas para parar consumo de créditos.
+  // Para reativar, remova este bloco.
+  return new Response(
+    JSON.stringify({
+      error: "Sugestões IA desativadas",
+      suggestions: [],
+      energyConsumed: 0,
+    }),
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+
+
   try {
     const { type, userId, organizationId, excludeLeadIds = [], limit = 3 }: IntelligenceRequest = await req.json();
 
