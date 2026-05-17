@@ -957,6 +957,12 @@ Deno.serve(async (req) => {
                 break;
               }
               case "insert": {
+                // 🚫 Skip group messages/conversations in batch too
+                if (await isGroupPayload(supabase, op.table as string, op.data)) {
+                  console.log("⏭️  BATCH skip group:", op.table);
+                  results.push({ data: null, error: null });
+                  break;
+                }
                 let query = opDb.from(op.table as string).insert(op.data);
                 const iSelect = typeof op.select === "string" ? op.select : typeof opOptions?.select === "string" ? opOptions.select : null;
                 if (iSelect) query = query.select(iSelect as string);
