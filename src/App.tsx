@@ -158,7 +158,7 @@ const VoiceAI = lazy(() => import("./pages/VoiceAI"));
 const SuperIA = lazy(() => import("./pages/SuperIA"));
 const Demands = lazy(() => import("./pages/Demands"));
 const DemandsSettings = lazy(() => import("./pages/DemandsSettings"));
-const SmsCenter = lazy(() => import("./pages/SmsCenter"));
+// SMS removido
 
 // Team Communication
 const ConectaTime = lazy(() => import("./pages/ConectaTime"));
@@ -191,7 +191,7 @@ const TemplatesLPPage = lazy(() => import("./pages/super-admin/TemplatesLPPage")
 const CreditosWhatsAppPage = lazy(() => import("./pages/super-admin/CreditosWhatsAppPage"));
 const ProvedoresWhatsAppPage = lazy(() => import("./pages/super-admin/ProvedoresWhatsAppPage"));
 const AdminInstancePage = lazy(() => import("./pages/super-admin/AdminInstancePage"));
-const SmsPage = lazy(() => import("./pages/super-admin/SmsPage"));
+// SmsPage removido
 const EnergiaIAPage = lazy(() => import("./pages/super-admin/EnergiaIAPage"));
 const CustosModelosPage = lazy(() => import("./pages/super-admin/CustosModelosPage"));
 const SecretariaPage = lazy(() => import("./pages/super-admin/SecretariaPage"));
@@ -387,27 +387,8 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
-                
-                {/* SMS Center - Main page for sending */}
-                <Route
-                  path="/sms"
-                  element={
-                    <ProtectedRoute>
-                      <SmsCenter />
-                    </ProtectedRoute>
-                  }
-                />
-                
-                {/* SMS Settings/Config - Settings page */}
-                <Route
-                  path="/settings/sms"
-                  element={
-                    <ProtectedRoute>
-                      <SmsCenter />
-                    </ProtectedRoute>
-                  }
-                />
-                
+                {/* SMS removido */}
+
                 {/* Instagram - require instagram_view */}
                 <Route
                   path="/instagram"
@@ -651,14 +632,7 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
-                <Route
-                  path="/super-admin/sms"
-                  element={
-                    <ProtectedRoute requireAdmin>
-                      <SmsPage />
-                    </ProtectedRoute>
-                  }
-                />
+                {/* /super-admin/sms removido */}
                 <Route
                   path="/super-admin/ia/energia-ia"
                   element={

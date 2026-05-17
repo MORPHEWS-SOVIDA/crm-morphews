@@ -257,8 +257,7 @@ export function Sidebar() {
     // Instagram (permission controlled)
     { icon: Instagram, label: 'Instagram DMs', path: '/instagram', visible: canSeeInstagram && hasFeature('instagram') },
     
-    // SMS Center
-    { icon: Send, label: 'Enviar SMS', path: '/sms', visible: canSeeSettings && hasFeature('sms') },
+    // SMS removido
     
     // Ecommerce (partners can access for Carrinhos/Carteira, admins need settings_view)
     { icon: Store, label: 'E-commerce', path: '/ecommerce', visible: (canSeeSettings || isPartner) && hasFeature('ecommerce') },
