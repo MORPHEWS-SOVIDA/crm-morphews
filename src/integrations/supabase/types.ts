@@ -24357,6 +24357,7 @@ export type Database = {
         Args: { p_conversation_id: string; p_user_id: string }
         Returns: Json
       }
+      clear_group_media_urls: { Args: never; Returns: number }
       close_whatsapp_conversation: {
         Args: { p_conversation_id: string }
         Returns: Json
