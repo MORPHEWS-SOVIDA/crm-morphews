@@ -172,12 +172,8 @@ async function sendWithFallback(
       return { success: true, usedInstanceId: instanceId };
     }
     
-    // If Bad Request, it's a phone number issue - don't try other instances
-    if (sendResult.error?.includes("Bad Request")) {
-      return { success: false, error: sendResult.error };
-    }
-    
-    console.warn(`Send failed via ${instance.evolution_instance_id}: ${sendResult.error}, trying next...`);
+    // Track last error and ALWAYS try next instance (full fallback across all valid chips)
+    console.warn(`Send failed via ${instance.evolution_instance_id}: ${sendResult.error}, trying next instance...`);
   }
   
   // All instances failed
