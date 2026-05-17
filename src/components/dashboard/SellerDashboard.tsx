@@ -593,6 +593,7 @@ export function SellerDashboard({ viewAsUserId }: SellerDashboardProps = {}) {
             )}
           </CardContent>
         </Card>
+        </>)}
 
         {/* 4. Follow-ups a Fazer */}
         <Card className="relative overflow-hidden border-2 border-amber-300 dark:border-amber-700 bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40">
