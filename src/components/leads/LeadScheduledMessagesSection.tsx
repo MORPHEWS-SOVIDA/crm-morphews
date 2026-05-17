@@ -169,6 +169,32 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
     onError: () => toast.error('Erro ao cancelar mensagem'),
   });
 
+  // Resend mutation - resets failed message to pending and triggers processor
+  const resendMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('lead_scheduled_messages')
+        .update({
+          status: 'pending',
+          scheduled_at: new Date().toISOString(),
+          failure_reason: null,
+          attempt_count: 0,
+          current_instance_index: 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .in('status', ['failed_other', 'failed_offline']);
+      if (error) throw error;
+      await supabase.functions.invoke('process-scheduled-messages', { body: {} });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lead-scheduled-messages', leadId] });
+      queryClient.invalidateQueries({ queryKey: ['scheduled-messages'] });
+      toast.success('Mensagem reenviada — processando agora');
+    },
+    onError: (e: any) => toast.error(`Erro ao reenviar: ${e?.message || 'desconhecido'}`),
+  });
+
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, final_message, scheduled_at }: { id: string; final_message: string; scheduled_at: string }) => {
