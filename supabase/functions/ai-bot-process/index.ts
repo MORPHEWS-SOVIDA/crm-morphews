@@ -998,6 +998,64 @@ async function getLeadMemoryContext(organizationId: string, leadId: string | nul
   }
 }
 
+interface SaleTrackingContext {
+  sale_id: string;
+  status: string | null;
+  tracking_code: string | null;
+  last_tracking_status: string | null;
+  created_at: string;
+}
+
+async function getSaleTrackingContext(organizationId: string, leadId: string | null): Promise<SaleTrackingContext | null> {
+  if (!leadId) return null;
+  try {
+    const { data } = await supabase
+      .from('sales')
+      .select('id, status, tracking_code, last_tracking_status, created_at')
+      .eq('organization_id', organizationId)
+      .eq('lead_id', leadId)
+      .not('status', 'in', '("cancelled","draft")')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      sale_id: data.id,
+      status: data.status,
+      tracking_code: data.tracking_code,
+      last_tracking_status: data.last_tracking_status,
+      created_at: data.created_at,
+    };
+  } catch (e) {
+    console.error('Error fetching sale tracking context:', e);
+    return null;
+  }
+}
+
+function buildSaleTrackingPrompt(sale: SaleTrackingContext): string {
+  const hasTracking = !!sale.tracking_code;
+  if (hasTracking) {
+    return `📦 PEDIDO MAIS RECENTE DESTE CLIENTE:
+- Status: ${sale.status}
+- Código de rastreio: ${sale.tracking_code}
+- Última atualização do rastreio: ${sale.last_tracking_status || 'sem atualização recente'}
+
+🚚 SE O CLIENTE PERGUNTAR SOBRE ENTREGA/RASTREIO/PEDIDO:
+Responda EXATAMENTE neste formato (adapte só o tom, não invente dados):
+"Achei aqui! 😊 Seu código de rastreio é *${sale.tracking_code}*. Você consegue acompanhar onde está em https://www.correios.com.br 💚"
+Se houver "Última atualização", você pode complementar mencionando ela de forma natural.
+NUNCA invente outro código. Use SOMENTE ${sale.tracking_code}.`;
+  }
+  return `📦 PEDIDO MAIS RECENTE DESTE CLIENTE:
+- Status: ${sale.status}
+- Código de rastreio: AINDA NÃO POSTADO (sem código)
+
+🚚 SE O CLIENTE PERGUNTAR SOBRE ENTREGA/RASTREIO/PEDIDO:
+Responda EXATAMENTE com este sentido (com suas palavras, tom acolhedor):
+"Seu pedido ainda não foi postado, mas logo vai sair pra entrega 💚 Quer que eu chame meu colega da expedição pra te dar a posição certinha agora?"
+NUNCA invente código de rastreio. NUNCA prometa prazo específico.`;
+}
+
 function buildLeadMemoryPrompt(memory: LeadMemoryContext): string {
   const parts: string[] = [];
 
@@ -1422,7 +1480,8 @@ async function generateAIResponse(
   faqs: Array<{question: string, answer: string}> = [],
   semanticResults: SemanticSearchResult[] = [],
   leadMemory: LeadMemoryContext | null = null,
-  modelOverride: string | null = null
+  modelOverride: string | null = null,
+  saleTracking: SaleTrackingContext | null = null
 ): Promise<{ response: string; tokensUsed: number; modelUsed: string }> {
   const modelToUse = modelOverride || bot.ai_model_chat || 'google/gemini-3-flash-preview';
   const historyLimit = modelToUse.includes('gemini-2.5-pro') ? 12 : 20;
@@ -1438,6 +1497,13 @@ async function generateAIResponse(
 🧠 MEMÓRIA DO CLIENTE (informações aprendidas em conversas anteriores)
 ════════════════════════════════════════════
 ${buildLeadMemoryPrompt(leadMemory)}
+════════════════════════════════════════════` : '';
+
+  const saleTrackingContext = saleTracking ? `
+════════════════════════════════════════════
+📦 RASTREIO DO PEDIDO DESTE CLIENTE (USE EXATAMENTE ESTA INFORMAÇÃO)
+════════════════════════════════════════════
+${buildSaleTrackingPrompt(saleTracking)}
 ════════════════════════════════════════════` : '';
   
   const qualificationInstructions = `
@@ -1534,6 +1600,8 @@ CONTEXTO ATUAL:
 - ${messageCount > 0 ? 'CONVERSA EM ANDAMENTO - NÃO se apresente novamente' : 'NOVA CONVERSA'}
 
 ${leadMemoryContext}
+
+${saleTrackingContext}
 
 ${semanticContext}
 
@@ -2763,6 +2831,19 @@ async function processMessage(
   } else if (context.leadId && !aiMemoryEnabled) {
     console.log('🧠 Lead memory disabled globally, skipping');
   }
+
+  // 5.2b Buscar rastreio da venda mais recente deste lead (sempre, independente do toggle de memória)
+  let saleTracking: SaleTrackingContext | null = null;
+  if (context.leadId) {
+    saleTracking = await getSaleTrackingContext(context.organizationId, context.leadId);
+    if (saleTracking) {
+      console.log('📦 Sale tracking loaded:', {
+        sale_id: saleTracking.sale_id,
+        hasTrackingCode: !!saleTracking.tracking_code,
+        status: saleTracking.status
+      });
+    }
+  }
   
   const [products, faqs] = await Promise.all([
     getBotProducts(bot.id, context.organizationId, productScope),
@@ -2810,7 +2891,9 @@ async function processMessage(
       products,
       faqs,
       semanticResults,
-      leadMemory
+      leadMemory,
+      null,
+      saleTracking
     );
     aiResponse = result.response;
     tokensUsed = result.tokensUsed;
@@ -2887,7 +2970,7 @@ Reescreva agora de forma natural, respondendo a dúvida do cliente:`;
         
         const fixResult = await generateAIResponse(
           bot, fixPrompt, conversationHistory, context.contactName,
-          context.botMessagesCount, products, faqs, semanticResults, leadMemory
+          context.botMessagesCount, products, faqs, semanticResults, leadMemory, null, saleTracking
         );
         aiResponse = fixResult.response;
         tokensUsed += fixResult.tokensUsed;
