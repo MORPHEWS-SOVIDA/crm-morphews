@@ -201,12 +201,19 @@ async function sendMessageViaEvolution(
       if (mediaType === 'image') {
         endpoint = `${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`;
         body = { ...body, mediatype: 'image', media: mediaUrl, caption: message };
+      } else if (mediaType === 'video') {
+        endpoint = `${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`;
+        body = { ...body, mediatype: 'video', media: mediaUrl, caption: message };
       } else if (mediaType === 'audio') {
         endpoint = `${EVOLUTION_API_URL}/message/sendWhatsAppAudio/${instanceName}`;
         body = { ...body, audio: mediaUrl };
       } else if (mediaType === 'document') {
         endpoint = `${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`;
         body = { ...body, mediatype: 'document', media: mediaUrl, fileName: mediaFilename || 'document', caption: message };
+      } else {
+        // Unknown media type — fall back to sending as document so it still goes through
+        endpoint = `${EVOLUTION_API_URL}/message/sendMedia/${instanceName}`;
+        body = { ...body, mediatype: 'document', media: mediaUrl, fileName: mediaFilename || 'arquivo', caption: message };
       }
 
       console.log(`Sending ${mediaType} to ${phone} via instance ${instanceName}`);
