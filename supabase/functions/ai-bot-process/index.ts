@@ -1480,7 +1480,8 @@ async function generateAIResponse(
   faqs: Array<{question: string, answer: string}> = [],
   semanticResults: SemanticSearchResult[] = [],
   leadMemory: LeadMemoryContext | null = null,
-  modelOverride: string | null = null
+  modelOverride: string | null = null,
+  saleTracking: SaleTrackingContext | null = null
 ): Promise<{ response: string; tokensUsed: number; modelUsed: string }> {
   const modelToUse = modelOverride || bot.ai_model_chat || 'google/gemini-3-flash-preview';
   const historyLimit = modelToUse.includes('gemini-2.5-pro') ? 12 : 20;
