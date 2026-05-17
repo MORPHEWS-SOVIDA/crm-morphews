@@ -618,6 +618,37 @@ Deno.serve(async (req) => {
 
       // ── INSERT ───────────────────────────────────────────
       case "insert": {
+        // 🚫 GROUP MESSAGES FILTER — skip entirely (saves CPU, storage, invocations).
+        // WhatsApp group chats are very rarely sales-related but generate massive volume.
+        // We detect groups by:
+        //   (a) phone/chat_id ending in @g.us (WhatsApp group JID suffix)
+        //   (b) the linked conversation having is_group=true
+        if (isPlainObject(data)) {
+          const d = data as Record<string, unknown>;
+          const possibleJids = [
+            d.chat_id, d.remote_jid, d.remoteJid, d.phone_number,
+            d.sender_phone, d.senderPhone, d.customer_phone_e164,
+          ].map((v) => (typeof v === "string" ? v : "")).join("|");
+
+          if (possibleJids.includes("@g.us") || d.is_group === true) {
+            console.log("⏭️  vps-bridge SKIP group message/conversation:", { table, hint: "@g.us or is_group=true" });
+            return json({ data: null, skipped: "group_chat" });
+          }
+
+          // For messages, also look up the parent conversation
+          if (table === "whatsapp_messages" && typeof d.conversation_id === "string") {
+            const { data: conv } = await supabase
+              .from("whatsapp_conversations")
+              .select("is_group")
+              .eq("id", d.conversation_id)
+              .maybeSingle();
+            if (conv?.is_group === true) {
+              console.log("⏭️  vps-bridge SKIP message (parent conversation is group):", d.conversation_id);
+              return json({ data: null, skipped: "group_conversation" });
+            }
+          }
+        }
+
         // If inserting a media message without media_url, try to download from Evolution API
         if (table === "whatsapp_messages" && isPlainObject(data)) {
           const msgData = data as Record<string, unknown>;
