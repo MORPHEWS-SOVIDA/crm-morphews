@@ -524,17 +524,81 @@ serve(async (req) => {
         }
 
         if (sendResult.success) {
+          const usedInstanceId = sendResult.usedInstanceId || msg.whatsapp_instance_id;
           await supabase
             .from("lead_scheduled_messages")
             .update({ 
               status: "sent", 
               sent_at: new Date().toISOString(),
-              whatsapp_instance_id: sendResult.usedInstanceId || msg.whatsapp_instance_id,
+              whatsapp_instance_id: usedInstanceId,
               updated_at: new Date().toISOString()
             })
             .eq("id", msg.id);
           sentCount++;
-          console.log(`Message ${msg.id} sent successfully via instance ${sendResult.usedInstanceId}`);
+          console.log(`Message ${msg.id} sent successfully via instance ${usedInstanceId}`);
+
+          // Log to chat history (whatsapp_messages) so the seller sees the automatic send
+          if (channelType !== 'sms' && usedInstanceId) {
+            try {
+              // Find or create conversation for this phone/instance
+              const chatId = `${normalizedPhone}@s.whatsapp.net`;
+              let { data: conv } = await supabase
+                .from("whatsapp_conversations")
+                .select("id")
+                .eq("instance_id", usedInstanceId)
+                .eq("phone_number", normalizedPhone)
+                .maybeSingle();
+
+              if (!conv) {
+                const { data: newConv } = await supabase
+                  .from("whatsapp_conversations")
+                  .insert({
+                    instance_id: usedInstanceId,
+                    organization_id: msg.organization_id,
+                    phone_number: normalizedPhone,
+                    contact_name: lead.name || normalizedPhone,
+                    lead_id: msg.lead_id,
+                    chat_id: chatId,
+                    last_message_at: new Date().toISOString(),
+                  })
+                  .select("id")
+                  .single();
+                conv = newConv;
+              }
+
+              if (conv) {
+                const finalType = msg.media_url
+                  ? (msg.media_type === 'image' ? 'image'
+                    : msg.media_type === 'video' ? 'video'
+                    : msg.media_type === 'audio' ? 'audio'
+                    : 'document')
+                  : 'text';
+
+                await supabase.from("whatsapp_messages").insert({
+                  conversation_id: conv.id,
+                  instance_id: usedInstanceId,
+                  content: msg.final_message,
+                  direction: "outbound",
+                  message_type: finalType,
+                  media_url: msg.media_url,
+                  media_caption: msg.media_url ? msg.final_message : null,
+                  provider: "evolution",
+                  status: "sent",
+                  is_from_bot: true,
+                });
+
+                await supabase
+                  .from("whatsapp_conversations")
+                  .update({
+                    last_message_at: new Date().toISOString(),
+                    current_instance_id: usedInstanceId,
+                  })
+                  .eq("id", conv.id);
+              }
+            } catch (logErr) {
+              console.error(`Failed to log sent message to chat history: ${logErr instanceof Error ? logErr.message : logErr}`);
+            }
+          }
         } else {
           // Check if it's a permanent failure (phone issue) or retryable
           const isPermanentFailure = sendResult.error?.includes("Bad Request") || 

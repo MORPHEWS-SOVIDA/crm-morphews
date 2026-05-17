@@ -169,6 +169,32 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
     onError: () => toast.error('Erro ao cancelar mensagem'),
   });
 
+  // Resend mutation - resets failed message to pending and triggers processor
+  const resendMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('lead_scheduled_messages')
+        .update({
+          status: 'pending',
+          scheduled_at: new Date().toISOString(),
+          failure_reason: null,
+          attempt_count: 0,
+          current_instance_index: 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .in('status', ['failed_other', 'failed_offline']);
+      if (error) throw error;
+      await supabase.functions.invoke('process-scheduled-messages', { body: {} });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lead-scheduled-messages', leadId] });
+      queryClient.invalidateQueries({ queryKey: ['scheduled-messages'] });
+      toast.success('Mensagem reenviada — processando agora');
+    },
+    onError: (e: any) => toast.error(`Erro ao reenviar: ${e?.message || 'desconhecido'}`),
+  });
+
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, final_message, scheduled_at }: { id: string; final_message: string; scheduled_at: string }) => {
@@ -397,8 +423,26 @@ export function LeadScheduledMessagesSection({ leadId, leadName, leadWhatsapp }:
                     </div>
 
                     {msg.failure_reason && (
-                      <div className="p-2 bg-destructive/10 text-destructive rounded text-xs">
-                        <strong>Erro:</strong> {msg.failure_reason}
+                      <div className="p-2 bg-destructive/10 text-destructive rounded text-xs flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <strong>Erro:</strong> {msg.failure_reason}
+                        </div>
+                        {(msg.status === 'failed_other' || msg.status === 'failed_offline') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 gap-1 shrink-0"
+                            disabled={resendMutation.isPending}
+                            onClick={() => resendMutation.mutate(msg.id)}
+                          >
+                            {resendMutation.isPending ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Send className="w-3 h-3" />
+                            )}
+                            Reenviar
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
