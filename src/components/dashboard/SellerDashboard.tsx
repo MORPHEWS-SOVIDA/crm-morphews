@@ -428,7 +428,9 @@ export function SellerDashboard({ viewAsUserId }: SellerDashboardProps = {}) {
           </CardContent>
         </Card>
 
-        {/* 2. Sugestões de Follow-up com IA */}
+        {/* Sugestões IA desativadas para parar consumo de créditos */}
+        {false && (
+        /* 2. Sugestões de Follow-up com IA */
         <Card className="relative overflow-hidden border-2 border-blue-300 dark:border-blue-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-700 dark:text-blue-300">
