@@ -247,7 +247,9 @@ export default function AIBots() {
           </TabsContent>
 
           <TabsContent value="history" className="mt-6">
-            <SuggestionHistorySection />
+            <div className="p-6 text-center text-sm text-muted-foreground border rounded-lg">
+              Sugestões IA desativadas para parar consumo de créditos.
+            </div>
           </TabsContent>
         </Tabs>
       </div>
