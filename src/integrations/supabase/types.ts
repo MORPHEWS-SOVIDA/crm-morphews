@@ -24634,6 +24634,13 @@ export type Database = {
           nfse_environment: string
         }[]
       }
+      get_group_whatsapp_media_names: {
+        Args: { p_limit?: number }
+        Returns: {
+          name: string
+          size_bytes: number
+        }[]
+      }
       get_inactive_leads_for_followup: {
         Args: {
           p_cooldown_hours?: number
