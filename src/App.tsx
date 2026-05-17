@@ -491,15 +491,9 @@ const App = () => (
                     </ProtectedRoute>
                   }
                 />
-                <Route
-                  path="/whatsapp-cowork"
-                  element={
-                    <ProtectedRoute requiredPermissions={['whatsapp_view']}>
-                      <WhatsAppCowork />
-                    </ProtectedRoute>
-                  }
-                />
+                {/* /whatsapp-cowork desativado para parar consumo */}
                 
+
                 {/* Post-Sale - require post_sale_view */}
                 <Route
                   path="/pos-venda"
