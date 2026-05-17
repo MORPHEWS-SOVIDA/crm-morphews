@@ -114,7 +114,7 @@ const WhatsAppDMs = lazy(() => import("./pages/WhatsAppDMs"));
 const WhatsAppChat = lazy(() => import("./pages/WhatsAppChat"));
 const WhatsAppNPS = lazy(() => import("./pages/WhatsAppNPS"));
 const WhatsAppGlobalConfig = lazy(() => import("./pages/WhatsAppGlobalConfig"));
-const WhatsAppCowork = lazy(() => import("./pages/WhatsAppCowork"));
+// const WhatsAppCowork = lazy(() => import("./pages/WhatsAppCowork")); // desativado
 const WhatsAppQuickMessages = lazy(() => import("./pages/WhatsAppQuickMessages"));
 
 // Instagram
