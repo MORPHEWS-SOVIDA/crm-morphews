@@ -24688,6 +24688,13 @@ export type Database = {
         Args: { p_instance_id: string; p_organization_id: string }
         Returns: string
       }
+      get_old_whatsapp_media_names: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: {
+          name: string
+          size_bytes: number
+        }[]
+      }
       get_or_create_contact_by_phone: {
         Args: { _name?: string; _organization_id: string; _phone: string }
         Returns: string
