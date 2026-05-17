@@ -60,7 +60,7 @@ export const AVAILABLE_FEATURES = {
   // Canais Adicionais
   instagram: { label: "Instagram DMs", group: "Canais Adicionais" },
   instagram_social_selling: { label: "Social Selling (Instagram)", group: "Canais Adicionais" },
-  sms: { label: "Centro de SMS", group: "Canais Adicionais" },
+  // sms removido
   conecta_time: { label: "Conecta Time", group: "Comunicação Interna" },
   
   // Voice AI (Twilio)

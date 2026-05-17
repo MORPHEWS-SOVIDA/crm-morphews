@@ -40,7 +40,7 @@ import { ImplementersTab } from "@/components/super-admin/ImplementersTab";
 import { CommunicationLogsTab } from "@/components/super-admin/CommunicationLogsTab";
 import { CloudCostsTab } from "@/components/super-admin/CloudCostsTab";
 import { VoiceAITab } from "@/components/super-admin/VoiceAITab";
-import { SmsDashboardTab } from "@/components/super-admin/SmsDashboardTab";
+// SmsDashboardTab removido
 import { SuperAdminNavigation, SUPER_ADMIN_CATEGORIES } from "@/components/super-admin/SuperAdminNavigation";
 import { cn } from "@/lib/utils";
 
@@ -1064,7 +1064,7 @@ export default function SuperAdmin({ defaultTab = "organizations" }: SuperAdminP
             {activeTab === "whatsapp" && <WhatsAppCreditsTab />}
             {activeTab === "providers" && <WhatsAppProvidersTab />}
             {activeTab === "admin-whatsapp" && <AdminWhatsAppInstanceTab />}
-            {activeTab === "sms" && <SmsDashboardTab />}
+            {/* sms removido */}
             {activeTab === "energy" && <EnergyManagementTab />}
             {activeTab === "ai-costs" && <AIModelCostsTab />}
             {activeTab === "secretary-messages" && <SecretaryMessagesManager />}

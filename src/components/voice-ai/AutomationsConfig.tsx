@@ -50,7 +50,7 @@
    { value: 'send_notification', label: 'Enviar Notificação', icon: Bell },
    { value: 'create_task', label: 'Criar Tarefa', icon: ListTodo },
    { value: 'send_email', label: 'Enviar E-mail', icon: Mail },
-   { value: 'send_sms', label: 'Enviar SMS', icon: MessageSquare },
+   // send_sms removido
    { value: 'add_tag', label: 'Adicionar Tag', icon: Tag },
  ];
  

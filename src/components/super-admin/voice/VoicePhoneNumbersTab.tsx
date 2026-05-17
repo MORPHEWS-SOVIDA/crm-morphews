@@ -172,21 +172,9 @@ export function VoicePhoneNumbersTab() {
     },
   });
 
-  // Sync with Twilio
+  // Sync with Twilio (função removida — adicione números manualmente)
   const syncWithTwilio = async () => {
-    setIsSyncing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("twilio-sync-numbers");
-      
-      if (error) throw error;
-      
-      toast.success(`Sincronizado! ${data.imported || 0} números importados.`);
-      queryClient.invalidateQueries({ queryKey: ["voice-phone-numbers"] });
-    } catch (error: any) {
-      toast.error("Erro ao sincronizar: " + error.message);
-    } finally {
-      setIsSyncing(false);
-    }
+    toast.error("Sincronização Twilio desativada. Adicione os números manualmente.");
   };
 
   // Configure webhooks mutation

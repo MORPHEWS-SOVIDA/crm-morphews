@@ -313,17 +313,9 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
                         </Badge>
                         <Badge 
                           variant="secondary" 
-                          className={`text-[10px] px-1 py-0 ${
-                            template.channel_type === 'sms' 
-                              ? 'bg-blue-500/20 text-blue-700' 
-                              : 'bg-green-500/20 text-green-700'
-                          }`}
+                          className="text-[10px] px-1 py-0 bg-green-500/20 text-green-700"
                         >
-                          {template.channel_type === 'sms' ? (
-                            <><Smartphone className="w-2 h-2 mr-0.5" />SMS</>
-                          ) : (
-                            <><MessageSquare className="w-2 h-2 mr-0.5" />WhatsApp</>
-                          )}
+                          <MessageSquare className="w-2 h-2 mr-0.5" />WhatsApp
                         </Badge>
                         <Badge variant="secondary" className="text-[10px] px-1 py-0">
                           <Clock className="w-2 h-2 mr-0.5" />
@@ -416,37 +408,7 @@ export function MessageTemplatesManager({ reasonId, reasonName }: MessageTemplat
             </DialogHeader>
             
             <div className="space-y-4">
-              {/* Channel Type Selector */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Canal de Envio</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={formData.channel_type === 'whatsapp' ? 'default' : 'outline'}
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setFormData(prev => ({ ...prev, channel_type: 'whatsapp' }))}
-                  >
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    WhatsApp
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={formData.channel_type === 'sms' ? 'default' : 'outline'}
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setFormData(prev => ({ ...prev, channel_type: 'sms' }))}
-                  >
-                    <Smartphone className="w-4 h-4 mr-2" />
-                    SMS
-                  </Button>
-                </div>
-                {formData.channel_type === 'sms' && (
-                  <p className="text-xs text-muted-foreground">
-                    SMS será enviado para o número de WhatsApp do lead. Limite de 160 caracteres por mensagem.
-                  </p>
-                )}
-              </div>
+              {/* Canal SMS removido — apenas WhatsApp */}
 
               {/* Instance Chain - Primary + 2 Fallbacks (WhatsApp only) */}
               {formData.channel_type === 'whatsapp' && (

@@ -39,7 +39,7 @@
    { value: 'book_appointment', label: 'Agendar Reunião', icon: Calendar, color: 'bg-green-500' },
    { value: 'dtmf', label: 'DTMF (Teclas)', icon: Hash, color: 'bg-purple-500' },
    { value: 'api_call', label: 'Chamada API', icon: Globe, color: 'bg-orange-500' },
-   { value: 'send_sms', label: 'Enviar SMS', icon: MessageSquare, color: 'bg-pink-500' },
+   // send_sms removido
    { value: 'update_crm', label: 'Atualizar CRM', icon: Database, color: 'bg-cyan-500' },
    { value: 'webhook', label: 'Webhook', icon: Webhook, color: 'bg-yellow-500' },
  ];
@@ -340,27 +340,7 @@
            </div>
          );
        
-       case 'send_sms':
-         return (
-           <div className="space-y-3">
-             <div className="space-y-2">
-               <Label>Template da Mensagem</Label>
-               <Textarea
-                 value={formData.config.sms_template || ''}
-                 onChange={(e) => setFormData({ 
-                   ...formData, 
-                   config: { ...formData.config, sms_template: e.target.value } 
-                 })}
-                 placeholder="Olá {{nome}}, sua reunião foi agendada para {{data}}."
-                 rows={3}
-               />
-               <p className="text-xs text-muted-foreground">
-                 Use {"{{variavel}}"} para dados dinâmicos
-               </p>
-             </div>
-           </div>
-         );
-       
+        // send_sms removido
        case 'update_crm':
          return (
            <div className="space-y-3">
