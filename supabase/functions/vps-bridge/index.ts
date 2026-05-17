@@ -808,11 +808,25 @@ Deno.serve(async (req) => {
         rawBase64 = rawBase64.replace(/\s/g, "").replace(/[^A-Za-z0-9+/=]/g, "");
         // Fix padding if needed
         while (rawBase64.length % 4 !== 0) rawBase64 += "=";
-        
-        const fileBody = Uint8Array.from(atob(rawBase64), (c) => c.charCodeAt(0));
+
         const uploadBucket = bucket || table || "whatsapp-media";
         const uploadPath = storagePath || body.path || body.filePath || body.fileName;
-        
+
+        // 🛡️ Guard rails: skip upload silently when payload is invalid.
+        // This prevents the storage-js crash:
+        //   "Cannot read properties of undefined (reading 'replace')" at _removeEmptyFolders
+        // which was looping CPU/invocations on every failed Evolution media download.
+        if (!uploadPath || typeof uploadPath !== "string") {
+          console.warn("vps-bridge storage_upload SKIP: missing path", { bucket: uploadBucket, base64Length: rawBase64.length });
+          return json({ data: null, publicUrl: null, skipped: "missing_path" });
+        }
+        if (rawBase64.length === 0) {
+          console.warn("vps-bridge storage_upload SKIP: empty base64", { bucket: uploadBucket, path: uploadPath });
+          return json({ data: null, publicUrl: null, skipped: "empty_base64" });
+        }
+
+        const fileBody = Uint8Array.from(atob(rawBase64), (c) => c.charCodeAt(0));
+
         console.log("vps-bridge storage_upload:", JSON.stringify({
           bucket: uploadBucket,
           path: uploadPath,
