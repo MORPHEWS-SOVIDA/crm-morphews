@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
       if (!rows || rows.length === 0) break;
 
       const names = rows.map((r: any) => r.name).filter(Boolean);
-      const sizeBytes = rows.reduce((s: number, r: any) => s + Number(r.metadata?.size ?? 0), 0);
+      const sizeBytes = rows.reduce((s: number, r: any) => s + Number(r.size_bytes ?? 0), 0);
 
       if (dryRun) {
         totalDeleted += names.length;
