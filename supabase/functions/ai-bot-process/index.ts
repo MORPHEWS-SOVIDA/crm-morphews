@@ -2891,7 +2891,9 @@ async function processMessage(
       products,
       faqs,
       semanticResults,
-      leadMemory
+      leadMemory,
+      null,
+      saleTracking
     );
     aiResponse = result.response;
     tokensUsed = result.tokensUsed;
