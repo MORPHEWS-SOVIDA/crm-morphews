@@ -1498,6 +1498,13 @@ async function generateAIResponse(
 ════════════════════════════════════════════
 ${buildLeadMemoryPrompt(leadMemory)}
 ════════════════════════════════════════════` : '';
+
+  const saleTrackingContext = saleTracking ? `
+════════════════════════════════════════════
+📦 RASTREIO DO PEDIDO DESTE CLIENTE (USE EXATAMENTE ESTA INFORMAÇÃO)
+════════════════════════════════════════════
+${buildSaleTrackingPrompt(saleTracking)}
+════════════════════════════════════════════` : '';
   
   const qualificationInstructions = `
 ═══════════════════════════════════════════════════
