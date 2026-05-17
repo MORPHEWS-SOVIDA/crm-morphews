@@ -2970,7 +2970,7 @@ Reescreva agora de forma natural, respondendo a dúvida do cliente:`;
         
         const fixResult = await generateAIResponse(
           bot, fixPrompt, conversationHistory, context.contactName,
-          context.botMessagesCount, products, faqs, semanticResults, leadMemory
+          context.botMessagesCount, products, faqs, semanticResults, leadMemory, null, saleTracking
         );
         aiResponse = fixResult.response;
         tokensUsed += fixResult.tokensUsed;
