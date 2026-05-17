@@ -2828,9 +2828,12 @@ async function processMessage(
         leadName: leadMemory.lead_name
       });
     }
+  } else if (context.leadId && !aiMemoryEnabled) {
+    console.log('🧠 Lead memory disabled globally, skipping');
+  }
 
   // 5.2b Buscar rastreio da venda mais recente deste lead (sempre, independente do toggle de memória)
-  var saleTracking: SaleTrackingContext | null = null;
+  let saleTracking: SaleTrackingContext | null = null;
   if (context.leadId) {
     saleTracking = await getSaleTrackingContext(context.organizationId, context.leadId);
     if (saleTracking) {
@@ -2840,9 +2843,6 @@ async function processMessage(
         status: saleTracking.status
       });
     }
-  }
-  } else if (context.leadId && !aiMemoryEnabled) {
-    console.log('🧠 Lead memory disabled globally, skipping');
   }
   
   const [products, faqs] = await Promise.all([
