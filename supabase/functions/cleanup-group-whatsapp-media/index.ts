@@ -53,8 +53,7 @@ Deno.serve(async (req) => {
     }
 
     if (!dryRun) {
-      // Clear media_url on messages from group conversations
-      await supabase.rpc("clear_group_media_urls").catch(() => null);
+      try { await supabase.rpc("clear_group_media_urls"); } catch (_) {}
     }
   } catch (e: any) {
     errors.push("fatal: " + (e?.message ?? String(e)));
