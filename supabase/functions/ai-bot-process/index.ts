@@ -2828,6 +2828,19 @@ async function processMessage(
         leadName: leadMemory.lead_name
       });
     }
+
+  // 5.2b Buscar rastreio da venda mais recente deste lead (sempre, independente do toggle de memória)
+  var saleTracking: SaleTrackingContext | null = null;
+  if (context.leadId) {
+    saleTracking = await getSaleTrackingContext(context.organizationId, context.leadId);
+    if (saleTracking) {
+      console.log('📦 Sale tracking loaded:', {
+        sale_id: saleTracking.sale_id,
+        hasTrackingCode: !!saleTracking.tracking_code,
+        status: saleTracking.status
+      });
+    }
+  }
   } else if (context.leadId && !aiMemoryEnabled) {
     console.log('🧠 Lead memory disabled globally, skipping');
   }
