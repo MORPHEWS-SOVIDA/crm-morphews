@@ -16,6 +16,34 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * 🚫 Group-chat filter — used by INSERT and BATCH paths.
+ * WhatsApp group chats are rarely sales-related but generate massive CPU/storage cost.
+ * Returns true if the payload represents a group conversation/message we should drop.
+ */
+async function isGroupPayload(supabase: any, table: string, data: unknown): Promise<boolean> {
+  if (!isPlainObject(data)) return false;
+  if (table !== "whatsapp_messages" && table !== "whatsapp_conversations") return false;
+
+  const possibleJids = [
+    data.chat_id, data.remote_jid, data.remoteJid, data.phone_number,
+    data.sender_phone, data.senderPhone, data.customer_phone_e164,
+  ].map((v) => (typeof v === "string" ? v : "")).join("|");
+
+  if (possibleJids.includes("@g.us")) return true;
+  if (data.is_group === true) return true;
+
+  if (table === "whatsapp_messages" && typeof data.conversation_id === "string") {
+    const { data: conv } = await supabase
+      .from("whatsapp_conversations")
+      .select("is_group")
+      .eq("id", data.conversation_id)
+      .maybeSingle();
+    if (conv?.is_group === true) return true;
+  }
+  return false;
+}
+
 function normalizeMatch(
   action: string | undefined,
   body: Record<string, unknown>,
