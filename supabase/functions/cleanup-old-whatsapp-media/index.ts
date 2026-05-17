@@ -31,16 +31,11 @@ Deno.serve(async (req) => {
 
   try {
     while (batches < maxBatches) {
-      // Pull a batch of old object names directly from storage.objects (SELECT is allowed)
+      // Pull a batch of old object names via SECURITY DEFINER RPC (storage.objects is not exposed via PostgREST)
       const { data: rows, error: selErr } = await supabase
-        .schema("storage")
-        .from("objects")
-        .select("name, metadata")
-        .eq("bucket_id", bucket)
-        .lt("created_at", cutoffISO)
-        .limit(batchSize);
+        .rpc("get_old_whatsapp_media_names", { p_days: days, p_limit: batchSize });
 
-      if (selErr) { errors.push("select: " + selErr.message); break; }
+      if (selErr) { errors.push("rpc: " + selErr.message); break; }
       if (!rows || rows.length === 0) break;
 
       const names = rows.map((r: any) => r.name).filter(Boolean);
