@@ -1601,6 +1601,8 @@ CONTEXTO ATUAL:
 
 ${leadMemoryContext}
 
+${saleTrackingContext}
+
 ${semanticContext}
 
 ${productsContext}
