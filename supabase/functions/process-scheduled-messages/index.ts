@@ -596,10 +596,11 @@ serve(async (req) => {
             }
           }
         } else {
-          // Check if it's a permanent failure (phone issue) or retryable
-          const isPermanentFailure = sendResult.error?.includes("Bad Request") || 
-                                     sendResult.error?.includes("Telefone inválido") ||
-                                     sendResult.error?.includes("número não registrado");
+          // Only treat as permanent if it's clearly the phone (invalid/not registered).
+          // "Bad Request" alone is NOT permanent — could be the chip; the fallback already tried all instances.
+          const isPermanentFailure = sendResult.error?.includes("Telefone inválido") ||
+                                     sendResult.error?.includes("número não registrado") ||
+                                     sendResult.error?.includes("not exist");
           
           if (isPermanentFailure || attemptCount >= (msg.max_attempts || 3)) {
             await supabase
