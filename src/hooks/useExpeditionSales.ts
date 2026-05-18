@@ -170,8 +170,9 @@ export function useExpeditionStats(sales: Sale[]) {
     
     switch (sale.status) {
       case 'draft':
-        // Exclui Retirada (pickup) da contagem de rascunhos - ficam no botão Retirada
-        if (sale.delivery_type !== 'pickup') {
+        // Exclui Retirada (pickup) - ficam no botão Retirada separado
+        // Exclui Rascunho NÃO PAGO - só vai pra expedição quando o pagamento for confirmado
+        if (sale.delivery_type !== 'pickup' && (sale as any).payment_status !== 'not_paid') {
           stats.draft++;
         }
         break;
