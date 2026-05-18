@@ -217,13 +217,13 @@ export function useExpeditionStats(sales: Sale[]) {
       stats.pickup++;
     }
 
-    // Urgent today (drafts that should go out today) - exclude done
-    if (sale.status === 'draft' && deliveryDate && isToday(deliveryDate)) {
+    // Urgent today (drafts pagos que devem sair hoje) - exclude done e não pagos
+    if (sale.status === 'draft' && (sale as any).payment_status !== 'not_paid' && deliveryDate && isToday(deliveryDate)) {
       stats.urgentToday++;
     }
 
-    // Tomorrow prep (need to be ready for tomorrow) - exclude done
-    if ((sale.status === 'draft' || sale.status === 'pending_expedition') && deliveryDate && isTomorrow(deliveryDate)) {
+    // Tomorrow prep (need to be ready for tomorrow) - exclude done e drafts não pagos
+    if (((sale.status === 'draft' && (sale as any).payment_status !== 'not_paid') || sale.status === 'pending_expedition') && deliveryDate && isTomorrow(deliveryDate)) {
       stats.tomorrowPrep++;
     }
   });
