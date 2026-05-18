@@ -267,11 +267,12 @@ export default function Expedition() {
     // Tab filter
     switch (activeTab) {
       case 'todo':
-        // A FAZER: RASCUNHO + PAGO ONLINE (sem entrega) + IMPRESSO + DESPACHADO + CORREIOS
+        // A FAZER: RASCUNHO PAGO + PAGO ONLINE (sem entrega) + IMPRESSO + DESPACHADO + CORREIOS
         // Exclui Retirada (pickup) - ficam no botão Retirada separado
+        // Exclui Rascunho NÃO PAGO - só vai pra expedição quando o pagamento for confirmado
         filtered = filtered.filter(s => 
           !doneStatuses.includes(s.status) && s.delivery_type !== 'pickup' && (
-            s.status === 'draft' || 
+            (s.status === 'draft' && s.payment_status !== 'not_paid') || 
             (s.status === 'payment_confirmed' && !s.delivered_at) ||
             s.status === 'pending_expedition' || 
             s.status === 'dispatched' ||
@@ -282,9 +283,10 @@ export default function Expedition() {
       case 'draft':
         // Rascunho inclui vendas pagas online que ainda não foram entregues (precisam ser impressas)
         // Exclui Retirada (pickup) - ficam no botão Retirada separado
+        // Exclui Rascunho NÃO PAGO - só vai pra expedição quando o pagamento for confirmado
         filtered = filtered.filter(s => 
           s.delivery_type !== 'pickup' && 
-          (s.status === 'draft' || (s.status === 'payment_confirmed' && !s.delivered_at))
+          ((s.status === 'draft' && s.payment_status !== 'not_paid') || (s.status === 'payment_confirmed' && !s.delivered_at))
         );
         break;
       case 'printed':
