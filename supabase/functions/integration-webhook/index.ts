@@ -2461,7 +2461,7 @@ Deno.serve(async (req) => {
         const vars: Record<string, string> = {
           nome: leadData.name || 'Cliente',
           email: leadData.email || '',
-          produto: leadData.product_name || productName || '',
+          produto: leadData.product_name || saleData.product_name || '',
           whatsapp: leadData.whatsapp || '',
           cpf: leadData.cpf_cnpj || '',
           endereco: enderecoFull || '',
