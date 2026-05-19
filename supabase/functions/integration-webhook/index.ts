@@ -1863,14 +1863,17 @@ Deno.serve(async (req) => {
     // Check if we should create a sale
     const eventMode = typedIntegration.event_mode || 'lead';
     let saleId: string | null = null;
-    
+
+    // Hoisted so auto-message / logging blocks downstream (even in `lead`-only mode)
+    // never hit a ReferenceError when these are read defensively.
+    let productId: string | null = typedIntegration.default_product_id || null;
+    let productName: string = saleData.product_name || 'Produto via Integração';
+    let productSku: string | null = saleData.product_sku || null;
+
     if (eventMode === 'sale' || eventMode === 'both') {
       console.log('Creating sale for integration mode:', eventMode);
-      
-      // Try to find product by SKU if provided
-      let productId = typedIntegration.default_product_id;
-      let productName = saleData.product_name || 'Produto via Integração';
-      let productSku = saleData.product_sku || null;
+
+      // Try to find product by SKU if provided (re-assign hoisted vars above)
       let matchedKitId: string | null = null;
       let matchedKitQuantity: number | null = null;
       let matchedKitPriceCents: number | null = null;
